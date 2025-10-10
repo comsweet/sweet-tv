@@ -179,13 +179,13 @@ setInterval(() => fetchNewSuccess("sinfrid").catch(console.error), sinfridMs);
 // -----------------------------
 // Mock (POST + GET)
 // -----------------------------
-function emitAndScore({ brand = "dentle", agentName = "Test Agent", commission = 250, deals = 1 }) {
+function emitAndScore({ brand = "dentle", agentName = "Test Agent", commission = 250, deals = 1, avatar = null }) {
   const ev = {
     type: "success",
     brand,
     agentId: null,
     agentName,
-    avatar: null,
+    avatar: avatar || null, // <— NYTT
     commission: Number(commission) || 0,
     deals: Number(deals) || 1,
     at: new Date().toISOString(),
