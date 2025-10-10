@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Sweet TV</title>
+  <meta http-equiv="refresh" content="3600">
+  <style>
+    body { font-family: system-ui, sans-serif; background:#0b1220; color:#fff; margin:0; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:16px; }
+    .card { background:#111a2b; border-radius:16px; padding:16px; }
+    .flash { position:fixed; inset:0; display:none; place-items:center; }
+    .flash.show { display:grid; background:rgba(0,0,0,.4); }
+    .agent { display:flex; align-items:center; gap:12px; font-size:48px; }
+    .agent img { width:72px; height:72px; border-radius:50%; object-fit:cover; }
+    ol { margin:0; padding-left:24px; }
+    h2 { margin:0 0 8px 0; font-size:18px; opacity:.8; }
+    .brand { font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.7;}
+  </style>
+</head>
+<body>
+  <div id="flash" class="flash">
+    <div class="agent" id="agent"></div>
+  </div>
+
+  <div class="grid" id="boards">
+    <div class="card"><div class="brand">Dentle • Idag</div><ol id="dentleToday"></ol></div>
+    <div class="card"><div class="brand">Dentle • Denna månad</div><ol id="dentleMonth"></ol></div>
+    <div class="card"><div class="brand">Sinfrid • Idag</div><ol id="sinfridToday"></ol></div>
+    <div class="card"><div class="brand">Sinfrid • Denna månad</div><ol id="sinfridMonth"></ol></div>
+  </div>
+
+  <audio id="a1" src="/sounds/pling1.mp3" preload="auto"></audio>
+  <audio id="a2" src="/sounds/pling2.mp3" preload="auto"></audio>
+  <audio id="a3" src="/sounds/pling3.mp3" preload="auto"></audio>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const socket = io(window.location.origin, { transports: ["websocket"] });
+    const sounds = [a1,a2,a3];
+    const flash = document.getElementById("flash");
+    const agentEl = document.getElementById("agent");
+
+    function confetti() {
+      const n = 100;
+      for (let i=0; i<n; i++){
+        const s = document.createElement("span");
+        s.style.cssText = \`
+          position:fixed; top:-10px; left:\${Math.random()*100}vw;
+          width:8px; height:8px; background:hsl(\${Math.random()*360} 90% 60%);
+          transform:translateY(0); border-radius:2px; transition:transform 1.8s linear;
+        \`;
+        document.body.appendChild(s);
+        requestAnimationFrame(() => s.style.transform = \`translateY(\${100 + Math.random()*40}vh) rotate(\${Math.random()*720}deg)\`);
+        setTimeout(()=> s.remove(), 2000);
+      }
+    }
+
+    function showPling(ev){
+      const s = sounds[Math.floor(Math.random()*sounds.length)];
+      try { s.currentTime = 0; s.play(); } catch {}
+      agentEl.innerHTML = \`
+        \${ev.avatar ? `<img src="\${ev.avatar}" alt="">` : ""}
+        <div><strong>\${ev.agentName}</strong><div style="font-size:24px;opacity:.8">\${ev.brand.toUpperCase()} • +\${ev.deals} ord • \${ev.commission} kr</div></div>
+      \`;
+      flash.classList.add("show"); confetti();
+      setTimeout(()=> flash.classList.remove("show"), 2000);
+    }
+
+    // For now, just show plings. Leaderboards can be filled once API endpoints are ready.
+    socket.on("success_event", (ev) => {
+      showPling(ev);
+    });
+  </script>
+</body>
+</html>
