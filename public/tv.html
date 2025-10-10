@@ -23,37 +23,45 @@
       100%{background-position:20px -30px, -40px 20px, 0 -60px}
     }
 
-    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:16px; }
-    .card{ background:rgba(17,26,43,.85); border:1px solid rgba(255,255,255,.06); backdrop-filter: blur(4px);
-      border-radius:18px; padding:14px 16px; box-shadow: 0 6px 24px rgba(0,0,0,.25);}
-    .brand{ font-weight:800; letter-spacing:.08em; text-transform:uppercase; opacity:.85;}
+    /* En enda "slide"-yta i mitten */
+    .stage{ position:fixed; inset:0; display:grid; place-items:start center; padding:28px; }
+    .card{
+      width:min(1080px, 92vw);
+      background:rgba(17,26,43,.85); border:1px solid rgba(255,255,255,.06);
+      backdrop-filter: blur(4px); border-radius:18px; padding:18px 22px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.35);
+    }
+    .brand{ font-weight:800; letter-spacing:.08em; text-transform:uppercase; opacity:.9;}
     .muted{ opacity:.75; font-size:12px; margin-top:2px; }
-
-    ol{ margin:6px 0 0 0; padding-left:22px; line-height:1.45; }
-    li{ margin:2px 0; }
+    ol{ margin:10px 0 0 0; padding-left:22px; line-height:1.5; font-size:20px; }
+    li{ margin:4px 0; }
 
     /* Overlay */
     .flash{ position:fixed; inset:0; display:none; place-items:center; z-index:50; }
     .flash.show{ display:grid; }
     .bubble{
       display:flex; align-items:center; gap:18px;
-      background:rgba(17,26,43,.9); border:1px solid rgba(255,255,255,.08);
-      padding:22px 26px; border-radius:22px; box-shadow: 0 12px 48px rgba(0,0,0,.45);
+      background:rgba(17,26,43,.92); border:1px solid rgba(255,255,255,.10);
+      padding:24px 30px; border-radius:22px; box-shadow: 0 12px 48px rgba(0,0,0,.45);
       transform: scale(.98); animation: pop .3s ease forwards;
     }
     @keyframes pop{to{transform:scale(1)}}
-    .avatar{ width:84px; height:84px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,.3) }
-    .agentName{ font-weight:900; font-size:56px; line-height:1; margin-bottom:6px; letter-spacing:.3px;}
-    .meta{ font-size:22px; opacity:.9; display:flex; gap:10px; align-items:center; }
+    .avatar{ width:92px; height:92px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,.35) }
+    .agentName{ font-weight:900; font-size:56px; line-height:1; margin-bottom:8px; letter-spacing:.3px;}
+    .meta{ font-size:22px; opacity:.95; display:flex; gap:10px; align-items:center; }
     .pill{ font-size:14px; padding:4px 10px; border-radius:999px; font-weight:700; letter-spacing:.02em; }
     .pill.dentle{ background:rgba(90,167,255,.15); color:#a7ceff; border:1px solid rgba(90,167,255,.35); }
     .pill.sinfrid{ background:rgba(64,217,155,.15); color:#b2f1d9; border:1px solid rgba(64,217,155,.35); }
 
     /* Confetti bits */
-    .confetti{ position:fixed; top:-12px; width:12px; height:12px; border-radius:3px; opacity:.95; z-index:60; }
+    .confetti{
+      position:fixed; top:-16px; width:14px; height:14px; border-radius:3px; opacity:.95; z-index:60;
+      will-change: transform, top;
+    }
   </style>
 </head>
 <body>
+  <!-- Overlay -->
   <div class="flash" id="flash">
     <div class="bubble" id="bubble">
       <img id="ava" class="avatar" alt="" />
@@ -67,26 +75,12 @@
     </div>
   </div>
 
-  <div class="grid" id="boards">
-    <div class="card">
-      <div class="brand">Dentle • Idag</div>
+  <!-- Slideshow-yta -->
+  <div class="stage">
+    <div class="card" id="slide">
+      <div class="brand" id="slideTitle">Dentle • Idag</div>
       <div class="muted">Top-10 (deals)</div>
-      <ol id="dentleToday"></ol>
-    </div>
-    <div class="card">
-      <div class="brand">Dentle • Denna månad</div>
-      <div class="muted">Top-10 (deals)</div>
-      <ol id="dentleMonth"></ol>
-    </div>
-    <div class="card">
-      <div class="brand">Sinfrid • Idag</div>
-      <div class="muted">Top-10 (deals)</div>
-      <ol id="sinfridToday"></ol>
-    </div>
-    <div class="card">
-      <div class="brand">Sinfrid • Denna månad</div>
-      <div class="muted">Top-10 (deals)</div>
-      <ol id="sinfridMonth"></ol>
+      <ol id="list"></ol>
     </div>
   </div>
 
@@ -96,7 +90,18 @@
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
-    const socket = io(); // låter socket.io välja transports
+    // ====== KONFIG ======
+    const OVERLAY_MS = 7000;    // namn/overlay + konfetti visas lika länge
+    const SLIDE_MS   = 20000;   // 20 sek per leaderboard-vy
+
+    // ====== SOCKET ======
+    const socket = io(); // låt socket.io välja transports själv
+    socket.on("success_event", ev => {
+      showPling(ev);
+      refreshBoards(); // uppdatera listan efter pling
+    });
+
+    // ====== OVERLAY + KONFETTI ======
     const sounds = [a1,a2,a3];
     const flash = document.getElementById("flash");
     const ava = document.getElementById("ava");
@@ -104,77 +109,98 @@
     const brandPill = document.getElementById("brandPill");
     const stats = document.getElementById("stats");
 
-    function makeConfetti(){
-      const COLORS = [
-        "#5aa7ff","#40d99b","#ffd166","#ef476f","#06d6a0","#118ab2","#8338ec","#ff006e"
-      ];
-      const pieces = 140;
+    function makeConfetti(durationMs){
+      const COLORS = ["#5aa7ff","#40d99b","#ffd166","#ef476f","#06d6a0","#118ab2","#8338ec","#ff006e"];
+      const pieces = 160;
       for (let i=0;i<pieces;i++){
         const s = document.createElement("div");
-        const size = 10 + Math.random()*8;
+        const size = 10 + Math.random()*10;
+        const travel = 100 + Math.random()*25; // hur långt ner de faller i vh
+        const rot = 360 + Math.random()*540;
+        const d = (durationMs/1000) * (0.85 + Math.random()*0.3); // spridning runt overlaytiden
+
         s.className = "confetti";
         s.style.left = (Math.random()*100)+"vw";
         s.style.width = size+"px"; s.style.height = size+"px";
         s.style.background = COLORS[Math.floor(Math.random()*COLORS.length)];
         s.style.transform = `rotate(${Math.random()*360}deg)`;
-        s.style.transition = `transform ${1.8+Math.random()*1.2}s linear, top ${1.8+Math.random()*1.2}s linear`;
+        s.style.transition = `transform ${d}s linear, top ${d}s linear`;
         document.body.appendChild(s);
+
         requestAnimationFrame(()=> {
-          s.style.top = (100 + Math.random()*20) + "vh";
-          s.style.transform = `translateY(${100+Math.random()*20}vh) rotate(${360+Math.random()*540}deg)`;
+          s.style.top = `${travel}vh`;
+          s.style.transform = `translateY(${travel}vh) rotate(${rot}deg)`;
         });
-        setTimeout(()=> s.remove(), 3000);
+
+        setTimeout(()=> s.remove(), durationMs + 400); // ta bort strax efter overlay
       }
     }
 
     function showPling(ev){
       nm.textContent = ev.agentName || "Okänd";
-      stats.textContent = `${ev.brand.toUpperCase()} • +${ev.deals} ord • ${ev.commission} kr`;
+      stats.textContent = `${ev.brand?.toUpperCase() || "—"} • +${ev.deals} ord • ${ev.commission} kr`;
 
-      // avatar
       if (ev.avatar){
-        ava.src = ev.avatar;
-        ava.style.display = "block";
+        ava.src = ev.avatar; ava.style.display = "block";
       } else {
-        ava.removeAttribute("src");
-        ava.style.display = "none";
+        ava.removeAttribute("src"); ava.style.display = "none";
       }
 
-      // brand pill färg
       brandPill.textContent = ev.brand?.toUpperCase() || "BRAND";
       brandPill.className = "pill " + (String(ev.brand||"").toLowerCase().includes("sinfrid") ? "sinfrid" : "dentle");
 
-      // ljud (kan blockas tills interaktion; ignoreras tyst)
       try {
         const s = sounds[Math.floor(Math.random()*sounds.length)];
         s.currentTime = 0; s.play();
       } catch {}
 
       flash.classList.add("show");
-      makeConfetti();
-      setTimeout(()=> flash.classList.remove("show"), 7000); // ← 7 sekunder
+      makeConfetti(OVERLAY_MS);
+      setTimeout(()=> flash.classList.remove("show"), OVERLAY_MS);
     }
 
-    socket.on("success_event", ev => {
-      showPling(ev);
-      refreshBoards();
-    });
+    // ====== LEADERBOARD SLIDESHOW ======
+    let lastData = null;
+    let slideIndex = 0;
+    const slides = [
+      { brand: "dentle", scope: "today",  title: "Dentle • Idag" },
+      { brand: "dentle", scope: "month",  title: "Dentle • Denna månad" },
+      { brand: "sinfrid", scope: "today", title: "Sinfrid • Idag" },
+      { brand: "sinfrid", scope: "month", title: "Sinfrid • Denna månad" },
+    ];
 
     async function refreshBoards(){
       try{
         const r = await fetch("/leaderboard", { cache:"no-store" });
-        const data = await r.json();
-        const fmt = (list) => list.length
-          ? list.map(i => `<li>${i.name} — ${i.deals} ord / ${Math.round(i.commission)} kr</li>`).join("")
-          : `<li style="opacity:.7">Inga registrerade ännu</li>`;
-        dentleToday.innerHTML  = fmt(data.dentle.today.byDeals);
-        dentleMonth.innerHTML  = fmt(data.dentle.month.byDeals);
-        sinfridToday.innerHTML = fmt(data.sinfrid.today.byDeals);
-        sinfridMonth.innerHTML = fmt(data.sinfrid.month.byDeals);
+        lastData = await r.json();
+        renderCurrentSlide();
       } catch(e){ console.error(e); }
     }
+
+    function renderCurrentSlide(){
+      if (!lastData) return;
+
+      const slide = slides[slideIndex % slides.length];
+      const titleEl = document.getElementById("slideTitle");
+      const listEl  = document.getElementById("list");
+
+      titleEl.textContent = slide.title;
+
+      const block = lastData[slide.brand][slide.scope].byDeals; // visar Top-10 (deals)
+      listEl.innerHTML = block.length
+        ? block.map(i => `<li>${i.name} — ${i.deals} ord / ${Math.round(i.commission)} kr</li>`).join("")
+        : `<li style="opacity:.7">Inga registrerade ännu</li>`;
+    }
+
+    function tickSlide(){
+      slideIndex = (slideIndex + 1) % slides.length;
+      renderCurrentSlide();
+    }
+
+    // Start
     refreshBoards();
-    setInterval(refreshBoards, 10000);
+    setInterval(refreshBoards, 10000); // dataförnyelse
+    setInterval(tickSlide, SLIDE_MS);  // byt vy var 20 s
   </script>
 </body>
 </html>
