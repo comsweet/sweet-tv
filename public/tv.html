@@ -5,22 +5,66 @@
   <title>Sweet TV</title>
   <meta http-equiv="refresh" content="3600">
   <style>
-    body { font-family: system-ui, sans-serif; background:#0b1220; color:#fff; margin:0; }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:16px; }
-    .card { background:#111a2b; border-radius:16px; padding:16px; }
-    .flash { position:fixed; inset:0; display:none; place-items:center; }
-    .flash.show { display:grid; background:rgba(0,0,0,.4); }
-    .agent { display:flex; align-items:center; gap:12px; font-size:48px; }
-    .agent img { width:72px; height:72px; border-radius:50%; object-fit:cover; }
-    ol { margin:0; padding-left:24px; }
-    h2 { margin:0 0 8px 0; font-size:18px; opacity:.8; }
-    .brand { font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.7;}
-    .muted { opacity:.6; font-size:14px; }
+    :root{
+      --bg1:#0b1220; --bg2:#16223b; --bg3:#0f2942;
+      --dentle:#5aa7ff; --sinfrid:#40d99b; --ink:#0b1220; --card:#111a2b; --muted:#9fb2d0;
+    }
+    *{box-sizing:border-box}
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Inter", sans-serif;
+      color:#fff; margin:0; overflow:hidden;
+      background: radial-gradient(1200px 700px at 10% 10%, var(--bg2), transparent),
+                  radial-gradient(1200px 700px at 90% 20%, var(--bg3), transparent),
+                  radial-gradient(900px 600px at 50% 100%, var(--bg2), var(--bg1));
+      animation: bgmove 18s ease-in-out infinite alternate;
+    }
+    @keyframes bgmove{
+      0%{background-position:0 0, 0 0, 0 0}
+      100%{background-position:20px -30px, -40px 20px, 0 -60px}
+    }
+
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:16px; }
+    .card{ background:rgba(17,26,43,.85); border:1px solid rgba(255,255,255,.06); backdrop-filter: blur(4px);
+      border-radius:18px; padding:14px 16px; box-shadow: 0 6px 24px rgba(0,0,0,.25);}
+    .brand{ font-weight:800; letter-spacing:.08em; text-transform:uppercase; opacity:.85;}
+    .muted{ opacity:.75; font-size:12px; margin-top:2px; }
+
+    ol{ margin:6px 0 0 0; padding-left:22px; line-height:1.45; }
+    li{ margin:2px 0; }
+
+    /* Overlay */
+    .flash{ position:fixed; inset:0; display:none; place-items:center; z-index:50; }
+    .flash.show{ display:grid; }
+    .bubble{
+      display:flex; align-items:center; gap:18px;
+      background:rgba(17,26,43,.9); border:1px solid rgba(255,255,255,.08);
+      padding:22px 26px; border-radius:22px; box-shadow: 0 12px 48px rgba(0,0,0,.45);
+      transform: scale(.98); animation: pop .3s ease forwards;
+    }
+    @keyframes pop{to{transform:scale(1)}}
+    .avatar{ width:84px; height:84px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,.3) }
+    .agentName{ font-weight:900; font-size:56px; line-height:1; margin-bottom:6px; letter-spacing:.3px;}
+    .meta{ font-size:22px; opacity:.9; display:flex; gap:10px; align-items:center; }
+    .pill{ font-size:14px; padding:4px 10px; border-radius:999px; font-weight:700; letter-spacing:.02em; }
+    .pill.dentle{ background:rgba(90,167,255,.15); color:#a7ceff; border:1px solid rgba(90,167,255,.35); }
+    .pill.sinfrid{ background:rgba(64,217,155,.15); color:#b2f1d9; border:1px solid rgba(64,217,155,.35); }
+
+    /* Confetti bits */
+    .confetti{ position:fixed; top:-12px; width:12px; height:12px; border-radius:3px; opacity:.95; z-index:60; }
   </style>
 </head>
 <body>
-  <div id="flash" class="flash">
-    <div class="agent" id="agent"></div>
+  <div class="flash" id="flash">
+    <div class="bubble" id="bubble">
+      <img id="ava" class="avatar" alt="" />
+      <div>
+        <div id="nm" class="agentName">Agent</div>
+        <div class="meta">
+          <span id="brandPill" class="pill">BRAND</span>
+          <span id="stats"></span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="grid" id="boards">
@@ -52,65 +96,83 @@
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
-    // Tillåt fallback (polling) så Render alltid kan ansluta:
-    const socket = io(); // inga "transports" -> socket.io väljer bäst själv
-
+    const socket = io(); // låter socket.io välja transports
     const sounds = [a1,a2,a3];
     const flash = document.getElementById("flash");
-    const agentEl = document.getElementById("agent");
+    const ava = document.getElementById("ava");
+    const nm = document.getElementById("nm");
+    const brandPill = document.getElementById("brandPill");
+    const stats = document.getElementById("stats");
 
-    function confetti() {
-      const n = 120;
-      for (let i=0; i<n; i++){
-        const s = document.createElement("span");
-        s.style.cssText = `
-          position:fixed; top:-10px; left:${Math.random()*100}vw;
-          width:8px; height:8px; background:hsl(${Math.random()*360} 90% 60%);
-          transform:translateY(0); border-radius:2px; transition:transform 1.8s linear;
-        `;
+    function makeConfetti(){
+      const COLORS = [
+        "#5aa7ff","#40d99b","#ffd166","#ef476f","#06d6a0","#118ab2","#8338ec","#ff006e"
+      ];
+      const pieces = 140;
+      for (let i=0;i<pieces;i++){
+        const s = document.createElement("div");
+        const size = 10 + Math.random()*8;
+        s.className = "confetti";
+        s.style.left = (Math.random()*100)+"vw";
+        s.style.width = size+"px"; s.style.height = size+"px";
+        s.style.background = COLORS[Math.floor(Math.random()*COLORS.length)];
+        s.style.transform = `rotate(${Math.random()*360}deg)`;
+        s.style.transition = `transform ${1.8+Math.random()*1.2}s linear, top ${1.8+Math.random()*1.2}s linear`;
         document.body.appendChild(s);
-        requestAnimationFrame(() => s.style.transform = `translateY(${100 + Math.random()*40}vh) rotate(${Math.random()*720}deg)`);
-        setTimeout(()=> s.remove(), 2000);
+        requestAnimationFrame(()=> {
+          s.style.top = (100 + Math.random()*20) + "vh";
+          s.style.transform = `translateY(${100+Math.random()*20}vh) rotate(${360+Math.random()*540}deg)`;
+        });
+        setTimeout(()=> s.remove(), 3000);
       }
     }
 
     function showPling(ev){
-      // vissa browsers blockerar ljud tills man klickat – vi fångar ev fel tyst
-      const s = sounds[Math.floor(Math.random()*sounds.length)];
-      try { s.currentTime = 0; s.play(); } catch(e) {}
-      agentEl.innerHTML = `
-        ${ev.avatar ? `<img src="${ev.avatar}" alt="">` : ""}
-        <div><strong>${ev.agentName}</strong>
-          <div style="font-size:24px;opacity:.8">${ev.brand.toUpperCase()} • +${ev.deals} ord • ${ev.commission} kr</div>
-        </div>
-      `;
-      flash.classList.add("show"); confetti();
-      setTimeout(()=> flash.classList.remove("show"), 2000);
+      nm.textContent = ev.agentName || "Okänd";
+      stats.textContent = `${ev.brand.toUpperCase()} • +${ev.deals} ord • ${ev.commission} kr`;
+
+      // avatar
+      if (ev.avatar){
+        ava.src = ev.avatar;
+        ava.style.display = "block";
+      } else {
+        ava.removeAttribute("src");
+        ava.style.display = "none";
+      }
+
+      // brand pill färg
+      brandPill.textContent = ev.brand?.toUpperCase() || "BRAND";
+      brandPill.className = "pill " + (String(ev.brand||"").toLowerCase().includes("sinfrid") ? "sinfrid" : "dentle");
+
+      // ljud (kan blockas tills interaktion; ignoreras tyst)
+      try {
+        const s = sounds[Math.floor(Math.random()*sounds.length)];
+        s.currentTime = 0; s.play();
+      } catch {}
+
+      flash.classList.add("show");
+      makeConfetti();
+      setTimeout(()=> flash.classList.remove("show"), 7000); // ← 7 sekunder
     }
 
-    socket.on("connect", ()=> console.log("Socket connected", socket.id));
-    socket.on("success_event", (ev) => {
+    socket.on("success_event", ev => {
       showPling(ev);
-      refreshBoards(); // uppdatera listorna direkt efter ett pling
+      refreshBoards();
     });
 
     async function refreshBoards(){
       try{
-        const r = await fetch("/leaderboard", { cache: "no-store" });
+        const r = await fetch("/leaderboard", { cache:"no-store" });
         const data = await r.json();
         const fmt = (list) => list.length
           ? list.map(i => `<li>${i.name} — ${i.deals} ord / ${Math.round(i.commission)} kr</li>`).join("")
           : `<li style="opacity:.7">Inga registrerade ännu</li>`;
-        dentleToday.innerHTML = fmt(data.dentle.today.byDeals);
-        dentleMonth.innerHTML = fmt(data.dentle.month.byDeals);
+        dentleToday.innerHTML  = fmt(data.dentle.today.byDeals);
+        dentleMonth.innerHTML  = fmt(data.dentle.month.byDeals);
         sinfridToday.innerHTML = fmt(data.sinfrid.today.byDeals);
         sinfridMonth.innerHTML = fmt(data.sinfrid.month.byDeals);
-      } catch(e){
-        console.error("leaderboard error", e);
-      }
+      } catch(e){ console.error(e); }
     }
-
-    // ladda listor var 10:e s + direkt vid start
     refreshBoards();
     setInterval(refreshBoards, 10000);
   </script>
