@@ -121,7 +121,7 @@
       users: [],
       groupsApi: [],
       groups: new Map(),
-      fieldMap: { commission: 70163, multiDeals: 74126, orderDate: 71067 }, // defaults (ersätts av /fields)
+      fieldMap: { commission: 70163, multiDeals: 74126, orderDate: 71067 }, // defaults
       leads: []
     };
 
@@ -310,7 +310,7 @@
       state.users    = asList(usersRaw);
       state.groupsApi= asList(groupsRaw);
 
-      // Bygg riktig "group -> agents"-karta
+      // group -> agents
       state.groups = new Map();
       for (const g of state.groupsApi) state.groups.set(String(g.id), { id:g.id, name:g.name||'(namnlös)', agents:[] });
       for (const u of state.users){
@@ -335,16 +335,30 @@
       renderAgents();
     }
 
-    // ---- Leads med paginering + throttling + 429-retry ----
+    // ---- Leads: pagination + includeMeta + backoff + throttle (senaste först) ----
     async function loadLeads(period){
       const { from, to } = dateRange(period);
 
-      const pageSize = 200;   // lagom batch
-      const maxPages = 25;    // säkerhetsspärr (200*25 = 5000 leads)
-      const collected = [];
+      const pageSize   = 100;   // 1–100 tillåtet
+      const maxPages   = 8;     // cap 800 leads
+      const maxRetries = 4;     // backoff vid 429
+      const baseDelay  = 800;   // ms
 
-      for (let page = 1; page <= maxPages; page++) {
-        const url = `${API}/leads?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}&page=${page}&pageSize=${pageSize}`;
+      const collected = [];
+      let page = 1;
+      let pageCount = null;
+
+      while (pageCount === null || page <= pageCount) {
+        if (page > maxPages) break;
+
+        const url = `${API}/leads`
+          + `?from=${encodeURIComponent(from.toISOString())}`
+          + `&to=${encodeURIComponent(to.toISOString())}`
+          + `&page=${page}`
+          + `&pageSize=${pageSize}`
+          + `&includeMeta=true`
+          + `&sortProperty=updated`
+          + `&sortDirection=DESC`;
 
         let tries = 0;
         while (true) {
@@ -353,29 +367,32 @@
           const raw = await res.json().catch(()=>({}));
 
           if (res.status === 429) {
-            if (tries <= 3) { await sleep(1500 * tries); continue; }
-            throw new Error(`Leads 429 (efter ${tries} försök)`);
+            if (tries <= maxRetries) { await sleep(baseDelay * tries); continue; }
+            throw new Error(`Leads 429 efter ${tries} försök på page ${page}`);
+          }
+          if (!res.ok) throw new Error(`Leads ${res.status} ${JSON.stringify(raw)}`);
+
+          const list = Array.isArray(raw) ? raw : (raw.leads || raw.items || raw.data || raw.results || []);
+          const meta = raw.meta && raw.meta.pagination ? raw.meta.pagination : null;
+
+          if (meta) {
+            pageCount = meta.pageCount ?? pageCount;
+          } else if (list.length < pageSize) {
+            pageCount = page; // ingen meta → sista sidan
           }
 
-          if (!res.ok) {
-            throw new Error(`Leads ${res.status} ${JSON.stringify(raw)}`);
-          }
+          if (!list.length) { page = (pageCount ?? page) + 1; break; }
 
-          const pageLeads = Array.isArray(raw) ? raw
-                           : (raw.leads || raw.items || raw.data || raw.results || []);
-          if (!pageLeads.length) {
-            page = maxPages + 1; // bryt ytterloopen
-            break;
-          }
-
-          collected.push(...pageLeads);
-          await sleep(250); // throttle mellan sidor
-          break; // nästa sida
+          collected.push(...list);
+          await sleep(baseDelay); // throttle
+          break;
         }
+        page++;
       }
 
       state.leads = collected;
-      document.getElementById('leadCount').textContent = `${state.leads.length} leads`;
+      document.getElementById('leadCount').textContent =
+        `${state.leads.length} leads${pageCount ? ` (page ${Math.min(page-1, pageCount)}/${pageCount})` : ''}`;
     }
 
     async function refreshDataCheck(){
