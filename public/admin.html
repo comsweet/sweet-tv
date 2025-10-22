@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin – Sweet TV</title>
+  <style>
+    :root { --bg:#0f1522; --card:#141c2e; --muted:#9fb0ce; --acc:#6ee7ff; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:#fff;font:16px/1.4 system-ui,Segoe UI,Roboto}
+    header{padding:18px 24px;border-bottom:1px solid #26324b;display:flex;gap:16px;align-items:center}
+    header h1{font-size:20px;margin:0} header a{color:var(--muted);text-decoration:none}
+    .wrap{max-width:1200px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
+    .card{background:var(--card);border:1px solid #26324b;border-radius:14px;padding:16px}
+    .card h2{margin:0 0 12px 0;font-size:18px}
+    .toolbar{display:flex;gap:10px;margin-bottom:12px}
+    input[type="search"]{flex:1;padding:10px 12px;border-radius:10px;border:1px solid #2d3a57;background:#0d1320;color:#fff}
+    table{width:100%;border-collapse:separate;border-spacing:0} th,td{padding:10px 12px;border-bottom:1px solid #223052}
+    th{font-weight:600;color:var(--muted);text-align:left}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#1b2741;color:#dbe8ff;border:1px solid #2a3a5f}
+    .muted{color:var(--muted)}
+    .small{font-size:12px}
+    .badge{background:#102a3a;color:#9fe8ff;border:1px solid #1c4152;padding:2px 8px;border-radius:999px;font-size:12px}
+    .hint{color:var(--muted);margin-top:6px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Admin – Sweet TV</h1>
+    <a href="/" title="Till TV-vyn">🏠 TV</a>
+    <span class="hint small" id="envHint"></span>
+  </header>
+
+  <div class="wrap">
+    <!-- USER GROUPS -->
+    <section class="card">
+      <h2>User groups</h2>
+      <div class="toolbar">
+        <input id="groupSearch" type="search" placeholder="Sök grupp…" />
+        <span class="badge" id="groupCount">0 grupper</span>
+      </div>
+      <table id="groupsTbl">
+        <thead>
+          <tr><th>Namn</th><th>ID</th><th>Agenter</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="hint small">Källa: <code>/api/v1/users</code> (grupp hämtas från <code>user.group</code>).</div>
+    </section>
+
+    <!-- AGENTS -->
+    <section class="card">
+      <h2>Agenter</h2>
+      <div class="toolbar">
+        <input id="agentSearch" type="search" placeholder="Sök agent, e-post eller grupp…" />
+        <span class="badge" id="agentCount">0 agenter</span>
+      </div>
+      <table id="agentsTbl">
+        <thead>
+          <tr><th>Namn</th><th>Grupp</th><th>Roll</th><th class="muted">E-post</th><th class="muted">Status</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="hint small">Endast aktiva visas som “Aktiv”.</div>
+    </section>
+  </div>
+
+  <script>
+    const API = `${location.origin}/api/v1`;
+    document.getElementById('envHint').textContent = `Proxy: ${API}`;
+
+    const state = { users: [], groups: new Map() };
+
+    const Q = s => document.querySelector(s);
+    const groupsBody = Q('#groupsTbl tbody');
+    const agentsBody = Q('#agentsTbl tbody');
+    const groupCount = Q('#groupCount');
+    const agentCount = Q('#agentCount');
+
+    function norm(s){ return String(s||'').toLowerCase(); }
+
+    function buildGroups() {
+      state.groups.clear();
+      for (const u of state.users) {
+        const g = u.group || null; // {id,name}
+        if (!g || g.id == null) continue;
+        const key = String(g.id);
+        if (!state.groups.has(key)) state.groups.set(key, { id:g.id, name:g.name||'(namnlös)', agents:[] });
+        state.groups.get(key).agents.push(u);
+      }
+    }
+
+    function renderGroups(filter='') {
+      const rows = [];
+      const f = norm(filter);
+      const list = [...state.groups.values()].sort((a,b)=> a.name.localeCompare(b.name,'sv'));
+      for (const g of list) {
+        if (f && !norm(g.name).includes(f) && !String(g.id).includes(f)) continue;
+        rows.push(`<tr>
+          <td>${g.name}</td>
+          <td class="muted">${g.id}</td>
+          <td><span class="pill">${g.agents.length} st</span></td>
+        </tr>`);
+      }
+      groupsBody.innerHTML = rows.join('') || `<tr><td colspan="3" class="muted">Inga grupper matchar.</td></tr>`;
+      groupCount.textContent = `${list.length} grupper`;
+    }
+
+    function renderAgents(filter='') {
+      const f = norm(filter);
+      const agents = state.users
+        .map(u => ({
+          name: u.displayName || u.name || `${u.firstName||''} ${u.lastName||''}`.trim() || 'Okänd',
+          email: u.email || '',
+          group: u.group?.name || '(ingen)',
+          role: u.role?.name || '',
+          active: !!u.active
+        }))
+        .sort((a,b)=> a.name.localeCompare(b.name,'sv'));
+
+      const rows = [];
+      let count = 0;
+      for (const a of agents) {
+        const hay = norm(`${a.name} ${a.email} ${a.group} ${a.role}`);
+        if (f && !hay.includes(f)) continue;
+        count++;
+        rows.push(`<tr>
+          <td>${a.name}</td>
+          <td>${a.group}</td>
+          <td>${a.role||'<span class="muted">–</span>'}</td>
+          <td class="muted">${a.email||'–'}</td>
+          <td class="muted">${a.active ? 'Aktiv' : 'Inaktiv'}</td>
+        </tr>`);
+      }
+      agentsBody.innerHTML = rows.join('') || `<tr><td colspan="5" class="muted">Inga agenter matchar.</td></tr>`;
+      agentCount.textContent = `${count} agenter`;
+    }
+
+    async function loadUsers() {
+      const res = await fetch(`${API}/users`);
+      if (!res.ok) throw new Error(`Users ${res.status}`);
+      state.users = await res.json();
+      buildGroups();
+      renderGroups();
+      renderAgents();
+    }
+
+    Q('#groupSearch').addEventListener('input', e => renderGroups(e.target.value));
+    Q('#agentSearch').addEventListener('input', e => renderAgents(e.target.value));
+
+    loadUsers().catch(err=>{
+      groupsBody.innerHTML = `<tr><td colspan="3" class="muted">Fel: ${err.message}</td></tr>`;
+      agentsBody.innerHTML = `<tr><td colspan="5" class="muted">Fel: ${err.message}</td></tr>`;
+    });
+  </script>
+</body>
+</html>
