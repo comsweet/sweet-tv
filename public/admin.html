@@ -25,8 +25,7 @@
     .stat{flex:1;min-width:180px;background:#0d1320;border:1px solid #1c2a46;border-radius:12px;padding:12px}
     .stat .k{font-size:22px;font-weight:700}
     .right{text-align:right}
-    .ok{color:#95f5a7} .warn{color:#ffd36e}
-    .code{font-family:ui-monospace, Menlo, Consolas, monospace; background:#0b1220; border:1px solid #1c2744; padding:2px 6px; border-radius:6px}
+    .code{font-family:ui-monospace, Menlo, Consolas, monospace;background:#0b1220;border:1px solid #1c2744;padding:2px 6px;border-radius:6px}
   </style>
 </head>
 <body>
@@ -78,20 +77,10 @@
       </div>
 
       <div class="row" style="margin-bottom:12px">
-        <div class="stat">
-          <div class="small muted">Totalt deals</div>
-          <div class="k" id="statDeals">0</div>
-        </div>
-        <div class="stat">
-          <div class="small muted">Totalt Commission</div>
-          <div class="k" id="statCommission">0 THB</div>
-        </div>
-        <div class="stat">
-          <div class="small muted">Unika agenter (med deals)</div>
-          <div class="k" id="statAgents">0</div>
-        </div>
-        <div class="stat">
-          <div class="small muted">Fält-ID:n</div>
+        <div class="stat"><div class="small muted">Totalt deals</div><div class="k" id="statDeals">0</div></div>
+        <div class="stat"><div class="small muted">Totalt Commission</div><div class="k" id="statCommission">0 THB</div></div>
+        <div class="stat"><div class="small muted">Unika agenter (med deals)</div><div class="k" id="statAgents">0</div></div>
+        <div class="stat"><div class="small muted">Fält-ID:n</div>
           <div class="k small">
             Commission: <span id="fmCommission" class="code">–</span> &nbsp;
             MultiDeals: <span id="fmMulti" class="code">–</span> &nbsp;
@@ -132,12 +121,12 @@
       users: [],
       groupsApi: [],
       groups: new Map(),
-      fieldMap: { commission: 70163, multiDeals: 74126, orderDate: 71067 }, // defaults
-      leads: [],
-      aggregates: []
+      fieldMap: { commission: 70163, multiDeals: 74126, orderDate: 71067 }, // defaults (ersätts av /fields)
+      leads: []
     };
 
-    // ---------- Helpers ----------
+    // Helpers
+    const sleep = (ms) => new Promise(res => setTimeout(res, ms));
     const Q = s => document.querySelector(s);
     const norm = s => String(s||'').toLowerCase();
     const asList = p => Array.isArray(p) ? p :
@@ -176,7 +165,7 @@
              (Array.isArray(u?.teams) && u.teams[0]) || '(ingen)';
     }
 
-    // ---------- Render users & groups ----------
+    // Render Groups & Agents
     const groupsBody = Q('#groupsTbl tbody');
     const agentsBody = Q('#agentsTbl tbody');
     const groupCount = Q('#groupCount');
@@ -220,7 +209,7 @@
       agentCount.textContent = `${count} agenter`;
     }
 
-    // ---------- Data check (fields + leads) ----------
+    // Data check refs
     const fieldBadge = Q('#fieldMapBadge');
     const fmC = Q('#fmCommission'), fmM=Q('#fmMulti'), fmO=Q('#fmOrder');
     const statDeals = Q('#statDeals'), statCommission=Q('#statCommission'), statAgents=Q('#statAgents');
@@ -236,14 +225,11 @@
 
     function aggregate(period){
       const { from, to } = dateRange(period);
-
       const usersById = new Map(state.users.map(u=>[u.id, u]));
-      const agg = new Map(); // userId -> {deals, commission, name, group}
-
-      const last = []; // senaste affärer
+      const agg = new Map();
+      const last = [];
 
       for (const lead of state.leads){
-        // Filtrera på Order date om fältet finns
         const odRaw = readFieldValue(lead, state.fieldMap.orderDate);
         if (odRaw){
           const d = new Date(odRaw);
@@ -251,7 +237,7 @@
         }
 
         const commission = parseFloat(readFieldValue(lead, state.fieldMap.commission)) || 0;
-        if (commission <= 0) continue; // inte en affär
+        if (commission <= 0) continue;
 
         const md = parseFloat(readFieldValue(lead, state.fieldMap.multiDeals));
         const dealsInc = Number.isFinite(md) && md>0 ? md : 1;
@@ -260,18 +246,15 @@
         const u = uid && usersById.get(uid);
         if (!u) continue;
 
-        const key = uid;
-        if (!agg.has(key)) agg.set(key, { userId:uid, name:userName(u), group:userGroup(u), deals:0, commission:0 });
-        const a = agg.get(key);
+        if (!agg.has(uid)) agg.set(uid, { userId:uid, name:userName(u), group:userGroup(u), deals:0, commission:0 });
+        const a = agg.get(uid);
         a.deals += dealsInc;
         a.commission += commission;
 
-        // senaste affärer
         const when = odRaw ? new Date(odRaw) : (lead.updatedAt ? new Date(lead.updatedAt) : null);
         last.push({ when, name:userName(u), group:userGroup(u), commission });
       }
 
-      // render stats
       const arr = [...agg.values()].sort((a,b)=> b.deals!==a.deals ? b.deals-a.deals : b.commission-a.commission);
       const totalDeals = arr.reduce((s,x)=>s+x.deals,0);
       const totalComm  = arr.reduce((s,x)=>s+x.commission,0);
@@ -280,7 +263,6 @@
       statCommission.textContent = toTHB(totalComm);
       statAgents.textContent = arr.length.toString();
 
-      // topplista
       aggBody.innerHTML = arr.slice(0,20).map((x,i)=>`
         <tr>
           <td>${i+1}</td>
@@ -291,7 +273,6 @@
         </tr>
       `).join('') || `<tr><td colspan="5" class="muted">Inga affärer i vald period.</td></tr>`;
 
-      // senaste 15
       last.sort((a,b)=> (b.when?.getTime()||0) - (a.when?.getTime()||0));
       lastBody.innerHTML = last.slice(0,15).map(r=>`
         <tr>
@@ -308,17 +289,14 @@
         const res = await fetch(`${API}/fields`);
         const raw = await res.json().catch(()=>([]));
         if (!res.ok) throw new Error(`Fields ${res.status}`);
-        const arr = asList(raw) || raw; // /fields är ofta ren array
+        const arr = asList(raw) || raw;
         const find = n => (arr.find(f=>String(f.name).toLowerCase()===n.toLowerCase())||{}).id;
-
         state.fieldMap = {
           commission: find('Commission') || state.fieldMap.commission,
           multiDeals: find('MultiDeals') || state.fieldMap.multiDeals,
           orderDate:  find('Order date') || state.fieldMap.orderDate
         };
-      }catch(e){
-        console.warn('Fields failed, using defaults', e);
-      }
+      }catch(e){ console.warn('Fields failed, using defaults', e); }
       setFieldBadge();
     }
 
@@ -326,20 +304,20 @@
       const [usersRes, groupsRes] = await Promise.all([ fetch(`${API}/users`), fetch(`${API}/groups`) ]);
       const usersRaw = await usersRes.json().catch(()=>({}));
       const groupsRaw= await groupsRes.json().catch(()=>({}));
-      if (!usersRes.ok) throw new Error(`Users ${usersRes.status} ${JSON.stringify(usersRaw)}`);
+      if (!usersRes.ok)  throw new Error(`Users ${usersRes.status} ${JSON.stringify(usersRaw)}`);
       if (!groupsRes.ok) throw new Error(`Groups ${groupsRes.status} ${JSON.stringify(groupsRaw)}`);
 
       state.users    = asList(usersRaw);
       state.groupsApi= asList(groupsRaw);
 
-      // bygg riktig "group -> agents"-karta
+      // Bygg riktig "group -> agents"-karta
       state.groups = new Map();
       for (const g of state.groupsApi) state.groups.set(String(g.id), { id:g.id, name:g.name||'(namnlös)', agents:[] });
       for (const u of state.users){
         const gid = u?.group?.id;
         if (gid!=null){
           const k=String(gid);
-          if (!state.groups.has(k)) state.groups.set(k, { id:gid, name:u.group.name||'(namnlös)', agents:[] });
+          if (!state.groups.has(k)) state.groups.set(k, { id:gid, name:u.group?.name||'(namnlös)', agents:[] });
           state.groups.get(k).agents.push(u);
         }else{
           const m = Array.isArray(u?.memberOf) && u.memberOf[0] ? u.memberOf[0] : null;
@@ -357,14 +335,47 @@
       renderAgents();
     }
 
+    // ---- Leads med paginering + throttling + 429-retry ----
     async function loadLeads(period){
       const { from, to } = dateRange(period);
-      const url = `${API}/leads?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
-      const res = await fetch(url);
-      const raw = await res.json().catch(()=>({}));
-      if (!res.ok) throw new Error(`Leads ${res.status} ${JSON.stringify(raw)}`);
-      state.leads = asList(raw);
-      Q('#leadCount').textContent = `${state.leads.length} leads`;
+
+      const pageSize = 200;   // lagom batch
+      const maxPages = 25;    // säkerhetsspärr (200*25 = 5000 leads)
+      const collected = [];
+
+      for (let page = 1; page <= maxPages; page++) {
+        const url = `${API}/leads?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}&page=${page}&pageSize=${pageSize}`;
+
+        let tries = 0;
+        while (true) {
+          tries++;
+          const res = await fetch(url);
+          const raw = await res.json().catch(()=>({}));
+
+          if (res.status === 429) {
+            if (tries <= 3) { await sleep(1500 * tries); continue; }
+            throw new Error(`Leads 429 (efter ${tries} försök)`);
+          }
+
+          if (!res.ok) {
+            throw new Error(`Leads ${res.status} ${JSON.stringify(raw)}`);
+          }
+
+          const pageLeads = Array.isArray(raw) ? raw
+                           : (raw.leads || raw.items || raw.data || raw.results || []);
+          if (!pageLeads.length) {
+            page = maxPages + 1; // bryt ytterloopen
+            break;
+          }
+
+          collected.push(...pageLeads);
+          await sleep(250); // throttle mellan sidor
+          break; // nästa sida
+        }
+      }
+
+      state.leads = collected;
+      document.getElementById('leadCount').textContent = `${state.leads.length} leads`;
     }
 
     async function refreshDataCheck(){
@@ -373,7 +384,7 @@
       aggregate(period);
     }
 
-    // ---------- boot ----------
+    // boot
     Q('#groupSearch').addEventListener('input', e=>renderGroups(e.target.value));
     Q('#agentSearch').addEventListener('input', e=>renderAgents(e.target.value));
     Q('#reload').addEventListener('click', refreshDataCheck);
