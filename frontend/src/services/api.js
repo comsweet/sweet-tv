@@ -35,4 +35,13 @@ export const getAdversusUsers = () => api.get('/adversus/users');
 // Polling
 export const triggerManualPoll = () => api.post('/poll/trigger');
 
+// Leaderboards
+export const getLeaderboards = () => api.get('/leaderboards');
+export const getActiveLeaderboards = () => api.get('/leaderboards/active');
+export const getLeaderboard = (id) => api.get(`/leaderboards/${id}`);
+export const createLeaderboard = (data) => api.post('/leaderboards', data);
+export const updateLeaderboard = (id, data) => api.put(`/leaderboards/${id}`, data);
+export const deleteLeaderboard = (id) => api.delete(`/leaderboards/${id}`);
+export const getLeaderboardStats2 = (id) => api.get(`/leaderboards/${id}/stats`);
+
 export default api;
