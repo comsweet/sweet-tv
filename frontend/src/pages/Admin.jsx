@@ -19,14 +19,6 @@ const Admin = () => {
   const [userGroups, setUserGroups] = useState([]);
   const [stats, setStats] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [editingAgent, setEditingAgent] = useState(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  const [formData, setFormData] = useState({
-    userId: '',
-    name: '',
-    email: ''
-  });
 
   useEffect(() => {
     fetchData();
@@ -36,30 +28,27 @@ const Admin = () => {
     setIsLoading(true);
     try {
       if (activeTab === 'agents') {
-  // Hämta bara från Adversus API
-  const usersRes = await getAdversusUsers();
-  const adversusUsersList = usersRes.data.users || [];
-  
-  // Hämta våra lokala agenter (för profilbilder)
-  const agentsRes = await getAgents();
-  const localAgents = agentsRes.data;
-  
-  // Kombinera: Visa alla Adversus users, men lägg till profilbilder från lokala agenter
-  const combinedAgents = adversusUsersList.map(user => {
-    const localAgent = localAgents.find(a => a.userId === user.id);
-    return {
-      userId: user.id,
-      name: user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim(),
-      email: user.email || '',
-      profileImage: localAgent?.profileImage || null
-    };
-  });
-  
-  setAgents(combinedAgents);
-  setAdversusUsers(adversusUsersList);
-}
-        setAgents(agentsRes.data);
-        setAdversusUsers(usersRes.data.users || []);
+        // Hämta users från Adversus
+        const usersRes = await getAdversusUsers();
+        const adversusUsersList = usersRes.data.users || [];
+        
+        // Hämta lokala agenter (för profilbilder)
+        const agentsRes = await getAgents();
+        const localAgents = agentsRes.data;
+        
+        // Kombinera: Visa alla Adversus users med eventuella profilbilder
+        const combinedAgents = adversusUsersList.map(user => {
+          const localAgent = localAgents.find(a => String(a.userId) === String(user.id));
+          return {
+            userId: user.id,
+            name: user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim() || `User ${user.id}`,
+            email: user.email || '',
+            profileImage: localAgent?.profileImage || null
+          };
+        });
+        
+        setAgents(combinedAgents);
+        setAdversusUsers(adversusUsersList);
       } else if (activeTab === 'groups') {
         const groupsRes = await getAdversusUserGroups();
         setUserGroups(groupsRes.data.groups || []);
@@ -79,75 +68,34 @@ const Admin = () => {
     setIsLoading(false);
   };
 
-  const handleAddAgent = () => {
-    setEditingAgent(null);
-    setFormData({ userId: '', name: '', email: '' });
-    setShowAddModal(true);
-  };
+  const handleImageUpload = async (userId, event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-  const handleEditAgent = (agent) => {
-    setEditingAgent(agent);
-    setFormData({
-      userId: agent.userId,
-      name: agent.name || '',
-      email: agent.email || ''
-    });
-    setShowAddModal(true);
-  };
-
-  const handleSaveAgent = async () => {
     try {
-      if (editingAgent) {
-        await updateAgent(formData.userId, formData);
-      } else {
-        await createAgent(formData);
+      // Kolla om agenten finns lokalt
+      const agentsRes = await getAgents();
+      const existingAgent = agentsRes.data.find(a => String(a.userId) === String(userId));
+      
+      if (!existingAgent) {
+        // Skapa agent lokalt först (för att spara profilbilden)
+        const user = adversusUsers.find(u => u.id === userId);
+        await createAgent({
+          userId: userId,
+          name: user?.name || `${user?.firstname || ''} ${user?.lastname || ''}`.trim(),
+          email: user?.email || ''
+        });
       }
-      setShowAddModal(false);
+      
+      // Ladda upp profilbild
+      await uploadProfileImage(userId, file);
       fetchData();
+      alert('Profilbild uppladdad!');
     } catch (error) {
-      console.error('Error saving agent:', error);
-      alert('Fel vid sparande: ' + error.message);
+      console.error('Error uploading image:', error);
+      alert('Fel vid uppladdning: ' + error.message);
     }
   };
-
-  const handleDeleteAgent = async (userId) => {
-    if (!confirm('Är du säker på att du vill ta bort denna agent?')) return;
-    
-    try {
-      await deleteAgent(userId);
-      fetchData();
-    } catch (error) {
-      console.error('Error deleting agent:', error);
-      alert('Fel vid borttagning: ' + error.message);
-    }
-  };
-
-const handleImageUpload = async (userId, event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  try {
-    // Först, se till att agenten finns i databasen
-    const existingAgent = await database.getAgent(userId);
-    if (!existingAgent) {
-      // Hitta agent-info från Adversus
-      const user = adversusUsers.find(u => u.id === userId);
-      await createAgent({
-        userId: userId,
-        name: user?.name || `${user?.firstname || ''} ${user?.lastname || ''}`.trim(),
-        email: user?.email || ''
-      });
-    }
-    
-    // Sedan ladda upp bilden
-    await uploadProfileImage(userId, file);
-    fetchData();
-    alert('Profilbild uppladdad!');
-  } catch (error) {
-    console.error('Error uploading image:', error);
-    alert('Fel vid uppladdning: ' + error.message);
-  }
-};
 
   const handleManualPoll = async () => {
     try {
@@ -202,7 +150,7 @@ const handleImageUpload = async (userId, event) => {
           <div className="agents-section">
             <div className="section-header">
               <h2>Agenter från Adversus ({agents.length})</h2>
-          </div>
+            </div>
 
             <div className="agents-grid">
               {agents.map(agent => (
@@ -229,7 +177,7 @@ const handleImageUpload = async (userId, event) => {
                   <p className="agent-id">ID: {agent.userId}</p>
                   {agent.email && <p className="agent-email">📧 {agent.email}</p>}
                   <div className="agent-actions">
-                    <p style={{ fontSize: '0.9rem', color: '#7f8c8d', margin: 0 }}>
+                    <p style={{ fontSize: '0.9rem', color: '#7f8c8d', margin: 0, textAlign: 'center' }}>
                       Från Adversus API
                     </p>
                   </div>
@@ -294,51 +242,6 @@ const handleImageUpload = async (userId, event) => {
           </div>
         )}
       </div>
-
-      {/* Add/Edit Modal */}
-      {showAddModal && (
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingAgent ? 'Redigera agent' : 'Lägg till agent'}</h2>
-            <div className="form-group">
-              <label>User ID (från Adversus):</label>
-              <input
-                type="text"
-                value={formData.userId}
-                onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-                disabled={editingAgent !== null}
-                placeholder="t.ex. 279036"
-              />
-            </div>
-            <div className="form-group">
-              <label>Namn:</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Förnamn Efternamn"
-              />
-            </div>
-            <div className="form-group">
-              <label>Email:</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="email@exempel.se"
-              />
-            </div>
-            <div className="modal-actions">
-              <button onClick={() => setShowAddModal(false)} className="btn-secondary">
-                Avbryt
-              </button>
-              <button onClick={handleSaveAgent} className="btn-primary">
-                Spara
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
