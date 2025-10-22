@@ -1,280 +1,145 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🏆 Leaderboard</title>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+  <title>Leaderboard – Sweet TV</title>
   <style>
-    :root{--bg1:#4f46e5;--bg2:#7c3aed}
+    :root { --bg1:#4f46e5; --bg2:#7c3aed; --glass:rgba(255,255,255,.12); --white:#fff; --muted:rgba(255,255,255,.75); }
     *{box-sizing:border-box}
+    html,body{height:100%}
     body{
-      margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-      color:#fff; background:linear-gradient(135deg,var(--bg1),var(--bg2)); min-height:100vh;
-      display:flex; align-items:center; justify-content:center; padding:28px;
+      margin:0;
+      font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      color:var(--white);
+      display:flex; align-items:center; justify-content:center;
+      padding:28px;
     }
-    .container{width:min(1200px,100%); }
-    .header{text-align:center;margin-bottom:24px}
-    .header h1{font-size:46px;margin:0 0 6px 0;text-shadow:0 2px 10px rgba(0,0,0,.25)}
-    .subtitle{opacity:.9}
-
-    .board{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(8px);
-      border-radius:22px;padding:28px 26px; box-shadow:0 10px 40px rgba(0,0,0,.25)}
-    .title{font-size:28px;font-weight:800;margin:0 0 14px 0;text-align:center}
-    .items{display:flex; flex-direction:column; gap:10px; max-height:64vh; overflow:auto}
-    .row{display:flex;align-items:center;background:rgba(255,255,255,.12);border-radius:16px;padding:16px 18px; gap:16px}
-    .rank{width:56px;text-align:center;font-size:26px;font-weight:800}
-    .rank.top1{color:#ffd54f;font-size:32px}
-    .rank.top2{color:#e0e0e0;font-size:28px}
-    .rank.top3{color:#ffb74d;font-size:28px}
-    .who{flex:1}
-    .name{font-size:22px;font-weight:700}
-    .group{font-size:13px;opacity:.9}
-    .stats{text-align:right}
-    .deals{font-size:22px;font-weight:800}
-    .thb{opacity:.95}
-    .small{font-size:13px;opacity:.85}
-    .controls{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:10px}
-    select{background:rgba(0,0,0,.35);color:#fff;border:1px solid rgba(255,255,255,.25);padding:6px 8px;border-radius:8px}
-
-    /* ---- PLING OVERLAY + konfetti ---- */
-    .pling-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none;z-index:9999}
-    .pling-card{background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(6px);
-      color:#fff;padding:26px 34px;border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.45); text-align:center}
-    .pling-badge{display:inline-block;background:#22d3ee;color:#00222b;font-weight:800;border-radius:999px;padding:5px 12px;margin-bottom:8px}
-    .pling-amount{font-size:44px;font-weight:800;letter-spacing:.4px;margin:2px 0}
-    .pling-agent{font-size:20px}
-    .confetti{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-size:80px;animation:pop .9s ease-out forwards;pointer-events:none;z-index:10000}
-    @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.2) rotate(-15deg)}
-      50%{opacity:1;transform:translate(-50%,-50%) scale(1.2) rotate(8deg)}
-      100%{opacity:0;transform:translate(-50%,-50%) scale(1) rotate(0)}}
+    .card{width:1100px; max-width:100%; background:var(--glass); backdrop-filter: blur(10px);
+          border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,.35); padding:26px 26px 12px;}
+    .header{display:flex; align-items:baseline; gap:14px; margin-bottom:14px}
+    .title{font-size:44px; font-weight:800; letter-spacing:.2px}
+    .date{color:var(--muted); font-size:14px}
+    .toolbar{display:flex; gap:10px; align-items:center; margin:6px 0 18px}
+    select{background:rgba(0,0,0,.35); color:#fff; border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:8px 10px}
+    .lead{font-size:20px; font-weight:700}
+    .list{margin-top:8px}
+    .row{display:grid; grid-template-columns: 70px 1fr 190px 190px; gap:14px; padding:12px 10px; align-items:center;
+         border-radius:12px; transition:transform .15s ease; }
+    .row:nth-child(even){background:rgba(255,255,255,.06)}
+    .rank{font-size:26px; font-weight:800; text-align:center}
+    .name{font-size:22px; font-weight:700}
+    .group{font-size:14px; color:var(--muted)}
+    .stat{font-size:20px; font-weight:800; text-align:right}
+    .muted{color:var(--muted)}
+    .error{margin-top:10px; color:#ffb4b4}
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="card">
     <div class="header">
-      <h1>🏆 Leaderboard</h1>
-      <div class="subtitle" id="todayTxt"></div>
+      <div class="title">🏆 Leaderboard</div>
+      <div class="date" id="date"></div>
     </div>
 
-    <div class="board">
-      <div class="controls">
-        <div class="small">Period:</div>
-        <select id="period">
-          <option value="today">Idag</option>
-          <option value="month" selected>Denna månad</option>
-        </select>
-        <div class="small" id="metaTxt"></div>
-      </div>
+    <div class="toolbar">
+      <label class="muted">Period:</label>
+      <select id="period">
+        <option value="month">Denna månad</option>
+        <option value="today">Idag</option>
+      </select>
 
-      <div class="title">Top 10 – Affärer (success)</div>
-      <div id="list" class="items">
-        <div class="small" style="text-align:center;opacity:.9">Laddar…</div>
-      </div>
-    </div>
-  </div>
+      <label class="muted" style="margin-left:10px">Mått:</label>
+      <select id="metric">
+        <option value="deals">Deals</option>
+        <option value="commission">Commission</option>
+      </select>
 
-  <!-- PLING overlay -->
-  <div id="plingOverlay" class="pling-overlay">
-    <div class="pling-card">
-      <div class="pling-badge">AFFÄR! 🎉</div>
-      <div id="plingAmount" class="pling-amount">0 THB</div>
-      <div id="plingAgent" class="pling-agent">Agent Namn</div>
+      <label class="muted" style="margin-left:10px">Grupper (kommaseparerat, valfritt):</label>
+      <input id="groups" placeholder="t.ex. Dentle Faraz,Dentle Michael"
+             style="flex:1; min-width:220px; background:rgba(0,0,0,.35); color:#fff; border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:8px 10px" />
+
+      <button id="reload" style="background:#10b981; border:none; color:#fff; padding:8px 12px; border-radius:10px; font-weight:700; cursor:pointer">
+        Ladda om
+      </button>
     </div>
+
+    <div class="lead" id="heading">Top 10 – Affärer (success)</div>
+    <div class="list" id="list"></div>
+    <div class="error" id="error"></div>
   </div>
 
   <script>
-    const API = window.location.origin + '/api/v1';
-    const FIELD = { COMMISSION: 70163, MULTIDEALS: 74126, ORDERDATE: 71067 };
+    const dateEl = document.getElementById('date');
+    const periodEl = document.getElementById('period');
+    const metricEl = document.getElementById('metric');
+    const groupsEl = document.getElementById('groups');
+    const headingEl = document.getElementById('heading');
+    const listEl = document.getElementById('list');
+    const errEl = document.getElementById('error');
+    const btn = document.getElementById('reload');
 
-    const fmtDate = d => d.toLocaleDateString('sv-SE', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
-    document.getElementById('todayTxt').textContent = fmtDate(new Date());
-
-    let USERS = [];
-    let USERS_BY_ID = new Map();
-
-    function dateRange(period){
+    const fmtDate = () => {
       const now = new Date();
-      const start = period==='today' ? new Date(now.getFullYear(),now.getMonth(),now.getDate())
-                                     : new Date(now.getFullYear(),now.getMonth(),1);
-      start.setHours(0,0,0,0);
-      return {from:start,to:now};
-    }
+      dateEl.textContent = now.toLocaleDateString('sv-SE', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    };
 
-    async function fetchUsers(){
-      const res = await fetch(`${API}/users?includeMeta=true&page=1&pageSize=500`);
-      if(!res.ok) throw new Error('Users ' + res.status);
-      USERS = await res.json();
-      USERS_BY_ID = new Map(USERS.map(u=>[u.id,u]));
-    }
+    async function loadLeaderboard() {
+      errEl.textContent = '';
+      listEl.innerHTML = '<div class="muted">Laddar…</div>';
 
-    function readField(lead, id){
-      const pick = (obj)=>{
-        if(!obj) return undefined;
-        if(Array.isArray(obj)){ const f=obj.find(x=>Number(x.id)===Number(id)); return f?.value ?? f?.label ?? f?.text; }
-        if(typeof obj==='object'){ return obj[id] ?? obj[String(id)]; }
-      };
-      return pick(lead.resultData) ?? pick(lead.masterData) ?? pick(lead?.data?.resultData) ?? pick(lead?.data?.masterData);
-    }
+      const period = periodEl.value;
+      const metric = metricEl.value;
+      const groups = (groupsEl.value || '').trim();
 
-    async function fetchLeads(period){
-      const {from,to} = dateRange(period);
-      document.getElementById('metaTxt').textContent =
-        `${from.toLocaleString('sv-SE')} – ${to.toLocaleString('sv-SE')}`;
+      headingEl.textContent = `Top 10 – ${metric === 'deals' ? 'Affärer' : 'Commission'} (success)`;
+      const url = new URL('/api/leaderboard', window.location.origin);
+      url.searchParams.set('period', period);
+      url.searchParams.set('metric', metric);
+      url.searchParams.set('top', '10');
+      if (groups) url.searchParams.set('groups', groups);
 
-      const filters = encodeURIComponent(JSON.stringify({
-        status: { "$eq": "success" },
-        lastUpdatedTime: { "$gt": from.toISOString(), "$lt": to.toISOString() }
-      }));
+      try {
+        const r = await fetch(url.toString());
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
 
-      const res = await fetch(`${API}/leads?filters=${filters}&page=1&pageSize=300&includeMeta=true&sortProperty=lastUpdatedTime&sortDirection=DESC`);
-      if(!res.ok) throw new Error('Leads ' + res.status);
-      const data = await res.json();
-      return Array.isArray(data) ? data : (data.leads || data.items || data.data || []);
-    }
-
-    function aggregate(leads){
-      const map = new Map();
-      leads.forEach(lead=>{
-        const commission = parseFloat(readField(lead, FIELD.COMMISSION)) || 0;
-        if (commission <= 0) return;
-
-        const multi = parseFloat(readField(lead, FIELD.MULTIDEALS));
-        const deals = Number.isFinite(multi) && multi>0 ? multi : 1;
-
-        const uid = lead.lastContactedBy ?? lead.userId;
-        const u = USERS_BY_ID.get(uid);
-        const name = (u?.displayName || u?.name || `Agent ${uid ?? '-'}`).trim();
-        const group = u?.group?.name || (Array.isArray(u?.memberOf)&&u.memberOf[0]?.name) || (Array.isArray(u?.teams)&&u.teams[0]) || '-';
-
-        if(!map.has(uid)) map.set(uid,{name, group, deals:0, commission:0});
-        const row = map.get(uid);
-        row.deals += deals;
-        row.commission += commission;
-      });
-      return [...map.values()].sort((a,b)=> b.deals!==a.deals ? b.deals-a.deals : b.commission-a.commission).slice(0,10);
-    }
-
-    function renderBoard(rows){
-      const list = document.getElementById('list');
-      if(!rows.length){ list.innerHTML = `<div class="small" style="text-align:center;opacity:.9">Inga affärer i perioden.</div>`; return; }
-      list.innerHTML = rows.map((r,i)=>{
-        const rank = i+1;
-        const rc = rank===1?'top1':rank===2?'top2':rank===3?'top3':'';
-        return `
-          <div class="row">
-            <div class="rank ${rc}">${rank}</div>
-            <div class="who">
-              <div class="name">${r.name}</div>
-              <div class="group">${r.group}</div>
-            </div>
-            <div class="stats">
-              <div class="deals">${r.deals} deals</div>
-              <div class="thb small">${r.commission.toLocaleString('th-TH',{maximumFractionDigits:0})} THB</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    /** ------------ PLING-bevakare (nya success) ------------- */
-    let lastSeenISO = new Date(Date.now() - 2*60*1000).toISOString(); // start: nu-2min
-    const POLL_MS = 12_000;
-
-    function playPling(){
-      try{
-        const ctx = new (window.AudioContext||window.webkitAudioContext)();
-        const o = ctx.createOscillator(); const g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.type='sine'; o.frequency.setValueAtTime(880,ctx.currentTime);
-        o.frequency.exponentialRampToValueAtTime(1320,ctx.currentTime+0.12);
-        g.gain.setValueAtTime(0.25,ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+0.5);
-        o.start(); o.stop(ctx.currentTime+0.5);
-      }catch(e){}
-    }
-    function popConfetti(){
-      const el = document.createElement('div');
-      el.className='confetti';
-      const emojis=['🎉','🎊','🏆','✨','💥','💸','⭐','🎯'];
-      el.textContent = emojis[Math.floor(Math.random()*emojis.length)];
-      document.body.appendChild(el);
-      setTimeout(()=>document.body.removeChild(el),900);
-    }
-    function showPlingOverlay(agentName, amountTHB){
-      const overlay=document.getElementById('plingOverlay');
-      document.getElementById('plingAmount').textContent = amountTHB;
-      document.getElementById('plingAgent').textContent = agentName;
-      overlay.style.display='flex';
-      playPling(); popConfetti();
-      setTimeout(()=> overlay.style.display='none', 2200);
-    }
-    function fmtTHB(n){ return (Number(n)||0).toLocaleString('th-TH',{maximumFractionDigits:0})+' THB'; }
-
-    function readFieldGeneric(lead,id){
-      const rd = lead?.resultData || lead?.data?.resultData;
-      const md = lead?.masterData || lead?.data?.masterData;
-      const pick=(o)=>{ if(!o) return;
-        if(Array.isArray(o)){ const f=o.find(x=>Number(x.id)===Number(id)); return f?.value ?? f?.label ?? f?.text; }
-        if(typeof o==='object'){ return o[id] ?? o[String(id)]; }
-      };
-      return pick(rd) ?? pick(md);
-    }
-
-    async function pollNewDeals(){
-      try{
-        if (USERS_BY_ID.size===0) await fetchUsers();
-
-        const filters = encodeURIComponent(JSON.stringify({
-          status: {"$eq":"success"},
-          lastUpdatedTime: {"$gt": lastSeenISO}
-        }));
-        const url = `${API}/leads?filters=${filters}&page=1&pageSize=50&sortProperty=lastUpdatedTime&sortDirection=ASC`;
-        const res = await fetch(url);
-        if (!res.ok) return;
-        const data = await res.json();
-        const leads = Array.isArray(data) ? data : (data.leads||data.items||data.data||[]);
-        if (!leads.length) return;
-
-        for(const lead of leads){
-          const commission = parseFloat(readFieldGeneric(lead, FIELD.COMMISSION)) || 0;
-          if (commission<=0) continue;
-          const agentId = lead.lastContactedBy ?? lead.userId;
-          const u = USERS_BY_ID.get(agentId);
-          const name = (u?.displayName || u?.name || `Agent ${agentId ?? '-'}`).trim();
-
-          showPlingOverlay(name, fmtTHB(commission));
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (items.length === 0) {
+          listEl.innerHTML = '<div class="muted">Inga affärer i vald period.</div>';
+          return;
         }
-        const newest = leads[leads.length-1];
-        const lut = newest?.lastUpdatedTime || newest?.updated;
-        if(lut && lut > lastSeenISO) lastSeenISO = lut;
 
-      }catch(e){}
-    }
-
-    // ---------- init ----------
-    async function init(){
-      try{
-        await fetchUsers();
-        const periodSel = document.getElementById('period');
-        const reload = async ()=>{
-          const leads = await fetchLeads(periodSel.value);
-          const rows = aggregate(leads);
-          renderBoard(rows);
-        };
-        periodSel.addEventListener('change', reload);
-        await reload();
-
-        // uppdatera leaderboard var 30:e sekund
-        setInterval(reload, 30000);
-        // starta pling-pollern
-        setInterval(pollNewDeals, 12000);
-        setTimeout(pollNewDeals, 2500);
-      }catch(e){
-        document.getElementById('list').innerHTML =
-          `<div class="small" style="text-align:center;color:#ffb4b4">Fel: ${e.message}</div>`;
+        listEl.innerHTML = items.map((x, i) => `
+          <div class="row">
+            <div class="rank">${i+1}</div>
+            <div>
+              <div class="name">${x.name}</div>
+              <div class="group">${x.group || '-'}</div>
+            </div>
+            <div class="stat">${x.deals.toLocaleString('sv-SE')} deals</div>
+            <div class="stat">${Math.round(x.commission).toLocaleString('sv-SE')} THB</div>
+          </div>
+        `).join('');
+      } catch (e) {
+        errEl.textContent = 'Fel: ' + (e?.message || e);
+        listEl.innerHTML = '';
       }
     }
-    init();
+
+    btn.addEventListener('click', loadLeaderboard);
+    periodEl.addEventListener('change', loadLeaderboard);
+    metricEl.addEventListener('change', loadLeaderboard);
+
+    fmtDate();
+    loadLeaderboard();
+    // auto-uppdatera var 30:e sekund
+    setInterval(loadLeaderboard, 30000);
+    setInterval(fmtDate, 60000);
   </script>
 </body>
 </html>
