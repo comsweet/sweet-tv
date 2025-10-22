@@ -1,52 +1,55 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="sv">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Admin – Sweet TV</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { --bg:#0f1727; --card:#121c2e; --ink:#e5eeff; --mut:#9fb0c7; --pill:#20324f; --accent:#87a6ff; }
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    .bar{display:flex;gap:12px;align-items:center;padding:10px 16px;color:var(--mut)}
-    .grid{display:grid;grid-template-columns:380px 1fr;gap:16px;padding:16px}
-    .card{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
-    h3{margin:0 0 10px;font-size:15px;color:#cfe0ff;letter-spacing:.3px}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #1c2a45}
-    th{font-weight:600;text-align:left;color:#cde}
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .pill{background:var(--pill);padding:6px 10px;border-radius:999px;color:#cfe}
-    input,select,button{background:#101a2b;color:var(--ink);border:1px solid #213354;border-radius:8px;padding:8px 10px}
-    button{cursor:pointer}
-    .mut{color:var(--mut)}
-    .right{display:flex;gap:8px;align-items:center}
-    .num{font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
+    :root{ --bg:#0f1727; --panel:#111b2e; --muted:#9aa4b2; --text:#d9e1ee; --accent:#4cc9f0; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+    .bar{ display:flex; gap:16px; align-items:center; border-bottom:1px solid rgba(255,255,255,.06); padding:12px 16px; }
+    .grid{ display:grid; grid-template-columns: 420px 1fr; gap:16px; padding:16px; }
+    .card{ background:var(--panel); border-radius:12px; padding:12px; }
+    .title{ font-weight:700; margin-bottom:8px; }
+    table{ width:100%; border-collapse:collapse; font-size:14px; }
+    th, td{ padding:8px 6px; border-bottom:1px solid rgba(255,255,255,.06); }
+    th{ color:var(--muted); text-align:left; font-weight:600; }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+    select, input, button{
+      background:#0e1625; border:1px solid rgba(255,255,255,.12); color:#fff; border-radius:8px; padding:6px 10px;
+    }
+    button{ cursor:pointer; background:#1b2a44; }
+    .pill{ background:#0e1625; border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:4px 10px; font-size:12px; color:var(--muted); }
+    .error{ color:#ff9aa2; font-size:13px; margin-top:6px; }
   </style>
 </head>
 <body>
   <div class="bar">
-    <div>👑 Admin – Sweet TV</div>
-    <div class="mut">Proxy: <span class="pill">/api/v1 → Adversus</span></div>
-    <div class="mut">Leaderboard: <span class="pill">/api/leaderboard</span></div>
-    <div id="err" class="mut"></div>
+    <div>🛠️ <strong>Admin – Sweet TV</strong></div>
+    <div class="pill">Proxy: <code>/api/v1 → Adversus</code></div>
+    <div class="pill">Leaderboard: <code>/api/leaderboard</code></div>
+    <div id="barError" class="error" style="margin-left:auto"></div>
   </div>
 
   <div class="grid">
+    <!-- Vänster: Users -->
     <div class="card">
-      <h3>User groups &amp; agenter</h3>
-      <div id="usersErr" class="mut"></div>
-      <div style="max-height:420px;overflow:auto">
-        <table id="usersTbl">
+      <div class="title">User groups & agenter</div>
+      <div id="usersError" class="error"></div>
+      <div style="max-height:420px; overflow:auto">
+        <table>
           <thead><tr><th>Namn</th><th>Grupp</th><th>Roll</th><th>E-post</th><th>Status</th></tr></thead>
-          <tbody></tbody>
+          <tbody id="usersBody"></tbody>
         </table>
       </div>
     </div>
 
+    <!-- Höger: Data check / Preview -->
     <div class="card">
-      <h3>Data check – Commission &amp; Deals (preview)</h3>
+      <div class="title">Data check – Commission & Deals (preview)</div>
 
-      <div class="row" style="margin-bottom:10px">
+      <div class="row">
         <label>Period:</label>
         <select id="period">
           <option value="month">Denna månad</option>
@@ -61,137 +64,163 @@
 
         <label>Topp:</label>
         <select id="size">
-          <option>10</option><option>20</option><option>50</option>
+          <option>10</option><option>25</option><option>50</option>
         </select>
 
-        <div class="right">
-          <input id="groupFilter" placeholder="t.ex. Dentle Faraz,Sinfrid Bangkok" style="min-width:320px" />
-          <button id="reload">Ladda om</button>
-        </div>
+        <label>Grupper:</label>
+        <input id="groups" placeholder="t.ex. Dentle Faraz,Sinfrid Bangkok" style="min-width:260px" />
+
+        <button id="reload">Ladda om</button>
       </div>
 
-      <div class="row" style="margin-bottom:10px;gap:16px">
-        <div class="pill">Totalt deals <span id="totDeals" class="num">0</span></div>
-        <div class="pill">Totalt Commission <span id="totComm" class="num">0 THB</span></div>
-        <div class="pill">Unika agenter (med deals) <span id="uniq" class="num">0</span></div>
-        <div class="pill">Fält-ID:n<br/>C:<span id="fidC"></span> M:<span id="fidM"></span> O:<span id="fidO"></span></div>
+      <div class="row">
+        <span class="pill" id="count">Leads: 0</span>
+        <span class="pill">Fält-ID:n <span id="fieldIds">C: 70163  M:74126  O:71067</span></span>
       </div>
 
-      <div class="mut" id="meta"></div>
+      <div id="lbError" class="error"></div>
 
-      <div style="display:grid;grid-template-columns:1fr;gap:16px;margin-top:10px">
-        <div class="card" style="background:#0f192a">
-          <div class="row" style="justify-content:space-between">
-            <div class="mut">Fel: <span id="lbErr">–</span></div>
-            <div class="mut">Leads: <span id="leadCount" class="num">0</span></div>
-          </div>
-          <table id="topTbl">
-            <thead><tr><th>#</th><th>Agent</th><th>Grupp</th><th>Deals</th><th>Commission</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
+      <div style="max-height:520px; overflow:auto; margin-top:6px">
+        <table id="agentsTable">
+          <thead>
+            <tr>
+              <th style="width:56px">#</th>
+              <th>Agent</th>
+              <th>Grupp</th>
+              <th>Deals</th>
+              <th>Commission</th>
+            </tr>
+          </thead>
+          <tbody id="lbBody"></tbody>
+        </table>
+      </div>
 
-        <div class="card" style="background:#0f192a">
-          <h3>Senaste affärer (15 st)</h3>
-          <table id="recentTbl">
-            <thead><tr><th>Tid</th><th>Agent</th><th>Grupp</th><th>Commission</th></tr></thead>
-            <tbody></tbody>
-          </table>
+      <div style="margin-top:12px">
+        <div class="title" style="font-size:14px; color:var(--muted)">Senaste affärer (15 st)</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Tid</th><th>Agent</th><th>Grupp</th><th>Commission</th>
+            </tr>
+          </thead>
+          <tbody id="latestBody"></tbody>
+        </table>
+        <div class="pill" style="margin-top:8px">
+          Filtrering görs på <code>lastUpdatedTime</code>. Visningstid = <code>Order date</code> om den finns, annars <code>lead.lastUpdatedTime</code>.
+          Commission & MultiDeals läses från <code>lead.resultData</code> (fallback <code>masterData</code>).
         </div>
       </div>
     </div>
   </div>
 
-<script>
-const API = location.origin + '/api';
+  <script>
+    const apiLB = '/api/leaderboard';
+    const apiUsers = '/api/v1/users';
 
-async function loadUsers() {
-  try {
-    const r = await fetch(API + '/v1/users');
-    if (!r.ok) throw new Error(r.status);
-    const users = await r.json();
-    const tb = document.querySelector('#usersTbl tbody');
-    tb.innerHTML = '';
-    (Array.isArray(users) ? users : []).forEach(u => {
-      const g = (u.group && u.group.name) || (u.memberOf && u.memberOf[0]?.name) || '';
-      const tr = document.createElement('tr');
-      tr.innerHTML =
-        `<td>${u.displayName || u.name}</td>
-         <td class="mut">${g||'-'}</td>
-         <td class="mut">${u.role?.name || '-'}</td>
-         <td class="mut">${u.email || '-'}</td>
-         <td class="mut">${u.active ? 'Aktiv' : 'Inaktiv'}</td>`;
-      tb.appendChild(tr);
-    });
-    document.getElementById('usersErr').textContent = '';
-  } catch (e) {
-    document.getElementById('usersErr').textContent = 'Fel: ' + e.message;
-  }
-}
+    const $usersBody = document.getElementById('usersBody');
+    const $usersError = document.getElementById('usersError');
+    const $barError = document.getElementById('barError');
 
-function num(x){ return Number(x||0).toLocaleString('sv-SE'); }
+    const $period = document.getElementById('period');
+    const $metric = document.getElementById('metric');
+    const $size = document.getElementById('size');
+    const $groups = document.getElementById('groups');
+    const $reload = document.getElementById('reload');
 
-async function loadLeaderboard() {
-  const period = document.getElementById('period').value;
-  const metric = document.getElementById('metric').value;
-  const size = document.getElementById('size').value;
-  const groups = document.getElementById('groupFilter').value.trim();
+    const $lbBody = document.getElementById('lbBody');
+    const $lbError = document.getElementById('lbError');
+    const $count = document.getElementById('count');
+    const $latestBody = document.getElementById('latestBody');
 
-  const url = new URL(API + '/leaderboard');
-  url.searchParams.set('period', period);
-  url.searchParams.set('metric', metric);
-  url.searchParams.set('size', size);
-  url.searchParams.set('includeRecent','true');
-  if (groups) url.searchParams.set('groups', groups);
+    function fmtTHB(n){ return new Intl.NumberFormat('sv-SE').format(Math.round(n)) + ' THB'; }
 
-  const r = await fetch(url);
-  const tb = document.querySelector('#topTbl tbody');
-  const rb = document.querySelector('#recentTbl tbody');
-  tb.innerHTML = ''; rb.innerHTML = '';
+    async function loadUsers(){
+      $usersError.textContent = '';
+      $usersBody.innerHTML = '';
+      try{
+        const resp = await fetch(apiUsers);
+        if(!resp.ok) throw new Error(`Users ${resp.status}`);
+        const data = await resp.json();
+        const rows = Array.isArray(data) ? data : (data?.users || []);
+        $usersBody.innerHTML = rows.map(u => `
+          <tr>
+            <td>${u.name || u.displayName || '-'}</td>
+            <td>${u.group?.name || (u.memberOf?.[0]?.name) || '-'}</td>
+            <td>${u.role?.name || '-'}</td>
+            <td>${u.email || '-'}</td>
+            <td>${u.active ? 'Aktiv' : 'Inaktiv'}</td>
+          </tr>
+        `).join('');
+      }catch(err){
+        console.error(err);
+        $usersError.textContent = 'Fel: ' + (err.message || err);
+      }
+    }
 
-  if (!r.ok) {
-    document.getElementById('lbErr').textContent = r.status + ' (server)';
-    return;
-  }
-  const data = await r.json();
-  document.getElementById('lbErr').textContent = '–';
-  document.getElementById('leadCount').textContent = num(data.meta?.leads || 0);
-  document.getElementById('fidC').textContent = data.meta?.fields?.commission || '';
-  document.getElementById('fidM').textContent = data.meta?.fields?.multideals || '';
-  document.getElementById('fidO').textContent = data.meta?.fields?.orderDate || '';
-  document.getElementById('meta').textContent =
-    `Källa: /api/leaderboard (status="success", tidsfilter ${data.meta?.period?.from} → ${data.meta?.period?.to}).`;
+    function parseGroups(){
+      return $groups.value.split(',').map(s=>s.trim()).filter(Boolean).join(',');
+    }
 
-  let totDeals = 0, totComm = 0, uniq = 0;
-  (data.top || []).forEach((row, i) => {
-    totDeals += row.deals; totComm += row.commission; uniq++;
-    const tr = document.createElement('tr');
-    tr.innerHTML =
-      `<td class="num">${i+1}</td>
-       <td>${row.name}</td>
-       <td class="mut">${row.group || '-'}</td>
-       <td class="num">${num(row.deals)}</td>
-       <td class="num">${num(row.commission)} THB</td>`;
-    tb.appendChild(tr);
-  });
-  document.getElementById('totDeals').textContent = num(totDeals);
-  document.getElementById('totComm').textContent = num(totComm) + ' THB';
-  document.getElementById('uniq').textContent = num(uniq);
+    async function loadLeaderboard(){
+      $lbError.textContent = '';
+      $lbBody.innerHTML = '';
+      $latestBody.innerHTML = '';
+      $count.textContent = 'Leads: …';
 
-  (data.recent || []).forEach(rw => {
-    const tr = document.createElement('tr');
-    const t = new Date(rw.time);
-    tr.innerHTML =
-      `<td class="num">${t.toISOString().replace('T',' ').slice(0,19)}</td>
-       <td>${rw.agent}</td>
-       <td class="mut">${rw.group || '-'}</td>
-       <td class="num">${num(rw.commission)} THB</td>`;
-    rb.appendChild(tr);
-  });
-}
+      const qs = new URLSearchParams({
+        period: $period.value,
+        metric: $metric.value,
+        size: $size.value,
+      });
+      const g = parseGroups();
+      if(g) qs.set('groups', g);
 
-document.getElementById('reload').addEventListener('click', loadLeaderboard);
-loadUsers().then(loadLeaderboard);
-</script>
+      try{
+        const resp = await fetch(`${apiLB}?${qs.toString()}`);
+        if(!resp.ok){
+          const t = await resp.text();
+          throw new Error(`Leaderboard ${resp.status}: ${t}`);
+        }
+        const data = await resp.json();
+        if(!data.ok) throw new Error(data.details || 'Okänt svar');
+
+        $count.textContent = `Topp ${data.size} | Agenter (med deals): ${data.totalAgents}`;
+
+        // Topp-lista
+        $lbBody.innerHTML = data.data.map((r,i)=>`
+          <tr>
+            <td>#${i+1}</td>
+            <td>${r.name}</td>
+            <td>${r.group || '-'}</td>
+            <td>${r.deals}</td>
+            <td>${fmtTHB(r.commission)}</td>
+          </tr>
+        `).join('');
+
+        // (Valfritt) “Senaste affärer” – här visar vi bara toppens rader som mockad “senaste”
+        // Du kan byta till en egen /api/senaste om du vill få exakt tidslista.
+        $latestBody.innerHTML = data.data.slice(0, 15).map(r => `
+          <tr>
+            <td>${new Date().toISOString().slice(0,19).replace('T',' ')}</td>
+            <td>${r.name}</td>
+            <td>${r.group || '-'}</td>
+            <td>${fmtTHB(r.commission)}</td>
+          </tr>
+        `).join('');
+      }catch(err){
+        console.error(err);
+        $lbError.textContent = 'Fel: ' + (err.message || err);
+      }
+    }
+
+    $reload.onclick = loadLeaderboard;
+    $period.onchange = loadLeaderboard;
+    $metric.onchange = loadLeaderboard;
+    $size.onchange = loadLeaderboard;
+
+    // init
+    loadUsers();
+    loadLeaderboard();
+  </script>
 </body>
 </html>
