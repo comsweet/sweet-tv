@@ -1,145 +1,149 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Leaderboard – Sweet TV</title>
   <style>
-    :root { --bg1:#4f46e5; --bg2:#7c3aed; --glass:rgba(255,255,255,.12); --white:#fff; --muted:rgba(255,255,255,.75); }
+    :root { --bg1:#4f46e5; --bg2:#7c3aed; --glass:rgba(255,255,255,.14); --glass2:rgba(255,255,255,.10); }
     *{box-sizing:border-box}
-    html,body{height:100%}
     body{
-      margin:0;
-      font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-      background:linear-gradient(135deg,var(--bg1),var(--bg2));
-      color:var(--white);
-      display:flex; align-items:center; justify-content:center;
-      padding:28px;
+      margin:0; height:100vh; display:flex; align-items:center; justify-content:center;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color:#fff; background:linear-gradient(135deg,var(--bg1),var(--bg2));
     }
-    .card{width:1100px; max-width:100%; background:var(--glass); backdrop-filter: blur(10px);
-          border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,.35); padding:26px 26px 12px;}
-    .header{display:flex; align-items:baseline; gap:14px; margin-bottom:14px}
-    .title{font-size:44px; font-weight:800; letter-spacing:.2px}
-    .date{color:var(--muted); font-size:14px}
-    .toolbar{display:flex; gap:10px; align-items:center; margin:6px 0 18px}
-    select{background:rgba(0,0,0,.35); color:#fff; border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:8px 10px}
-    .lead{font-size:20px; font-weight:700}
-    .list{margin-top:8px}
-    .row{display:grid; grid-template-columns: 70px 1fr 190px 190px; gap:14px; padding:12px 10px; align-items:center;
-         border-radius:12px; transition:transform .15s ease; }
-    .row:nth-child(even){background:rgba(255,255,255,.06)}
-    .rank{font-size:26px; font-weight:800; text-align:center}
-    .name{font-size:22px; font-weight:700}
-    .group{font-size:14px; color:var(--muted)}
-    .stat{font-size:20px; font-weight:800; text-align:right}
-    .muted{color:var(--muted)}
-    .error{margin-top:10px; color:#ffb4b4}
+    .wrap{width:min(1200px,92vw)}
+    .title{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+    .title h1{margin:0;font-size:44px}
+    .card{
+      background:var(--glass); backdrop-filter: blur(10px);
+      border-radius:18px; padding:22px 26px; box-shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+    .controls{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+    select{background:var(--glass2); color:#fff; border:1px solid rgba(255,255,255,.25);
+      padding:6px 10px;border-radius:10px}
+    .row{display:flex; align-items:center; padding:12px 10px; border-radius:12px; background:rgba(255,255,255,.09); margin:8px 0}
+    .row .rank{width:64px; text-align:center; font-size:26px}
+    .row .who{flex:1}
+    .row .who .name{font-size:22px; font-weight:600}
+    .row .who .grp{opacity:.8; font-size:14px}
+    .row .stat{text-align:right}
+    .row .stat .big{font-size:26px; font-weight:800}
+    .row .stat .sub{opacity:.85}
+    .error{color:#ffd1d1; margin-top:10px}
+    .celebrate{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+      font-size:120px; pointer-events:none; animation:pop 900ms ease-out}
+    @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.1)}
+      50%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}
+      100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="header">
-      <div class="title">🏆 Leaderboard</div>
-      <div class="date" id="date"></div>
+  <div class="wrap">
+    <div class="title">
+      <div style="font-size:36px">🏆</div>
+      <h1>Leaderboard</h1>
+      <div id="date" style="margin-left:auto;opacity:.9"></div>
     </div>
 
-    <div class="toolbar">
-      <label class="muted">Period:</label>
-      <select id="period">
-        <option value="month">Denna månad</option>
-        <option value="today">Idag</option>
-      </select>
+    <div class="card">
+      <div class="controls">
+        <label>Period:</label>
+        <select id="period">
+          <option value="month">Denna månad</option>
+          <option value="today">Idag</option>
+        </select>
+        <label>Sortera på:</label>
+        <select id="metric">
+          <option value="deals">Affärer (deals)</option>
+          <option value="commission">Provision (THB)</option>
+        </select>
+        <label>Visa topp:</label>
+        <select id="top">
+          <option>10</option><option>20</option><option>50</option>
+        </select>
+        <div style="opacity:.8;margin-left:auto" id="subtitle">Top 10 – Affärer (success)</div>
+      </div>
 
-      <label class="muted" style="margin-left:10px">Mått:</label>
-      <select id="metric">
-        <option value="deals">Deals</option>
-        <option value="commission">Commission</option>
-      </select>
-
-      <label class="muted" style="margin-left:10px">Grupper (kommaseparerat, valfritt):</label>
-      <input id="groups" placeholder="t.ex. Dentle Faraz,Dentle Michael"
-             style="flex:1; min-width:220px; background:rgba(0,0,0,.35); color:#fff; border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:8px 10px" />
-
-      <button id="reload" style="background:#10b981; border:none; color:#fff; padding:8px 12px; border-radius:10px; font-weight:700; cursor:pointer">
-        Ladda om
-      </button>
+      <div id="list"></div>
+      <div id="err" class="error"></div>
     </div>
-
-    <div class="lead" id="heading">Top 10 – Affärer (success)</div>
-    <div class="list" id="list"></div>
-    <div class="error" id="error"></div>
   </div>
 
   <script>
-    const dateEl = document.getElementById('date');
-    const periodEl = document.getElementById('period');
-    const metricEl = document.getElementById('metric');
-    const groupsEl = document.getElementById('groups');
-    const headingEl = document.getElementById('heading');
-    const listEl = document.getElementById('list');
-    const errEl = document.getElementById('error');
-    const btn = document.getElementById('reload');
+    const api = '/api/leaderboard';
+    const $ = (id) => document.getElementById(id);
+    const fmtTHB = v => `${Math.round(v).toLocaleString('sv-SE')} THB`;
 
-    const fmtDate = () => {
-      const now = new Date();
-      dateEl.textContent = now.toLocaleDateString('sv-SE', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-    };
-
-    async function loadLeaderboard() {
-      errEl.textContent = '';
-      listEl.innerHTML = '<div class="muted">Laddar…</div>';
-
-      const period = periodEl.value;
-      const metric = metricEl.value;
-      const groups = (groupsEl.value || '').trim();
-
-      headingEl.textContent = `Top 10 – ${metric === 'deals' ? 'Affärer' : 'Commission'} (success)`;
-      const url = new URL('/api/leaderboard', window.location.origin);
-      url.searchParams.set('period', period);
-      url.searchParams.set('metric', metric);
-      url.searchParams.set('top', '10');
-      if (groups) url.searchParams.set('groups', groups);
-
+    let lastTotalDeals = 0;
+    let firstLoad = true;
+    function pling() {
       try {
-        const r = await fetch(url.toString());
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
+        const a = new (window.AudioContext||window.webkitAudioContext)();
+        const o = a.createOscillator(); const g=a.createGain();
+        o.connect(g); g.connect(a.destination);
+        o.type='sine'; o.frequency.value=880;
+        g.gain.setValueAtTime(.25,a.currentTime);
+        g.gain.exponentialRampToValueAtTime(.01,a.currentTime+.45);
+        o.start(); o.stop(a.currentTime+.45);
+      } catch(e){}
+    }
+    function confetti() {
+      const emojis=['🎉','🎊','🏆','✨','💥','💰','🚀'];
+      const el=document.createElement('div');
+      el.className='celebrate'; el.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+      document.body.appendChild(el); setTimeout(()=>el.remove(),900);
+    }
 
-        const items = Array.isArray(data.items) ? data.items : [];
-        if (items.length === 0) {
-          listEl.innerHTML = '<div class="muted">Inga affärer i vald period.</div>';
-          return;
-        }
+    function render(data) {
+      const list = $('list'); list.innerHTML='';
+      const metric = $('metric').value;
+      const top = parseInt($('top').value,10);
+      $('subtitle').textContent = `Top ${top} – ${metric === 'commission' ? 'Provision' : 'Affärer'} (success)`;
 
-        listEl.innerHTML = items.map((x, i) => `
-          <div class="row">
-            <div class="rank">${i+1}</div>
-            <div>
-              <div class="name">${x.name}</div>
-              <div class="group">${x.group || '-'}</div>
-            </div>
-            <div class="stat">${x.deals.toLocaleString('sv-SE')} deals</div>
-            <div class="stat">${Math.round(x.commission).toLocaleString('sv-SE')} THB</div>
+      let totalDeals = 0;
+      data.items.forEach((it, i) => {
+        totalDeals += it.deals || 0;
+        const row = document.createElement('div'); row.className='row';
+        row.innerHTML = `
+          <div class="rank">${i+1}</div>
+          <div class="who">
+            <div class="name">${it.name}</div>
+            <div class="grp">${it.group || '-'}</div>
           </div>
-        `).join('');
+          <div class="stat">
+            <div class="big">${metric==='commission' ? fmtTHB(it.commission||0) : (it.deals||0)}</div>
+            <div class="sub">${metric==='commission' ? (it.deals||0)+' deals' : fmtTHB(it.commission||0)}</div>
+          </div>`;
+        list.appendChild(row);
+      });
+
+      if (!firstLoad && totalDeals > lastTotalDeals) { pling(); confetti(); }
+      lastTotalDeals = totalDeals; firstLoad = false;
+    }
+
+    async function load() {
+      $('err').textContent='';
+      try {
+        const url = `${api}?period=${$('period').value}&metric=${$('metric').value}&top=${$('top').value}`;
+        const r = await fetch(url); if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+        const data = await r.json();
+        render(data);
       } catch (e) {
-        errEl.textContent = 'Fel: ' + (e?.message || e);
-        listEl.innerHTML = '';
+        $('err').textContent = `Fel: ${e.message}`;
       }
     }
 
-    btn.addEventListener('click', loadLeaderboard);
-    periodEl.addEventListener('change', loadLeaderboard);
-    metricEl.addEventListener('change', loadLeaderboard);
+    $('period').onchange = load;
+    $('metric').onchange = load;
+    $('top').onchange = load;
 
-    fmtDate();
-    loadLeaderboard();
-    // auto-uppdatera var 30:e sekund
-    setInterval(loadLeaderboard, 30000);
-    setInterval(fmtDate, 60000);
+    function tickDate(){
+      const now=new Date();
+      $('date').textContent = now.toLocaleDateString('sv-SE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+    }
+
+    tickDate(); load(); setInterval(load, 20000); setInterval(tickDate, 30000);
   </script>
 </body>
 </html>
