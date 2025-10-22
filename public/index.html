@@ -1,149 +1,115 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Leaderboard – Sweet TV</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Leaderboard</title>
   <style>
-    :root { --bg1:#4f46e5; --bg2:#7c3aed; --glass:rgba(255,255,255,.14); --glass2:rgba(255,255,255,.10); }
     *{box-sizing:border-box}
-    body{
-      margin:0; height:100vh; display:flex; align-items:center; justify-content:center;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      color:#fff; background:linear-gradient(135deg,var(--bg1),var(--bg2));
-    }
-    .wrap{width:min(1200px,92vw)}
-    .title{display:flex;align-items:center;gap:14px;margin-bottom:18px}
-    .title h1{margin:0;font-size:44px}
-    .card{
-      background:var(--glass); backdrop-filter: blur(10px);
-      border-radius:18px; padding:22px 26px; box-shadow:0 10px 30px rgba(0,0,0,.25);
-    }
-    .controls{display:flex;gap:12px;align-items:center;margin-bottom:14px}
-    select{background:var(--glass2); color:#fff; border:1px solid rgba(255,255,255,.25);
-      padding:6px 10px;border-radius:10px}
-    .row{display:flex; align-items:center; padding:12px 10px; border-radius:12px; background:rgba(255,255,255,.09); margin:8px 0}
-    .row .rank{width:64px; text-align:center; font-size:26px}
-    .row .who{flex:1}
-    .row .who .name{font-size:22px; font-weight:600}
-    .row .who .grp{opacity:.8; font-size:14px}
-    .row .stat{text-align:right}
-    .row .stat .big{font-size:26px; font-weight:800}
-    .row .stat .sub{opacity:.85}
-    .error{color:#ffd1d1; margin-top:10px}
-    .celebrate{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
-      font-size:120px; pointer-events:none; animation:pop 900ms ease-out}
-    @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.1)}
-      50%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}
-      100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
+    body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(135deg,#4f46e5,#7c3aed); color:#fff; font:18px/1.5 Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+    .wrap{width:1100px}
+    .title{font-size:42px;font-weight:800;display:flex;align-items:center;gap:10px}
+    .panel{margin-top:24px;background:rgba(255,255,255,.12);backdrop-filter:blur(8px);border-radius:16px;padding:18px 22px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    select{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:10px;padding:6px 10px}
+    table{width:100%;margin-top:14px;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.15)}
+    th{font-weight:700;text-align:left;opacity:.9}
+    .num{font-variant-numeric:tabular-nums}
+    .msg{margin-top:10px;color:#ffdada}
+    .cele{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-size:68px;pointer-events:none}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="title">
-      <div style="font-size:36px">🏆</div>
-      <h1>Leaderboard</h1>
-      <div id="date" style="margin-left:auto;opacity:.9"></div>
-    </div>
-
-    <div class="card">
-      <div class="controls">
+    <div class="title">🏆 Leaderboard</div>
+    <div class="panel">
+      <div class="row">
         <label>Period:</label>
-        <select id="period">
-          <option value="month">Denna månad</option>
-          <option value="today">Idag</option>
-        </select>
+        <select id="period"><option value="month">Denna månad</option><option value="today">Idag</option></select>
         <label>Sortera på:</label>
-        <select id="metric">
-          <option value="deals">Affärer (deals)</option>
-          <option value="commission">Provision (THB)</option>
-        </select>
+        <select id="metric"><option value="deals">Affärer (deals)</option><option value="commission">Commission</option></select>
         <label>Visa topp:</label>
-        <select id="top">
-          <option>10</option><option>20</option><option>50</option>
-        </select>
-        <div style="opacity:.8;margin-left:auto" id="subtitle">Top 10 – Affärer (success)</div>
+        <select id="size"><option>10</option><option>20</option><option>50</option></select>
       </div>
-
-      <div id="list"></div>
-      <div id="err" class="error"></div>
+      <div id="title" style="margin-top:8px;opacity:.9">Top 10 – Affärer (success)</div>
+      <table id="tbl">
+        <thead><tr><th>#</th><th>Agent</th><th>Grupp</th><th>Deals</th><th>Commission</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div id="err" class="msg"></div>
     </div>
   </div>
+  <div id="cele" class="cele">🎉</div>
 
-  <script>
-    const api = '/api/leaderboard';
-    const $ = (id) => document.getElementById(id);
-    const fmtTHB = v => `${Math.round(v).toLocaleString('sv-SE')} THB`;
+<script>
+const API = location.origin + '/api';
+let prevTotalDeals = 0;
 
-    let lastTotalDeals = 0;
-    let firstLoad = true;
-    function pling() {
-      try {
-        const a = new (window.AudioContext||window.webkitAudioContext)();
-        const o = a.createOscillator(); const g=a.createGain();
-        o.connect(g); g.connect(a.destination);
-        o.type='sine'; o.frequency.value=880;
-        g.gain.setValueAtTime(.25,a.currentTime);
-        g.gain.exponentialRampToValueAtTime(.01,a.currentTime+.45);
-        o.start(); o.stop(a.currentTime+.45);
-      } catch(e){}
-    }
-    function confetti() {
-      const emojis=['🎉','🎊','🏆','✨','💥','💰','🚀'];
-      const el=document.createElement('div');
-      el.className='celebrate'; el.textContent=emojis[Math.floor(Math.random()*emojis.length)];
-      document.body.appendChild(el); setTimeout(()=>el.remove(),900);
-    }
+function num(x){ return Number(x||0).toLocaleString('sv-SE'); }
+function pling(){
+  try{
+    const ac = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ac.createOscillator(); const g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type='sine'; o.frequency.value=880; g.gain.value=.15;
+    o.start(); setTimeout(()=>{o.stop(); ac.close()}, 250);
+  }catch{}
+}
+function confetti(){
+  const e = document.getElementById('cele'); e.style.display='flex';
+  setTimeout(()=> e.style.display='none', 900);
+}
 
-    function render(data) {
-      const list = $('list'); list.innerHTML='';
-      const metric = $('metric').value;
-      const top = parseInt($('top').value,10);
-      $('subtitle').textContent = `Top ${top} – ${metric === 'commission' ? 'Provision' : 'Affärer'} (success)`;
+async function load() {
+  const period = document.getElementById('period').value;
+  const metric = document.getElementById('metric').value;
+  const size = document.getElementById('size').value;
 
-      let totalDeals = 0;
-      data.items.forEach((it, i) => {
-        totalDeals += it.deals || 0;
-        const row = document.createElement('div'); row.className='row';
-        row.innerHTML = `
-          <div class="rank">${i+1}</div>
-          <div class="who">
-            <div class="name">${it.name}</div>
-            <div class="grp">${it.group || '-'}</div>
-          </div>
-          <div class="stat">
-            <div class="big">${metric==='commission' ? fmtTHB(it.commission||0) : (it.deals||0)}</div>
-            <div class="sub">${metric==='commission' ? (it.deals||0)+' deals' : fmtTHB(it.commission||0)}</div>
-          </div>`;
-        list.appendChild(row);
-      });
+  document.getElementById('title').textContent =
+    `Top ${size} – ${metric==='commission'?'Commission':'Affärer'} (success)`;
 
-      if (!firstLoad && totalDeals > lastTotalDeals) { pling(); confetti(); }
-      lastTotalDeals = totalDeals; firstLoad = false;
-    }
+  const url = new URL(API + '/leaderboard');
+  url.searchParams.set('period', period);
+  url.searchParams.set('metric', metric);
+  url.searchParams.set('size', size);
+  url.searchParams.set('includeRecent','false');
 
-    async function load() {
-      $('err').textContent='';
-      try {
-        const url = `${api}?period=${$('period').value}&metric=${$('metric').value}&top=${$('top').value}`;
-        const r = await fetch(url); if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-        const data = await r.json();
-        render(data);
-      } catch (e) {
-        $('err').textContent = `Fel: ${e.message}`;
-      }
-    }
+  const r = await fetch(url);
+  const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
 
-    $('period').onchange = load;
-    $('metric').onchange = load;
-    $('top').onchange = load;
+  if (!r.ok){
+    document.getElementById('err').textContent = `Fel: ${r.status}`;
+    return;
+  }
+  const data = await r.json();
+  document.getElementById('err').textContent = '';
 
-    function tickDate(){
-      const now=new Date();
-      $('date').textContent = now.toLocaleDateString('sv-SE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-    }
+  let totalDeals = 0;
+  (data.top||[]).forEach((row,i)=>{
+    totalDeals += row.deals;
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td class="num">${i+1}</td>
+       <td>${row.name}</td>
+       <td style="opacity:.8">${row.group||'-'}</td>
+       <td class="num">${num(row.deals)}</td>
+       <td class="num">${num(row.commission)} THB</td>`;
+    tb.appendChild(tr);
+  });
 
-    tickDate(); load(); setInterval(load, 20000); setInterval(tickDate, 30000);
-  </script>
+  if (totalDeals > prevTotalDeals){
+    pling(); confetti();
+  }
+  prevTotalDeals = totalDeals;
+}
+
+['period','metric','size'].forEach(id =>
+  document.getElementById(id).addEventListener('change', load)
+);
+load();
+setInterval(load, 15000);
+</script>
 </body>
 </html>
