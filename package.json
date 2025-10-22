@@ -1,17 +1,15 @@
 {
-  "name": "adversus-dashboard",
-  "version": "2.0.0",
-  "description": "Adversus Leaderboard Dashboard with API Proxy",
+  "name": "sweet-tv",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "dependencies": {
-    "express": "^4.18.2",
-    "axios": "^1.6.2",
-    "cors": "^2.8.5"
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2",
+    "dotenv": "^16.4.5"
   }
 }
