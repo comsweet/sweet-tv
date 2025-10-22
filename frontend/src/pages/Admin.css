@@ -113,127 +113,185 @@
   background: #c0392b;
 }
 
-/* Agents Grid */
-.agents-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 1.5rem;
-}
-
-.agent-card {
+/* Kompakt lista för agenter */
+.agents-list {
   background: white;
-  border: 2px solid #e1e8ed;
   border-radius: 10px;
-  padding: 1.5rem;
-  text-align: center;
-  transition: all 0.3s ease;
+  overflow: hidden;
+  border: 1px solid #e1e8ed;
 }
 
-.agent-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
-  border-color: #667eea;
+.agent-list-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid #e1e8ed;
+  transition: background 0.2s ease;
 }
 
-.agent-card-header {
-  position: relative;
-  display: inline-block;
-  margin-bottom: 1rem;
+.agent-list-item:hover {
+  background: #f8f9fa;
 }
 
-.agent-image,
-.agent-image-placeholder {
-  width: 100px;
-  height: 100px;
+.agent-list-item:last-child {
+  border-bottom: none;
+}
+
+.agent-list-avatar,
+.agent-list-avatar-placeholder {
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid #e1e8ed;
+  border: 2px solid #e1e8ed;
+  flex-shrink: 0;
 }
 
-.agent-image-placeholder {
+.agent-list-avatar-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  font-size: 2.5rem;
+  font-size: 1.2rem;
   font-weight: bold;
 }
 
-.upload-button {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 35px;
-  height: 35px;
+.agent-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-list-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0 0 0.25rem;
+}
+
+.agent-list-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #7f8c8d;
+  flex-wrap: wrap;
+}
+
+.agent-list-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.agent-list-upload {
+  flex-shrink: 0;
+}
+
+.upload-button-small {
+  width: 36px;
+  height: 36px;
   background: #667eea;
   border-radius: 50%;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  border: 3px solid white;
+  font-size: 1.2rem;
 }
 
-.upload-button:hover {
+.upload-button-small:hover {
   background: #764ba2;
   transform: scale(1.1);
 }
 
-.agent-card h3 {
-  margin: 0.5rem 0;
+/* Kompakt lista för groups */
+.groups-list {
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e1e8ed;
+}
+
+.group-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e1e8ed;
+  transition: background 0.2s ease;
+}
+
+.group-list-item:hover {
+  background: #f8f9fa;
+}
+
+.group-list-item:last-child {
+  border-bottom: none;
+}
+
+.group-list-item h3 {
+  margin: 0;
+  font-size: 1rem;
   color: #2c3e50;
 }
 
-.agent-id,
-.agent-email {
-  margin: 0.5rem 0;
+.group-list-item p {
+  margin: 0;
+  font-size: 0.85rem;
   color: #7f8c8d;
-  font-size: 0.9rem;
 }
 
-.agent-actions {
+/* Stats Section */
+.stats-header {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.agent-actions button {
-  flex: 1;
-  padding: 0.5rem;
-  font-size: 0.9rem;
-}
-
-/* Groups */
-.groups-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
-.group-card {
-  background: white;
-  border: 2px solid #e1e8ed;
-  border-radius: 10px;
-  padding: 1.5rem;
-  transition: all 0.3s ease;
-}
-
-.group-card:hover {
-  border-color: #667eea;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-.group-card h3 {
-  margin: 0 0 0.5rem;
-  color: #2c3e50;
-}
-
-.group-card p {
+.stats-header h2 {
   margin: 0;
-  color: #7f8c8d;
+}
+
+.date-picker {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.date-picker label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   font-size: 0.9rem;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.date-picker input[type="date"] {
+  padding: 0.5rem;
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: border-color 0.3s ease;
+}
+
+.date-picker input[type="date"]:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.no-data {
+  text-align: center;
+  padding: 3rem;
+  color: #7f8c8d;
+  font-size: 1.1rem;
 }
 
 /* Stats Table */
@@ -286,78 +344,46 @@
   font-weight: bold;
 }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: white;
-  border-radius: 15px;
-  padding: 2rem;
-  max-width: 500px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal h2 {
-  margin: 0 0 1.5rem;
-  color: #2c3e50;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: #2c3e50;
-  font-weight: 500;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e1e8ed;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.3s ease;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.form-group input:disabled {
-  background: #f8f9fa;
-  cursor: not-allowed;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 2rem;
-}
-
-.modal-actions button {
-  flex: 1;
-}
-
 .loading {
   text-align: center;
   padding: 3rem;
   font-size: 1.5rem;
   color: #7f8c8d;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-container {
+    padding: 1rem;
+  }
+
+  .admin-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .admin-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .stats-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .date-picker {
+    width: 100%;
+  }
+
+  .date-picker label {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .agent-list-meta {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
 }
