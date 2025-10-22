@@ -5,29 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin – Sweet TV</title>
   <style>
-    :root{--bg:#0f1522;--card:#141c2e;--muted:#9fb0ce}
+    :root{--bg:#0f1522;--card:#141c2e;--muted:#9fb0ce;--border:#26324b;--pill:#1b2741}
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:#fff;font:16px/1.4 system-ui,Segoe UI,Roboto}
-    header{padding:18px 24px;border-bottom:1px solid #26324b;display:flex;gap:16px;align-items:center}
+    body{margin:0;background:var(--bg);color:#fff;font:16px/1.45 system-ui,Segoe UI,Roboto}
+    header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
     header h1{font-size:20px;margin:0} header a{color:var(--muted);text-decoration:none}
-    .wrap{max-width:1200px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
-    .card{background:var(--card);border:1px solid #26324b;border-radius:14px;padding:16px}
+    header .hint{color:var(--muted);font-size:12px}
+    .wrap{max-width:1300px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
     .card h2{margin:0 0 12px 0;font-size:18px}
-    .toolbar{display:flex;gap:10px;margin-bottom:12px}
-    input[type="search"]{flex:1;padding:10px 12px;border-radius:10px;border:1px solid #2d3a57;background:#0d1320;color:#fff}
+    .toolbar{display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
+    input[type="search"], select{flex:1;padding:10px 12px;border-radius:10px;border:1px solid #2d3a57;background:#0d1320;color:#fff;min-width:220px}
     table{width:100%;border-collapse:separate;border-spacing:0}
     th,td{padding:10px 12px;border-bottom:1px solid #223052} th{font-weight:600;color:var(--muted);text-align:left}
-    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#1b2741;color:#dbe8ff;border:1px solid #2a3a5f}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--pill);color:#dbe8ff;border:1px solid #2a3a5f}
     .muted{color:var(--muted)} .small{font-size:12px}
     .badge{background:#102a3a;color:#9fe8ff;border:1px solid #1c4152;padding:2px 8px;border-radius:999px;font-size:12px}
-    .hint{color:var(--muted);margin-top:6px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .stat{flex:1;min-width:180px;background:#0d1320;border:1px solid #1c2a46;border-radius:12px;padding:12px}
+    .stat .k{font-size:22px;font-weight:700}
+    .right{text-align:right}
+    .ok{color:#95f5a7} .warn{color:#ffd36e}
+    .code{font-family:ui-monospace, Menlo, Consolas, monospace; background:#0b1220; border:1px solid #1c2744; padding:2px 6px; border-radius:6px}
   </style>
 </head>
 <body>
   <header>
     <h1>Admin – Sweet TV</h1>
     <a href="/" title="Till TV-vyn">🏠 TV</a>
-    <span class="hint small" id="envHint"></span>
+    <span class="hint" id="envHint"></span>
   </header>
 
   <div class="wrap">
@@ -42,7 +48,7 @@
         <thead><tr><th>Namn</th><th>ID</th><th>Agenter</th></tr></thead>
         <tbody></tbody>
       </table>
-      <div class="hint small">Källa: <code>/api/v1/groups</code> (mappas ihop med <code>/api/v1/users</code> via <code>user.group.id</code>).</div>
+      <div class="small muted">Källa: <code>/api/v1/groups</code> (mappas mot <code>/api/v1/users</code> via <code>user.group.id</code>).</div>
     </section>
 
     <!-- AGENTS -->
@@ -57,27 +63,124 @@
         <tbody></tbody>
       </table>
     </section>
+
+    <!-- DATA CHECK -->
+    <section class="card" style="grid-column:1 / -1">
+      <h2>Data check – Commission & Deals</h2>
+      <div class="toolbar">
+        <select id="period">
+          <option value="today">Idag</option>
+          <option value="month" selected>Denna månad</option>
+        </select>
+        <button id="reload" style="padding:10px 14px;border-radius:10px;border:1px solid #2d3a57;background:#0d1320;color:#fff;cursor:pointer">Ladda om</button>
+        <span class="badge" id="leadCount">0 leads</span>
+        <span class="badge" id="fieldMapBadge">Fields – …</span>
+      </div>
+
+      <div class="row" style="margin-bottom:12px">
+        <div class="stat">
+          <div class="small muted">Totalt deals</div>
+          <div class="k" id="statDeals">0</div>
+        </div>
+        <div class="stat">
+          <div class="small muted">Totalt Commission</div>
+          <div class="k" id="statCommission">0 THB</div>
+        </div>
+        <div class="stat">
+          <div class="small muted">Unika agenter (med deals)</div>
+          <div class="k" id="statAgents">0</div>
+        </div>
+        <div class="stat">
+          <div class="small muted">Fält-ID:n</div>
+          <div class="k small">
+            Commission: <span id="fmCommission" class="code">–</span> &nbsp;
+            MultiDeals: <span id="fmMulti" class="code">–</span> &nbsp;
+            Order date: <span id="fmOrder" class="code">–</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="gap:24px">
+        <div style="flex:1;min-width:420px">
+          <h3 class="small muted" style="margin:6px 0 8px 0">Topplista (period)</h3>
+          <table id="aggTbl">
+            <thead><tr><th>#</th><th>Agent</th><th>Grupp</th><th class="right">Deals</th><th class="right">Commission</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div style="flex:1;min-width:420px">
+          <h3 class="small muted" style="margin:6px 0 8px 0">Senaste affärer (15 st)</h3>
+          <table id="lastTbl">
+            <thead><tr><th>Tid</th><th>Agent</th><th>Grupp</th><th class="right">Commission</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="small muted" style="margin-top:10px">
+        Affär = lead med <span class="code">Commission &gt; 0</span>. MultiDeals används om angivet, annars default <span class="code">1</span>.
+        Orderfiltrering görs via fältet <span class="code">Order date</span> (ISO-tid, UTC) om det finns, annars med API:ts from/to.
+      </div>
+    </section>
   </div>
 
   <script>
     const API = `${location.origin}/api/v1`;
     document.getElementById('envHint').textContent = `Proxy: ${API}`;
 
-    const state = { users: [], groupsApi: [], groups: new Map() };
+    const state = {
+      users: [],
+      groupsApi: [],
+      groups: new Map(),
+      fieldMap: { commission: 70163, multiDeals: 74126, orderDate: 71067 }, // defaults
+      leads: [],
+      aggregates: []
+    };
 
+    // ---------- Helpers ----------
     const Q = s => document.querySelector(s);
+    const norm = s => String(s||'').toLowerCase();
+    const asList = p => Array.isArray(p) ? p :
+      (p && typeof p==='object' && (p.groups||p.users||p.items||p.data||p.results||p.leads)) || [];
+
+    function toTHB(n){ return `${(n||0).toLocaleString('th-TH',{maximumFractionDigits:0})} THB`; }
+
+    function dateRange(period){
+      const now=new Date();
+      const start = period==='today' ? new Date(now.getFullYear(),now.getMonth(),now.getDate())
+                                     : new Date(now.getFullYear(),now.getMonth(),1);
+      start.setHours(0,0,0,0);
+      return { from:start, to:now };
+    }
+
+    function readFieldValue(lead, fieldId){
+      if (!fieldId) return undefined;
+      if (lead?.customFields && lead.customFields[fieldId]!=null) return lead.customFields[fieldId];
+      if (Array.isArray(lead?.masterData)){
+        const hit = lead.masterData.find(x=>Number(x.id)===Number(fieldId)); if (hit) return hit.value;
+      }
+      if (lead?.resultFields){
+        if (typeof lead.resultFields==='object' && !Array.isArray(lead.resultFields)){
+          if (lead.resultFields[fieldId]!=null) return lead.resultFields[fieldId];
+        } else if (Array.isArray(lead.resultFields)){
+          const f = lead.resultFields.find(f=>Number(f.id)===Number(fieldId)); if (f) return f.value;
+        }
+      }
+      return undefined;
+    }
+
+    function userName(u){ return u?.displayName || u?.name || `${u?.firstName||''} ${u?.lastName||''}`.trim() || 'Okänd'; }
+    function userGroup(u){
+      return u?.group?.name ||
+             (Array.isArray(u?.memberOf) && u.memberOf[0]?.name) ||
+             (Array.isArray(u?.teams) && u.teams[0]) || '(ingen)';
+    }
+
+    // ---------- Render users & groups ----------
     const groupsBody = Q('#groupsTbl tbody');
     const agentsBody = Q('#agentsTbl tbody');
     const groupCount = Q('#groupCount');
     const agentCount = Q('#agentCount');
-    const norm = s => String(s||'').toLowerCase();
-
-    function normalizeList(payload){
-      // Hantera både rena arrayer och "wrapped" svar som { groups: [] }, { users: [] }, { items: [] }, etc.
-      if (Array.isArray(payload)) return payload;
-      if (!payload || typeof payload!=='object') return [];
-      return payload.groups || payload.users || payload.items || payload.data || payload.results || [];
-    }
 
     function renderGroups(filter=''){
       const f=norm(filter);
@@ -85,11 +188,7 @@
       const rows=[];
       for (const g of list){
         if (f && !norm(g.name).includes(f) && !String(g.id).includes(f)) continue;
-        rows.push(`<tr>
-          <td>${g.name}</td>
-          <td class="muted">${g.id}</td>
-          <td><span class="pill">${g.agents.length} st</span></td>
-        </tr>`);
+        rows.push(`<tr><td>${g.name}</td><td class="muted">${g.id}</td><td><span class="pill">${g.agents.length} st</span></td></tr>`);
       }
       groupsBody.innerHTML = rows.join('') || `<tr><td colspan="3" class="muted">Inga grupper matchar.</td></tr>`;
       groupCount.textContent = `${list.length} grupper`;
@@ -98,11 +197,9 @@
     function renderAgents(filter=''){
       const f=norm(filter);
       const agents = state.users.map(u=>({
-        name: u.displayName || u.name || `${u.firstName||''} ${u.lastName||''}`.trim() || 'Okänd',
+        name: userName(u),
         email: u.email || '',
-        group: (u?.group?.name) ||
-               (Array.isArray(u?.memberOf) && u.memberOf[0]?.name) ||
-               (Array.isArray(u?.teams) && u.teams[0]) || '(ingen)',
+        group: userGroup(u),
         role: u?.role?.name || '',
         active: !!u?.active
       })).sort((a,b)=>a.name.localeCompare(b.name,'sv'));
@@ -113,8 +210,7 @@
         if (f && !hay.includes(f)) continue;
         count++;
         rows.push(`<tr>
-          <td>${a.name}</td>
-          <td>${a.group}</td>
+          <td>${a.name}</td><td>${a.group}</td>
           <td>${a.role||'<span class="muted">–</span>'}</td>
           <td class="muted">${a.email||'–'}</td>
           <td class="muted">${a.active?'Aktiv':'Inaktiv'}</td>
@@ -124,39 +220,133 @@
       agentCount.textContent = `${count} agenter`;
     }
 
+    // ---------- Data check (fields + leads) ----------
+    const fieldBadge = Q('#fieldMapBadge');
+    const fmC = Q('#fmCommission'), fmM=Q('#fmMulti'), fmO=Q('#fmOrder');
+    const statDeals = Q('#statDeals'), statCommission=Q('#statCommission'), statAgents=Q('#statAgents');
+    const leadCount = Q('#leadCount');
+    const aggBody = Q('#aggTbl tbody'), lastBody=Q('#lastTbl tbody');
+
+    function setFieldBadge(){
+      fieldBadge.textContent = `Fields – C:${state.fieldMap.commission}  M:${state.fieldMap.multiDeals}  O:${state.fieldMap.orderDate}`;
+      fmC.textContent = state.fieldMap.commission;
+      fmM.textContent = state.fieldMap.multiDeals;
+      fmO.textContent = state.fieldMap.orderDate;
+    }
+
+    function aggregate(period){
+      const { from, to } = dateRange(period);
+
+      const usersById = new Map(state.users.map(u=>[u.id, u]));
+      const agg = new Map(); // userId -> {deals, commission, name, group}
+
+      const last = []; // senaste affärer
+
+      for (const lead of state.leads){
+        // Filtrera på Order date om fältet finns
+        const odRaw = readFieldValue(lead, state.fieldMap.orderDate);
+        if (odRaw){
+          const d = new Date(odRaw);
+          if (isFinite(d) && !(d >= from && d < to)) continue;
+        }
+
+        const commission = parseFloat(readFieldValue(lead, state.fieldMap.commission)) || 0;
+        if (commission <= 0) continue; // inte en affär
+
+        const md = parseFloat(readFieldValue(lead, state.fieldMap.multiDeals));
+        const dealsInc = Number.isFinite(md) && md>0 ? md : 1;
+
+        const uid = lead.lastContactedBy || lead.ownerId || lead.userId;
+        const u = uid && usersById.get(uid);
+        if (!u) continue;
+
+        const key = uid;
+        if (!agg.has(key)) agg.set(key, { userId:uid, name:userName(u), group:userGroup(u), deals:0, commission:0 });
+        const a = agg.get(key);
+        a.deals += dealsInc;
+        a.commission += commission;
+
+        // senaste affärer
+        const when = odRaw ? new Date(odRaw) : (lead.updatedAt ? new Date(lead.updatedAt) : null);
+        last.push({ when, name:userName(u), group:userGroup(u), commission });
+      }
+
+      // render stats
+      const arr = [...agg.values()].sort((a,b)=> b.deals!==a.deals ? b.deals-a.deals : b.commission-a.commission);
+      const totalDeals = arr.reduce((s,x)=>s+x.deals,0);
+      const totalComm  = arr.reduce((s,x)=>s+x.commission,0);
+
+      statDeals.textContent = totalDeals.toString();
+      statCommission.textContent = toTHB(totalComm);
+      statAgents.textContent = arr.length.toString();
+
+      // topplista
+      aggBody.innerHTML = arr.slice(0,20).map((x,i)=>`
+        <tr>
+          <td>${i+1}</td>
+          <td>${x.name}</td>
+          <td>${x.group}</td>
+          <td class="right">${x.deals}</td>
+          <td class="right">${toTHB(x.commission)}</td>
+        </tr>
+      `).join('') || `<tr><td colspan="5" class="muted">Inga affärer i vald period.</td></tr>`;
+
+      // senaste 15
+      last.sort((a,b)=> (b.when?.getTime()||0) - (a.when?.getTime()||0));
+      lastBody.innerHTML = last.slice(0,15).map(r=>`
+        <tr>
+          <td>${r.when ? r.when.toLocaleString('sv-SE') : '–'}</td>
+          <td>${r.name}</td>
+          <td>${r.group}</td>
+          <td class="right">${toTHB(r.commission)}</td>
+        </tr>
+      `).join('') || `<tr><td colspan="4" class="muted">Inga affärer hittades.</td></tr>`;
+    }
+
+    async function loadFieldMap(){
+      try{
+        const res = await fetch(`${API}/fields`);
+        const raw = await res.json().catch(()=>([]));
+        if (!res.ok) throw new Error(`Fields ${res.status}`);
+        const arr = asList(raw) || raw; // /fields är ofta ren array
+        const find = n => (arr.find(f=>String(f.name).toLowerCase()===n.toLowerCase())||{}).id;
+
+        state.fieldMap = {
+          commission: find('Commission') || state.fieldMap.commission,
+          multiDeals: find('MultiDeals') || state.fieldMap.multiDeals,
+          orderDate:  find('Order date') || state.fieldMap.orderDate
+        };
+      }catch(e){
+        console.warn('Fields failed, using defaults', e);
+      }
+      setFieldBadge();
+    }
+
     async function loadUsersAndGroups(){
-      const [usersRes, groupsRes] = await Promise.all([
-        fetch(`${API}/users`),
-        fetch(`${API}/groups`)
-      ]);
-
-      const usersRaw  = await usersRes.json().catch(()=>({}));
-      const groupsRaw = await groupsRes.json().catch(()=>({}));
-
-      if (!usersRes.ok)  throw new Error(`Users ${usersRes.status} ${JSON.stringify(usersRaw)}`);
+      const [usersRes, groupsRes] = await Promise.all([ fetch(`${API}/users`), fetch(`${API}/groups`) ]);
+      const usersRaw = await usersRes.json().catch(()=>({}));
+      const groupsRaw= await groupsRes.json().catch(()=>({}));
+      if (!usersRes.ok) throw new Error(`Users ${usersRes.status} ${JSON.stringify(usersRaw)}`);
       if (!groupsRes.ok) throw new Error(`Groups ${groupsRes.status} ${JSON.stringify(groupsRaw)}`);
 
-      state.users    = normalizeList(usersRaw);   // array av users
-      state.groupsApi= normalizeList(groupsRaw);  // array av grupper
+      state.users    = asList(usersRaw);
+      state.groupsApi= asList(groupsRaw);
 
-      // Bygg riktig "grupp -> agenter"-mappning
+      // bygg riktig "group -> agents"-karta
       state.groups = new Map();
-      for (const g of state.groupsApi) {
-        state.groups.set(String(g.id), { id:g.id, name:g.name||'(namnlös)', agents:[] });
-      }
-      for (const u of state.users) {
+      for (const g of state.groupsApi) state.groups.set(String(g.id), { id:g.id, name:g.name||'(namnlös)', agents:[] });
+      for (const u of state.users){
         const gid = u?.group?.id;
-        if (gid != null) {
-          const key = String(gid);
-          if (!state.groups.has(key)) state.groups.set(key, { id: gid, name: u.group.name || '(namnlös)', agents: [] });
-          state.groups.get(key).agents.push(u);
-        } else {
-          // fallback – pseudo-grupper baserat på memberOf/teams
+        if (gid!=null){
+          const k=String(gid);
+          if (!state.groups.has(k)) state.groups.set(k, { id:gid, name:u.group.name||'(namnlös)', agents:[] });
+          state.groups.get(k).agents.push(u);
+        }else{
           const m = Array.isArray(u?.memberOf) && u.memberOf[0] ? u.memberOf[0] : null;
           const pseudo = m ? { id:`mo:${m.id}`, name:m.name }
                            : (Array.isArray(u?.teams)&&u.teams[0] ? { id:`t:${u.teams[0]}`, name:u.teams[0] } : null);
           if (pseudo){
-            const k = String(pseudo.id);
+            const k=String(pseudo.id);
             if (!state.groups.has(k)) state.groups.set(k, { id:pseudo.id, name:pseudo.name, agents:[] });
             state.groups.get(k).agents.push(u);
           }
@@ -167,14 +357,39 @@
       renderAgents();
     }
 
+    async function loadLeads(period){
+      const { from, to } = dateRange(period);
+      const url = `${API}/leads?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+      const res = await fetch(url);
+      const raw = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(`Leads ${res.status} ${JSON.stringify(raw)}`);
+      state.leads = asList(raw);
+      Q('#leadCount').textContent = `${state.leads.length} leads`;
+    }
+
+    async function refreshDataCheck(){
+      const period = Q('#period').value;
+      await loadLeads(period);
+      aggregate(period);
+    }
+
+    // ---------- boot ----------
     Q('#groupSearch').addEventListener('input', e=>renderGroups(e.target.value));
     Q('#agentSearch').addEventListener('input', e=>renderAgents(e.target.value));
+    Q('#reload').addEventListener('click', refreshDataCheck);
+    Q('#period').addEventListener('change', refreshDataCheck);
 
-    loadUsersAndGroups().catch(err=>{
-      groupsBody.innerHTML = `<tr><td colspan="3" class="muted">Fel: ${err.message}</td></tr>`;
-      agentsBody.innerHTML = `<tr><td colspan="5" class="muted">Fel: ${err.message}</td></tr>`;
-    });
+    (async function init(){
+      try{
+        await loadFieldMap();
+        await loadUsersAndGroups();
+        await refreshDataCheck();
+      }catch(e){
+        groupsBody.innerHTML = `<tr><td colspan="3" class="muted">Fel: ${e.message}</td></tr>`;
+        agentsBody.innerHTML = `<tr><td colspan="5" class="muted">Fel: ${e.message}</td></tr>`;
+        console.error(e);
+      }
+    })();
   </script>
 </body>
 </html>
-
