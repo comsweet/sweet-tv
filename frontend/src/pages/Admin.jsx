@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { 
   getAgents, 
   createAgent, 
-  updateAgent, 
-  deleteAgent,
   uploadProfileImage,
   getAdversusUsers,
   getAdversusUserGroups,
@@ -19,6 +17,14 @@ const Admin = () => {
   const [userGroups, setUserGroups] = useState([]);
   const [stats, setStats] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Datumväljare för statistik
+  const [startDate, setStartDate] = useState(
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  );
+  const [endDate, setEndDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
 
   useEffect(() => {
     fetchData();
@@ -53,11 +59,9 @@ const Admin = () => {
         const groupsRes = await getAdversusUserGroups();
         setUserGroups(groupsRes.data.groups || []);
       } else if (activeTab === 'stats') {
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const statsRes = await getLeaderboardStats(
-          startOfMonth.toISOString(),
-          now.toISOString()
+          new Date(startDate).toISOString(),
+          new Date(endDate + 'T23:59:59').toISOString()
         );
         setStats(statsRes.data);
       }
@@ -152,18 +156,27 @@ const Admin = () => {
               <h2>Agenter från Adversus ({agents.length})</h2>
             </div>
 
-            <div className="agents-grid">
+            <div className="agents-list">
               {agents.map(agent => (
-                <div key={agent.userId} className="agent-card">
-                  <div className="agent-card-header">
-                    {agent.profileImage ? (
-                      <img src={agent.profileImage} alt={agent.name} className="agent-image" />
-                    ) : (
-                      <div className="agent-image-placeholder">
-                        {agent.name?.charAt(0) || '?'}
-                      </div>
-                    )}
-                    <label className="upload-button">
+                <div key={agent.userId} className="agent-list-item">
+                  {agent.profileImage ? (
+                    <img src={agent.profileImage} alt={agent.name} className="agent-list-avatar" />
+                  ) : (
+                    <div className="agent-list-avatar-placeholder">
+                      {agent.name?.charAt(0) || '?'}
+                    </div>
+                  )}
+                  
+                  <div className="agent-list-info">
+                    <h3 className="agent-list-name">{agent.name}</h3>
+                    <div className="agent-list-meta">
+                      <span>🆔 {agent.userId}</span>
+                      {agent.email && <span>📧 {agent.email}</span>}
+                    </div>
+                  </div>
+                  
+                  <div className="agent-list-upload">
+                    <label className="upload-button-small">
                       📸
                       <input 
                         type="file" 
@@ -172,14 +185,6 @@ const Admin = () => {
                         style={{ display: 'none' }}
                       />
                     </label>
-                  </div>
-                  <h3>{agent.name}</h3>
-                  <p className="agent-id">ID: {agent.userId}</p>
-                  {agent.email && <p className="agent-email">📧 {agent.email}</p>}
-                  <div className="agent-actions">
-                    <p style={{ fontSize: '0.9rem', color: '#7f8c8d', margin: 0, textAlign: 'center' }}>
-                      Från Adversus API
-                    </p>
                   </div>
                 </div>
               ))}
@@ -190,10 +195,12 @@ const Admin = () => {
         {/* User Groups Tab */}
         {activeTab === 'groups' && !isLoading && (
           <div className="groups-section">
-            <h2>User Groups från Adversus</h2>
+            <div className="section-header">
+              <h2>User Groups från Adversus ({userGroups.length})</h2>
+            </div>
             <div className="groups-list">
               {userGroups.map((group, index) => (
-                <div key={index} className="group-card">
+                <div key={index} className="group-list-item">
                   <h3>{group.name || 'Unnamed Group'}</h3>
                   <p>ID: {group.id}</p>
                 </div>
@@ -205,40 +212,73 @@ const Admin = () => {
         {/* Stats Tab */}
         {activeTab === 'stats' && !isLoading && (
           <div className="stats-section">
-            <h2>Statistik denna månad</h2>
-            <div className="stats-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Placering</th>
-                    <th>Agent</th>
-                    <th>Antal affärer</th>
-                    <th>Total provision</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.map((stat, index) => (
-                    <tr key={stat.userId}>
-                      <td>{index + 1}</td>
-                      <td>
-                        <div className="stat-agent">
-                          {stat.agent.profileImage ? (
-                            <img src={stat.agent.profileImage} alt={stat.agent.name} />
-                          ) : (
-                            <div className="stat-avatar-placeholder">
-                              {stat.agent.name?.charAt(0) || '?'}
-                            </div>
-                          )}
-                          <span>{stat.agent.name}</span>
-                        </div>
-                      </td>
-                      <td>{stat.dealCount}</td>
-                      <td>{stat.totalCommission.toLocaleString('sv-SE')} kr</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="stats-header">
+              <h2>Statistik</h2>
+              <div className="date-picker">
+                <label>
+                  Från:
+                  <input 
+                    type="date" 
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Till:
+                  <input 
+                    type="date" 
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </label>
+                <button onClick={fetchData} className="btn-primary">
+                  Ladda statistik
+                </button>
+              </div>
             </div>
+            
+            {stats.length === 0 ? (
+              <div className="no-data">Inga affärer för vald period</div>
+            ) : (
+              <div className="stats-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Placering</th>
+                      <th>Agent</th>
+                      <th>Antal affärer</th>
+                      <th>Total provision</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.map((stat, index) => (
+                      <tr key={stat.userId}>
+                        <td>
+                          {index === 0 && '🥇'}
+                          {index === 1 && '🥈'}
+                          {index === 2 && '🥉'}
+                          {index > 2 && `#${index + 1}`}
+                        </td>
+                        <td>
+                          <div className="stat-agent">
+                            {stat.agent.profileImage ? (
+                              <img src={stat.agent.profileImage} alt={stat.agent.name} />
+                            ) : (
+                              <div className="stat-avatar-placeholder">
+                                {stat.agent.name?.charAt(0) || '?'}
+                              </div>
+                            )}
+                            <span>{stat.agent.name}</span>
+                          </div>
+                        </td>
+                        <td>{stat.dealCount}</td>
+                        <td>{stat.totalCommission.toLocaleString('sv-SE')} kr</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
