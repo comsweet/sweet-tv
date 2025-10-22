@@ -28,7 +28,7 @@ class AdversusAPI {
     }
   }
 
-  // Hämta leads med filter - använder /leads istället för /sessions
+  // Hämta leads med filter - för polling
   async getSuccessLeads(fromDate) {
     const filters = {
       "status": { "$eq": "success" },
@@ -46,6 +46,27 @@ class AdversusAPI {
     return await this.request('/leads', params);
   }
 
+  // Hämta leads med datum-range - för statistik
+  async getLeadsInDateRange(startDate, endDate) {
+    const filters = {
+      "status": { "$eq": "success" },
+      "lastUpdatedTime": { 
+        "$gte": startDate.toISOString(),
+        "$lte": endDate.toISOString()
+      }
+    };
+
+    const params = {
+      filters: JSON.stringify(filters),
+      page: 1,
+      pageSize: 1000, // Hämta max 1000 leads
+      sortProperty: 'lastUpdatedTime',
+      sortDirection: 'DESC'
+    };
+
+    return await this.request('/leads', params);
+  }
+
   // Hämta users
   async getUsers(params = {}) {
     return await this.request('/users', params);
@@ -54,7 +75,7 @@ class AdversusAPI {
   // Hämta user groups
   async getUserGroups(params = {}) {
     return await this.request('/groups', params);
-}
+  }
 }
 
 module.exports = new AdversusAPI();
