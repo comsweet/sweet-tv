@@ -272,7 +272,7 @@ const Admin = () => {
                           </div>
                         </td>
                         <td>{stat.dealCount}</td>
-                        <td>{stat.totalCommission.toLocaleString('sv-SE')} kr</td>
+                        <td>{stat.totalCommission.toLocaleString('sv-SE')} THB</td>
                       </tr>
                     ))}
                   </tbody>
