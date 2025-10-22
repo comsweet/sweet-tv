@@ -132,8 +132,13 @@ router.get('/stats/leaderboard', async (req, res) => {
     
     console.log(`✅ Found ${leads.length} success leads`);
     
-    // Hämta lokala agenter (för namn och bilder)
-    const agents = await database.getAgents();
+    // Hämta ALLA users från Adversus (för namn)
+    const usersResult = await adversusAPI.getUsers();
+    const adversusUsers = usersResult.users || [];
+    console.log(`👥 Found ${adversusUsers.length} users from Adversus`);
+    
+    // Hämta lokala agenter (för profilbilder)
+    const localAgents = await database.getAgents();
     
     // Gruppera per agent och räkna commission
     const stats = {};
@@ -159,15 +164,29 @@ router.get('/stats/leaderboard', async (req, res) => {
       stats[userId].dealCount += 1;
     });
     
-    // Konvertera till array och lägg till agent-info
+    // Konvertera till array och lägg till agent-info från Adversus
     const leaderboard = Object.values(stats).map(stat => {
-      const agent = agents.find(a => String(a.userId) === String(stat.userId));
+      // Hitta user från Adversus API
+      const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
+      
+      // Hitta lokal agent (för profilbild)
+      const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
+      
+      // Skapa agent-objekt med namn från Adversus
+      let agentName = `Agent ${stat.userId}`;
+      if (adversusUser) {
+        agentName = adversusUser.name || 
+                   `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
+                   `Agent ${stat.userId}`;
+      }
+      
       return {
         ...stat,
-        agent: agent || { 
-          userId: stat.userId, 
-          name: `Agent ${stat.userId}`,
-          profileImage: null
+        agent: {
+          userId: stat.userId,
+          name: agentName,
+          email: adversusUser?.email || '',
+          profileImage: localAgent?.profileImage || null
         }
       };
     }).sort((a, b) => b.totalCommission - a.totalCommission);
