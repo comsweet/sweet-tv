@@ -56,12 +56,15 @@
       slideInterval: 15000,
       dentleGroups: ['Dentle Faraz','Dentle Michael','Dentle Christofer','Dentle Remote'],
       sinfridGroups: ['Sinfrid Bangkok','Sinfrid Hua Hin'],
-      commissionFieldId: 70163,
-      multiDealsFieldId: 74126,
+      // Om /fields ej hittas använder vi dessa default-ID:n (från din skärmdump)
+      defaults: { commission: 70163, multiDeals: 74126, orderDate: 71067 },
       enableSound: true,
       enableCelebration: true
     };
+
+    let FIELD_MAP = { ...CONFIG.defaults }; // fylls från /fields vid start
     let totalDealsCount = 0, isFirstLoad = true, currentSlide = 0;
+
     const slides = [
       { title:'Dentle - Top 10 Denna Månad', type:'dentle', period:'month' },
       { title:'Dentle - Top 10 Idag',        type:'dentle', period:'today' },
@@ -70,11 +73,10 @@
     ];
 
     // ---------- Utils ----------
-    const log = (...a)=>console.log('[TV]',...a);
     function normalizeList(payload){
       if (Array.isArray(payload)) return payload;
       if (!payload || typeof payload!=='object') return [];
-      return payload.items || payload.data || payload.results || payload.users || payload.leads || [];
+      return payload.items || payload.data || payload.results || payload.groups || payload.users || payload.leads || [];
     }
     function showCelebration(){
       if(!CONFIG.enableCelebration) return;
@@ -105,9 +107,19 @@
       const now=new Date(); let start;
       start = period==='today' ? new Date(now.getFullYear(),now.getMonth(),now.getDate())
                                : new Date(now.getFullYear(),now.getMonth(),1);
-      return { from:start.toISOString(), to:now.toISOString() };
+      // normalisera till 00:00 lokalt
+      start.setHours(0,0,0,0);
+      return { from:start, to:now };
     }
+    function formatTHB(n){
+      // Visa "1 234 THB" utan decimals (kan ändras)
+      const s = (n||0).toLocaleString('th-TH',{maximumFractionDigits:0});
+      return `${s} THB`;
+    }
+
+    // Läs fältvärden från olika ställen på leadet
     function readFieldValue(lead, fieldId){
+      if (!fieldId) return undefined;
       if (lead?.customFields && lead.customFields[fieldId]!=null) return lead.customFields[fieldId];
       if (Array.isArray(lead?.masterData)){
         const hit=lead.masterData.find(x=>Number(x.id)===Number(fieldId)); if(hit) return hit.value;
@@ -122,25 +134,51 @@
       return undefined;
     }
 
+    async function loadFieldMap(){
+      try{
+        const res = await fetch(`${CONFIG.apiBase}/fields`);
+        const raw = await res.json().catch(()=>([]));
+        if (!res.ok) throw new Error(`Fields ${res.status}`);
+        const arr = normalizeList(raw); // /fields verkar vara ren array – men säkra ändå
+
+        const byName = (name)=> (arr.find(f=>String(f.name).toLowerCase()===name.toLowerCase())||{}).id;
+        const commissionId = byName('Commission') || CONFIG.defaults.commission;
+        const multiDealsId = byName('MultiDeals') || CONFIG.defaults.multiDeals;
+        const orderDateId  = byName('Order date') || CONFIG.defaults.orderDate;
+
+        FIELD_MAP = { commission: commissionId, multiDeals: multiDealsId, orderDate: orderDateId };
+        console.log('[TV] Field map', FIELD_MAP);
+      }catch(e){
+        console.warn('[TV] /fields failed, using defaults', e);
+        FIELD_MAP = { ...CONFIG.defaults };
+      }
+    }
+
     async function fetchLeadsAndUsers(period){
-      const {from,to}=dateRange(period);
-      const leadsUrl=`${CONFIG.apiBase}/leads?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-      const usersUrl=`${CONFIG.apiBase}/users`;
-      const [leadsRes, usersRes] = await Promise.all([ fetch(leadsUrl), fetch(usersUrl) ]);
+      // Hämtar users och leads (utan att anta exakt paginering här)
+      const headers = { 'Content-Type': 'application/json' };
+      const { from, to } = dateRange(period);
+
+      // API-parametrarna kan skilja – vi skickar from/to och filtrerar dessutom lokalt på orderDate
+      const leadsUrl = `${CONFIG.apiBase}/leads?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+      const usersUrl = `${CONFIG.apiBase}/users`;
+
+      const [leadsRes, usersRes] = await Promise.all([ fetch(leadsUrl, { headers }), fetch(usersUrl, { headers }) ]);
       const leadsRaw = await leadsRes.json().catch(()=>({}));
       const usersRaw = await usersRes.json().catch(()=>({}));
       if(!leadsRes.ok) throw new Error(`Leads ${leadsRes.status} ${JSON.stringify(leadsRaw)}`);
       if(!usersRes.ok) throw new Error(`Users ${usersRes.status} ${JSON.stringify(usersRaw)}`);
+
       const leads = normalizeList(leadsRaw);
       const users = normalizeList(usersRaw);
-      log('Fetched',{leads:leads.length, users:users.length});
-      return { leads, users };
+      return { leads, users, range: { from, to } };
     }
 
-    function processLeaderboardData(data, groupType){
-      const { leads, users } = data;
+    function processLeaderboardData(payload, groupType){
+      const { leads, users, range } = payload;
       const targetGroups = groupType==='dentle' ? CONFIG.dentleGroups : CONFIG.sinfridGroups;
 
+      // bygg karta över users i rätt grupper
       const userMap=new Map();
       users.forEach(user=>{
         if (userBelongsToTarget(user, targetGroups)) {
@@ -156,15 +194,36 @@
       });
 
       let companyTotalDeals=0;
-      leads.forEach(lead=>{
-        const commission= parseFloat(readFieldValue(lead, CONFIG.commissionFieldId)) || 0;
-        if (commission<=0) return;
-        companyTotalDeals++;
+      for (const lead of leads){
+        // 1) orderDate – om finns filtrerar vi på perioden igen lokalt
+        const orderDateRaw = readFieldValue(lead, FIELD_MAP.orderDate);
+        let orderDate = null;
+        if (orderDateRaw){
+          const d = new Date(orderDateRaw);
+          if (!isNaN(d)) orderDate = d;
+        }
+        if (orderDate){
+          if (orderDate < range.from || orderDate > range.to) continue; // utanför period
+        }
+
+        // 2) commission (driver “affär”)
+        const commission = parseFloat(readFieldValue(lead, FIELD_MAP.commission)) || 0;
+        if (commission <= 0) continue; // inte en affär
+
+        // 3) multiDeals – enligt dig alltid 1, men vi läser och faller tillbaka till 1
+        const md = parseFloat(readFieldValue(lead, FIELD_MAP.multiDeals));
+        const dealsInc = Number.isFinite(md) && md > 0 ? md : 1;
+
+        // 4) agentkoppling
         const userId = lead.lastContactedBy || lead.ownerId || lead.userId;
         if (userId && userMap.has(userId)){
-          const e=userMap.get(userId); e.dealsCount+=1; e.commission+=commission;
+          const u = userMap.get(userId);
+          u.dealsCount += dealsInc;
+          u.commission += commission;
         }
-      });
+
+        companyTotalDeals += dealsInc;
+      }
 
       if(!isFirstLoad && companyTotalDeals>totalDealsCount){ playPlingSound(); showCelebration(); }
       totalDealsCount=companyTotalDeals; isFirstLoad=false;
@@ -181,11 +240,10 @@
       grid.innerHTML = list.map((item,i)=>{
         const rank=i+1; let cls='', medal='';
         if(rank===1){cls='top1';medal='🥇'} else if(rank===2){cls='top2';medal='🥈'} else if(rank===3){cls='top3';medal='🥉'}
-        const kc=item.commission.toLocaleString('sv-SE',{maximumFractionDigits:0});
         return `<div class="leaderboard-item">
           <div class="rank ${cls}">${medal} ${rank}</div>
           <div class="user-info"><div class="user-name">${item.name}</div><div class="user-group">${item.group}</div></div>
-          <div class="stats-container"><div class="deals-count">${item.dealsCount} deals</div><div class="commission-value">${kc} kr</div></div>
+          <div class="stats-container"><div class="deals-count">${item.dealsCount} deals</div><div class="commission-value">${formatTHB(item.commission)}</div></div>
         </div>`;
       }).join('');
     }
@@ -207,7 +265,9 @@
 
     async function init(){
       console.log('🚀 Starting Adversus Dashboard');
-      updateDate(); await updateSlide();
+      updateDate();
+      await loadFieldMap();          // hämta fält-ID:n först
+      await updateSlide();
       setInterval(nextSlide, CONFIG.slideInterval);
       setInterval(updateDate, 60000);
     }
