@@ -5,97 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin – Sweet TV</title>
   <style>
-    body {
-      background-color: #0f172a;
-      color: #e2e8f0;
-      font-family: "Inter", sans-serif;
-      margin: 0;
-      padding: 20px;
-    }
-
-    h2 {
-      margin-bottom: 8px;
-      color: #93c5fd;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-
-    .card {
-      background-color: #1e293b;
-      border-radius: 10px;
-      padding: 20px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    th, td {
-      padding: 8px 10px;
-      border-bottom: 1px solid #334155;
-    }
-
-    th {
-      color: #94a3b8;
-      text-align: left;
-    }
-
-    .small {
-      font-size: 12px;
-      opacity: 0.7;
-    }
-
-    select, button {
-      background-color: #334155;
-      border: none;
-      color: white;
-      padding: 6px 10px;
-      border-radius: 5px;
-      font-size: 14px;
-      margin-right: 6px;
-    }
-
-    .stats {
-      display: flex;
-      gap: 20px;
-      margin-top: 10px;
-    }
-
-    .stat-box {
-      background-color: #1e293b;
-      padding: 15px 25px;
-      border-radius: 10px;
-      flex: 1;
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: 26px;
-      font-weight: bold;
-      color: #f8fafc;
-    }
-
-    .field-ids {
-      font-size: 16px;
-      margin-top: 10px;
-      color: #7dd3fc;
-      font-family: monospace;
-    }
+    body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;margin:0;padding:20px}
+    h1{margin:0 0 8px} h2{margin:0 0 8px;color:#93c5fd}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+    .card{background:#1e293b;border-radius:10px;padding:20px;box-shadow:0 0 10px rgba(0,0,0,.3)}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:8px 10px;border-bottom:1px solid #334155} th{text-align:left;color:#94a3b8}
+    .small{font-size:12px;opacity:.7}
+    select,button{background:#334155;border:none;color:#fff;padding:6px 10px;border-radius:6px;font-size:14px;margin-right:6px}
+    .stats{display:flex;gap:20px;margin-top:10px}
+    .stat-box{background:#0f172a;padding:16px 22px;border-radius:10px;flex:1;text-align:center;border:1px solid #334155}
+    .stat-value{font-size:26px;font-weight:700;color:#f8fafc}
+    .field-ids{font-size:16px;margin-top:6px;color:#7dd3fc;font-family:ui-monospace,Menlo,Consolas,monospace}
+    code{background:#0b1220;border:1px solid #1c2744;padding:1px 5px;border-radius:5px}
   </style>
 </head>
 <body>
   <h1>⚙️ Admin – Sweet TV</h1>
-  <div style="font-size: 13px; opacity: .7; margin-bottom: 10px;">
-    Proxy: <span id="proxyUrl"></span>
-  </div>
+  <div class="small">Proxy: <span id="proxyUrl"></span></div>
 
   <div class="grid">
     <div class="card">
@@ -124,10 +51,13 @@
         <option value="today">Idag</option>
         <option value="month" selected>Denna månad</option>
       </select>
-      <button onclick="refreshDataCheck()">Ladda om</button>
-      <span id="leadCount" style="margin-left: 10px;">0 leads</span>
-      <span id="fieldIds" style="margin-left: 15px;" class="small">
-        Fields – C:<span id="fC">70163</span> M:<span id="fM">74126</span> O:<span id="fO">71067</span>
+      <button id="reloadBtn">Ladda om</button>
+      <span id="rowCount" style="margin-left:10px;">0 sessions</span>
+      <span style="margin-left:15px" class="small">
+        Fields – C:<span id="fC">70163</span>
+        M:<span id="fM">74126</span>
+        O:<span id="fO">71067</span>
+        R:<span id="fR">70112</span> (Affär)
       </span>
     </div>
 
@@ -149,200 +79,220 @@
         <div class="field-ids">
           Commission: <b id="cid">70163</b><br>
           MultiDeals: <b id="mid">74126</b><br>
-          Order date: <b id="oid">71067</b>
+          Order date: <b id="oid">71067</b><br>
+          Called reason: <b id="rid">70112</b>
         </div>
       </div>
     </div>
 
-    <h4 style="margin-top: 30px;">Topplista (period)</h4>
+    <h4 style="margin-top:24px;">Topplista (period)</h4>
     <table id="rankingTable">
       <thead><tr><th>#</th><th>Agent</th><th>Grupp</th><th>Deals</th><th>Commission</th></tr></thead>
       <tbody></tbody>
     </table>
 
-    <h4 style="margin-top: 20px;">Senaste affärer (15 st)</h4>
+    <h4 style="margin-top:18px;">Senaste affärer (15 st)</h4>
     <table id="latestTable">
       <thead><tr><th>Tid</th><th>Agent</th><th>Grupp</th><th>Commission</th></tr></thead>
       <tbody></tbody>
     </table>
 
-    <div class="small" style="margin-top:10px;">
-      Affär = lead med <code>Commission > 0</code>. MultiDeals används om angivet, annars default <code>1</code>.
-      Orderfiltrering görs via fältet <code>Order date</code> (ISO-tid, UTC) om det finns, annars med API:ts from/to.
+    <div class="small" style="margin-top:10px">
+      Affär = **session** där <code>Called Reasons</code> = <code>Affär</code>. Commission hämtas från
+      <code>Commission</code>, MultiDeals från <code>MultiDeals</code> (default 1). Order-filter bygger på
+      <code>Order date</code> om det finns, annars på sessionens tidsstämpel.
     </div>
   </div>
 
   <script>
-    // ================= CONFIG ==================
+    // ---------- CONFIG ----------
     const API = '/api/v1';
-    const FIELDS = { COMMISSION: 70163, MULTIDEALS: 74126, ORDERDATE: 71067 };
-    const DEBUG = true;
-    const dlog = (...a) => { if (DEBUG) console.log('[admin]', ...a); };
-
     document.getElementById('proxyUrl').textContent = window.location.origin + API;
-    const state = { users: [], groups: [], leads: [] };
 
-    // ========== HELPERS ==========
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-    function dateRange(period) {
-      const now = new Date();
-      const start = period === 'today'
-        ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        : new Date(now.getFullYear(), now.getMonth(), 1);
-      return { from: start, to: now };
+    // IDs (från /campaigns eller /fields)
+    const FIELD = {
+      COMMISSION: 70163,
+      MULTIDEALS: 74126,
+      ORDERDATE: 71067,
+      CALLED_REASON: 70112,         // "Called Reasons"
+      DEAL_VALUE: 'Affär'            // option-namnet
+    };
+
+    const DEBUG = true;
+    const dlog = (...a)=>{ if (DEBUG) console.log('[admin]', ...a); };
+
+    const state = { users: [], groups: [], sessions: [] };
+
+    // ---------- HELPERS ----------
+    const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+    function dateRange(period){
+      const now=new Date();
+      const start = period==='today' ? new Date(now.getFullYear(),now.getMonth(),now.getDate())
+                                     : new Date(now.getFullYear(),now.getMonth(),1);
+      start.setHours(0,0,0,0);
+      return {from:start,to:now};
+    }
+    function toTHB(n){ return `${(n||0).toLocaleString('th-TH',{maximumFractionDigits:0})} THB`; }
+    const nameOf = (u)=> u?.displayName || u?.name || `${u?.firstName||''} ${u?.lastName||''}`.trim() || 'Okänd';
+    const groupOf= (u)=> u?.group?.name || (Array.isArray(u?.memberOf)&&u.memberOf[0]?.name) || (Array.isArray(u?.teams)&&u.teams[0]) || '-';
+
+    // read value by field id in a session
+    function readSessionField(session, id){
+      // Adversus kan kalla det resultData eller resultFields (array av {id,value,label})
+      const arr = Array.isArray(session?.resultData) ? session.resultData
+                : Array.isArray(session?.resultFields) ? session.resultFields
+                : [];
+      const hit = arr.find(f => Number(f.id) === Number(id));
+      return hit ? (hit.value ?? hit.label ?? hit.text ?? hit.data) : undefined;
     }
 
-    // ========== FETCH USERS & GROUPS ==========
-    async function loadUsersAndGroups() {
+    // ---------- USERS & GROUPS ----------
+    async function loadUsersAndGroups(){
       dlog('loadUsersAndGroups:start');
-      const usersRes = await fetch(`${API}/users`);
-      const groupsRes = await fetch(`${API}/groups`);
-      const users = await usersRes.json();
-      const groups = await groupsRes.json();
+      const [uRes,gRes] = await Promise.all([ fetch(`${API}/users`), fetch(`${API}/groups`) ]);
+      const [users, groups] = await Promise.all([uRes.json(), gRes.json()]);
       state.users = Array.isArray(users) ? users : [];
-      state.groups = Array.isArray(groups) ? groups : [];
+      state.groups= Array.isArray(groups)? groups: [];
       renderUsersAndGroups();
-      dlog('loadUsersAndGroups:done', { users: state.users.length, groups: state.groups.length });
+      dlog('loadUsersAndGroups:done', {users:state.users.length, groups:state.groups.length});
     }
 
-    function renderUsersAndGroups() {
+    function renderUsersAndGroups(){
       const gT = document.querySelector('#groupsTable tbody');
       const aT = document.querySelector('#agentsTable tbody');
-      gT.innerHTML = '';
-      aT.innerHTML = '';
+      gT.innerHTML=''; aT.innerHTML='';
 
-      state.groups.forEach(g => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${g.name}</td><td>${g.id}</td><td>${g.users?.length || 0} st</td>`;
+      state.groups.forEach(g=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${g.name}</td><td>${g.id}</td><td>${g.users?.length||0} st</td>`;
         gT.appendChild(tr);
       });
 
-      state.users.forEach(u => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${u.name}</td>
-          <td>${u.group?.name || '-'}</td>
-          <td>${u.role?.name || '-'}</td>
-          <td>${u.email || '-'}</td>
-          <td>${u.active ? 'Aktiv' : 'Inaktiv'}</td>`;
+      state.users.forEach(u=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML = `<td>${nameOf(u)}</td><td>${groupOf(u)}</td><td>${u?.role?.name||'-'}</td><td>${u?.email||'-'}</td><td>${u?.active?'Aktiv':'Inaktiv'}</td>`;
         aT.appendChild(tr);
       });
     }
 
-    // ========== LOAD LEADS with PAGINATION + BACKOFF ==========
-    async function loadLeads(period) {
-      dlog('loadLeads:start', period);
+    // ---------- SESSIONS (instead of leads) ----------
+    async function loadSessions(period){
+      dlog('loadSessions:start', period);
       const { from, to } = dateRange(period);
-      const pageSize = 50;
-      const maxPages = 10;
-      const collected = [];
 
-      for (let page = 1; page <= maxPages; page++) {
-        const url = `${API}/leads?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}&page=${page}&pageSize=${pageSize}&includeMeta=true&sortProperty=updated&sortDirection=DESC`;
-        let tries = 0;
-        while (true) {
+      const pageSize=50, maxPages=12, maxRetries=6, baseDelay=1200;
+      const all=[];
+
+      for (let page=1; page<=maxPages; page++){
+        const url = `${API}/sessions?from=${encodeURIComponent(from.toISOString())}`
+          + `&to=${encodeURIComponent(to.toISOString())}`
+          + `&page=${page}&pageSize=${pageSize}&includeMeta=true`
+          + `&sortDirection=DESC`;
+        let tries=0;
+
+        while (true){
           tries++;
-          dlog(`→ Page ${page} try ${tries}`);
+          dlog(`→ sessions page ${page} try ${tries}`);
           const res = await fetch(url);
-          if (res.status === 429) {
-            if (tries > 5) throw new Error(`Leads 429 efter 5 försök på page ${page}`);
-            const delay = 1000 * tries;
-            dlog(`429 Too Many Requests. Väntar ${delay} ms...`);
-            await sleep(delay);
-            continue;
+          if (res.status===429){
+            if (tries>maxRetries) throw new Error(`Sessions 429 efter ${tries} försök p${page}`);
+            const wait=baseDelay*tries; dlog(`429, backoff ${wait}ms`); await sleep(wait); continue;
           }
-          if (res.status >= 500) throw new Error(`Leads ${res.status}`);
-          const data = await res.json();
-          const leads = Array.isArray(data) ? data : (data.items || data.leads || []);
-          dlog(`Page ${page} OK – ${leads.length} leads`);
-          collected.push(...leads);
+          if (!res.ok){ const t=await res.text().catch(()=>res.statusText); throw new Error(`Sessions ${res.status} ${t}`); }
+          const data = await res.json().catch(()=>({}));
+          const list = Array.isArray(data) ? data : (data.items||data.data||data.results||data.sessions||[]);
+          dlog(`sessions page ${page} OK – ${list.length}`);
+          all.push(...list);
           await sleep(250);
-          if (leads.length < pageSize) page = maxPages + 1;
+          if (list.length<pageSize) page=maxPages+1;
           break;
         }
       }
-      state.leads = collected;
-      document.getElementById('leadCount').textContent = `${state.leads.length} leads`;
-      dlog('loadLeads:done', collected.length);
+
+      state.sessions = all;
+      document.getElementById('rowCount').textContent = `${all.length} sessions`;
+      dlog('loadSessions:done', all.length);
     }
 
-    // ========== AGGREGATE ==========
-    function aggregate(period) {
-      const cField = FIELDS.COMMISSION, mField = FIELDS.MULTIDEALS, oField = FIELDS.ORDERDATE;
-      const users = new Map();
+    // ---------- AGGREGATE FROM SESSIONS ----------
+    function aggregate(period){
+      const { from, to } = dateRange(period);
+      const usersById = new Map(state.users.map(u=>[u.id, u]));
 
-      let totalDeals = 0, totalComm = 0;
+      const agg = new Map();   // userId -> {name,group,deals,commission}
+      const last = [];         // for latest 15
 
-      state.leads.forEach(lead => {
-        const userId = lead.lastContactedBy || lead.lastUpdatedBy;
-        if (!userId) return;
+      for (const s of state.sessions){
+        const uid = s.userId || s?.user?.id;
+        if (!uid) continue;
 
-        let commission = 0, deals = 0;
-        let orderDate = null;
+        // Filter by orderDate if present, else by session time
+        const orderRaw = readSessionField(s, FIELD.ORDERDATE);
+        let when = orderRaw ? new Date(orderRaw) : (s.createdAt ? new Date(s.createdAt) : (s.updatedAt ? new Date(s.updatedAt) : null));
+        if (when && !(when>=from && when<to)) continue;
 
-        const allFields = [
-          ...(lead.resultFields || []),
-          ...(lead.masterData || [])
-        ];
+        // Must be a “deal”: Called Reasons == "Affär"
+        const reason = String(readSessionField(s, FIELD.CALLED_REASON) || '').trim().toLowerCase();
+        if (reason !== String(FIELD.DEAL_VALUE).toLowerCase()) continue;
 
-        for (const f of allFields) {
-          if (f.id == cField) commission = parseFloat(f.value) || 0;
-          if (f.id == mField) deals = parseFloat(f.value) || 1;
-          if (f.id == oField) orderDate = f.value;
-        }
+        const commission = parseFloat(readSessionField(s, FIELD.COMMISSION)) || 0;
+        if (commission <= 0) continue;  // only count commissions > 0
 
-        if (commission > 0) {
-          totalComm += commission;
-          totalDeals += deals;
+        const multi = parseFloat(readSessionField(s, FIELD.MULTIDEALS));
+        const incDeals = Number.isFinite(multi)&&multi>0 ? multi : 1;
 
-          const existing = users.get(userId) || { id: userId, deals: 0, commission: 0 };
-          existing.deals += deals;
-          existing.commission += commission;
-          users.set(userId, existing);
-        }
-      });
+        const u = usersById.get(uid);
+        const name = u ? nameOf(u) : `User ${uid}`;
+        const group = u ? groupOf(u) : '-';
 
-      // Render statistik
+        if (!agg.has(uid)) agg.set(uid,{userId:uid,name,group,deals:0,commission:0});
+        const a = agg.get(uid);
+        a.deals += incDeals;
+        a.commission += commission;
+
+        last.push({ when, name, group, commission });
+      }
+
+      // stats
+      const arr = [...agg.values()].sort((a,b)=>b.deals!==a.deals? b.deals-a.deals : b.commission-a.commission);
+      const totalDeals = arr.reduce((s,x)=>s+x.deals,0);
+      const totalComm  = arr.reduce((s,x)=>s+x.commission,0);
+
       document.getElementById('statDeals').textContent = totalDeals;
-      document.getElementById('statCommission').textContent = `${totalComm.toLocaleString()} THB`;
-      document.getElementById('statAgents').textContent = users.size;
+      document.getElementById('statCommission').textContent = toTHB(totalComm);
+      document.getElementById('statAgents').textContent = arr.length;
 
-      const leaderboard = Array.from(users.values()).sort((a,b)=>b.commission - a.commission);
-      const tbody = document.querySelector('#rankingTable tbody');
-      tbody.innerHTML = leaderboard.slice(0,15).map((u,i)=>{
-        const user = state.users.find(x=>x.id==u.id);
-        return `<tr><td>${i+1}</td><td>${user?.name||u.id}</td><td>${user?.group?.name||'-'}</td><td>${u.deals}</td><td>${u.commission.toFixed(0)} THB</td></tr>`;
-      }).join('');
+      // ranking
+      const rT = document.querySelector('#rankingTable tbody');
+      rT.innerHTML = arr.slice(0,20).map((x,i)=>`
+        <tr><td>${i+1}</td><td>${x.name}</td><td>${x.group}</td><td>${x.deals}</td><td>${x.commission.toFixed(0)} THB</td></tr>
+      `).join('') || `<tr><td colspan="5" class="small">Inga affärer i vald period.</td></tr>`;
+
+      // latest
+      last.sort((a,b)=> (b.when?.getTime()||0)-(a.when?.getTime()||0));
+      const lT = document.querySelector('#latestTable tbody');
+      lT.innerHTML = last.slice(0,15).map(r=>`
+        <tr><td>${r.when ? r.when.toLocaleString('sv-SE') : '-'}</td><td>${r.name}</td><td>${r.group}</td><td>${r.commission.toFixed(0)} THB</td></tr>
+      `).join('') || `<tr><td colspan="4" class="small">Inga affärer hittades.</td></tr>`;
     }
 
-    // ========== DATA CHECK RUN ==========
-    async function refreshDataCheck() {
-      const period = document.querySelector('#period').value;
-      dlog('refreshDataCheck:start', { period });
-      try {
-        await loadLeads(period);
-        dlog('refreshDataCheck:leads_loaded', { count: state.leads.length });
-        aggregate(period);
-        dlog('refreshDataCheck:aggregated');
-      } catch (e) {
-        console.error('refreshDataCheck:ERROR', e);
-        const lc = document.querySelector('#leadCount');
-        if (lc) lc.textContent = `error`;
+    // ---------- RUN ----------
+    async function refresh(){
+      const p = document.getElementById('period').value;
+      try{
+        await loadSessions(p);
+        aggregate(p);
+      }catch(e){
+        console.error(e);
+        document.getElementById('rowCount').textContent = 'error';
       }
     }
 
-    // ========== DEBUG TOOLS ==========
-    window.__peek = function() {
-      const first = state.leads?.[0];
-      if (!first) return dlog('__peek: no leads loaded');
-      dlog('__peek:first-lead', first);
-    };
+    document.getElementById('reloadBtn').addEventListener('click', refresh);
+    (async()=>{ await loadUsersAndGroups(); await refresh(); })();
 
-    // ========== INIT ==========
-    (async () => {
-      await loadUsersAndGroups();
-      await refreshDataCheck();
-    })();
+    // Debug helper to inspect one session in console
+    window.__peekSession = ()=>{ const s=state.sessions?.[0]; dlog('__peekSession', s); return s; }
   </script>
 </body>
 </html>
