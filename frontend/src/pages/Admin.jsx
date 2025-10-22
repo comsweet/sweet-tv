@@ -36,10 +36,28 @@ const Admin = () => {
     setIsLoading(true);
     try {
       if (activeTab === 'agents') {
-        const [agentsRes, usersRes] = await Promise.all([
-          getAgents(),
-          getAdversusUsers()
-        ]);
+  // Hämta bara från Adversus API
+  const usersRes = await getAdversusUsers();
+  const adversusUsersList = usersRes.data.users || [];
+  
+  // Hämta våra lokala agenter (för profilbilder)
+  const agentsRes = await getAgents();
+  const localAgents = agentsRes.data;
+  
+  // Kombinera: Visa alla Adversus users, men lägg till profilbilder från lokala agenter
+  const combinedAgents = adversusUsersList.map(user => {
+    const localAgent = localAgents.find(a => a.userId === user.id);
+    return {
+      userId: user.id,
+      name: user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim(),
+      email: user.email || '',
+      profileImage: localAgent?.profileImage || null
+    };
+  });
+  
+  setAgents(combinedAgents);
+  setAdversusUsers(adversusUsersList);
+}
         setAgents(agentsRes.data);
         setAdversusUsers(usersRes.data.users || []);
       } else if (activeTab === 'groups') {
@@ -104,19 +122,32 @@ const Admin = () => {
     }
   };
 
-  const handleImageUpload = async (userId, event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+const handleImageUpload = async (userId, event) => {
+  const file = event.target.files[0];
+  if (!file) return;
 
-    try {
-      await uploadProfileImage(userId, file);
-      fetchData();
-      alert('Profilbild uppladdad!');
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      alert('Fel vid uppladdning: ' + error.message);
+  try {
+    // Först, se till att agenten finns i databasen
+    const existingAgent = await database.getAgent(userId);
+    if (!existingAgent) {
+      // Hitta agent-info från Adversus
+      const user = adversusUsers.find(u => u.id === userId);
+      await createAgent({
+        userId: userId,
+        name: user?.name || `${user?.firstname || ''} ${user?.lastname || ''}`.trim(),
+        email: user?.email || ''
+      });
     }
-  };
+    
+    // Sedan ladda upp bilden
+    await uploadProfileImage(userId, file);
+    fetchData();
+    alert('Profilbild uppladdad!');
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    alert('Fel vid uppladdning: ' + error.message);
+  }
+};
 
   const handleManualPoll = async () => {
     try {
@@ -170,11 +201,8 @@ const Admin = () => {
         {activeTab === 'agents' && !isLoading && (
           <div className="agents-section">
             <div className="section-header">
-              <h2>Agenter ({agents.length})</h2>
-              <button onClick={handleAddAgent} className="btn-primary">
-                ➕ Lägg till agent
-              </button>
-            </div>
+              <h2>Agenter från Adversus ({agents.length})</h2>
+          </div>
 
             <div className="agents-grid">
               {agents.map(agent => (
@@ -201,12 +229,9 @@ const Admin = () => {
                   <p className="agent-id">ID: {agent.userId}</p>
                   {agent.email && <p className="agent-email">📧 {agent.email}</p>}
                   <div className="agent-actions">
-                    <button onClick={() => handleEditAgent(agent)} className="btn-secondary">
-                      ✏️ Redigera
-                    </button>
-                    <button onClick={() => handleDeleteAgent(agent.userId)} className="btn-danger">
-                      🗑️ Ta bort
-                    </button>
+                    <p style={{ fontSize: '0.9rem', color: '#7f8c8d', margin: 0 }}>
+                      Från Adversus API
+                    </p>
                   </div>
                 </div>
               ))}
