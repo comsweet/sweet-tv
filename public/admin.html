@@ -5,23 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin – Sweet TV</title>
   <style>
-    :root { --bg:#0f1522; --card:#141c2e; --muted:#9fb0ce; --acc:#6ee7ff; }
+    :root{--bg:#0f1522;--card:#141c2e;--muted:#9fb0ce}
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:#fff;font:16px/1.4 system-ui,Segoe UI,Roboto}
     header{padding:18px 24px;border-bottom:1px solid #26324b;display:flex;gap:16px;align-items:center}
-    header h1{font-size:20px;margin:0}
-    header a{color:var(--muted);text-decoration:none}
+    header h1{font-size:20px;margin:0} header a{color:var(--muted);text-decoration:none}
     .wrap{max-width:1200px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
     .card{background:var(--card);border:1px solid #26324b;border-radius:14px;padding:16px}
     .card h2{margin:0 0 12px 0;font-size:18px}
     .toolbar{display:flex;gap:10px;margin-bottom:12px}
     input[type="search"]{flex:1;padding:10px 12px;border-radius:10px;border:1px solid #2d3a57;background:#0d1320;color:#fff}
     table{width:100%;border-collapse:separate;border-spacing:0}
-    th,td{padding:10px 12px;border-bottom:1px solid #223052}
-    th{font-weight:600;color:var(--muted);text-align:left}
+    th,td{padding:10px 12px;border-bottom:1px solid #223052} th{font-weight:600;color:var(--muted);text-align:left}
     .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#1b2741;color:#dbe8ff;border:1px solid #2a3a5f}
-    .muted{color:var(--muted)}
-    .small{font-size:12px}
+    .muted{color:var(--muted)} .small{font-size:12px}
     .badge{background:#102a3a;color:#9fe8ff;border:1px solid #1c4152;padding:2px 8px;border-radius:999px;font-size:12px}
     .hint{color:var(--muted);margin-top:6px}
   </style>
@@ -34,7 +31,6 @@
   </header>
 
   <div class="wrap">
-    <!-- USER GROUPS -->
     <section class="card">
       <h2>User groups</h2>
       <div class="toolbar">
@@ -42,15 +38,12 @@
         <span class="badge" id="groupCount">0 grupper</span>
       </div>
       <table id="groupsTbl">
-        <thead>
-          <tr><th>Namn</th><th>ID</th><th>Agenter</th></tr>
-        </thead>
+        <thead><tr><th>Namn</th><th>ID</th><th>Agenter</th></tr></thead>
         <tbody></tbody>
       </table>
       <div class="hint small">Källa: <code>/api/v1/users</code> (<code>user.group</code> används; fallback till <code>memberOf/teams</code>).</div>
     </section>
 
-    <!-- AGENTS -->
     <section class="card">
       <h2>Agenter</h2>
       <div class="toolbar">
@@ -58,9 +51,7 @@
         <span class="badge" id="agentCount">0 agenter</span>
       </div>
       <table id="agentsTbl">
-        <thead>
-          <tr><th>Namn</th><th>Grupp</th><th>Roll</th><th class="muted">E-post</th><th class="muted">Status</th></tr>
-        </thead>
+        <thead><tr><th>Namn</th><th>Grupp</th><th>Roll</th><th class="muted">E-post</th><th class="muted">Status</th></tr></thead>
         <tbody></tbody>
       </table>
     </section>
@@ -69,99 +60,90 @@
   <script>
     const API = `${location.origin}/api/v1`;
     document.getElementById('envHint').textContent = `Proxy: ${API}`;
-
     const state = { users: [], groups: new Map() };
-
     const Q = s => document.querySelector(s);
     const groupsBody = Q('#groupsTbl tbody');
     const agentsBody = Q('#agentsTbl tbody');
     const groupCount = Q('#groupCount');
     const agentCount = Q('#agentCount');
-
     const norm = s => String(s||'').toLowerCase();
 
-    function buildGroups() {
+    function normalizeList(payload){
+      if (Array.isArray(payload)) return payload;
+      if (!payload || typeof payload!=='object') return [];
+      return payload.items || payload.data || payload.results || payload.users || [];
+    }
+
+    function buildGroups(){
       state.groups.clear();
       for (const u of state.users) {
-        // primärt: group (singular)
-        if (u.group && u.group.id != null) {
-          const key = String(u.group.id);
-          if (!state.groups.has(key)) state.groups.set(key, { id: u.group.id, name: u.group.name || '(namnlös)', agents: [] });
+        if (u?.group?.id!=null) {
+          const key=String(u.group.id);
+          if (!state.groups.has(key)) state.groups.set(key,{ id:u.group.id, name:u.group.name||'(namnlös)', agents:[] });
           state.groups.get(key).agents.push(u);
           continue;
         }
-        // fallback: pseudo-grupp från memberOf/teams
-        const m = Array.isArray(u.memberOf) && u.memberOf.length ? u.memberOf[0] : null;
-        const pseudo = m ? { id: `mo:${m.id}`, name: m.name } :
-                     (Array.isArray(u.teams) && u.teams.length ? { id: `t:${u.teams[0]}`, name: u.teams[0] } : null);
-        if (pseudo) {
-          const key = String(pseudo.id);
-          if (!state.groups.has(key)) state.groups.set(key, { id: pseudo.id, name: pseudo.name, agents: [] });
-          state.groups.get(key).agents.push(u);
+        const m = Array.isArray(u?.memberOf) && u.memberOf.length ? u.memberOf[0] : null;
+        const pseudo = m ? { id:`mo:${m.id}`, name:m.name } :
+                     (Array.isArray(u?.teams)&&u.teams.length ? { id:`t:${u.teams[0]}`, name:u.teams[0] } : null);
+        if (pseudo){
+          const k=String(pseudo.id);
+          if (!state.groups.has(k)) state.groups.set(k,{ id:pseudo.id, name:pseudo.name, agents:[] });
+          state.groups.get(k).agents.push(u);
         }
       }
     }
 
-    function renderGroups(filter='') {
-      const f = norm(filter);
-      const list = [...state.groups.values()].sort((a,b)=> a.name.localeCompare(b.name,'sv'));
-      const rows = [];
-      for (const g of list) {
+    function renderGroups(filter=''){
+      const f=norm(filter);
+      const list=[...state.groups.values()].sort((a,b)=>a.name.localeCompare(b.name,'sv'));
+      const rows=[];
+      for (const g of list){
         if (f && !norm(g.name).includes(f) && !String(g.id).includes(f)) continue;
-        rows.push(`<tr>
-          <td>${g.name}</td>
-          <td class="muted">${g.id}</td>
-          <td><span class="pill">${g.agents.length} st</span></td>
-        </tr>`);
+        rows.push(`<tr><td>${g.name}</td><td class="muted">${g.id}</td><td><span class="pill">${g.agents.length} st</span></td></tr>`);
       }
       groupsBody.innerHTML = rows.join('') || `<tr><td colspan="3" class="muted">Inga grupper matchar.</td></tr>`;
       groupCount.textContent = `${list.length} grupper`;
     }
 
-    function renderAgents(filter='') {
-      const f = norm(filter);
-      const agents = state.users
-        .map(u => ({
-          name: u.displayName || u.name || `${u.firstName||''} ${u.lastName||''}`.trim() || 'Okänd',
-          email: u.email || '',
-          group: (u.group && u.group.name) ||
-                 (Array.isArray(u.memberOf) && u.memberOf[0]?.name) ||
-                 (Array.isArray(u.teams) && u.teams[0]) ||
-                 '(ingen)',
-          role: u.role?.name || '',
-          active: !!u.active
-        }))
-        .sort((a,b)=> a.name.localeCompare(b.name,'sv'));
+    function renderAgents(filter=''){
+      const f=norm(filter);
+      const agents = state.users.map(u=>({
+        name: u.displayName || u.name || `${u.firstName||''} ${u.lastName||''}`.trim() || 'Okänd',
+        email: u.email || '',
+        group: (u?.group?.name) ||
+               (Array.isArray(u?.memberOf) && u.memberOf[0]?.name) ||
+               (Array.isArray(u?.teams) && u.teams[0]) || '(ingen)',
+        role: u?.role?.name || '',
+        active: !!u?.active
+      })).sort((a,b)=>a.name.localeCompare(b.name,'sv'));
 
-      const rows = [];
-      let count = 0;
-      for (const a of agents) {
-        const hay = norm(`${a.name} ${a.email} ${a.group} ${a.role}`);
+      const rows=[]; let count=0;
+      for (const a of agents){
+        const hay=norm(`${a.name} ${a.email} ${a.group} ${a.role}`);
         if (f && !hay.includes(f)) continue;
         count++;
         rows.push(`<tr>
-          <td>${a.name}</td>
-          <td>${a.group}</td>
+          <td>${a.name}</td><td>${a.group}</td>
           <td>${a.role||'<span class="muted">–</span>'}</td>
           <td class="muted">${a.email||'–'}</td>
-          <td class="muted">${a.active ? 'Aktiv' : 'Inaktiv'}</td>
+          <td class="muted">${a.active?'Aktiv':'Inaktiv'}</td>
         </tr>`);
       }
       agentsBody.innerHTML = rows.join('') || `<tr><td colspan="5" class="muted">Inga agenter matchar.</td></tr>`;
       agentCount.textContent = `${count} agenter`;
     }
 
-    async function loadUsers() {
+    async function loadUsers(){
       const res = await fetch(`${API}/users`);
-      if (!res.ok) throw new Error(`Users ${res.status}`);
-      state.users = await res.json();
-      buildGroups();
-      renderGroups();
-      renderAgents();
+      const raw = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(`Users ${res.status} ${JSON.stringify(raw)}`);
+      state.users = normalizeList(raw);
+      buildGroups(); renderGroups(); renderAgents();
     }
 
-    Q('#groupSearch').addEventListener('input', e => renderGroups(e.target.value));
-    Q('#agentSearch').addEventListener('input', e => renderAgents(e.target.value));
+    Q('#groupSearch').addEventListener('input', e=>renderGroups(e.target.value));
+    Q('#agentSearch').addEventListener('input', e=>renderAgents(e.target.value));
 
     loadUsers().catch(err=>{
       groupsBody.innerHTML = `<tr><td colspan="3" class="muted">Fel: ${err.message}</td></tr>`;
