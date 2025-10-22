@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const adversusAPI = require('../services/adversusAPI');
 const database = require('../services/database');
+const leaderboardService = require('../services/leaderboards');
 const multer = require('multer');
 const path = require('path');
 
@@ -112,7 +113,7 @@ router.get('/adversus/user-groups', async (req, res) => {
   }
 });
 
-// STATS - Hämta direkt från Adversus API
+// STATS
 router.get('/stats/leaderboard', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -126,27 +127,23 @@ router.get('/stats/leaderboard', async (req, res) => {
     
     console.log(`📊 Fetching stats from ${start.toISOString()} to ${end.toISOString()}`);
     
-    // Hämta success leads från Adversus
     const result = await adversusAPI.getLeadsInDateRange(start, end);
     const leads = result.leads || [];
     
     console.log(`✅ Found ${leads.length} success leads`);
     
-    // Hämta ALLA users från Adversus (för namn)
     const usersResult = await adversusAPI.getUsers();
     const adversusUsers = usersResult.users || [];
     console.log(`👥 Found ${adversusUsers.length} users from Adversus`);
     
-    // Hämta lokala agenter (för profilbilder)
     const localAgents = await database.getAgents();
     
-    // Gruppera per agent och räkna commission
     const stats = {};
     
     leads.forEach(lead => {
       const userId = lead.lastContactedBy;
       
-      if (!userId) return; // Skip om ingen agent
+      if (!userId) return;
       
       if (!stats[userId]) {
         stats[userId] = {
@@ -156,7 +153,6 @@ router.get('/stats/leaderboard', async (req, res) => {
         };
       }
       
-      // Hitta commission från resultData (field ID 70163)
       const commissionField = lead.resultData?.find(f => f.id === 70163);
       const commission = parseFloat(commissionField?.value || 0);
       
@@ -164,15 +160,10 @@ router.get('/stats/leaderboard', async (req, res) => {
       stats[userId].dealCount += 1;
     });
     
-    // Konvertera till array och lägg till agent-info från Adversus
     const leaderboard = Object.values(stats).map(stat => {
-      // Hitta user från Adversus API
       const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
-      
-      // Hitta lokal agent (för profilbild)
       const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
       
-      // Skapa agent-objekt med namn från Adversus
       let agentName = `Agent ${stat.userId}`;
       if (adversusUser) {
         agentName = adversusUser.name || 
@@ -196,6 +187,166 @@ router.get('/stats/leaderboard', async (req, res) => {
     res.json(leaderboard);
   } catch (error) {
     console.error('❌ Error fetching leaderboard:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// LEADERBOARDS CRUD
+router.get('/leaderboards', async (req, res) => {
+  try {
+    const leaderboards = await leaderboardService.getLeaderboards();
+    res.json(leaderboards);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/leaderboards/active', async (req, res) => {
+  try {
+    const activeLeaderboards = await leaderboardService.getActiveLeaderboards();
+    res.json(activeLeaderboards);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/leaderboards/:id', async (req, res) => {
+  try {
+    const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
+    if (!leaderboard) {
+      return res.status(404).json({ error: 'Leaderboard not found' });
+    }
+    res.json(leaderboard);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/leaderboards', async (req, res) => {
+  try {
+    const leaderboard = await leaderboardService.addLeaderboard(req.body);
+    res.json(leaderboard);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/leaderboards/:id', async (req, res) => {
+  try {
+    const leaderboard = await leaderboardService.updateLeaderboard(req.params.id, req.body);
+    if (!leaderboard) {
+      return res.status(404).json({ error: 'Leaderboard not found' });
+    }
+    res.json(leaderboard);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/leaderboards/:id', async (req, res) => {
+  try {
+    await leaderboardService.deleteLeaderboard(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// LEADERBOARD DATA
+router.get('/leaderboards/:id/stats', async (req, res) => {
+  try {
+    const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
+    if (!leaderboard) {
+      return res.status(404).json({ error: 'Leaderboard not found' });
+    }
+
+    const { startDate, endDate } = leaderboardService.getDateRange(leaderboard);
+    
+    console.log(`📊 Fetching leaderboard "${leaderboard.name}" stats from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    
+    const result = await adversusAPI.getLeadsInDateRange(startDate, endDate);
+    const leads = result.leads || [];
+    
+    console.log(`✅ Found ${leads.length} success leads`);
+    
+    const usersResult = await adversusAPI.getUsers();
+    const adversusUsers = usersResult.users || [];
+    
+    let filteredUserIds = null;
+    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
+      filteredUserIds = new Set(
+        adversusUsers
+          .filter(user => {
+            const userGroupIds = user.groups || [];
+            return leaderboard.userGroups.some(groupId => 
+              userGroupIds.includes(parseInt(groupId))
+            );
+          })
+          .map(user => user.id)
+      );
+      console.log(`👥 Filtered to ${filteredUserIds.size} users from ${leaderboard.userGroups.length} groups`);
+    }
+    
+    const localAgents = await database.getAgents();
+    
+    const stats = {};
+    
+    leads.forEach(lead => {
+      const userId = lead.lastContactedBy;
+      
+      if (!userId) return;
+      
+      if (filteredUserIds && !filteredUserIds.has(userId)) return;
+      
+      if (!stats[userId]) {
+        stats[userId] = {
+          userId: userId,
+          totalCommission: 0,
+          dealCount: 0
+        };
+      }
+      
+      const commissionField = lead.resultData?.find(f => f.id === 70163);
+      const commission = parseFloat(commissionField?.value || 0);
+      
+      stats[userId].totalCommission += commission;
+      stats[userId].dealCount += 1;
+    });
+    
+    const leaderboardStats = Object.values(stats).map(stat => {
+      const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
+      const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
+      
+      let agentName = `Agent ${stat.userId}`;
+      if (adversusUser) {
+        agentName = adversusUser.name || 
+                   `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
+                   `Agent ${stat.userId}`;
+      }
+      
+      return {
+        ...stat,
+        agent: {
+          userId: stat.userId,
+          name: agentName,
+          email: adversusUser?.email || '',
+          profileImage: localAgent?.profileImage || null
+        }
+      };
+    }).sort((a, b) => b.totalCommission - a.totalCommission);
+    
+    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents`);
+    
+    res.json({
+      leaderboard: leaderboard,
+      stats: leaderboardStats,
+      dateRange: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching leaderboard stats:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
