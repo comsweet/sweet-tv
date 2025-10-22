@@ -1,171 +1,134 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Leaderboard</title>
   <style>
     :root {
-      --bg1:#4f46e5; --bg2:#7c3aed;
-      --card: rgba(255,255,255,.12);
-      --glass: blur(10px);
+      --bg1: #4f46e5;
+      --bg2: #7c3aed;
+      --glass: rgba(255,255,255,.12);
+      --text: #fff;
+      --muted: rgba(255,255,255,.6);
     }
     * { box-sizing: border-box; }
-    body{
-      margin:0; font-family: Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      font-family: Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
       background: linear-gradient(135deg, var(--bg1), var(--bg2));
-      color:#fff; min-height:100vh; display:flex; align-items:center; justify-content:center;
-      padding:32px;
     }
-    .wrap{ width: min(1200px, 100%); }
-    .header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
-    h1{ font-size:40px; margin:0; display:flex; gap:12px; align-items:center; }
-    .controls{
-      display:flex; gap:8px; background:var(--card); backdrop-filter:var(--glass);
-      padding:12px 16px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.25);
-      align-items:center; justify-content:space-between;
+    .wrap { width: min(1000px, 95vw); }
+    .bar {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      background: var(--glass); backdrop-filter: blur(8px);
+      border-radius: 16px; padding: 14px 18px; margin-bottom: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.2);
     }
-    select{
-      background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.2);
-      padding:6px 10px; border-radius:10px; outline:none;
+    select, .pill {
+      background: rgba(255,255,255,.08); color: var(--text);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 10px; padding: 8px 10px; font-size: 14px;
     }
-    .card{
-      margin-top:18px; background:var(--card); backdrop-filter:var(--glass); border-radius:18px;
-      box-shadow: 0 14px 40px rgba(0,0,0,.3); padding:20px;
+    .title { font-size: 40px; font-weight: 800; display:flex; gap:10px; align-items:center; }
+    .card {
+      background: var(--glass); backdrop-filter: blur(8px);
+      border-radius: 16px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.2);
+      min-height: 140px;
     }
-    .row{ display:flex; align-items:center; gap:18px; padding:16px 12px; border-radius:12px; }
-    .row:nth-child(odd){ background:rgba(255,255,255,.06); }
-    .rank{ width:54px; text-align:center; font-weight:800; font-size:24px; }
-    .rank.top1{ color:#ffd700; font-size:30px;}
-    .rank.top2{ color:#c0c0c0; }
-    .rank.top3{ color:#cd7f32; }
-    .info{ flex:1; }
-    .name{ font-size:20px; font-weight:700; }
-    .group{ opacity:.8; font-size:13px; }
-    .stat{ text-align:right; min-width:170px; }
-    .stat b{ font-size:22px; }
-    .error{ color:#ff8b8b; padding:18px; }
-    .pill{ opacity:.9; font-size:14px; }
-    .celebrate{ position: fixed; inset:0; pointer-events:none; display:grid; place-items:center; font-size:84px; animation: pop 1s ease-out; }
-    @keyframes pop { 0%{transform:scale(0); opacity:0} 50%{transform:scale(1.2); opacity:1} 100%{transform:scale(1); opacity:0} }
+    .error { color: #ffd1d1; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px; }
+    th { text-align: left; color: var(--muted); font-weight: 600; }
+    tbody tr + tr { border-top: 1px solid rgba(255,255,255,.08); }
+    .right { text-align: right; }
+    .muted { color: var(--muted); }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="header">
-      <h1>🏆 Leaderboard</h1>
-      <div id="today" class="pill"></div>
+  <div class="wrap" id="app">
+    <div class="title">🏆 Leaderboard</div>
+
+    <div class="bar">
+      <div>Period:</div>
+      <select id="period">
+        <option value="month">Denna månad</option>
+        <option value="today">Idag</option>
+      </select>
+
+      <div>Sortera på:</div>
+      <select id="metric">
+        <option value="deals">Affärer (deals)</option>
+        <option value="commission">Commission</option>
+      </select>
+
+      <div>Visa topp:</div>
+      <select id="size">
+        <option>5</option><option selected>10</option><option>15</option><option>20</option>
+      </select>
+
+      <div class="pill" id="subtitle">Top 10 – Affärer (success)</div>
     </div>
 
-    <div class="controls">
-      <div style="display:flex; gap:10px; align-items:center;">
-        <span>Period:</span>
-        <select id="period">
-          <option value="month" selected>Denna månad</option>
-          <option value="week">Denna vecka</option>
-          <option value="today">Idag</option>
-        </select>
-
-        <span>Sortera på:</span>
-        <select id="metric">
-          <option value="deals" selected>Affärer (deals)</option>
-          <option value="commission">Commission</option>
-        </select>
-
-        <span>Visa topp:</span>
-        <select id="size">
-          <option>10</option><option>20</option><option>50</option>
-        </select>
-      </div>
-      <div id="title" class="pill">Top 10 – Affärer (success)</div>
-    </div>
-
-    <div id="list" class="card">
-      Laddar…
-    </div>
+    <div class="card" id="board"></div>
   </div>
 
   <script>
-    const list = document.getElementById('list');
     const periodSel = document.getElementById('period');
     const metricSel = document.getElementById('metric');
     const sizeSel = document.getElementById('size');
-    const titleEl = document.getElementById('title');
-    const todayEl = document.getElementById('today');
+    const board = document.getElementById('board');
+    const subtitle = document.getElementById('subtitle');
 
-    let lastTotal = 0;
-    let pollTimer = null;
+    async function load() {
+      board.innerHTML = '<div class="muted">Laddar…</div>';
+      const period = periodSel.value;
+      const metric = metricSel.value;
+      const size = sizeSel.value;
 
-    function fmtTHB(n){ return `${Math.round(n).toLocaleString('sv-SE')} THB`; }
-    function nowStr(){
-      return new Date().toLocaleDateString('sv-SE', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-    }
-    todayEl.textContent = nowStr();
+      subtitle.textContent = `Top ${size} – ${metric === 'deals' ? 'Affärer (success)' : 'Commission'}`;
 
-    function pling(){
-      try{
-        const ac = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ac.createOscillator(); const gain = ac.createGain();
-        osc.connect(gain); gain.connect(ac.destination);
-        osc.frequency.setValueAtTime(800, ac.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1200, ac.currentTime + 0.12);
-        gain.gain.setValueAtTime(0.25, ac.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.6);
-        osc.start(); osc.stop(ac.currentTime + 0.6);
-      }catch{}
-      const c = document.createElement('div');
-      c.className='celebrate'; c.textContent='🎉';
-      document.body.appendChild(c);
-      setTimeout(()=>c.remove(), 900);
-    }
+      try {
+        const url = `/api/leaderboard?period=${encodeURIComponent(period)}&metric=${encodeURIComponent(metric)}&size=${encodeURIComponent(size)}`;
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`LB ${r.status}`);
+        const data = await r.json();
 
-    async function load(){
-      const period = periodSel.value, metric = metricSel.value, size = sizeSel.value;
-      titleEl.textContent = `Top ${size} – ${metric==='deals'?'Affärer (success)':'Commission'}`;
+        const rows = (data.leaderboard || []).map((r, idx) => `
+          <tr>
+            <td class="muted">${idx + 1}</td>
+            <td>${r.user}</td>
+            <td class="muted">${r.group || '-'}</td>
+            <td class="right">${r.deals}</td>
+            <td class="right">${(r.commission || 0).toLocaleString('sv-SE')} THB</td>
+          </tr>
+        `).join('');
 
-      const url = `/api/leaderboard?` + new URLSearchParams({ period, metric, size });
-      let data;
-      try{
-        const res = await fetch(url);
-        if(!res.ok) throw new Error('LB ' + res.status);
-        data = await res.json();
-      }catch(e){
-        list.innerHTML = `<div class="error">Fel: ${e.message}</div>`;
-        return;
+        board.innerHTML = rows
+          ? `<table>
+               <thead>
+                 <tr>
+                   <th>#</th><th>Agent</th><th>Grupp</th>
+                   <th class="right">Deals</th><th class="right">Commission</th>
+                 </tr>
+               </thead>
+               <tbody>${rows}</tbody>
+             </table>`
+          : '<div class="muted">Inga affärer i vald period.</div>';
+      } catch (err) {
+        console.error(err);
+        board.innerHTML = `<div class="error">Fel: ${err.message || err}</div>`;
       }
-
-      // pling / konfetti om totalLeads ökat
-      if (data.totalLeads > lastTotal && lastTotal !== 0) pling();
-      lastTotal = data.totalLeads;
-
-      if(!data.leaders || data.leaders.length===0){
-        list.innerHTML = `<div class="error">Inga affärer i vald period.</div>`; return;
-      }
-
-      list.innerHTML = data.leaders.map((r,i)=>`
-        <div class="row">
-          <div class="rank ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i+1}</div>
-          <div class="info">
-            <div class="name">${r.name}</div>
-            <div class="group">${r.group}</div>
-          </div>
-          <div class="stat">
-            <div><b>${metric==='deals'? r.deals : fmtTHB(r.commission)}</b></div>
-            <div>${metric==='deals'? fmtTHB(r.commission) : r.deals + ' deals'}</div>
-          </div>
-        </div>`).join('');
     }
 
-    function startPoll(){
-      clearInterval(pollTimer);
-      pollTimer = setInterval(load, 20000);
-    }
-
-    periodSel.onchange = ()=>{ load(); startPoll(); };
-    metricSel.onchange = ()=>{ load(); startPoll(); };
-    sizeSel.onchange = ()=>{ load(); startPoll(); };
-
-    load().then(startPoll);
+    periodSel.onchange = metricSel.onchange = sizeSel.onchange = load;
+    load();
   </script>
 </body>
 </html>
