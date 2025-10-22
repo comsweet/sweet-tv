@@ -59,7 +59,7 @@
       <span id="rowCount" style="margin-left:10px;" class="pill">0 sessions</span>
       <span id="leadCount" style="margin-left:8px;" class="pill">0 lead-hämtningar</span>
       <span style="margin-left:15px" class="small">
-        Statusfilter: <b>success</b> • Tidsfilter: <code>lastUpdatedTime</code> • Fields – C:<span id="fC">70163</span>
+        Statusfilter: <b>success</b> • Tidsfilter: <code>lastUpdatedTime</code> • Agent: <code>lead.lastContactedBy</code> • Fields – C:<span id="fC">70163</span>
         M:<span id="fM">74126</span> O:<span id="fO">71067</span>
       </span>
     </div>
@@ -82,7 +82,7 @@
         <div class="field-ids">
           Commission: <b id="cid">70163</b><br>
           MultiDeals: <b id="mid">74126</b><br>
-          Order date (om den används): <b id="oid">71067</b>
+          Order date: <b id="oid">71067</b>
         </div>
       </div>
     </div>
@@ -100,36 +100,33 @@
     </table>
 
     <div class="small muted" style="margin-top:10px">
-      Affär = <b>session</b> där <code>status</code> = <code>success</code>.
-      Tidsfiltrering görs via <code>lastUpdatedTime</code>. Commission & MultiDeals hämtas från <code>resultData</code> på lead (fallback till <code>masterData</code>).
+      Sessions används bara för att hitta lead som blev <code>success</code> i vald period (via <code>lastUpdatedTime</code>).  
+      Agent = <code>lead.lastContactedBy</code> (fallback <code>session.userId</code>). Tid = <code>Order date</code> om finns, annars <code>session.lastUpdatedTime</code> eller <code>lead.lastUpdatedTime</code>.  
+      Commission & MultiDeals läses från <code>lead.resultData</code> (fallback <code>masterData</code>, MultiDeals default 1).
+      <span id="debugNote" class="small"></span>
     </div>
   </div>
 
   <script>
-    // ---------- CONFIG ----------
     const API = '/api/v1';
     document.getElementById('proxyUrl').textContent = window.location.origin + API;
 
-    // Fält-ID:n (kampanjens resultFields)
+    // resultFields
     const FIELD = { COMMISSION: 70163, MULTIDEALS: 74126, ORDERDATE: 71067 };
 
     const DEBUG = true;
     const dlog = (...a)=>{ if (DEBUG) console.log('[admin]', ...a); };
 
-    // State
     const state = {
       users: [],
       groups: [],
       sessions: [],
-      lastSeen: null,
-      leadCache: new Map(), // leadId -> leadObj
-      leadFetches: 0
+      leadCache: new Map(),
+      leadFetches: 0,
+      lastSeen: null
     };
-
-    // Gör peek möjligt direkt
     window.__peekSession = ()=> state.lastSeen || state.sessions?.[0] || undefined;
 
-    // ---------- HELPERS ----------
     const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
     function dateRange(period){
       const now=new Date();
@@ -142,69 +139,89 @@
     const nameOf = (u)=> u?.displayName || u?.name || `${u?.firstName||''} ${u?.lastName||''}`.trim() || 'Okänd';
     const groupOf= (u)=> u?.group?.name || (Array.isArray(u?.memberOf)&&u.memberOf[0]?.name) || (Array.isArray(u?.teams)&&u.teams[0]) || '-';
 
-    // Hitta fält i lead – prioritera resultData (resultFields) och fallback till masterData
-    function readLeadField(lead, id){
-      const tryRead = (container)=>{
-        if (!container) return undefined;
-        if (Array.isArray(container)){
-          const hit = container.find(f => Number(f.id) === Number(id));
-          if (hit) return (hit.value ?? hit.label ?? hit.text ?? hit.data);
-        }
-        if (typeof container === 'object'){
-          const v = container[id] ?? container[String(id)];
-          if (v !== undefined) return v;
-        }
-        return undefined;
-      };
-      const rd = tryRead(lead?.resultData) ?? tryRead(lead?.data?.resultData);
-      if (rd !== undefined) return rd;
-      const md = tryRead(lead?.masterData) ?? tryRead(lead?.data?.masterData);
-      return md;
+    // robust array extractor
+    function asArray(x){
+      if (!x) return [];
+      if (Array.isArray(x)) return x;
+      if (Array.isArray(x.items)) return x.items;
+      if (Array.isArray(x.data)) return x.data;
+      if (Array.isArray(x.results)) return x.results;
+      if (Array.isArray(x.groups)) return x.groups;
+      if (Array.isArray(x.sessions)) return x.sessions;
+      if (Array.isArray(x.users)) return x.users;
+      return [];
     }
 
-    // ---------- USERS & GROUPS ----------
+    function readContainerField(container, id){
+      if (!container) return undefined;
+      if (Array.isArray(container)){
+        const hit = container.find(f => Number(f.id) === Number(id));
+        if (hit) return (hit.value ?? hit.label ?? hit.text ?? hit.data);
+      }
+      if (typeof container === 'object'){
+        const v = container[id] ?? container[String(id)];
+        if (v !== undefined) return v;
+      }
+      return undefined;
+    }
+    function readLeadField(lead, id){
+      const rd = readContainerField(lead?.resultData) ?? readContainerField(lead?.data?.resultData);
+      if (rd !== undefined) return rd;
+      return readContainerField(lead?.masterData) ?? readContainerField(lead?.data?.masterData);
+    }
+
+    async function fetchPaged(path){
+      const out = [];
+      let page = 1, pageSize = 200;
+      for(;;){
+        const res = await fetch(`${API}${path}?page=${page}&pageSize=${pageSize}&includeMeta=true`);
+        if (!res.ok) throw new Error(`${path} ${res.status}`);
+        const data = await res.json();
+        const chunk = asArray(data);
+        out.push(...chunk);
+        if (chunk.length < pageSize) break;
+        page++;
+        await sleep(120);
+      }
+      return out;
+    }
+
     async function loadUsersAndGroups(){
       const gInfo = document.getElementById('groupsInfo');
       const aInfo = document.getElementById('agentsInfo');
       try{
-        dlog('loadUsersAndGroups:start');
-        const [uRes,gRes] = await Promise.all([ fetch(`${API}/users`), fetch(`${API}/groups`) ]);
-        const [users, groups] = await Promise.all([uRes.json(), gRes.json()]);
-        state.users = Array.isArray(users) ? users : [];
-        state.groups= Array.isArray(groups)? groups: [];
-        gInfo.textContent = `${state.groups.length} grupper`;
-        aInfo.textContent = `${state.users.length} agenter`;
-        renderUsersAndGroups();
-        dlog('loadUsersAndGroups:done', {users:state.users.length, groups:state.groups.length});
+        const [groups, users] = await Promise.all([fetchPaged('/groups'), fetchPaged('/users')]);
+        state.groups = groups; state.users = users;
+
+        // count by group id
+        const countByGroup = new Map();
+        users.forEach(u=>{ const gid=u?.group?.id; if(gid) countByGroup.set(gid,(countByGroup.get(gid)||0)+1); });
+
+        const gT = document.querySelector('#groupsTable tbody');
+        const aT = document.querySelector('#agentsTable tbody');
+        gT.innerHTML=''; aT.innerHTML='';
+
+        groups.forEach(g=>{
+          const tr=document.createElement('tr');
+          tr.innerHTML=`<td>${g.name}</td><td>${g.id}</td><td>${countByGroup.get(g.id)||0} st</td>`;
+          gT.appendChild(tr);
+        });
+        users.forEach(u=>{
+          const tr=document.createElement('tr');
+          tr.innerHTML = `<td>${nameOf(u)}</td><td>${groupOf(u)}</td><td>${u?.role?.name||'-'}</td><td>${u?.email||'-'}</td><td>${u?.active?'Aktiv':'Inaktiv'}</td>`;
+          aT.appendChild(tr);
+        });
+
+        gInfo.textContent = `${groups.length} grupper`;
+        aInfo.textContent = `${users.length} agenter`;
       }catch(e){
         console.error(e);
-        gInfo.innerHTML = `<span class="error">Fel: kunde inte ladda grupper (${e.message})</span>`;
-        aInfo.innerHTML = `<span class="error">Fel: kunde inte ladda agenter (${e.message})</span>`;
+        gInfo.innerHTML = `<span class="error">Fel: /groups – ${e.message}</span>`;
+        aInfo.innerHTML = `<span class="error">Fel: /users – ${e.message}</span>`;
       }
     }
 
-    function renderUsersAndGroups(){
-      const gT = document.querySelector('#groupsTable tbody');
-      const aT = document.querySelector('#agentsTable tbody');
-      gT.innerHTML=''; aT.innerHTML='';
-
-      state.groups.forEach(g=>{
-        const tr=document.createElement('tr');
-        const count=state.users.filter(u=>u.group?.id===g.id).length;
-        tr.innerHTML=`<td>${g.name}</td><td>${g.id}</td><td>${count} st</td>`;
-        gT.appendChild(tr);
-      });
-
-      state.users.forEach(u=>{
-        const tr=document.createElement('tr');
-        tr.innerHTML = `<td>${nameOf(u)}</td><td>${groupOf(u)}</td><td>${u?.role?.name||'-'}</td><td>${u?.email||'-'}</td><td>${u?.active?'Aktiv':'Inaktiv'}</td>`;
-        aT.appendChild(tr);
-      });
-    }
-
-    // ---------- SESSIONS (status success, filter på lastUpdatedTime) ----------
     async function loadSessions(period){
-      dlog('loadSessions:start', period);
       const { from, to } = dateRange(period);
       document.getElementById('sessionsHdr').textContent =
         `Period: ${from.toLocaleString('sv-SE')} — ${to.toLocaleString('sv-SE')}`;
@@ -215,7 +232,7 @@
       };
       const filtersParam = encodeURIComponent(JSON.stringify(filters));
 
-      const pageSize=50, maxPages=20, maxRetries=6, baseDelay=1200;
+      const pageSize=50, maxPages=25, maxRetries=6, baseDelay=1200;
       const all=[];
 
       for (let page=1; page<=maxPages; page++){
@@ -227,58 +244,41 @@
         let tries=0;
         while (true){
           tries++;
-          dlog(`→ sessions page ${page} try ${tries}`);
           const res = await fetch(url);
           if (res.status===429){
             if (tries>maxRetries) throw new Error(`Sessions 429 efter ${tries} försök p${page}`);
-            const wait=baseDelay*tries; dlog(`429, backoff ${wait}ms`); await sleep(wait); continue;
+            const wait=baseDelay*tries; await sleep(wait); continue;
           }
           if (!res.ok){
             const t=await res.text().catch(()=>res.statusText);
             throw new Error(`Sessions ${res.status} ${t}`);
           }
           const data = await res.json().catch(()=>({}));
-          const list = Array.isArray(data) ? data
-                      : (data.sessions||data.items||data.data||data.results||[]);
-          dlog(`sessions page ${page} OK – ${list.length}`);
-
-          if (list[0]) state.lastSeen = list[0]; // peek direkt
+          const list = asArray(data);
+          if (list[0]) state.lastSeen = list[0];
           all.push(...list);
-
-          await sleep(200);
           if (list.length<pageSize) page=maxPages+1;
+          await sleep(100);
           break;
         }
       }
-
       state.sessions = all;
       document.getElementById('rowCount').textContent = `${all.length} sessions`;
-      dlog('loadSessions:done', all.length);
     }
 
-    // ---------- LEADS (per leadId, med cache, concurrency & backoff) ----------
     async function fetchLead(leadId){
       if (!leadId) return null;
       if (state.leadCache.has(leadId)) return state.leadCache.get(leadId);
-
-      const url = `${API}/leads/${leadId}`;
-      let tries = 0;
-      const maxRetries = 6;
-      const baseDelay = 800;
-
-      while (true){
+      const url = `${API}/leads/${leadId}?includeMeta=true`;
+      let tries=0, maxRetries=6, baseDelay=800;
+      while(true){
         tries++;
-        const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+        const res = await fetch(url);
         if (res.status===429){
-          if (tries>maxRetries) throw new Error(`Leads 429 för lead ${leadId} efter ${tries} försök`);
-          const wait = baseDelay * tries; dlog(`lead ${leadId} → 429 backoff ${wait}ms`);
-          await sleep(wait); continue;
+          if (tries>maxRetries) return null;
+          await sleep(baseDelay*tries); continue;
         }
-        if (!res.ok){
-          const t=await res.text().catch(()=>res.statusText);
-          dlog(`lead ${leadId} → HTTP ${res.status} ${t}`);
-          return null;
-        }
+        if (!res.ok){ return null; }
         const data = await res.json().catch(()=>null);
         state.leadCache.set(leadId, data);
         state.leadFetches++;
@@ -287,68 +287,67 @@
       }
     }
 
-    async function hydrateDealsFromLeads(records){
-      // Kör i små batchar för att hålla oss under limits
-      const maxConcurrent = 4;
-      let i = 0;
-      async function worker(){
-        while (i < records.length){
-          const idx = i++;
-          const rec = records[idx];
-          rec.__lead = await fetchLead(rec.leadId);
-        }
-      }
-      const workers = Array.from({length:maxConcurrent}, worker);
-      await Promise.all(workers);
-    }
-
-    // ---------- AGGREGATE ----------
     async function aggregate(period){
       const usersById = new Map(state.users.map(u=>[u.id, u]));
 
-      // Förbered rekord att hydrera
-      const records = state.sessions.map(s => ({
+      // bygg records
+      const recs = state.sessions.map(s => ({
+        session:s,
         leadId: s.leadId,
-        userId: s.userId || s?.user?.id,
-        when: new Date(s.lastUpdatedTime || s.startTime || s.updatedAt || s.createdAt || Date.now())
+        sessionUserId: s.userId,
+        sessionWhen: new Date(s.lastUpdatedTime || s.endTime || s.startTime || Date.now())
       }));
 
-      // Hämta Commission/MultiDeals från lead.resultData (fallback masterData)
-      await hydrateDealsFromLeads(records);
+      // hämta leads (concurrency)
+      const maxConcurrent = 4;
+      let i=0;
+      async function worker(){
+        while(i<recs.length){
+          const idx=i++; const r=recs[idx];
+          r.lead = await fetchLead(r.leadId);
+        }
+      }
+      await Promise.all(Array.from({length:maxConcurrent}, worker));
 
+      // aggregera
       const agg = new Map();
       const last = [];
 
-      for (const r of records){
-        const u = usersById.get(r.userId);
-        const name = u ? nameOf(u) : `User ${r.userId ?? '-'}`;
-        const group = u ? groupOf(u) : '-';
-
-        const lead = r.__lead;
+      for (const r of recs){
+        const lead = r.lead;
         if (!lead) continue;
 
+        // agent-id
+        const agentId = lead.lastContactedBy ?? r.sessionUserId;
+        const user = usersById.get(agentId);
+        const agentName = user ? nameOf(user) : `User ${agentId ?? '-'}`;
+        const agentGroup = user ? groupOf(user) : '-';
+
+        // commission & multideals
         const commission = parseFloat(readLeadField(lead, FIELD.COMMISSION)) || 0;
-        if (commission <= 0) continue;
+        if (commission<=0) continue; // bara riktiga affärer
 
-        const multiRaw = readLeadField(lead, FIELD.MULTIDEALS);
-        const incDeals = Number.isFinite(parseFloat(multiRaw)) && parseFloat(multiRaw) > 0
-          ? parseFloat(multiRaw)
-          : 1;
+        const mRaw = readLeadField(lead, FIELD.MULTIDEALS);
+        const deals = Number.isFinite(parseFloat(mRaw)) && parseFloat(mRaw)>0 ? parseFloat(mRaw) : 1;
 
-        if (!agg.has(r.userId)) agg.set(r.userId, { userId:r.userId, name, group, deals:0, commission:0 });
-        const a = agg.get(r.userId);
-        a.deals += incDeals;
+        // order date som tidpunkt
+        const orderDateStr = readLeadField(lead, FIELD.ORDERDATE);
+        const when = orderDateStr ? new Date(orderDateStr) :
+                     (r.sessionWhen || new Date(lead.lastUpdatedTime || Date.now()));
+
+        // summering
+        if (!agg.has(agentId)) agg.set(agentId, { name:agentName, group:agentGroup, deals:0, commission:0 });
+        const a=agg.get(agentId);
+        a.deals += deals;
         a.commission += commission;
 
-        last.push({ when: r.when, name, group, commission });
+        last.push({ when, name:agentName, group:agentGroup, commission });
       }
 
-      // Sortera & summera
       const arr = [...agg.values()].sort((a,b)=> b.deals!==a.deals ? b.deals-a.deals : b.commission-a.commission);
       const totalDeals = arr.reduce((s,x)=>s+x.deals,0);
       const totalComm  = arr.reduce((s,x)=>s+x.commission,0);
 
-      // UI
       document.getElementById('statDeals').textContent = totalDeals;
       document.getElementById('statCommission').textContent = toTHB(totalComm);
       document.getElementById('statAgents').textContent = arr.length;
@@ -369,18 +368,18 @@
         : `<tr><td colspan="4" class="small muted">Inga affärer hittades.</td></tr>`;
     }
 
-    // ---------- RUN ----------
     async function refresh(){
       const p = document.getElementById('period').value;
       try{
         state.leadCache.clear();
-        state.leadFetches = 0;
-        document.getElementById('leadCount').textContent = `0 lead-hämtningar`;
-        await loadSessions(p);     // hämtar sidvis och exponerar peek direkt
+        state.leadFetches=0;
+        document.getElementById('leadCount').textContent='0 lead-hämtningar';
+        await loadSessions(p);
         await aggregate(p);
+        document.getElementById('debugNote').textContent = `sessions=${state.sessions.length}, cache=${state.leadCache.size}`;
       }catch(e){
         console.error(e);
-        document.getElementById('rowCount').textContent = 'error';
+        document.getElementById('debugNote').textContent = e.message;
       }
     }
 
