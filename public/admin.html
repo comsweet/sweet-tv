@@ -1,192 +1,235 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin – Sweet TV</title>
   <style>
-    :root{ --bg:#0f1727; --card:#121c2e; --muted:#9bb0d6; --line:#20304d; }
-    *{ box-sizing:border-box }
-    body{ margin:0; min-height:100vh; background:var(--bg); color:#d9e2ff; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
-    .bar{ display:flex; gap:12px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); }
-    .grid{ display:grid; grid-template-columns: 360px 1fr; gap:16px; padding:16px; }
-    .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
-    h3{ margin:0 0 8px 0; font-size:16px; }
-    table{ width:100%; border-collapse:collapse; }
-    th,td{ padding:10px 8px; border-bottom:1px solid var(--line); font-size:14px; }
-    th{ color:#a7b8e6; text-align:left; font-weight:600; }
-    .muted{ color:var(--muted); font-size:12px; }
-    .row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap }
-    select, input[type=text], button{
-      background:#0d1526; color:#d9e2ff; border:1px solid var(--line); padding:6px 10px; border-radius:8px; outline:none;
+    :root {
+      --bg: #0f1727;
+      --panel: #121c2e;
+      --glass: rgba(255,255,255,.06);
+      --text: #e7eefc;
+      --muted: #8aa0c7;
+      --accent: #62a0ff;
+      --chip: rgba(255,255,255,.08);
     }
-    button{ background:#1d2b49; cursor:pointer; }
-    .pill{ background:#0d1526; border:1px solid var(--line); padding:4px 8px; border-radius:999px; font-size:12px; }
-    .err{ color:#ff8b8b; font-size:13px; margin-top:6px; }
-    .stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin: 10px 0 12px }
-    .stat{ background:#0d1526; border:1px solid var(--line); border-radius:10px; padding:12px; }
-    .stat b{ font-size:22px; display:block; }
-    .sticky-note{ font-size:12px; color:#94a9d5; margin-top:6px; }
-    .right{ text-align:right }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      padding: 8px;
+    }
+    .grid { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
+    .card {
+      background: var(--panel); border-radius: 10px; padding: 12px 12px 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+    .title { font-weight: 800; margin-bottom: 8px; }
+    .muted { color: var(--muted); }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+    select, input, button {
+      background: #0b1323; color: var(--text); border: 1px solid #1f2e4a;
+      border-radius: 8px; padding: 8px 10px; font-size: 14px;
+    }
+    button { cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px; }
+    th { text-align: left; color: var(--muted); }
+    tbody tr + tr { border-top: 1px solid #1e2a44; }
+    .right { text-align: right; }
+    .chips { display:flex; gap:6px; align-items:center; flex-wrap: wrap; }
+    .chip { background: var(--chip); color: var(--text); border-radius: 999px; padding: 4px 8px; font-size: 12px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 8px; }
+    .kpi { background: #0b1323; border: 1px solid #1f2e4a; border-radius: 10px; padding: 12px; }
+    .kpi .h { color: var(--muted); font-size: 12px; }
+    .kpi .v { font-weight: 800; font-size: 18px; margin-top: 6px; }
   </style>
 </head>
 <body>
-  <div class="bar">
-    <div>Admin – Sweet TV</div>
-    <div class="muted">Proxy: <span class="pill">/api/v1 → Adversus</span></div>
-    <div class="muted">Leaderboard: <span class="pill">/api/leaderboard</span></div>
-  </div>
-
   <div class="grid">
-    <!-- Vänster: Users -->
     <div class="card">
-      <h3>User groups & agenter</h3>
-      <div id="usersErr" class="err"></div>
-      <div style="max-height:70vh; overflow:auto;">
-        <table id="usersTbl">
-          <thead>
-            <tr><th>Namn</th><th>Grupp</th><th>Roll</th><th>E-post</th><th>Status</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <div class="title">User groups & agenter</div>
+      <div class="muted" id="usersErr"></div>
+      <table id="usersTable">
+        <thead>
+          <tr><th>Namn</th><th>Grupp</th><th>Roll</th><th>E-post</th><th>Status</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
 
-    <!-- Höger: Data check -->
     <div class="card">
-      <h3>Data check – Commission & Deals (preview)</h3>
+      <div class="title">Data check – Commission & Deals (preview)</div>
+
       <div class="row">
-        <span>Period:</span>
+        <div>Period:</div>
         <select id="period">
-          <option value="month" selected>Denna månad</option>
-          <option value="week">Denna vecka</option>
+          <option value="month">Denna månad</option>
           <option value="today">Idag</option>
         </select>
 
-        <span>Sortera på:</span>
+        <div>Sortera på:</div>
         <select id="metric">
-          <option value="deals" selected>Affärer</option>
+          <option value="deals">Affärer</option>
           <option value="commission">Commission</option>
         </select>
 
-        <span>Topp:</span>
+        <div>Topp:</div>
         <select id="size">
-          <option>10</option><option>20</option><option>50</option>
+          <option>5</option><option selected>10</option><option>15</option><option>20</option>
         </select>
 
-        <span>Grupper (komma-separerat):</span>
-        <input type="text" id="groups" placeholder="t.ex. Dentle Faraz,Sinfrid Bangkok" style="min-width:260px">
+        <div>Grupper (komma-separerat):</div>
+        <input id="groups" placeholder="t.ex. Dentle Faraz,Sinfrid Bangkok" style="min-width:280px">
         <button id="reload">Ladda om</button>
       </div>
 
-      <div class="row muted">
-        <span id="leadCount" class="pill">leads: –</span>
-        <span id="fieldIds" class="pill">Fält-ID:n C:70163 M:74126 O:71067</span>
+      <div class="chips" id="infoChips"></div>
+
+      <div class="kpis">
+        <div class="kpi"><div class="h">Totalt deals</div><div class="v" id="kDeals">0</div></div>
+        <div class="kpi"><div class="h">Totalt Commission</div><div class="v" id="kComm">0 THB</div></div>
+        <div class="kpi"><div class="h">Unika agenter (med deals)</div><div class="v" id="kUnique">0</div></div>
+        <div class="kpi"><div class="h">Fält-ID:n</div><div class="v" id="kFields">C:70163 M:74126 O:71067</div></div>
       </div>
 
-      <div id="lbErr" class="err"></div>
+      <div class="muted" id="errBox" style="margin-top:8px;"></div>
 
-      <div class="stat-grid">
-        <div class="stat"><div class="muted">Totalt deals</div><b id="sDeals">0</b></div>
-        <div class="stat"><div class="muted">Totalt Commission</div><b id="sComm">0 THB</b></div>
-        <div class="stat"><div class="muted">Unika agenter (med deals)</div><b id="sAgents">0</b></div>
-        <div class="stat right">
-          <div class="muted">Fält-ID:n</div>
-          <b>Commission: 70163<br>MultiDeals: 74126<br>Order date: 71067</b>
-        </div>
-      </div>
+      <table id="lbTable" style="margin-top:8px;">
+        <thead>
+          <tr><th>#</th><th>Agent</th><th>Grupp</th><th class="right">Deals</th><th class="right">Commission</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
 
-      <div style="max-height:52vh; overflow:auto;">
-        <table id="lbTbl">
-          <thead>
-            <tr><th>#</th><th>Agent</th><th>Grupp</th><th>Deals</th><th>Commission</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <div class="title" style="margin-top:12px;">Senaste affärer (15 st)</div>
+      <table id="latestTable">
+        <thead>
+          <tr><th>Tid</th><th>Agent</th><th>Grupp</th><th class="right">Commission</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
 
-      <div class="sticky-note">
-        Filtrering görs på <b>lastUpdatedTime</b>. Visningstid = <b>Order date</b> om den finns, annars <b>lead.lastUpdatedTime</b>.
-        Commission & MultiDeals läses från <b>lead.resultData</b> (fallback <i>masterData</i>). Valuta: THB.
+      <div class="muted" style="margin-top:8px">
+        Filtrering görs på <code>lastUpdatedTime</code>. Visningstid = <code>Order date</code> om den finns, annars <code>lead.lastUpdatedTime</code>.
+        Commission & MultiDeals läses från <code>lead.resultData</code> (fallback <code>masterData</code>). Valuta: THB.
       </div>
     </div>
   </div>
 
   <script>
-    function fmtTHB(n){ return `${Math.round(n).toLocaleString('sv-SE')} THB`; }
+    const usersTBody = document.querySelector('#usersTable tbody');
+    const usersErr = document.getElementById('usersErr');
 
-    // ===== Users-panel =====
-    async function loadUsers(){
-      const err = document.getElementById('usersErr');
-      const tbody = document.querySelector('#usersTbl tbody');
-      err.textContent = ''; tbody.innerHTML = '';
-      try{
-        const res = await fetch('/api/v1/users');
-        if(!res.ok) throw new Error('Users ' + res.status);
-        const users = await res.json();
-        users.forEach(u=>{
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${u.name || u.displayName || 'Okänd'}</td>
-            <td>${(u.group?.name) || (u.memberOf?.[0]?.name) || (Array.isArray(u.teams)? u.teams[0] : '') || '-'}</td>
-            <td>${u.role?.name || '-'}</td>
-            <td>${u.email || '-'}</td>
-            <td>${u.active ? 'Aktiv' : 'Inaktiv'}</td>`;
-          tbody.appendChild(tr);
-        });
-      }catch(e){ err.textContent = 'Fel: ' + e.message; }
-    }
-
-    // ===== Leaderboard preview =====
-    async function loadLB(){
-      const period = document.getElementById('period').value;
-      const metric = document.getElementById('metric').value;
-      const size = document.getElementById('size').value;
-      const groups = document.getElementById('groups').value.trim();
-
-      const err = document.getElementById('lbErr');
-      const tbody = document.querySelector('#lbTbl tbody');
-      err.textContent = ''; tbody.innerHTML = '';
-
-      const url = '/api/leaderboard?' + new URLSearchParams({
-        period, metric, size, ...(groups? { groups } : {})
-      });
-
-      try{
-        const res = await fetch(url);
-        if(!res.ok){
-          const j = await res.json().catch(()=>null);
-          throw new Error(`${res.status} (${j? JSON.stringify(j): 'Error'})`);
-        }
-        const data = await res.json();
-
-        document.getElementById('leadCount').textContent = `leads: ${data.totalLeads}`;
-        const uniqAgents = new Set(data.leaders.map(x=>x.agentId)).size;
-        const totalDeals = data.leaders.reduce((a,b)=>a+b.deals,0);
-        const totalComm = data.leaders.reduce((a,b)=>a+b.commission,0);
-
-        document.getElementById('sDeals').textContent = totalDeals.toLocaleString('sv-SE');
-        document.getElementById('sAgents').textContent = uniqAgents.toLocaleString('sv-SE');
-        document.getElementById('sComm').textContent = fmtTHB(totalComm);
-
-        data.leaders.forEach((r,i)=>{
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${i+1}</td>
-            <td>${r.name}</td>
-            <td>${r.group}</td>
-            <td>${r.deals}</td>
-            <td>${fmtTHB(r.commission)}</td>`;
-          tbody.appendChild(tr);
-        });
-      }catch(e){
-        err.textContent = 'Fel: ' + e.message;
+    async function loadUsers() {
+      try {
+        usersErr.textContent = '';
+        usersTBody.innerHTML = '<tr><td class="muted" colspan="5">Laddar…</td></tr>';
+        const r = await fetch('/api/v1/users?pageSize=1000&includeMeta=true');
+        if (!r.ok) throw new Error('users ' + r.status);
+        const data = await r.json();
+        const users = Array.isArray(data) ? data : data.users || [];
+        usersTBody.innerHTML = users.map(u => `
+          <tr>
+            <td>${u.displayName || u.name || ''}</td>
+            <td>${(u.group && u.group.name) || (u.teams && u.teams[0]) || ''}</td>
+            <td>${(u.role && u.role.name) || ''}</td>
+            <td>${u.email || ''}</td>
+            <td>${u.active ? 'Aktiv' : 'Inaktiv'}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error(err);
+        usersErr.textContent = 'Fel: ' + (err.message || err);
+        usersTBody.innerHTML = '';
       }
     }
 
-    document.getElementById('reload').onclick = loadLB;
+    const periodSel = document.getElementById('period');
+    const metricSel = document.getElementById('metric');
+    const sizeSel = document.getElementById('size');
+    const groupsInp = document.getElementById('groups');
+    const reloadBtn = document.getElementById('reload');
 
-    // init
+    const infoChips = document.getElementById('infoChips');
+    const kDeals = document.getElementById('kDeals');
+    const kComm = document.getElementById('kComm');
+    const kUnique = document.getElementById('kUnique');
+    const errBox = document.getElementById('errBox');
+
+    const lbTBody = document.querySelector('#lbTable tbody');
+    const latestTBody = document.querySelector('#latestTable tbody');
+
+    function chip(txt) {
+      const s = document.createElement('span');
+      s.className = 'chip';
+      s.textContent = txt;
+      return s;
+    }
+
+    async function loadLB() {
+      try {
+        errBox.textContent = '';
+        lbTBody.innerHTML = '<tr><td class="muted" colspan="5">Laddar…</td></tr>';
+        latestTBody.innerHTML = '<tr><td class="muted" colspan="4">Laddar…</td></tr>';
+
+        const url = `/api/leaderboard?period=${encodeURIComponent(periodSel.value)}&metric=${encodeURIComponent(metricSel.value)}&size=${encodeURIComponent(sizeSel.value)}`;
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('LB ' + r.status);
+        const data = await r.json();
+
+        infoChips.innerHTML = '';
+        infoChips.appendChild(chip(`leads: ${data.totals.deals}`));
+        infoChips.appendChild(chip(`Fält-ID:n C:70163 M:74126 O:71067`));
+
+        kDeals.textContent = (data.totals.deals || 0).toLocaleString('sv-SE');
+        kComm.textContent = `${(data.totals.commission || 0).toLocaleString('sv-SE')} THB`;
+        kUnique.textContent = data.totals.uniqueAgents || 0;
+
+        const groupsFilter = (groupsInp.value || '')
+          .split(',')
+          .map(s => s.trim().toLowerCase())
+          .filter(Boolean);
+
+        let rows = data.leaderboard || [];
+        if (groupsFilter.length) {
+          rows = rows.filter(r => groupsFilter.includes((r.group || '').toLowerCase()));
+        }
+
+        lbTBody.innerHTML = rows.length
+          ? rows.map((r, i) => `
+              <tr>
+                <td class="muted">${i + 1}</td>
+                <td>${r.user}</td>
+                <td class="muted">${r.group || '-'}</td>
+                <td class="right">${r.deals}</td>
+                <td class="right">${(r.commission || 0).toLocaleString('sv-SE')} THB</td>
+              </tr>`).join('')
+          : `<tr><td class="muted" colspan="5">Inga data för vald filtrering.</td></tr>`;
+
+        const latest = data.latest || [];
+        latestTBody.innerHTML = latest.length
+          ? latest.map(r => `
+              <tr>
+                <td>${new Date(r.time).toISOString().replace('T',' ').slice(0,19)}</td>
+                <td>${r.user}</td>
+                <td class="muted">${r.group || '-'}</td>
+                <td class="right">${(r.commission || 0).toLocaleString('sv-SE')} THB</td>
+              </tr>`).join('')
+          : `<tr><td class="muted" colspan="4">Inga affärer hittades.</td></tr>`;
+      } catch (err) {
+        console.error(err);
+        errBox.textContent = `Fel: ${err.message || err}`;
+        lbTBody.innerHTML = '';
+        latestTBody.innerHTML = '';
+      }
+    }
+
+    reloadBtn.onclick = loadLB;
+    periodSel.onchange = metricSel.onchange = sizeSel.onchange = loadLB;
+
+    // Init
     loadUsers();
     loadLB();
   </script>
