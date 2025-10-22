@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import socketService from '../services/socket';
-import { getLeaderboardStats } from '../services/api';
+import { getActiveLeaderboards, getLeaderboardStats2 } from '../services/api';
 import './Display.css';
 
 const playNotificationSound = () => {
@@ -74,39 +74,115 @@ const DealNotification = ({ notification, onComplete }) => {
   );
 };
 
+const LeaderboardCard = ({ leaderboard, stats }) => {
+  const getTimePeriodLabel = (period) => {
+    const labels = {
+      day: 'Idag',
+      week: 'Denna vecka',
+      month: 'Denna månad',
+      custom: 'Anpassat'
+    };
+    return labels[period] || period;
+  };
+
+  return (
+    <div className="leaderboard-card-display">
+      <div className="leaderboard-header">
+        <h2>{leaderboard.name}</h2>
+        <p className="leaderboard-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
+      </div>
+
+      {stats.length === 0 ? (
+        <div className="no-data-display">Inga affärer än</div>
+      ) : (
+        <div className="leaderboard-items">
+          {stats.slice(0, 10).map((item, index) => (
+            <div 
+              key={item.userId} 
+              className={`leaderboard-item-display ${index === 0 ? 'first-place' : ''}`}
+            >
+              <div className="rank-display">
+                {index === 0 && '🥇'}
+                {index === 1 && '🥈'}
+                {index === 2 && '🥉'}
+                {index > 2 && `#${index + 1}`}
+              </div>
+              
+              {item.agent.profileImage ? (
+                <img 
+                  src={item.agent.profileImage} 
+                  alt={item.agent.name}
+                  className="agent-avatar-display"
+                />
+              ) : (
+                <div className="agent-avatar-placeholder-display">
+                  {item.agent.name?.charAt(0) || '?'}
+                </div>
+              )}
+              
+              <div className="agent-info-display">
+                <h3 className="agent-name-display">{item.agent.name}</h3>
+                <p className="agent-stats-display">{item.dealCount} affärer</p>
+              </div>
+              
+              <div className="commission-display">
+                {item.totalCommission.toLocaleString('sv-SE')} THB
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Display = () => {
-  const [leaderboardData, setLeaderboardData] = useState([]);
+  const [leaderboardsData, setLeaderboardsData] = useState([]);
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboards = async () => {
     try {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const response = await getActiveLeaderboards();
+      const activeLeaderboards = response.data;
       
-      const response = await getLeaderboardStats(
-        startOfMonth.toISOString(),
-        now.toISOString()
+      // Hämta stats för varje aktiv leaderboard
+      const leaderboardsWithStats = await Promise.all(
+        activeLeaderboards.map(async (lb) => {
+          try {
+            const statsResponse = await getLeaderboardStats2(lb.id);
+            return {
+              leaderboard: lb,
+              stats: statsResponse.data.stats || []
+            };
+          } catch (error) {
+            console.error(`Error fetching stats for leaderboard ${lb.id}:`, error);
+            return {
+              leaderboard: lb,
+              stats: []
+            };
+          }
+        })
       );
       
-      setLeaderboardData(response.data);
+      setLeaderboardsData(leaderboardsWithStats);
       setIsLoading(false);
     } catch (error) {
-      console.error('Error fetching leaderboard:', error);
+      console.error('Error fetching leaderboards:', error);
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLeaderboard();
-    const interval = setInterval(fetchLeaderboard, 60000);
+    fetchLeaderboards();
+    const interval = setInterval(fetchLeaderboards, 60000); // Uppdatera varje minut
 
     socketService.connect();
 
     const handleNewDeal = (notification) => {
       console.log('New deal received:', notification);
       setCurrentNotification(notification);
-      fetchLeaderboard();
+      fetchLeaderboards();
     };
 
     socketService.onNewDeal(handleNewDeal);
@@ -121,59 +197,37 @@ const Display = () => {
     setCurrentNotification(null);
   };
 
+  // Bestäm grid-layout baserat på antal leaderboards
+  const getGridClass = () => {
+    const count = leaderboardsData.length;
+    if (count === 1) return 'grid-1';
+    if (count === 2) return 'grid-2';
+    if (count <= 4) return 'grid-4';
+    return 'grid-4'; // Max 4 leaderboards i taget
+  };
+
   return (
     <div className="display-container">
       <header className="display-header">
-        <h1>🏆 Leaderboard</h1>
-        <p className="display-subtitle">Denna månad</p>
+        <h1>🏆 Sweet TV Leaderboards</h1>
       </header>
 
       {isLoading ? (
-        <div className="loading">Laddar...</div>
+        <div className="loading-display">Laddar...</div>
+      ) : leaderboardsData.length === 0 ? (
+        <div className="no-leaderboards">
+          <p>Inga aktiva leaderboards</p>
+          <p className="hint">Skapa en leaderboard i Admin-panelen</p>
+        </div>
       ) : (
-        <div className="leaderboard">
-          {leaderboardData.length === 0 ? (
-            <div className="no-data">Inga affärer än denna månad</div>
-          ) : (
-            <div className="leaderboard-list">
-              {leaderboardData.map((item, index) => (
-                <div 
-                  key={item.userId} 
-                  className={`leaderboard-item ${index === 0 ? 'first-place' : ''}`}
-                >
-                  <div className="rank">
-                    {index === 0 && '🥇'}
-                    {index === 1 && '🥈'}
-                    {index === 2 && '🥉'}
-                    {index > 2 && `#${index + 1}`}
-                  </div>
-                  
-                  {item.agent.profileImage ? (
-                    <img 
-                      src={item.agent.profileImage} 
-                      alt={item.agent.name}
-                      className="agent-avatar"
-                    />
-                  ) : (
-                    <div className="agent-avatar-placeholder">
-                      {item.agent.name?.charAt(0) || '?'}
-                    </div>
-                  )}
-                  
-                  <div className="agent-info">
-                    <h3 className="agent-name">{item.agent.name}</h3>
-                    <p className="agent-stats">
-                      {item.dealCount} affärer
-                    </p>
-                  </div>
-                  
-                  <div className="commission">
-                    {item.totalCommission.toLocaleString('sv-SE')} THB
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className={`leaderboards-grid ${getGridClass()}`}>
+          {leaderboardsData.slice(0, 4).map(({ leaderboard, stats }) => (
+            <LeaderboardCard 
+              key={leaderboard.id}
+              leaderboard={leaderboard}
+              stats={stats}
+            />
+          ))}
         </div>
       )}
 
