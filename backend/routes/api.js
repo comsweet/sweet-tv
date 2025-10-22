@@ -112,41 +112,71 @@ router.get('/adversus/user-groups', async (req, res) => {
   }
 });
 
-// STATS
+// STATS - Hämta direkt från Adversus API
 router.get('/stats/leaderboard', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const end = endDate ? new Date(endDate) : new Date();
     
-    const deals = await database.getDealsInRange(start, end);
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate required' });
+    }
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    console.log(`📊 Fetching stats from ${start.toISOString()} to ${end.toISOString()}`);
+    
+    // Hämta success leads från Adversus
+    const result = await adversusAPI.getLeadsInDateRange(start, end);
+    const leads = result.leads || [];
+    
+    console.log(`✅ Found ${leads.length} success leads`);
+    
+    // Hämta lokala agenter (för namn och bilder)
     const agents = await database.getAgents();
     
+    // Gruppera per agent och räkna commission
     const stats = {};
-    deals.forEach(deal => {
-      if (!stats[deal.userId]) {
-        stats[deal.userId] = {
-          userId: deal.userId,
+    
+    leads.forEach(lead => {
+      const userId = lead.lastContactedBy;
+      
+      if (!userId) return; // Skip om ingen agent
+      
+      if (!stats[userId]) {
+        stats[userId] = {
+          userId: userId,
           totalCommission: 0,
           dealCount: 0
         };
       }
       
-      const commission = parseFloat(deal.commission) || 0;
-      stats[deal.userId].totalCommission += commission;
-      stats[deal.userId].dealCount += 1;
+      // Hitta commission från resultData (field ID 70163)
+      const commissionField = lead.resultData?.find(f => f.id === 70163);
+      const commission = parseFloat(commissionField?.value || 0);
+      
+      stats[userId].totalCommission += commission;
+      stats[userId].dealCount += 1;
     });
     
+    // Konvertera till array och lägg till agent-info
     const leaderboard = Object.values(stats).map(stat => {
-      const agent = agents.find(a => a.userId === stat.userId);
+      const agent = agents.find(a => String(a.userId) === String(stat.userId));
       return {
         ...stat,
-        agent: agent || { userId: stat.userId, name: `Agent ${stat.userId}` }
+        agent: agent || { 
+          userId: stat.userId, 
+          name: `Agent ${stat.userId}`,
+          profileImage: null
+        }
       };
     }).sort((a, b) => b.totalCommission - a.totalCommission);
     
+    console.log(`📈 Leaderboard with ${leaderboard.length} agents`);
+    
     res.json(leaderboard);
   } catch (error) {
+    console.error('❌ Error fetching leaderboard:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
