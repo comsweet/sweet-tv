@@ -53,8 +53,8 @@ class AdversusAPI {
 
   // Hämta user groups
   async getUserGroups(params = {}) {
-    return await this.request('/api/usergroups', params);
-  }
+    return await this.request('/groups', params);
+}
 }
 
 module.exports = new AdversusAPI();
