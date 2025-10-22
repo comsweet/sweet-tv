@@ -1,278 +1,342 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin – Sweet TV</title>
-<style>
-body {
-  background: #0f1727;
-  color: #e4e9f0;
-  font-family: 'Inter', sans-serif;
-  padding: 10px 20px;
-}
-h1 {
-  font-size: 22px;
-  color: #fff;
-}
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.card {
-  background: #182235;
-  border-radius: 8px;
-  padding: 10px 20px;
-  box-shadow: 0 0 5px rgba(0,0,0,0.3);
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-th, td {
-  border-bottom: 1px solid #283347;
-  padding: 6px 8px;
-  text-align: left;
-}
-th {
-  color: #9aa7bf;
-  font-weight: 600;
-}
-.num { text-align: right; }
-.small { font-size: 12px; color: #9aa7bf; }
-.statbox {
-  display: flex;
-  justify-content: space-around;
-  margin-top: 10px;
-}
-.stat {
-  flex: 1;
-  text-align: center;
-  background: #111a2c;
-  margin: 4px;
-  padding: 10px;
-  border-radius: 8px;
-}
-.stat h3 { margin: 0; color: #9aa7bf; font-weight: normal; }
-.stat p { margin: 4px 0 0; font-size: 18px; font-weight: bold; }
-.badge {
-  background: #1f2a44;
-  border-radius: 20px;
-  padding: 2px 8px;
-  font-size: 12px;
-  color: #7dd3fc;
-}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin – Sweet TV</title>
+  <style>
+    body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;margin:0;padding:20px}
+    h1{margin:0 0 8px} h2{margin:0 0 8px;color:#93c5fd}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+    .card{background:#1e293b;border-radius:10px;padding:20px;box-shadow:0 0 10px rgba(0,0,0,.3)}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:8px 10px;border-bottom:1px solid #334155} th{text-align:left;color:#94a3b8}
+    .small{font-size:12px;opacity:.7}
+    select,button{background:#334155;border:none;color:#fff;padding:6px 10px;border-radius:6px;font-size:14px;margin-right:6px}
+    .stats{display:flex;gap:20px;margin-top:10px}
+    .stat-box{background:#0f172a;padding:16px 22px;border-radius:10px;flex:1;text-align:center;border:1px solid #334155}
+    .stat-value{font-size:26px;font-weight:700;color:#f8fafc}
+    .field-ids{font-size:16px;margin-top:6px;color:#7dd3fc;font-family:ui-monospace,Menlo,Consolas,monospace}
+    code{background:#0b1220;border:1px solid #1c2744;padding:1px 5px;border-radius:5px}
+    .muted{color:#94a3b8}
+    .error{color:#fca5a5}
+  </style>
 </head>
 <body>
+  <h1>⚙️ Admin – Sweet TV</h1>
+  <div class="small">Proxy: <span id="proxyUrl"></span></div>
 
-<h1>⚙️ Admin – Sweet TV</h1>
-<p class="small">Proxy: <a href="https://sweet-tv.onrender.com/api/v1" target="_blank">https://sweet-tv.onrender.com/api/v1</a></p>
+  <div class="grid">
+    <div class="card">
+      <h2>User groups</h2>
+      <div id="groupsInfo" class="small muted">Laddar…</div>
+      <table id="groupsTable">
+        <thead><tr><th>Namn</th><th>ID</th><th>Agenter</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
 
-<div class="grid">
+    <div class="card">
+      <h2>Agenter</h2>
+      <div id="agentsInfo" class="small muted">Laddar…</div>
+      <table id="agentsTable">
+        <thead><tr><th>Namn</th><th>Grupp</th><th>Roll</th><th>E-post</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="card">
-    <h2>User groups</h2>
-    <table id="tblGroups">
-      <thead><tr><th>Namn</th><th>ID</th><th>Agenter</th></tr></thead>
-      <tbody><tr><td colspan="3">Laddar...</td></tr></tbody>
+    <h2>Data check – Commission & Deals</h2>
+    <div class="small muted" id="sessionsHdr"></div>
+    <div style="margin:8px 0 12px 0">
+      <select id="period">
+        <option value="today">Idag</option>
+        <option value="month" selected>Denna månad</option>
+      </select>
+      <button id="reloadBtn">Ladda om</button>
+      <span id="rowCount" style="margin-left:10px;">0 sessions</span>
+      <span style="margin-left:15px" class="small">
+        Fields – C:<span id="fC">70163</span>
+        M:<span id="fM">74126</span>
+        O:<span id="fO">71067</span>
+        R:<span id="fR">70112</span> (<span class="muted">Callend Reasons</span>: <b>Affär</b>)
+      </span>
+    </div>
+
+    <div class="stats">
+      <div class="stat-box">
+        <div class="small">Totalt deals</div>
+        <div class="stat-value" id="statDeals">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="small">Totalt Commission</div>
+        <div class="stat-value" id="statCommission">0 THB</div>
+      </div>
+      <div class="stat-box">
+        <div class="small">Unika agenter (med deals)</div>
+        <div class="stat-value" id="statAgents">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="small">Fält-ID:n</div>
+        <div class="field-ids">
+          Commission: <b id="cid">70163</b><br>
+          MultiDeals: <b id="mid">74126</b><br>
+          Order date: <b id="oid">71067</b><br>
+          Callend Reasons: <b id="rid">70112</b>
+        </div>
+      </div>
+    </div>
+
+    <h4 style="margin-top:24px;">Topplista (period)</h4>
+    <table id="rankingTable">
+      <thead><tr><th>#</th><th>Agent</th><th>Grupp</th><th>Deals</th><th>Commission</th></tr></thead>
+      <tbody></tbody>
     </table>
-  </div>
-  <div class="card">
-    <h2>Agenter</h2>
-    <table id="tblUsers">
-      <thead><tr><th>Namn</th><th>Grupp</th><th>Roll</th><th>E-post</th><th>Status</th></tr></thead>
-      <tbody><tr><td colspan="5">Laddar...</td></tr></tbody>
+
+    <h4 style="margin-top:18px;">Senaste affärer (15 st)</h4>
+    <table id="latestTable">
+      <thead><tr><th>Tid</th><th>Agent</th><th>Grupp</th><th>Commission</th></tr></thead>
+      <tbody></tbody>
     </table>
-  </div>
-</div>
 
-<div class="card" style="margin-top:20px;">
-  <h2>Data check – Commission & Deals</h2>
-  <div>
-    <select id="selPeriod">
-      <option value="month">Denna månad</option>
-      <option value="today">Idag</option>
-    </select>
-    <button onclick="refreshDataCheck()">Ladda om</button>
-    <span class="badge" id="rowCount">0 sessions</span>
-    <span class="badge" id="fieldInfo">Fields – C:70163 M:74126 O:71067 R:70112 (Affär)</span>
+    <div class="small muted" style="margin-top:10px">
+      Affär = <b>session</b> där <code>Callend Reasons</code> = <code>Affär</code>.
+      Commission hämtas från <code>Commission</code>, MultiDeals från <code>MultiDeals</code> (default 1).
+      Order-filter bygger på <code>Order date</code> om det finns, annars på sessionens tidsstämpel.
+    </div>
   </div>
 
-  <div class="statbox">
-    <div class="stat"><h3>Totalt deals</h3><p id="statDeals">0</p></div>
-    <div class="stat"><h3>Totalt Commission</h3><p id="statComm">0 THB</p></div>
-    <div class="stat"><h3>Unika agenter (med deals)</h3><p id="statAgents">0</p></div>
-  </div>
+  <script>
+    // ---------- CONFIG ----------
+    const API = '/api/v1';
+    document.getElementById('proxyUrl').textContent = window.location.origin + API;
 
-  <table style="margin-top:20px;" id="tblDeals">
-    <thead>
-      <tr><th>#</th><th>Agent</th><th>Grupp</th><th>Deals</th><th>Commission</th></tr>
-    </thead>
-    <tbody><tr><td colspan="5">Inga affärer i vald period.</td></tr></tbody>
-  </table>
+    // Fält-ID:n
+    const FIELD = {
+      COMMISSION: 70163,
+      MULTIDEALS: 74126,
+      ORDERDATE: 71067,
+      CALLEND_REASONS: 70112,   // "Callend Reasons"
+      DEAL_VALUE: 'Affär'
+    };
 
-  <p class="small" style="margin-top:6px;">
-    Affär = session där <b>Callend Reasons = "Affär"</b>. Commission hämtas från <b>Commission</b>, MultiDeals från <b>MultiDeals</b>.  
-    Order-filter görs via fältet <b>Order date</b> (ISO-tid, UTC) om det finns, annars via sessionens tidsstämpel.
-  </p>
-</div>
+    const DEBUG = true;
+    const dlog = (...a)=>{ if (DEBUG) console.log('[admin]', ...a); };
 
-<script>
-const API = window.location.origin + '/api/v1';
-const state = { users:[], groups:[], sessions:[] };
-const FIELDS = { COMM:70163, MULTI:74126, ORDER:71067, REASON:70112 };
+    const state = { users: [], groups: [], sessions: [] };
 
-function dlog(...args){ console.log('[admin]',...args); }
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-function dateRange(period){
-  const now=new Date();
-  if(period==='today'){
-    const from=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-    return {from,to:new Date()};
-  }else{
-    const from=new Date(now.getFullYear(),now.getMonth(),1);
-    return {from,to:new Date()};
-  }
-}
-
-/* ---------- USERS & GROUPS ---------- */
-async function loadUsersAndGroups(){
-  dlog('loadUsersAndGroups:start');
-  const [u,g]=await Promise.all([
-    fetch(`${API}/users`).then(r=>r.json()).catch(()=>[]),
-    fetch(`${API}/groups`).then(r=>r.json()).catch(()=>[])
-  ]);
-  state.users=u||[]; state.groups=g||[];
-  dlog('loadUsersAndGroups:done',state.users.length,state.groups.length);
-  renderUsers(); renderGroups();
-}
-
-function renderGroups(){
-  const tb=document.querySelector('#tblGroups tbody');
-  if(!state.groups.length){tb.innerHTML='<tr><td colspan="3">Inga grupper</td></tr>';return;}
-  tb.innerHTML=state.groups.map(g=>{
-    const count=state.users.filter(u=>u.group&&u.group.id===g.id).length;
-    return `<tr><td>${g.name}</td><td>${g.id}</td><td>${count}</td></tr>`;
-  }).join('');
-}
-
-function renderUsers(){
-  const tb=document.querySelector('#tblUsers tbody');
-  if(!state.users.length){tb.innerHTML='<tr><td colspan="5">Inga användare</td></tr>';return;}
-  tb.innerHTML=state.users.map(u=>`
-    <tr>
-      <td>${u.name||'-'}</td>
-      <td>${u.group?u.group.name:'–'}</td>
-      <td>${u.role?u.role.name:'–'}</td>
-      <td>${u.email||''}</td>
-      <td>${u.active?'Aktiv':'Inaktiv'}</td>
-    </tr>
-  `).join('');
-}
-
-/* ---------- SESSIONS LOAD (daterange via filters) ---------- */
-async function loadSessions(period){
-  dlog('loadSessions:start', period);
-  const { from, to } = dateRange(period);
-  const filters = { startTime: { "$gte": from.toISOString(), "$lt": to.toISOString() } };
-  const filtersParam = encodeURIComponent(JSON.stringify(filters));
-  const pageSize=50, maxPages=20, maxRetries=6, baseDelay=1200;
-  const all=[];
-
-  for(let page=1;page<=maxPages;page++){
-    const url=`${API}/sessions?filters=${filtersParam}&page=${page}&pageSize=${pageSize}`
-      +`&includeMeta=true&sortProperty=startTime&sortDirection=DESC`;
-    let tries=0;
-    while(true){
-      tries++;
-      dlog(`→ sessions page ${page} try ${tries}`);
-      const res=await fetch(url);
-      if(res.status===429){
-        if(tries>maxRetries)throw new Error(`Sessions 429 efter ${tries} försök p${page}`);
-        const wait=baseDelay*tries;dlog(`429, backoff ${wait}ms`);await sleep(wait);continue;
-      }
-      if(!res.ok){const t=await res.text().catch(()=>res.statusText);throw new Error(`Sessions ${res.status} ${t}`);}
-      const data=await res.json().catch(()=>({}));
-      const list=Array.isArray(data)?data:(data.items||data.data||data.results||data.sessions||[]);
-      dlog(`sessions page ${page} OK – ${list.length}`);
-      all.push(...list);
-      await sleep(250);
-      if(list.length<pageSize) page=maxPages+1;
-      break;
+    // ---------- HELPERS ----------
+    const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+    function dateRange(period){
+      const now=new Date();
+      const start = period==='today' ? new Date(now.getFullYear(),now.getMonth(),now.getDate())
+                                     : new Date(now.getFullYear(),now.getMonth(),1);
+      start.setHours(0,0,0,0);
+      return {from:start,to:now};
     }
-  }
-  state.sessions=all;
-  document.getElementById('rowCount').textContent=`${all.length} sessions`;
-  dlog('loadSessions:done',all.length);
-}
+    function toTHB(n){ return `${(n||0).toLocaleString('th-TH',{maximumFractionDigits:0})} THB`; }
+    const nameOf = (u)=> u?.displayName || u?.name || `${u?.firstName||''} ${u?.lastName||''}`.trim() || 'Okänd';
+    const groupOf= (u)=> u?.group?.name || (Array.isArray(u?.memberOf)&&u.memberOf[0]?.name) || (Array.isArray(u?.teams)&&u.teams[0]) || '-';
 
-/* ---------- DATA CHECK ---------- */
-function processData(){
-  const sessions=state.sessions;
-  if(!sessions.length)return { deals:[],totalDeals:0,totalComm:0 };
-  const deals=[];
-  for(const s of sessions){
-    const rf=(s.resultData||{}).resultFields||{};
-    const reason=(rf[FIELDS.REASON]||'').trim();
-    if(reason!=='Affär') continue;
+    // Hitta result-fält i session – stödjer både array och objektmappar
+    function readSessionField(session, id){
+      // vanliga ställen
+      const candidates = [
+        session?.resultData,             // kan vara { resultFields: [...]} eller { [id]:value }
+        session?.resultFields,
+        session?.data?.resultData,
+        session?.data?.resultFields
+      ].filter(Boolean);
 
-    const comm=parseFloat(rf[FIELDS.COMM])||0;
-    const multi=parseFloat(rf[FIELDS.MULTI])||1;
-    const orderDate=rf[FIELDS.ORDER]||s.startTime||'';
-    const user=state.users.find(u=>u.id===s.userId)||{};
-    const group=user.group?user.group.name:'–';
+      for (const container of candidates){
+        // 1) Om container är en array av {id,value/label}
+        if (Array.isArray(container)){
+          const hit = container.find(f => Number(f.id) === Number(id));
+          if (hit) return (hit.value ?? hit.label ?? hit.text ?? hit.data);
+        }
+        // 2) Om container är ett objekt som innehåller "resultFields" som array
+        if (Array.isArray(container.resultFields)){
+          const hit = container.resultFields.find(f => Number(f.id) === Number(id));
+          if (hit) return (hit.value ?? hit.label ?? hit.text ?? hit.data);
+        }
+        // 3) Om container är en map { "70163": "1234", ... }
+        if (typeof container === 'object' && container !== null){
+          const v = container[id] ?? container[String(id)];
+          if (v !== undefined) return v;
+        }
+      }
+      return undefined;
+    }
 
-    deals.push({
-      user:user.name||s.userName||'Okänd',
-      group,comm,multi,orderDate
-    });
-  }
+    // ---------- USERS & GROUPS ----------
+    async function loadUsersAndGroups(){
+      const gInfo = document.getElementById('groupsInfo');
+      const aInfo = document.getElementById('agentsInfo');
+      try{
+        dlog('loadUsersAndGroups:start');
+        const [uRes,gRes] = await Promise.all([ fetch(`${API}/users`), fetch(`${API}/groups`) ]);
+        const [users, groups] = await Promise.all([uRes.json(), gRes.json()]);
+        state.users = Array.isArray(users) ? users : [];
+        state.groups= Array.isArray(groups)? groups: [];
+        gInfo.textContent = `${state.groups.length} grupper`;
+        aInfo.textContent = `${state.users.length} agenter`;
+        renderUsersAndGroups();
+        dlog('loadUsersAndGroups:done', {users:state.users.length, groups:state.groups.length});
+      }catch(e){
+        console.error(e);
+        gInfo.innerHTML = `<span class="error">Fel: kunde inte ladda grupper (${e.message})</span>`;
+        aInfo.innerHTML = `<span class="error">Fel: kunde inte ladda agenter (${e.message})</span>`;
+      }
+    }
 
-  const perUser={};
-  for(const d of deals){
-    if(!perUser[d.user]) perUser[d.user]={name:d.user,group:d.group,deals:0,comm:0};
-    perUser[d.user].deals+=d.multi;
-    perUser[d.user].comm+=d.comm;
-  }
-  const arr=Object.values(perUser).sort((a,b)=>b.comm-a.comm);
-  return { deals:arr,totalDeals:deals.length,totalComm:arr.reduce((s,x)=>s+x.comm,0),unique:arr.length };
-}
+    function renderUsersAndGroups(){
+      const gT = document.querySelector('#groupsTable tbody');
+      const aT = document.querySelector('#agentsTable tbody');
+      gT.innerHTML=''; aT.innerHTML='';
 
-function renderData(res){
-  document.getElementById('statDeals').textContent=res.totalDeals;
-  document.getElementById('statComm').textContent=res.totalComm.toLocaleString('sv-SE',{maximumFractionDigits:0})+' THB';
-  document.getElementById('statAgents').textContent=res.unique;
-  const tb=document.querySelector('#tblDeals tbody');
-  if(!res.deals.length){tb.innerHTML='<tr><td colspan="5">Inga affärer hittades.</td></tr>';return;}
-  tb.innerHTML=res.deals.map((d,i)=>`
-    <tr>
-      <td>${i+1}</td>
-      <td>${d.name}</td>
-      <td>${d.group}</td>
-      <td class="num">${d.deals}</td>
-      <td class="num">${d.comm.toLocaleString('sv-SE',{maximumFractionDigits:0})} THB</td>
-    </tr>`).join('');
-}
+      state.groups.forEach(g=>{
+        const tr=document.createElement('tr');
+        const count=state.users.filter(u=>u.group?.id===g.id).length;
+        tr.innerHTML=`<td>${g.name}</td><td>${g.id}</td><td>${count} st</td>`;
+        gT.appendChild(tr);
+      });
 
-/* ---------- MAIN REFRESH ---------- */
-async function refreshDataCheck(){
-  const period=document.getElementById('selPeriod').value;
-  await loadSessions(period);
-  const result=processData();
-  renderData(result);
-}
+      state.users.forEach(u=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML = `<td>${nameOf(u)}</td><td>${groupOf(u)}</td><td>${u?.role?.name||'-'}</td><td>${u?.email||'-'}</td><td>${u?.active?'Aktiv':'Inaktiv'}</td>`;
+        aT.appendChild(tr);
+      });
+    }
 
-/* ---------- INIT ---------- */
-async function init(){
-  dlog('init:start');
-  await loadUsersAndGroups();
-  await refreshDataCheck();
-  dlog('init:done');
-}
-init();
-</script>
+    // ---------- SESSIONS (med filters på startTime, använder $gt/$lt) ----------
+    async function loadSessions(period){
+      dlog('loadSessions:start', period);
+      const { from, to } = dateRange(period);
+      document.getElementById('sessionsHdr').textContent =
+        `Period: ${from.toLocaleString('sv-SE')} — ${to.toLocaleString('sv-SE')}`;
 
+      const filters = { startTime: { "$gt": from.toISOString(), "$lt": to.toISOString() } };
+      const filtersParam = encodeURIComponent(JSON.stringify(filters));
+
+      const pageSize=50, maxPages=20, maxRetries=6, baseDelay=1200;
+      const all=[];
+
+      for (let page=1; page<=maxPages; page++){
+        const url = `${API}/sessions?filters=${filtersParam}`
+          + `&page=${page}&pageSize=${pageSize}`
+          + `&includeMeta=true`
+          + `&sortProperty=startTime&sortDirection=DESC`;
+
+        let tries=0;
+        while (true){
+          tries++;
+          dlog(`→ sessions page ${page} try ${tries}`);
+          const res = await fetch(url);
+          if (res.status===429){
+            if (tries>maxRetries) throw new Error(`Sessions 429 efter ${tries} försök p${page}`);
+            const wait=baseDelay*tries; dlog(`429, backoff ${wait}ms`); await sleep(wait); continue;
+          }
+          if (!res.ok){
+            const t=await res.text().catch(()=>res.statusText);
+            throw new Error(`Sessions ${res.status} ${t}`);
+          }
+          const data = await res.json().catch(()=>({}));
+          const list = Array.isArray(data) ? data : (data.items||data.data||data.results||data.sessions||[]);
+          dlog(`sessions page ${page} OK – ${list.length}`);
+          all.push(...list);
+          await sleep(250);
+          if (list.length<pageSize) page=maxPages+1;
+          break;
+        }
+      }
+
+      state.sessions = all;
+      document.getElementById('rowCount').textContent = `${all.length} sessions`;
+      dlog('loadSessions:done', all.length);
+    }
+
+    // ---------- AGGREGATE ----------
+    function aggregate(period){
+      const { from, to } = dateRange(period);
+      const usersById = new Map(state.users.map(u=>[u.id, u]));
+
+      const agg = new Map();
+      const last = [];
+
+      for (const s of state.sessions){
+        const uid = s.userId || s?.user?.id;
+        if (!uid) continue;
+
+        // Order-tid
+        const orderRaw = readSessionField(s, FIELD.ORDERDATE);
+        let when = orderRaw ? new Date(orderRaw) : (s.startTime ? new Date(s.startTime) : (s.createdAt ? new Date(s.createdAt) : (s.updatedAt ? new Date(s.updatedAt) : null)));
+        if (when && !(when>=from && when<to)) continue;
+
+        // Deal: Callend Reasons == Affär
+        const reason = String(readSessionField(s, FIELD.CALLEND_REASONS) ?? '').trim().toLowerCase();
+        if (FIELD.DEAL_VALUE && reason !== FIELD.DEAL_VALUE.toLowerCase()) continue;
+
+        // Commission + MultiDeals
+        const commission = parseFloat(readSessionField(s, FIELD.COMMISSION)) || 0;
+        if (commission <= 0) continue;
+
+        const multi = parseFloat(readSessionField(s, FIELD.MULTIDEALS));
+        const incDeals = Number.isFinite(multi)&&multi>0 ? multi : 1;
+
+        const u = usersById.get(uid);
+        const name = u ? nameOf(u) : `User ${uid}`;
+        const group = u ? groupOf(u) : '-';
+
+        if (!agg.has(uid)) agg.set(uid,{userId:uid,name,group,deals:0,commission:0});
+        const a = agg.get(uid);
+        a.deals += incDeals;
+        a.commission += commission;
+
+        last.push({ when, name, group, commission });
+      }
+
+      const arr = [...agg.values()].sort((a,b)=> b.deals!==a.deals ? b.deals-a.deals : b.commission-a.commission);
+      const totalDeals = arr.reduce((s,x)=>s+x.deals,0);
+      const totalComm  = arr.reduce((s,x)=>s+x.commission,0);
+
+      document.getElementById('statDeals').textContent = totalDeals;
+      document.getElementById('statCommission').textContent = toTHB(totalComm);
+      document.getElementById('statAgents').textContent = arr.length;
+
+      const rT = document.querySelector('#rankingTable tbody');
+      rT.innerHTML = arr.length
+        ? arr.slice(0,20).map((x,i)=>`
+            <tr><td>${i+1}</td><td>${x.name}</td><td>${x.group}</td><td>${x.deals}</td><td>${x.commission.toFixed(0)} THB</td></tr>
+          `).join('')
+        : `<tr><td colspan="5" class="small muted">Inga affärer i vald period.</td></tr>`;
+
+      last.sort((a,b)=> (b.when?.getTime()||0)-(a.when?.getTime()||0));
+      const lT = document.querySelector('#latestTable tbody');
+      lT.innerHTML = last.length
+        ? last.slice(0,15).map(r=>`
+            <tr><td>${r.when ? r.when.toLocaleString('sv-SE') : '-'}</td><td>${r.name}</td><td>${r.group}</td><td>${r.commission.toFixed(0)} THB</td></tr>
+          `).join('')
+        : `<tr><td colspan="4" class="small muted">Inga affärer hittades.</td></tr>`;
+    }
+
+    // ---------- RUN ----------
+    async function refresh(){
+      const p = document.getElementById('period').value;
+      try{
+        await loadSessions(p);
+        aggregate(p);
+      }catch(e){
+        console.error(e);
+        document.getElementById('rowCount').textContent = 'error';
+      }
+    }
+
+    document.getElementById('reloadBtn').addEventListener('click', refresh);
+    (async()=>{ await loadUsersAndGroups(); await refresh(); })();
+
+    // Debug helper – inspektera en session
+    window.__peekSession = ()=>{ const s=state.sessions?.[0]; console.log('__peekSession', s); return s; }
+  </script>
 </body>
 </html>
