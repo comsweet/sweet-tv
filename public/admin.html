@@ -339,10 +339,10 @@
     async function loadLeads(period){
       const { from, to } = dateRange(period);
 
-      const pageSize   = 100;   // 1–100 tillåtet
-      const maxPages   = 8;     // cap 800 leads
-      const maxRetries = 4;     // backoff vid 429
-      const baseDelay  = 800;   // ms
+      const pageSize   = 50;    // snällare mot API:t
+      const maxPages   = 12;    // cap 600 leads per laddning
+      const maxRetries = 6;     // fler försök vid 429
+      const baseDelay  = 1200;  // längre paus
 
       const collected = [];
       let page = 1;
