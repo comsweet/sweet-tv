@@ -7,236 +7,242 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// === Adversus API credentials (lägg i Render env) ===
-const ADVERSUS_CONFIG = {
+// ---- Adversus API config (lägg i Render env vars) ----
+const ADV = {
   baseUrl: 'https://api.adversus.dk/v1',
   username: process.env.ADVERSUS_USERNAME || 'your_username_here',
   password: process.env.ADVERSUS_PASSWORD || 'your_password_here'
 };
 
-// ===== Middleware =====
+// Fält-ID:n (kan ändras i admin vid behov, men default här)
+const FIELD_IDS = {
+  commission: 70163,  // "Commission"
+  multideals: 74126,  // "MultiDeals"
+  orderDate: 71067    // "Order date"
+};
+
+// ---- Middleware ----
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ===== Logger =====
+// ---- Logger ----
 app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
 
-// ===== Health =====
+// ---- Health ----
 app.get('/health', (_req, res) => {
-  res.json({ status: 'OK', at: new Date().toISOString() });
+  res.json({ ok: true, service: 'sweet-tv', ts: new Date().toISOString() });
 });
 
-/* ==========================================================
-   ADVERSUS PROXY
-   Allt som börjar med /api/v1 proxas rakt till Adversus.
-   ========================================================== */
+// ---- Adversus proxy: /api/v1/* -> https://api.adversus.dk/v1/* ----
 app.use('/api/v1', async (req, res) => {
-  const adversusUrl = `${ADVERSUS_CONFIG.baseUrl}${req.path}`;
+  const url = `${ADV.baseUrl}${req.path}`;
   try {
     const r = await axios({
       method: req.method,
-      url: adversusUrl,
+      url,
       params: req.query,
       data: req.body,
-      auth: {
-        username: ADVERSUS_CONFIG.username,
-        password: ADVERSUS_CONFIG.password
-      },
+      auth: { username: ADV.username, password: ADV.password },
       headers: { 'Content-Type': 'application/json' },
       timeout: 30000
     });
-    res.status(r.status).json(r.data);
-  } catch (e) {
-    console.error('Proxy error', e?.message);
-    res.status(e?.response?.status || 500).json({
-      error: e?.message || 'Proxy error',
-      details: e?.response?.data || null
+    res.status(r.status).send(r.data);
+  } catch (err) {
+    const status = err.response?.status || 500;
+    res.status(status).send({
+      error: err.message,
+      details: err.response?.data || null
     });
   }
 });
 
-/* ==========================================================
-   SERVER-SIDE LEADERBOARD
-   /api/leaderboard?period=month|today&metric=deals|commission&top=10&groups=Dentle%20Faraz,Sinfrid%20Bangkok
-   ========================================================== */
-
-// Helper: GET Adversus with auth, retry + backoff
-const adversusGet = async (path, params = {}, tries = 3) => {
-  const url = `${ADVERSUS_CONFIG.baseUrl}${path}`;
-  for (let i = 0; i < tries; i++) {
-    try {
-      const r = await axios.get(url, {
-        params,
-        auth: {
-          username: ADVERSUS_CONFIG.username,
-          password: ADVERSUS_CONFIG.password
-        },
-        timeout: 30000
-      });
-      return r.data;
-    } catch (e) {
-      const status = e?.response?.status;
-      if ((status === 429 || !status) && i < tries - 1) {
-        await new Promise(res => setTimeout(res, 800 * (i + 1)));
-        continue;
-      }
-      throw e;
-    }
-  }
+// ------ Helpers ------
+const advGet = async (p, params = {}) => {
+  const url = `${ADV.baseUrl}${p}`;
+  const r = await axios.get(url, {
+    params,
+    auth: { username: ADV.username, password: ADV.password },
+    timeout: 30000
+  });
+  return r.data;
 };
 
-// Mini-cache in memory
-const cache = new Map();
-const getCache = (key, ttlMs = 60000) => {
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
-  return null;
-};
-const setCache = (key, data) => cache.set(key, { at: Date.now(), data });
-
-// Period → ISO interval
-const periodToRange = (period) => {
-  const now = new Date();
-  const start = (period === 'today')
-    ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    : new Date(now.getFullYear(), now.getMonth(), 1);
-  return { from: start.toISOString(), to: now.toISOString() };
-};
-
-// Fält-ID:n (som du bekräftat i /fields & /campaigns)
-const FIELD_IDS = { commission: 70163, multideals: 74126, orderDate: 71067 };
-
-// Plocka fält från lead oavsett var de råkar ligga
-function getFieldValue(lead, id) {
-  // resultData (vanligast för orderfält)
-  if (Array.isArray(lead.resultData)) {
-    const hit = lead.resultData.find(x => `${x.id}` === `${id}`);
-    if (hit?.value != null) return hit.value;
+// robust paginering för leads
+async function fetchAllLeads(filters, sortProperty = 'lastUpdatedTime', sortDirection = 'DESC', pageSize = 200) {
+  let page = 1;
+  const all = [];
+  while (true) {
+    const params = {
+      filters: JSON.stringify(filters),
+      page,
+      pageSize,
+      sortProperty,
+      sortDirection
+    };
+    const chunk = await advGet('/leads', params);
+    if (!Array.isArray(chunk) || chunk.length === 0) break;
+    all.push(...chunk);
+    if (chunk.length < pageSize) break;
+    page += 1;
+    // liten backoff för att undvika 429
+    await new Promise(r => setTimeout(r, 250));
   }
-  // resultFields (ibland)
-  if (Array.isArray(lead.resultFields)) {
-    const hit = lead.resultFields.find(x => `${x.id}` === `${id}`);
-    if (hit?.value != null) return hit.value;
-  }
-  // masterData fallback
-  const md = Array.isArray(lead.masterData) ? lead.masterData :
-             (Array.isArray(lead.masterFields) ? lead.masterFields : []);
-  const hit = md?.find?.(x => `${x.id}` === `${id}`);
-  return hit?.value;
+  return all;
 }
 
+function isoStartOfToday() {
+  const d = new Date(); d.setHours(0,0,0,0); return d.toISOString();
+}
+function isoEndOfToday() {
+  const d = new Date(); d.setHours(23,59,59,999); return d.toISOString();
+}
+function isoStartOfMonth() {
+  const now = new Date(); const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0,0,0));
+  return d.toISOString();
+}
+function isoNow() { return new Date().toISOString(); }
+
+function readFieldFromLead(lead, idOrName) {
+  const idStr = String(idOrName).trim();
+  const from = (lead.resultData && Array.isArray(lead.resultData)) ? lead.resultData
+             : (lead.resultFields && Array.isArray(lead.resultFields)) ? lead.resultFields
+             : [];
+  let item = from.find(f => String(f.id) === idStr || String(f.label).toLowerCase() === String(idOrName).toLowerCase());
+  if (item) return item.value;
+
+  const md = Array.isArray(lead.masterData) ? lead.masterData : [];
+  item = md.find(f => String(f.id) === idStr || String(f.label).toLowerCase() === String(idOrName).toLowerCase());
+  return item ? item.value : undefined;
+}
+
+function parseNumber(v, fallback = 0) {
+  if (v == null) return fallback;
+  const n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// ---- /api/leaderboard ----
+// query:
+//  period=(today|month|custom) & from & to
+//  metric=(deals|commission)  default: deals
+//  size=10
+//  groups=comma,separated,groupNames  (valfritt)
+//  includeRecent=true|false           (returnera senaste 15 affärer)
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    const period = (req.query.period === 'today') ? 'today' : 'month';
-    const metric = (req.query.metric === 'commission') ? 'commission' : 'deals';
-    const top = Math.max(1, Math.min(100, parseInt(req.query.top || '10', 10)));
-    const groupsFilter = (req.query.groups || '')
-      .split(',').map(s => s.trim()).filter(Boolean);
+    const {
+      period = 'month',
+      from,
+      to,
+      metric = 'deals',
+      size = '10',
+      groups = '',
+      includeRecent = 'true'
+    } = req.query;
 
-    const cacheKey = JSON.stringify({ period, metric, top, groupsFilter });
-    const cached = getCache(cacheKey, 60000);
-    if (cached) return res.json(cached);
-
-    // 1) Hämta users → map userId → {name, group}
-    const users = await adversusGet('/v1/users');
-    const userMap = new Map();
-    for (const u of (Array.isArray(users) ? users : [])) {
-      const groupName = u?.group?.name || u?.groups?.[0]?.name || u?.memberOf?.[0]?.name || '-';
-      userMap.set(u.id, {
-        id: u.id,
-        name: u.displayName || u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Okänd',
-        group: groupName
-      });
+    let startISO, endISO;
+    if (period === 'today') {
+      startISO = isoStartOfToday();
+      endISO = isoEndOfToday();
+    } else if (period === 'custom' && from && to) {
+      startISO = new Date(from).toISOString();
+      endISO = new Date(to).toISOString();
+    } else {
+      startISO = isoStartOfMonth();
+      endISO = isoNow();
     }
 
-    // 2) Paginerat: hämta success-leads för perioden (sorterat på lastUpdatedTime)
-    const { from, to } = periodToRange(period);
-    const pageSize = 100;
-    let page = 1;
-    let leads = [];
-
-    while (true) {
-      const filters = JSON.stringify({
-        status: { $eq: 'success' },
-        lastUpdatedTime: { $gte: from, $lte: to }
-      });
-      const params = {
-        includeMeta: true,
-        page, pageSize,
-        sortProperty: 'lastUpdatedTime',
-        sortDirection: 'DESC',
-        filters
-      };
-      const data = await adversusGet('/v1/leads', params);
-      const batch = Array.isArray(data?.leads) ? data.leads : (Array.isArray(data) ? data : []);
-      leads.push(...batch);
-
-      const totalPages = data?.meta?.pageCount || data?.pageCount;
-      if (totalPages ? page >= totalPages : batch.length < pageSize) break;
-      page++;
-      await new Promise(r => setTimeout(r, 150)); // snäll mot rate-limit
+    // hämta users för namn + grupp
+    const users = await advGet('/users');
+    const userById = new Map();
+    for (const u of Array.isArray(users) ? users : []) {
+      // gruppnamn kan ligga i u.group?.name, fallback till first memberOf?.name
+      const g = (u.group && u.group.name) || (Array.isArray(u.memberOf) && u.memberOf[0]?.name) || '';
+      userById.set(u.id, { id: u.id, name: u.displayName || u.name || 'Okänd', group: g });
     }
 
-    // 3) Summera per agent
-    const agg = new Map();
-    for (const lead of leads) {
-      // "Vem" gjorde dealen
-      const userId = lead.lastContactedBy || lead.lastUpdatedBy || lead.userId;
-      const user = userMap.get(userId);
-      if (!user) continue;
-
-      // Gruppfilter (om satt)
-      if (groupsFilter.length && !groupsFilter.includes(user.group)) continue;
-
-      const multideals = parseFloat(getFieldValue(lead, FIELD_IDS.multideals)) || 1;
-      const commission = parseFloat(getFieldValue(lead, FIELD_IDS.commission)) || 0;
-
-      if (!agg.has(userId)) {
-        agg.set(userId, { id: userId, name: user.name, group: user.group, deals: 0, commission: 0 });
-      }
-      const row = agg.get(userId);
-      row.deals += multideals;
-      row.commission += commission;
-    }
-
-    // 4) Sortera + toppa
-    let items = Array.from(agg.values());
-    items.sort((a, b) => metric === 'commission'
-      ? (b.commission - a.commission || b.deals - a.deals)
-      : (b.deals - a.deals || b.commission - a.commission)
-    );
-    items = items.slice(0, top);
-
-    const payload = {
-      period, metric, top, groups: groupsFilter,
-      generatedAt: new Date().toISOString(),
-      items
+    // bygg filter: success + tidsintervall (på lastUpdatedTime)
+    const filters = {
+      status: { $eq: 'success' },
+      lastUpdatedTime: { $gte: startISO, $lte: endISO }
     };
-    setCache(cacheKey, payload);
-    res.json(payload);
-  } catch (err) {
-    console.error('Leaderboard error:', err?.message, err?.response?.data);
-    res.status(500).json({
-      error: 'Failed to build leaderboard',
-      details: err?.message || err
+
+    const leads = await fetchAllLeads(filters, 'lastUpdatedTime', 'DESC', 200);
+
+    // om admin angett gruppfilter
+    const allowedGroups = groups
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    const useGroupFilter = allowedGroups.length > 0;
+
+    // aggregat per user
+    const agg = new Map();
+    const recent = [];
+
+    for (const lead of leads) {
+      // agent via lastContactedBy
+      const uid = lead.lastContactedBy || 0;
+      const u = userById.get(uid) || { id: uid, name: 'Okänd', group: '' };
+
+      // gruppfilter (om satt)
+      if (useGroupFilter && !allowedGroups.includes(u.group)) continue;
+
+      const commission = parseNumber(readFieldFromLead(lead, FIELD_IDS.commission), 0);
+      const multi = parseNumber(readFieldFromLead(lead, FIELD_IDS.multideals), 1) || 1;
+      const orderDate = readFieldFromLead(lead, FIELD_IDS.orderDate) || lead.lastUpdatedTime || lead.updated;
+
+      if (!agg.has(uid)) {
+        agg.set(uid, { userId: uid, name: u.name, group: u.group, deals: 0, commission: 0 });
+      }
+      const row = agg.get(uid);
+      row.deals += multi;
+      row.commission += commission * multi;
+
+      // senaste affärer (visa max 15)
+      if (recent.length < 15) {
+        recent.push({
+          time: orderDate,
+          agent: u.name,
+          group: u.group,
+          commission: commission * multi
+        });
+      }
+    }
+
+    const items = Array.from(agg.values());
+    items.sort((a, b) => {
+      if (metric === 'commission') return b.commission - a.commission;
+      return b.deals - a.deals;
     });
+
+    res.json({
+      meta: {
+        period: { from: startISO, to: endISO },
+        metric,
+        size: Number(size),
+        fields: FIELD_IDS,
+        leads: leads.length
+      },
+      top: items.slice(0, Number(size)),
+      recent: includeRecent === 'true' ? recent : []
+    });
+  } catch (err) {
+    console.error('LEADERBOARD ERROR:', err.message, err.response?.data || '');
+    res.status(500).json({ error: 'leaderboard_failed', details: err.message });
   }
 });
 
-// ===== SPA-fallback =====
+// ---- SPA fallback ----
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ===== Start =====
+// ---- Start ----
 app.listen(PORT, () => {
-  console.log('='.repeat(60));
-  console.log('🚀 Sweet TV server up on', PORT);
-  console.log('Proxy     : /api/v1/* → Adversus');
-  console.log('Leaderboard: /api/leaderboard');
-  console.log('='.repeat(60));
+  console.log(`🚀 sweet-tv listening on :${PORT}`);
 });
