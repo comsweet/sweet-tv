@@ -76,6 +76,11 @@ app.use('/api/v1', async (req, res) => {
     }
 });
 
+// Admin-sida (ren statisk HTML)
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 // Fallback för SPA
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
