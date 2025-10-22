@@ -1,226 +1,194 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Admin – Sweet TV</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root{ --bg:#0f1727; --panel:#111b2e; --muted:#9aa4b2; --text:#d9e1ee; --accent:#4cc9f0; }
-    *{ box-sizing:border-box; }
-    body{ margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
-    .bar{ display:flex; gap:16px; align-items:center; border-bottom:1px solid rgba(255,255,255,.06); padding:12px 16px; }
-    .grid{ display:grid; grid-template-columns: 420px 1fr; gap:16px; padding:16px; }
-    .card{ background:var(--panel); border-radius:12px; padding:12px; }
-    .title{ font-weight:700; margin-bottom:8px; }
-    table{ width:100%; border-collapse:collapse; font-size:14px; }
-    th, td{ padding:8px 6px; border-bottom:1px solid rgba(255,255,255,.06); }
-    th{ color:var(--muted); text-align:left; font-weight:600; }
-    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
-    select, input, button{
-      background:#0e1625; border:1px solid rgba(255,255,255,.12); color:#fff; border-radius:8px; padding:6px 10px;
+    :root{ --bg:#0f1727; --card:#121c2e; --muted:#9bb0d6; --line:#20304d; }
+    *{ box-sizing:border-box }
+    body{ margin:0; min-height:100vh; background:var(--bg); color:#d9e2ff; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+    .bar{ display:flex; gap:12px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); }
+    .grid{ display:grid; grid-template-columns: 360px 1fr; gap:16px; padding:16px; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
+    h3{ margin:0 0 8px 0; font-size:16px; }
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ padding:10px 8px; border-bottom:1px solid var(--line); font-size:14px; }
+    th{ color:#a7b8e6; text-align:left; font-weight:600; }
+    .muted{ color:var(--muted); font-size:12px; }
+    .row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap }
+    select, input[type=text], button{
+      background:#0d1526; color:#d9e2ff; border:1px solid var(--line); padding:6px 10px; border-radius:8px; outline:none;
     }
-    button{ cursor:pointer; background:#1b2a44; }
-    .pill{ background:#0e1625; border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:4px 10px; font-size:12px; color:var(--muted); }
-    .error{ color:#ff9aa2; font-size:13px; margin-top:6px; }
+    button{ background:#1d2b49; cursor:pointer; }
+    .pill{ background:#0d1526; border:1px solid var(--line); padding:4px 8px; border-radius:999px; font-size:12px; }
+    .err{ color:#ff8b8b; font-size:13px; margin-top:6px; }
+    .stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin: 10px 0 12px }
+    .stat{ background:#0d1526; border:1px solid var(--line); border-radius:10px; padding:12px; }
+    .stat b{ font-size:22px; display:block; }
+    .sticky-note{ font-size:12px; color:#94a9d5; margin-top:6px; }
+    .right{ text-align:right }
   </style>
 </head>
 <body>
   <div class="bar">
-    <div>🛠️ <strong>Admin – Sweet TV</strong></div>
-    <div class="pill">Proxy: <code>/api/v1 → Adversus</code></div>
-    <div class="pill">Leaderboard: <code>/api/leaderboard</code></div>
-    <div id="barError" class="error" style="margin-left:auto"></div>
+    <div>Admin – Sweet TV</div>
+    <div class="muted">Proxy: <span class="pill">/api/v1 → Adversus</span></div>
+    <div class="muted">Leaderboard: <span class="pill">/api/leaderboard</span></div>
   </div>
 
   <div class="grid">
     <!-- Vänster: Users -->
     <div class="card">
-      <div class="title">User groups & agenter</div>
-      <div id="usersError" class="error"></div>
-      <div style="max-height:420px; overflow:auto">
-        <table>
-          <thead><tr><th>Namn</th><th>Grupp</th><th>Roll</th><th>E-post</th><th>Status</th></tr></thead>
-          <tbody id="usersBody"></tbody>
+      <h3>User groups & agenter</h3>
+      <div id="usersErr" class="err"></div>
+      <div style="max-height:70vh; overflow:auto;">
+        <table id="usersTbl">
+          <thead>
+            <tr><th>Namn</th><th>Grupp</th><th>Roll</th><th>E-post</th><th>Status</th></tr>
+          </thead>
+          <tbody></tbody>
         </table>
       </div>
     </div>
 
-    <!-- Höger: Data check / Preview -->
+    <!-- Höger: Data check -->
     <div class="card">
-      <div class="title">Data check – Commission & Deals (preview)</div>
-
+      <h3>Data check – Commission & Deals (preview)</h3>
       <div class="row">
-        <label>Period:</label>
+        <span>Period:</span>
         <select id="period">
-          <option value="month">Denna månad</option>
+          <option value="month" selected>Denna månad</option>
+          <option value="week">Denna vecka</option>
           <option value="today">Idag</option>
         </select>
 
-        <label>Sortera på:</label>
+        <span>Sortera på:</span>
         <select id="metric">
-          <option value="deals">Affärer</option>
+          <option value="deals" selected>Affärer</option>
           <option value="commission">Commission</option>
         </select>
 
-        <label>Topp:</label>
+        <span>Topp:</span>
         <select id="size">
-          <option>10</option><option>25</option><option>50</option>
+          <option>10</option><option>20</option><option>50</option>
         </select>
 
-        <label>Grupper:</label>
-        <input id="groups" placeholder="t.ex. Dentle Faraz,Sinfrid Bangkok" style="min-width:260px" />
-
+        <span>Grupper (komma-separerat):</span>
+        <input type="text" id="groups" placeholder="t.ex. Dentle Faraz,Sinfrid Bangkok" style="min-width:260px">
         <button id="reload">Ladda om</button>
       </div>
 
-      <div class="row">
-        <span class="pill" id="count">Leads: 0</span>
-        <span class="pill">Fält-ID:n <span id="fieldIds">C: 70163  M:74126  O:71067</span></span>
+      <div class="row muted">
+        <span id="leadCount" class="pill">leads: –</span>
+        <span id="fieldIds" class="pill">Fält-ID:n C:70163 M:74126 O:71067</span>
       </div>
 
-      <div id="lbError" class="error"></div>
+      <div id="lbErr" class="err"></div>
 
-      <div style="max-height:520px; overflow:auto; margin-top:6px">
-        <table id="agentsTable">
-          <thead>
-            <tr>
-              <th style="width:56px">#</th>
-              <th>Agent</th>
-              <th>Grupp</th>
-              <th>Deals</th>
-              <th>Commission</th>
-            </tr>
-          </thead>
-          <tbody id="lbBody"></tbody>
-        </table>
-      </div>
-
-      <div style="margin-top:12px">
-        <div class="title" style="font-size:14px; color:var(--muted)">Senaste affärer (15 st)</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Tid</th><th>Agent</th><th>Grupp</th><th>Commission</th>
-            </tr>
-          </thead>
-          <tbody id="latestBody"></tbody>
-        </table>
-        <div class="pill" style="margin-top:8px">
-          Filtrering görs på <code>lastUpdatedTime</code>. Visningstid = <code>Order date</code> om den finns, annars <code>lead.lastUpdatedTime</code>.
-          Commission & MultiDeals läses från <code>lead.resultData</code> (fallback <code>masterData</code>).
+      <div class="stat-grid">
+        <div class="stat"><div class="muted">Totalt deals</div><b id="sDeals">0</b></div>
+        <div class="stat"><div class="muted">Totalt Commission</div><b id="sComm">0 THB</b></div>
+        <div class="stat"><div class="muted">Unika agenter (med deals)</div><b id="sAgents">0</b></div>
+        <div class="stat right">
+          <div class="muted">Fält-ID:n</div>
+          <b>Commission: 70163<br>MultiDeals: 74126<br>Order date: 71067</b>
         </div>
+      </div>
+
+      <div style="max-height:52vh; overflow:auto;">
+        <table id="lbTbl">
+          <thead>
+            <tr><th>#</th><th>Agent</th><th>Grupp</th><th>Deals</th><th>Commission</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="sticky-note">
+        Filtrering görs på <b>lastUpdatedTime</b>. Visningstid = <b>Order date</b> om den finns, annars <b>lead.lastUpdatedTime</b>.
+        Commission & MultiDeals läses från <b>lead.resultData</b> (fallback <i>masterData</i>). Valuta: THB.
       </div>
     </div>
   </div>
 
   <script>
-    const apiLB = '/api/leaderboard';
-    const apiUsers = '/api/v1/users';
+    function fmtTHB(n){ return `${Math.round(n).toLocaleString('sv-SE')} THB`; }
 
-    const $usersBody = document.getElementById('usersBody');
-    const $usersError = document.getElementById('usersError');
-    const $barError = document.getElementById('barError');
-
-    const $period = document.getElementById('period');
-    const $metric = document.getElementById('metric');
-    const $size = document.getElementById('size');
-    const $groups = document.getElementById('groups');
-    const $reload = document.getElementById('reload');
-
-    const $lbBody = document.getElementById('lbBody');
-    const $lbError = document.getElementById('lbError');
-    const $count = document.getElementById('count');
-    const $latestBody = document.getElementById('latestBody');
-
-    function fmtTHB(n){ return new Intl.NumberFormat('sv-SE').format(Math.round(n)) + ' THB'; }
-
+    // ===== Users-panel =====
     async function loadUsers(){
-      $usersError.textContent = '';
-      $usersBody.innerHTML = '';
+      const err = document.getElementById('usersErr');
+      const tbody = document.querySelector('#usersTbl tbody');
+      err.textContent = ''; tbody.innerHTML = '';
       try{
-        const resp = await fetch(apiUsers);
-        if(!resp.ok) throw new Error(`Users ${resp.status}`);
-        const data = await resp.json();
-        const rows = Array.isArray(data) ? data : (data?.users || []);
-        $usersBody.innerHTML = rows.map(u => `
-          <tr>
-            <td>${u.name || u.displayName || '-'}</td>
-            <td>${u.group?.name || (u.memberOf?.[0]?.name) || '-'}</td>
+        const res = await fetch('/api/v1/users');
+        if(!res.ok) throw new Error('Users ' + res.status);
+        const users = await res.json();
+        users.forEach(u=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${u.name || u.displayName || 'Okänd'}</td>
+            <td>${(u.group?.name) || (u.memberOf?.[0]?.name) || (Array.isArray(u.teams)? u.teams[0] : '') || '-'}</td>
             <td>${u.role?.name || '-'}</td>
             <td>${u.email || '-'}</td>
-            <td>${u.active ? 'Aktiv' : 'Inaktiv'}</td>
-          </tr>
-        `).join('');
-      }catch(err){
-        console.error(err);
-        $usersError.textContent = 'Fel: ' + (err.message || err);
-      }
+            <td>${u.active ? 'Aktiv' : 'Inaktiv'}</td>`;
+          tbody.appendChild(tr);
+        });
+      }catch(e){ err.textContent = 'Fel: ' + e.message; }
     }
 
-    function parseGroups(){
-      return $groups.value.split(',').map(s=>s.trim()).filter(Boolean).join(',');
-    }
+    // ===== Leaderboard preview =====
+    async function loadLB(){
+      const period = document.getElementById('period').value;
+      const metric = document.getElementById('metric').value;
+      const size = document.getElementById('size').value;
+      const groups = document.getElementById('groups').value.trim();
 
-    async function loadLeaderboard(){
-      $lbError.textContent = '';
-      $lbBody.innerHTML = '';
-      $latestBody.innerHTML = '';
-      $count.textContent = 'Leads: …';
+      const err = document.getElementById('lbErr');
+      const tbody = document.querySelector('#lbTbl tbody');
+      err.textContent = ''; tbody.innerHTML = '';
 
-      const qs = new URLSearchParams({
-        period: $period.value,
-        metric: $metric.value,
-        size: $size.value,
+      const url = '/api/leaderboard?' + new URLSearchParams({
+        period, metric, size, ...(groups? { groups } : {})
       });
-      const g = parseGroups();
-      if(g) qs.set('groups', g);
 
       try{
-        const resp = await fetch(`${apiLB}?${qs.toString()}`);
-        if(!resp.ok){
-          const t = await resp.text();
-          throw new Error(`Leaderboard ${resp.status}: ${t}`);
+        const res = await fetch(url);
+        if(!res.ok){
+          const j = await res.json().catch(()=>null);
+          throw new Error(`${res.status} (${j? JSON.stringify(j): 'Error'})`);
         }
-        const data = await resp.json();
-        if(!data.ok) throw new Error(data.details || 'Okänt svar');
+        const data = await res.json();
 
-        $count.textContent = `Topp ${data.size} | Agenter (med deals): ${data.totalAgents}`;
+        document.getElementById('leadCount').textContent = `leads: ${data.totalLeads}`;
+        const uniqAgents = new Set(data.leaders.map(x=>x.agentId)).size;
+        const totalDeals = data.leaders.reduce((a,b)=>a+b.deals,0);
+        const totalComm = data.leaders.reduce((a,b)=>a+b.commission,0);
 
-        // Topp-lista
-        $lbBody.innerHTML = data.data.map((r,i)=>`
-          <tr>
-            <td>#${i+1}</td>
+        document.getElementById('sDeals').textContent = totalDeals.toLocaleString('sv-SE');
+        document.getElementById('sAgents').textContent = uniqAgents.toLocaleString('sv-SE');
+        document.getElementById('sComm').textContent = fmtTHB(totalComm);
+
+        data.leaders.forEach((r,i)=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${i+1}</td>
             <td>${r.name}</td>
-            <td>${r.group || '-'}</td>
+            <td>${r.group}</td>
             <td>${r.deals}</td>
-            <td>${fmtTHB(r.commission)}</td>
-          </tr>
-        `).join('');
-
-        // (Valfritt) “Senaste affärer” – här visar vi bara toppens rader som mockad “senaste”
-        // Du kan byta till en egen /api/senaste om du vill få exakt tidslista.
-        $latestBody.innerHTML = data.data.slice(0, 15).map(r => `
-          <tr>
-            <td>${new Date().toISOString().slice(0,19).replace('T',' ')}</td>
-            <td>${r.name}</td>
-            <td>${r.group || '-'}</td>
-            <td>${fmtTHB(r.commission)}</td>
-          </tr>
-        `).join('');
-      }catch(err){
-        console.error(err);
-        $lbError.textContent = 'Fel: ' + (err.message || err);
+            <td>${fmtTHB(r.commission)}</td>`;
+          tbody.appendChild(tr);
+        });
+      }catch(e){
+        err.textContent = 'Fel: ' + e.message;
       }
     }
 
-    $reload.onclick = loadLeaderboard;
-    $period.onchange = loadLeaderboard;
-    $metric.onchange = loadLeaderboard;
-    $size.onchange = loadLeaderboard;
+    document.getElementById('reload').onclick = loadLB;
 
     // init
     loadUsers();
-    loadLeaderboard();
+    loadLB();
   </script>
 </body>
 </html>
