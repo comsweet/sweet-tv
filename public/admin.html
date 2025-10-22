@@ -1,176 +1,197 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Admin – Sweet TV</title>
   <style>
-    :root{--bg:#0f1727;--card:#121c2e;--muted:#9fb0cd;--line:#22314f;--chip:#0c2d4f}
-    *{box-sizing:border-box}
-    body{margin:0;background:#0b1322;color:#eaf2ff;font-family:Inter,system-ui,Segoe UI,Arial}
-    .bar{display:flex;gap:16px;align-items:center;padding:16px 20px;border-bottom:1px solid #1c2945;background:#0e1830}
-    .grid{display:grid;grid-template-columns:1fr 2fr;gap:16px;padding:16px;max-width:1240px;margin:0 auto}
-    .card{background:#0f1b33;border:1px solid #1b2a4a;border-radius:12px;padding:16px}
-    h2{margin:0 0 10px 0;font-size:20px}
+    :root { --bg:#0f1727; --card:#121c2e; --ink:#e5eeff; --mut:#9fb0c7; --pill:#20324f; --accent:#87a6ff; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .bar{display:flex;gap:12px;align-items:center;padding:10px 16px;color:var(--mut)}
+    .grid{display:grid;grid-template-columns:380px 1fr;gap:16px;padding:16px}
+    .card{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+    h3{margin:0 0 10px;font-size:15px;color:#cfe0ff;letter-spacing:.3px}
     table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #1b2a4a}
-    th{color:#9fb0cd;text-align:left;font-weight:600}
-    .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-    select,input,button{
-      background:#0d213f;color:#eaf2ff;border:1px solid #28406d;border-radius:10px;
-      padding:8px 10px
-    }
-    .chip{background:#0f2a4b;padding:4px 10px;border-radius:20px;color:#9fb0cd;border:1px solid #1d3d69}
-    .muted{color:#9fb0cd}
-    .right{margin-left:auto}
+    th,td{padding:10px;border-bottom:1px solid #1c2a45}
+    th{font-weight:600;text-align:left;color:#cde}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .pill{background:var(--pill);padding:6px 10px;border-radius:999px;color:#cfe}
+    input,select,button{background:#101a2b;color:var(--ink);border:1px solid #213354;border-radius:8px;padding:8px 10px}
+    button{cursor:pointer}
+    .mut{color:var(--mut)}
+    .right{display:flex;gap:8px;align-items:center}
+    .num{font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
   </style>
 </head>
 <body>
-
   <div class="bar">
-    <strong>Admin – Sweet TV</strong>
-    <span class="chip">Proxy: /api/v1 → Adversus</span>
-    <span class="chip">Leaderboard: /api/leaderboard</span>
-    <span id="status" class="right muted"></span>
+    <div>👑 Admin – Sweet TV</div>
+    <div class="mut">Proxy: <span class="pill">/api/v1 → Adversus</span></div>
+    <div class="mut">Leaderboard: <span class="pill">/api/leaderboard</span></div>
+    <div id="err" class="mut"></div>
   </div>
 
   <div class="grid">
-    <!-- Users/Groups -->
     <div class="card">
-      <h2>User groups & agenter</h2>
-      <div class="muted" id="ugInfo">Laddar...</div>
-      <div style="max-height:300px;overflow:auto;margin-top:8px">
-        <table id="tblUsers">
+      <h3>User groups &amp; agenter</h3>
+      <div id="usersErr" class="mut"></div>
+      <div style="max-height:420px;overflow:auto">
+        <table id="usersTbl">
           <thead><tr><th>Namn</th><th>Grupp</th><th>Roll</th><th>E-post</th><th>Status</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
     </div>
 
-    <!-- Leaderboard Preview -->
     <div class="card">
-      <h2>Data check – Commission & Deals (preview)</h2>
-      <div class="controls">
+      <h3>Data check – Commission &amp; Deals (preview)</h3>
+
+      <div class="row" style="margin-bottom:10px">
         <label>Period:</label>
         <select id="period">
           <option value="month">Denna månad</option>
           <option value="today">Idag</option>
         </select>
+
         <label>Sortera på:</label>
         <select id="metric">
           <option value="deals">Affärer</option>
-          <option value="commission">Provision (THB)</option>
+          <option value="commission">Commission</option>
         </select>
+
         <label>Topp:</label>
-        <select id="top"><option>10</option><option>20</option><option>50</option></select>
-        <label>Grupper (komma-separerat):</label>
-        <input id="groups" placeholder="t.ex. Dentle Faraz,Sinfrid Bangkok" style="min-width:320px" />
-        <button id="btnLoad">Ladda om</button>
-        <span id="meta" class="right muted"></span>
+        <select id="size">
+          <option>10</option><option>20</option><option>50</option>
+        </select>
+
+        <div class="right">
+          <input id="groupFilter" placeholder="t.ex. Dentle Faraz,Sinfrid Bangkok" style="min-width:320px" />
+          <button id="reload">Ladda om</button>
+        </div>
       </div>
 
-      <div style="display:flex;gap:12px;margin-bottom:10px">
-        <div class="card" style="flex:1;background:#0d1a31">
-          <div class="muted">Totalt deals</div>
-          <div id="sumDeals" style="font-size:28px;font-weight:800">0</div>
-        </div>
-        <div class="card" style="flex:1;background:#0d1a31">
-          <div class="muted">Totalt Commission</div>
-          <div id="sumComm" style="font-size:28px;font-weight:800">0 THB</div>
-        </div>
-        <div class="card" style="flex:1;background:#0d1a31">
-          <div class="muted">Unika agenter (med deals)</div>
-          <div id="sumAgents" style="font-size:28px;font-weight:800">0</div>
-        </div>
-        <div class="card" style="flex:1;background:#0d1a31">
-          <div class="muted">Fält-ID:n</div>
-          <div style="font-family:ui-monospace,Consolas,monospace">
-            C:70163 M:74126 O:71067
+      <div class="row" style="margin-bottom:10px;gap:16px">
+        <div class="pill">Totalt deals <span id="totDeals" class="num">0</span></div>
+        <div class="pill">Totalt Commission <span id="totComm" class="num">0 THB</span></div>
+        <div class="pill">Unika agenter (med deals) <span id="uniq" class="num">0</span></div>
+        <div class="pill">Fält-ID:n<br/>C:<span id="fidC"></span> M:<span id="fidM"></span> O:<span id="fidO"></span></div>
+      </div>
+
+      <div class="mut" id="meta"></div>
+
+      <div style="display:grid;grid-template-columns:1fr;gap:16px;margin-top:10px">
+        <div class="card" style="background:#0f192a">
+          <div class="row" style="justify-content:space-between">
+            <div class="mut">Fel: <span id="lbErr">–</span></div>
+            <div class="mut">Leads: <span id="leadCount" class="num">0</span></div>
           </div>
+          <table id="topTbl">
+            <thead><tr><th>#</th><th>Agent</th><th>Grupp</th><th>Deals</th><th>Commission</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="card" style="background:#0f192a">
+          <h3>Senaste affärer (15 st)</h3>
+          <table id="recentTbl">
+            <thead><tr><th>Tid</th><th>Agent</th><th>Grupp</th><th>Commission</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
       </div>
-
-      <div style="max-height:420px;overflow:auto">
-        <table id="tblLB">
-          <thead><tr>
-            <th>#</th><th>Agent</th><th>Grupp</th><th>Deals</th><th>Commission</th>
-          </tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div id="err" class="muted" style="margin-top:8px"></div>
     </div>
   </div>
 
-  <script>
-    const $ = (id) => document.getElementById(id);
-    const fmtTHB = v => `${Math.round(v).toLocaleString('sv-SE')} THB`;
-    const status = (t)=> $('status').textContent = t;
+<script>
+const API = location.origin + '/api';
 
-    async function loadUsers() {
-      try {
-        status('Hämtar users…');
-        const r = await fetch('/api/v1/users');
-        if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-        const users = await r.json();
-        $('ugInfo').textContent = `${Array.isArray(users)?users.length:0} agenter`;
-        const tb = $('tblUsers').querySelector('tbody'); tb.innerHTML='';
-        (users||[]).forEach(u=>{
-          const tr=document.createElement('tr');
-          const group = u?.group?.name || u?.groups?.[0]?.name || u?.memberOf?.[0]?.name || '-';
-          const role = u?.role?.name || '-';
-          tr.innerHTML = `<td>${u.displayName||u.name}</td>
-                          <td>${group}</td><td>${role}</td>
-                          <td>${u.email||''}</td>
-                          <td>${u.active?'Aktiv':'Inaktiv'}</td>`;
-          tb.appendChild(tr);
-        });
-        status('Klar');
-      } catch(e){
-        $('ugInfo').textContent = `Fel: ${e.message}`;
-        status('Fel');
-      }
-    }
+async function loadUsers() {
+  try {
+    const r = await fetch(API + '/v1/users');
+    if (!r.ok) throw new Error(r.status);
+    const users = await r.json();
+    const tb = document.querySelector('#usersTbl tbody');
+    tb.innerHTML = '';
+    (Array.isArray(users) ? users : []).forEach(u => {
+      const g = (u.group && u.group.name) || (u.memberOf && u.memberOf[0]?.name) || '';
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        `<td>${u.displayName || u.name}</td>
+         <td class="mut">${g||'-'}</td>
+         <td class="mut">${u.role?.name || '-'}</td>
+         <td class="mut">${u.email || '-'}</td>
+         <td class="mut">${u.active ? 'Aktiv' : 'Inaktiv'}</td>`;
+      tb.appendChild(tr);
+    });
+    document.getElementById('usersErr').textContent = '';
+  } catch (e) {
+    document.getElementById('usersErr').textContent = 'Fel: ' + e.message;
+  }
+}
 
-    async function loadPreview() {
-      $('err').textContent='';
-      try {
-        const qs = new URLSearchParams({
-          period: $('period').value,
-          metric: $('metric').value,
-          top: $('top').value,
-        });
-        const groups = $('groups').value.trim();
-        if (groups) qs.set('groups', groups);
+function num(x){ return Number(x||0).toLocaleString('sv-SE'); }
 
-        const r = await fetch(`/api/leaderboard?${qs.toString()}`);
-        if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-        const data = await r.json();
+async function loadLeaderboard() {
+  const period = document.getElementById('period').value;
+  const metric = document.getElementById('metric').value;
+  const size = document.getElementById('size').value;
+  const groups = document.getElementById('groupFilter').value.trim();
 
-        $('meta').textContent = `Källa: /api/leaderboard  •  Genererad: ${new Date(data.generatedAt).toLocaleTimeString('sv-SE')}`;
+  const url = new URL(API + '/leaderboard');
+  url.searchParams.set('period', period);
+  url.searchParams.set('metric', metric);
+  url.searchParams.set('size', size);
+  url.searchParams.set('includeRecent','true');
+  if (groups) url.searchParams.set('groups', groups);
 
-        // summer
-        const sumDeals = data.items.reduce((a,b)=>a+(b.deals||0),0);
-        const sumComm = data.items.reduce((a,b)=>a+(b.commission||0),0);
-        $('sumDeals').textContent = sumDeals.toLocaleString('sv-SE');
-        $('sumComm').textContent = fmtTHB(sumComm);
-        $('sumAgents').textContent = data.items.length;
+  const r = await fetch(url);
+  const tb = document.querySelector('#topTbl tbody');
+  const rb = document.querySelector('#recentTbl tbody');
+  tb.innerHTML = ''; rb.innerHTML = '';
 
-        const tb = $('tblLB').querySelector('tbody'); tb.innerHTML='';
-        data.items.forEach((it,i)=>{
-          const tr=document.createElement('tr');
-          tr.innerHTML = `<td>${i+1}</td><td>${it.name}</td><td>${it.group||'-'}</td>
-                          <td>${(it.deals||0).toLocaleString('sv-SE')}</td>
-                          <td>${fmtTHB(it.commission||0)}</td>`;
-          tb.appendChild(tr);
-        });
-      } catch (e) {
-        $('err').textContent = `Fel: ${e.message}`;
-      }
-    }
+  if (!r.ok) {
+    document.getElementById('lbErr').textContent = r.status + ' (server)';
+    return;
+  }
+  const data = await r.json();
+  document.getElementById('lbErr').textContent = '–';
+  document.getElementById('leadCount').textContent = num(data.meta?.leads || 0);
+  document.getElementById('fidC').textContent = data.meta?.fields?.commission || '';
+  document.getElementById('fidM').textContent = data.meta?.fields?.multideals || '';
+  document.getElementById('fidO').textContent = data.meta?.fields?.orderDate || '';
+  document.getElementById('meta').textContent =
+    `Källa: /api/leaderboard (status="success", tidsfilter ${data.meta?.period?.from} → ${data.meta?.period?.to}).`;
 
-    $('btnLoad').onclick = loadPreview;
-    window.addEventListener('load', ()=>{ loadUsers(); loadPreview(); });
-  </script>
+  let totDeals = 0, totComm = 0, uniq = 0;
+  (data.top || []).forEach((row, i) => {
+    totDeals += row.deals; totComm += row.commission; uniq++;
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td class="num">${i+1}</td>
+       <td>${row.name}</td>
+       <td class="mut">${row.group || '-'}</td>
+       <td class="num">${num(row.deals)}</td>
+       <td class="num">${num(row.commission)} THB</td>`;
+    tb.appendChild(tr);
+  });
+  document.getElementById('totDeals').textContent = num(totDeals);
+  document.getElementById('totComm').textContent = num(totComm) + ' THB';
+  document.getElementById('uniq').textContent = num(uniq);
+
+  (data.recent || []).forEach(rw => {
+    const tr = document.createElement('tr');
+    const t = new Date(rw.time);
+    tr.innerHTML =
+      `<td class="num">${t.toISOString().replace('T',' ').slice(0,19)}</td>
+       <td>${rw.agent}</td>
+       <td class="mut">${rw.group || '-'}</td>
+       <td class="num">${num(rw.commission)} THB</td>`;
+    rb.appendChild(tr);
+  });
+}
+
+document.getElementById('reload').addEventListener('click', loadLeaderboard);
+loadUsers().then(loadLeaderboard);
+</script>
 </body>
 </html>
