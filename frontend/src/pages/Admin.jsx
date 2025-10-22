@@ -6,7 +6,11 @@ import {
   getAdversusUsers,
   getAdversusUserGroups,
   getLeaderboardStats,
-  triggerManualPoll
+  triggerManualPoll,
+  getLeaderboards,
+  createLeaderboard,
+  updateLeaderboard,
+  deleteLeaderboard
 } from '../services/api';
 import './Admin.css';
 
@@ -16,15 +20,28 @@ const Admin = () => {
   const [adversusUsers, setAdversusUsers] = useState([]);
   const [userGroups, setUserGroups] = useState([]);
   const [stats, setStats] = useState([]);
+  const [leaderboards, setLeaderboards] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Datumväljare för statistik
+  // Statistik
   const [startDate, setStartDate] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
   );
   const [endDate, setEndDate] = useState(
     new Date().toISOString().split('T')[0]
   );
+
+  // Leaderboard modal
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+  const [editingLeaderboard, setEditingLeaderboard] = useState(null);
+  const [leaderboardForm, setLeaderboardForm] = useState({
+    name: '',
+    userGroups: [],
+    timePeriod: 'month',
+    customStartDate: '',
+    customEndDate: '',
+    active: true
+  });
 
   useEffect(() => {
     fetchData();
@@ -34,15 +51,12 @@ const Admin = () => {
     setIsLoading(true);
     try {
       if (activeTab === 'agents') {
-        // Hämta users från Adversus
         const usersRes = await getAdversusUsers();
         const adversusUsersList = usersRes.data.users || [];
         
-        // Hämta lokala agenter (för profilbilder)
         const agentsRes = await getAgents();
         const localAgents = agentsRes.data;
         
-        // Kombinera: Visa alla Adversus users med eventuella profilbilder
         const combinedAgents = adversusUsersList.map(user => {
           const localAgent = localAgents.find(a => String(a.userId) === String(user.id));
           return {
@@ -64,6 +78,13 @@ const Admin = () => {
           new Date(endDate + 'T23:59:59').toISOString()
         );
         setStats(statsRes.data);
+      } else if (activeTab === 'leaderboards') {
+        const [leaderboardsRes, groupsRes] = await Promise.all([
+          getLeaderboards(),
+          getAdversusUserGroups()
+        ]);
+        setLeaderboards(leaderboardsRes.data);
+        setUserGroups(groupsRes.data.groups || []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -77,12 +98,10 @@ const Admin = () => {
     if (!file) return;
 
     try {
-      // Kolla om agenten finns lokalt
       const agentsRes = await getAgents();
       const existingAgent = agentsRes.data.find(a => String(a.userId) === String(userId));
       
       if (!existingAgent) {
-        // Skapa agent lokalt först (för att spara profilbilden)
         const user = adversusUsers.find(u => u.id === userId);
         await createAgent({
           userId: userId,
@@ -91,7 +110,6 @@ const Admin = () => {
         });
       }
       
-      // Ladda upp profilbild
       await uploadProfileImage(userId, file);
       fetchData();
       alert('Profilbild uppladdad!');
@@ -116,6 +134,104 @@ const Admin = () => {
     setIsLoading(false);
   };
 
+  // Leaderboard functions
+  const handleAddLeaderboard = () => {
+    setEditingLeaderboard(null);
+    setLeaderboardForm({
+      name: '',
+      userGroups: [],
+      timePeriod: 'month',
+      customStartDate: '',
+      customEndDate: '',
+      active: true
+    });
+    setShowLeaderboardModal(true);
+  };
+
+  const handleEditLeaderboard = (leaderboard) => {
+    setEditingLeaderboard(leaderboard);
+    setLeaderboardForm({
+      name: leaderboard.name,
+      userGroups: leaderboard.userGroups || [],
+      timePeriod: leaderboard.timePeriod,
+      customStartDate: leaderboard.customStartDate || '',
+      customEndDate: leaderboard.customEndDate || '',
+      active: leaderboard.active
+    });
+    setShowLeaderboardModal(true);
+  };
+
+  const handleSaveLeaderboard = async () => {
+    try {
+      if (!leaderboardForm.name.trim()) {
+        alert('Namn krävs!');
+        return;
+      }
+
+      if (editingLeaderboard) {
+        await updateLeaderboard(editingLeaderboard.id, leaderboardForm);
+      } else {
+        await createLeaderboard(leaderboardForm);
+      }
+      
+      setShowLeaderboardModal(false);
+      fetchData();
+    } catch (error) {
+      console.error('Error saving leaderboard:', error);
+      alert('Fel vid sparande: ' + error.message);
+    }
+  };
+
+  const handleDeleteLeaderboard = async (id) => {
+    if (!confirm('Är du säker på att du vill ta bort denna leaderboard?')) return;
+    
+    try {
+      await deleteLeaderboard(id);
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting leaderboard:', error);
+      alert('Fel vid borttagning: ' + error.message);
+    }
+  };
+
+  const handleToggleActive = async (leaderboard) => {
+    try {
+      await updateLeaderboard(leaderboard.id, {
+        ...leaderboard,
+        active: !leaderboard.active
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error toggling active:', error);
+      alert('Fel: ' + error.message);
+    }
+  };
+
+  const handleGroupToggle = (groupId) => {
+    const currentGroups = leaderboardForm.userGroups;
+    if (currentGroups.includes(groupId)) {
+      setLeaderboardForm({
+        ...leaderboardForm,
+        userGroups: currentGroups.filter(id => id !== groupId)
+      });
+    } else {
+      setLeaderboardForm({
+        ...leaderboardForm,
+        userGroups: [...currentGroups, groupId]
+      });
+    }
+  };
+
+  const getTimePeriodLabel = (period) => {
+    const labels = {
+      day: 'Idag',
+      week: 'Denna vecka',
+      month: 'Denna månad',
+      custom: 'Anpassat'
+    };
+    return labels[period] || period;
+  };
+
   return (
     <div className="admin-container">
       <header className="admin-header">
@@ -137,6 +253,12 @@ const Admin = () => {
           onClick={() => setActiveTab('groups')}
         >
           👨‍👩‍👧‍👦 User Groups
+        </button>
+        <button 
+          className={activeTab === 'leaderboards' ? 'active' : ''}
+          onClick={() => setActiveTab('leaderboards')}
+        >
+          🏆 Leaderboards
         </button>
         <button 
           className={activeTab === 'stats' ? 'active' : ''}
@@ -203,6 +325,64 @@ const Admin = () => {
                 <div key={index} className="group-list-item">
                   <h3>{group.name || 'Unnamed Group'}</h3>
                   <p>ID: {group.id}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Leaderboards Tab */}
+        {activeTab === 'leaderboards' && !isLoading && (
+          <div className="leaderboards-section">
+            <div className="section-header">
+              <h2>Leaderboards ({leaderboards.length})</h2>
+              <button onClick={handleAddLeaderboard} className="btn-primary">
+                ➕ Skapa Leaderboard
+              </button>
+            </div>
+
+            <div className="leaderboards-list">
+              {leaderboards.map(lb => (
+                <div key={lb.id} className="leaderboard-card">
+                  <div className="leaderboard-card-header">
+                    <h3>{lb.name}</h3>
+                    <div className="leaderboard-status">
+                      <label className="toggle-switch">
+                        <input 
+                          type="checkbox" 
+                          checked={lb.active}
+                          onChange={() => handleToggleActive(lb)}
+                        />
+                        <span className="toggle-slider"></span>
+                      </label>
+                      <span className={lb.active ? 'status-active' : 'status-inactive'}>
+                        {lb.active ? '✓ Aktiv' : '○ Inaktiv'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="leaderboard-card-body">
+                    <div className="leaderboard-info">
+                      <span className="info-label">Tidsperiod:</span>
+                      <span className="info-value">{getTimePeriodLabel(lb.timePeriod)}</span>
+                    </div>
+                    
+                    <div className="leaderboard-info">
+                      <span className="info-label">User Groups:</span>
+                      <span className="info-value">
+                        {lb.userGroups.length === 0 ? 'Alla' : `${lb.userGroups.length} valda`}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="leaderboard-card-footer">
+                    <button onClick={() => handleEditLeaderboard(lb)} className="btn-secondary">
+                      ✏️ Redigera
+                    </button>
+                    <button onClick={() => handleDeleteLeaderboard(lb.id)} className="btn-danger">
+                      🗑️ Ta bort
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -282,6 +462,95 @@ const Admin = () => {
           </div>
         )}
       </div>
+
+      {/* Leaderboard Modal */}
+      {showLeaderboardModal && (
+        <div className="modal-overlay" onClick={() => setShowLeaderboardModal(false)}>
+          <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingLeaderboard ? 'Redigera Leaderboard' : 'Skapa Leaderboard'}</h2>
+            
+            <div className="form-group">
+              <label>Namn:</label>
+              <input
+                type="text"
+                value={leaderboardForm.name}
+                onChange={(e) => setLeaderboardForm({ ...leaderboardForm, name: e.target.value })}
+                placeholder="t.ex. Bangkok Team - Dagens Sälj"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Tidsperiod:</label>
+              <select
+                value={leaderboardForm.timePeriod}
+                onChange={(e) => setLeaderboardForm({ ...leaderboardForm, timePeriod: e.target.value })}
+              >
+                <option value="day">Idag</option>
+                <option value="week">Denna vecka</option>
+                <option value="month">Denna månad</option>
+                <option value="custom">Anpassat datum</option>
+              </select>
+            </div>
+
+            {leaderboardForm.timePeriod === 'custom' && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Från datum:</label>
+                  <input
+                    type="date"
+                    value={leaderboardForm.customStartDate}
+                    onChange={(e) => setLeaderboardForm({ ...leaderboardForm, customStartDate: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Till datum:</label>
+                  <input
+                    type="date"
+                    value={leaderboardForm.customEndDate}
+                    onChange={(e) => setLeaderboardForm({ ...leaderboardForm, customEndDate: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label>User Groups (lämna tomt för alla):</label>
+              <div className="checkbox-group">
+                {userGroups.map(group => (
+                  <label key={group.id} className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={leaderboardForm.userGroups.includes(group.id)}
+                      onChange={() => handleGroupToggle(group.id)}
+                    />
+                    <span>{group.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={leaderboardForm.active}
+                  onChange={(e) => setLeaderboardForm({ ...leaderboardForm, active: e.target.checked })}
+                />
+                <span>Aktiv (visas på TV)</span>
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button onClick={() => setShowLeaderboardModal(false)} className="btn-secondary">
+                Avbryt
+              </button>
+              <button onClick={handleSaveLeaderboard} className="btn-primary">
+                Spara
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
