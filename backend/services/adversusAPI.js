@@ -51,18 +51,20 @@ class AdversusAPI {
     const filters = {
       "status": { "$eq": "success" },
       "lastUpdatedTime": { 
-        "$gte": startDate.toISOString(),
-        "$lte": endDate.toISOString()
+        "$gt": startDate.toISOString(),
+        "$lt": endDate.toISOString()
       }
     };
 
     const params = {
       filters: JSON.stringify(filters),
       page: 1,
-      pageSize: 1000, // Hämta max 1000 leads
+      pageSize: 1000,
       sortProperty: 'lastUpdatedTime',
       sortDirection: 'DESC'
     };
+
+    console.log('🔍 Fetching leads with filters:', JSON.stringify(filters));
 
     return await this.request('/leads', params);
   }
