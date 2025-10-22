@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adversus Leaderboard Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeIn 1s ease-in;
+        }
+
+        .header h1 {
+            font-size: 56px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            font-size: 28px;
+            opacity: 0.9;
+        }
+
+        .leaderboard {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .leaderboard-title {
+            font-size: 42px;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .leaderboard-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .leaderboard-item {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px 30px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s ease;
+            animation: slideIn 0.5s ease-out backwards;
+        }
+
+        .leaderboard-item:hover {
+            transform: scale(1.02);
+        }
+
+        .rank {
+            font-size: 36px;
+            font-weight: bold;
+            width: 80px;
+            text-align: center;
+        }
+
+        .rank.top1 {
+            color: #FFD700;
+            font-size: 48px;
+        }
+
+        .rank.top2 {
+            color: #C0C0C0;
+            font-size: 42px;
+        }
+
+        .rank.top3 {
+            color: #CD7F32;
+            font-size: 42px;
+        }
+
+        .user-info {
+            flex: 1;
+            margin-left: 20px;
+        }
+
+        .user-name {
+            font-size: 32px;
+            font-weight: 600;
+        }
+
+        .user-group {
+            font-size: 18px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .stats-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-right: 20px;
+        }
+
+        .deals-count {
+            font-size: 48px;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .commission-value {
+            font-size: 24px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            font-size: 32px;
+            padding: 100px;
+        }
+
+        .error {
+            text-align: center;
+            color: #ff6b6b;
+            font-size: 24px;
+            padding: 50px;
+            line-height: 1.5;
+        }
+
+        .slide-indicator {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px 25px;
+            border-radius: 30px;
+            font-size: 20px;
+        }
+
+        .celebration {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 120px;
+            animation: celebrate 1s ease-out;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        @keyframes celebrate {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .leaderboard-item:nth-child(1) { animation-delay: 0.1s; }
+        .leaderboard-item:nth-child(2) { animation-delay: 0.2s; }
+        .leaderboard-item:nth-child(3) { animation-delay: 0.3s; }
+        .leaderboard-item:nth-child(4) { animation-delay: 0.4s; }
+        .leaderboard-item:nth-child(5) { animation-delay: 0.5s; }
+        .leaderboard-item:nth-child(6) { animation-delay: 0.6s; }
+        .leaderboard-item:nth-child(7) { animation-delay: 0.7s; }
+        .leaderboard-item:nth-child(8) { animation-delay: 0.8s; }
+        .leaderboard-item:nth-child(9) { animation-delay: 0.9s; }
+        .leaderboard-item:nth-child(10) { animation-delay: 1s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 Leaderboard</h1>
+            <div class="subtitle" id="currentDate"></div>
+        </div>
+
+        <div class="leaderboard">
+            <div class="leaderboard-title" id="leaderboardTitle">Laddar...</div>
+            <div class="leaderboard-grid" id="leaderboardGrid">
+                <div class="loading">Laddar data...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-indicator" id="slideIndicator">1 / 4</div>
+
+    <script>
+        // KONFIGURATION
+        const CONFIG = {
+            apiUrl: window.location.origin + '/api',
+            useProxy: true,
+            slideInterval: 15000,
+            
+            dentleGroups: ['Dentle Faraz', 'Dentle Michael', 'Dentle Christofer', 'Dentle Remote'],
+            sinfridGroups: ['Sinfrid Bangkok', 'Sinfrid Hua Hin'],
+            
+            successStatus: 'Success',
+            commissionFieldId: 70163,
+            
+            enableSound: true,
+            enableCelebration: true
+        };
+
+        let totalDealsCount = 0;
+        let isFirstLoad = true;
+
+        let currentSlide = 0;
+        const slides = [
+            { title: 'Dentle - Top 10 Denna Månad', type: 'dentle', period: 'month' },
+            { title: 'Dentle - Top 10 Idag', type: 'dentle', period: 'today' },
+            { title: 'Sinfrid - Top 10 Denna Månad', type: 'sinfrid', period: 'month' },
+            { title: 'Sinfrid - Top 10 Idag', type: 'sinfrid', period: 'today' }
+        ];
+
+        function playPlingSound() {
+            if (!CONFIG.enableSound) return;
+            
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.type = 'sine';
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+                
+                console.log('🔊 PLING!');
+            } catch (error) {
+                console.error('Ljud-fel:', error);
+            }
+        }
+
+        function showCelebration() {
+            if (!CONFIG.enableCelebration) return;
+            
+            const emojis = ['🎉', '🎊', '🏆', '⭐', '💰', '🔥', '✨', '🎯'];
+            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+            
+            const celebration = document.createElement('div');
+            celebration.className = 'celebration';
+            celebration.textContent = randomEmoji;
+            document.body.appendChild(celebration);
+            
+            setTimeout(() => {
+                document.body.removeChild(celebration);
+            }, 1000);
+        }
+
+        function updateDate() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('sv-SE', options);
+        }
+
+        async function fetchLeadsData(period) {
+            const now = new Date();
+            let startDate, endDate = now;
+            
+            if (period === 'today') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            } else {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            }
+
+            const headers = { 'Content-Type': 'application/json' };
+
+            try {
+                const leadsUrl = `${CONFIG.apiUrl}/v1/leads?from=${startDate.toISOString()}&to=${endDate.toISOString()}`;
+                const leadsResponse = await fetch(leadsUrl, { headers });
+
+                if (!leadsResponse.ok) {
+                    throw new Error(`Leads API fel: ${leadsResponse.status}`);
+                }
+
+                const leadsData = await leadsResponse.json();
+
+                const usersUrl = `${CONFIG.apiUrl}/v1/users`;
+                const usersResponse = await fetch(usersUrl, { headers });
+
+                if (!usersResponse.ok) {
+                    throw new Error(`Users API fel: ${usersResponse.status}`);
+                }
+
+                const usersData = await usersResponse.json();
+
+                return { leads: leadsData, users: usersData };
+            } catch (error) {
+                console.error('Fel vid hämtning av data:', error);
+                throw error;
+            }
+        }
+
+        function processLeaderboardData(data, groupType) {
+            const { leads, users } = data;
+            const targetGroups = groupType === 'dentle' ? CONFIG.dentleGroups : CONFIG.sinfridGroups;
+
+            const userMap = new Map();
+            users.forEach(user => {
+                if (user.groups && Array.isArray(user.groups)) {
+                    const belongsToTargetGroup = user.groups.some(group => 
+                        targetGroups.includes(group.name || group)
+                    );
+                    
+                    if (belongsToTargetGroup) {
+                        const groupObj = user.groups.find(g => 
+                            targetGroups.includes(g.name || g)
+                        );
+                        
+                        userMap.set(user.id, {
+                            id: user.id,
+                            name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Okänd',
+                            group: groupObj ? (groupObj.name || groupObj) : 'Okänd grupp',
+                            dealsCount: 0,
+                            commission: 0
+                        });
+                    }
+                }
+            });
+
+            let companyTotalDeals = 0;
+
+            leads.forEach(lead => {
+                const hasSuccessStatus = lead.status && 
+                    lead.status.toLowerCase() === CONFIG.successStatus.toLowerCase();
+
+                if (hasSuccessStatus) {
+                    companyTotalDeals++;
+                    
+                    const userId = lead.lastContactedBy;
+                    
+                    if (userId && userMap.has(userId)) {
+                        userMap.get(userId).dealsCount++;
+                        
+                        if (lead.resultFields) {
+                            let commissionValue = 0;
+                            
+                            if (typeof lead.resultFields === 'object' && !Array.isArray(lead.resultFields)) {
+                                commissionValue = lead.resultFields[CONFIG.commissionFieldId] || 
+                                                lead.resultFields[`${CONFIG.commissionFieldId}`] || 0;
+                            }
+                            else if (Array.isArray(lead.resultFields)) {
+                                const commissionField = lead.resultFields.find(
+                                    f => f.id === CONFIG.commissionFieldId || f.id === `${CONFIG.commissionFieldId}`
+                                );
+                                commissionValue = commissionField ? (commissionField.value || 0) : 0;
+                            }
+                            
+                            userMap.get(userId).commission += parseFloat(commissionValue) || 0;
+                        }
+                    }
+                }
+            });
+
+            if (!isFirstLoad && companyTotalDeals > totalDealsCount) {
+                console.log(`🎉 NYTT DEAL! Tidigare: ${totalDealsCount}, Nu: ${companyTotalDeals}`);
+                playPlingSound();
+                showCelebration();
+            }
+            
+            totalDealsCount = companyTotalDeals;
+            isFirstLoad = false;
+
+            const leaderboard = Array.from(userMap.values())
+                .sort((a, b) => {
+                    if (b.dealsCount !== a.dealsCount) {
+                        return b.dealsCount - a.dealsCount;
+                    }
+                    return b.commission - a.commission;
+                })
+                .slice(0, 10);
+
+            return leaderboard;
+        }
+
+        function renderLeaderboard(leaderboardData, title) {
+            document.getElementById('leaderboardTitle').textContent = title;
+            const grid = document.getElementById('leaderboardGrid');
+            
+            if (leaderboardData.length === 0) {
+                grid.innerHTML = '<div class="loading">Ingen data tillgänglig för denna period</div>';
+                return;
+            }
+
+            grid.innerHTML = leaderboardData.map((item, index) => {
+                const rank = index + 1;
+                let rankClass = '';
+                let medal = '';
+                
+                if (rank === 1) {
+                    rankClass = 'top1';
+                    medal = '🥇';
+                } else if (rank === 2) {
+                    rankClass = 'top2';
+                    medal = '🥈';
+                } else if (rank === 3) {
+                    rankClass = 'top3';
+                    medal = '🥉';
+                }
+
+                const formattedCommission = item.commission.toLocaleString('sv-SE', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                });
+
+                return `
+                    <div class="leaderboard-item">
+                        <div class="rank ${rankClass}">${medal} ${rank}</div>
+                        <div class="user-info">
+                            <div class="user-name">${item.name}</div>
+                            <div class="user-group">${item.group}</div>
+                        </div>
+                        <div class="stats-container">
+                            <div class="deals-count">${item.dealsCount} deals</div>
+                            <div class="commission-value">${formattedCommission} kr</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showError(message) {
+            const grid = document.getElementById('leaderboardGrid');
+            grid.innerHTML = `<div class="error">⚠️ ${message}</div>`;
+        }
+
+        async function updateSlide() {
+            const slide = slides[currentSlide];
+            document.getElementById('slideIndicator').textContent = `${currentSlide + 1} / ${slides.length}`;
+            
+            try {
+                const data = await fetchLeadsData(slide.period);
+                const leaderboard = processLeaderboardData(data, slide.type);
+                renderLeaderboard(leaderboard, slide.title);
+            } catch (error) {
+                console.error('Update slide error:', error);
+                showError('Kunde inte ladda data. ' + error.message);
+            }
+        }
+
+        function nextSlide() {
+            currentSlide = (currentSlide + 1) % slides.length;
+            updateSlide();
+        }
+
+        async function init() {
+            console.log('🚀 Starting Adversus Dashboard with sound...');
+            updateDate();
+            await updateSlide();
+            
+            setInterval(nextSlide, CONFIG.slideInterval);
+            setInterval(updateDate, 60000);
+        }
+
+        init();
+    </script>
+</body>
+</html>
