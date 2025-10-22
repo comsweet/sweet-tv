@@ -1,0 +1,38 @@
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Agents
+export const getAgents = () => api.get('/agents');
+export const createAgent = (data) => api.post('/agents', data);
+export const updateAgent = (userId, data) => api.put(`/agents/${userId}`, data);
+export const deleteAgent = (userId) => api.delete(`/agents/${userId}`);
+export const uploadProfileImage = (userId, file) => {
+  const formData = new FormData();
+  formData.append('image', file);
+  return api.post(`/agents/${userId}/profile-image`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};
+
+// Stats
+export const getLeaderboardStats = (startDate, endDate) => 
+  api.get('/stats/leaderboard', { params: { startDate, endDate } });
+
+// Adversus
+export const getAdversusUserGroups = () => api.get('/adversus/user-groups');
+export const getAdversusUsers = () => api.get('/adversus/users');
+
+// Polling
+export const triggerManualPoll = () => api.post('/poll/trigger');
+
+export default api;
