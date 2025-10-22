@@ -65,7 +65,7 @@ const DealNotification = ({ notification, onComplete }) => {
         <div className="notification-text">
           <h2 className="notification-name">{agent.name}</h2>
           <p className="notification-commission">
-            +{parseFloat(commission).toLocaleString('sv-SE')} kr
+            +{parseFloat(commission).toLocaleString('sv-SE')} THB
           </p>
           <p className="notification-message">🎉 Ny affär registrerad!</p>
         </div>
@@ -168,7 +168,7 @@ const Display = () => {
                   </div>
                   
                   <div className="commission">
-                    {item.totalCommission.toLocaleString('sv-SE')} kr
+                    {item.totalCommission.toLocaleString('sv-SE')} THB
                   </div>
                 </div>
               ))}
