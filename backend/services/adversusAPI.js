@@ -69,6 +69,11 @@ class AdversusAPI {
     return await this.request('/leads', params);
   }
 
+  // Hämta user details
+async getUser(userId) {
+  return await this.request(`/users/${userId}`);
+}
+
   // Hämta users
   async getUsers(params = {}) {
     return await this.request('/users', params);
