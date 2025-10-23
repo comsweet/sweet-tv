@@ -14,20 +14,20 @@ const DealNotification = ({ notification, onComplete }) => {
   useEffect(() => {
     playNotificationSound();
     
-    const duration = 3000;
+    const duration = 2000; // Reduced from 3000 for better TV performance
     const end = Date.now() + duration;
     const colors = ['#bb0000', '#ffffff', '#00bb00'];
 
     (function frame() {
       confetti({
-        particleCount: 3,
+        particleCount: 2, // Reduced from 3
         angle: 60,
         spread: 55,
         origin: { x: 0 },
         colors: colors
       });
       confetti({
-        particleCount: 3,
+        particleCount: 2, // Reduced from 3
         angle: 120,
         spread: 55,
         origin: { x: 1 },
@@ -41,7 +41,7 @@ const DealNotification = ({ notification, onComplete }) => {
 
     const timer = setTimeout(() => {
       onComplete();
-    }, 5000);
+    }, 4000); // Reduced from 5000
 
     return () => clearTimeout(timer);
   }, [onComplete]);
