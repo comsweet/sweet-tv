@@ -47,7 +47,7 @@ class AdversusAPI {
     return await this.request('/leads', params);
   }
 
-  // Hämta ALLA leads med datum-range - MED FULLSTÄNDIG PAGINATION
+  // Hämta ALLA leads - MED KORREKT ADVERSUS PAGINATION
   async getLeadsInDateRange(startDate, endDate) {
     const filters = {
       "status": { "$eq": "success" },
@@ -62,50 +62,59 @@ class AdversusAPI {
     let allLeads = [];
     let currentPage = 1;
     let totalPages = 1;
+    const pageSize = 1000; // Max enligt Adversus
 
-    // PAGINATION LOOP - Hämta alla sidor!
+    // PAGINATION LOOP med korrekt Adversus struktur
     while (currentPage <= totalPages) {
       const params = {
         filters: JSON.stringify(filters),
         page: currentPage,
-        pageSize: 1000,  // Max per sida
+        pageSize: pageSize,
         sortProperty: 'lastUpdatedTime',
         sortDirection: 'DESC',
-        includeMeta: true
+        includeMeta: true  // VIKTIGT!
       };
 
       try {
-        console.log(`📄 Fetching page ${currentPage}...`);
+        console.log(`📄 Fetching page ${currentPage}/${totalPages}...`);
         const response = await this.request('/leads', params);
         
-        // Lägg till leads från denna sida
-        if (response.leads && response.leads.length > 0) {
-          allLeads.push(...response.leads);
-          console.log(`   ✅ Got ${response.leads.length} leads on page ${currentPage}`);
+        const leads = response.leads || [];
+        
+        if (leads.length > 0) {
+          allLeads.push(...leads);
+          console.log(`   ✅ Got ${leads.length} leads on page ${currentPage}`);
         }
 
-        // Uppdatera pagination info
-        if (response.meta) {
-          totalPages = response.meta.totalPages || 1;
-          console.log(`📊 Meta: Page ${response.meta.currentPage}/${totalPages}, Total: ${response.meta.totalCount} leads`);
+        // KORREKT ADVERSUS META STRUKTUR
+        if (response.meta && response.meta.pagination) {
+          const pagination = response.meta.pagination;
+          totalPages = pagination.pageCount || 1;
+          
+          console.log(`   📊 Pagination: Page ${pagination.page}/${pagination.pageCount}, PageSize: ${pagination.pageSize}`);
+          
+          // Om vi är på sista sidan, sluta
+          if (!pagination.nextUrl || pagination.page >= pagination.pageCount) {
+            console.log(`   ✅ Reached last page (${pagination.page})`);
+            break;
+          }
         } else {
           // Ingen meta = endast en sida
-          console.log('   ℹ️  No meta returned, assuming single page');
+          console.log('   ℹ️  No pagination meta, assuming single page');
           break;
         }
 
-        // Gå till nästa sida
-        currentPage++;
-
         // Safety: Max 50 sidor (50,000 leads)
-        if (currentPage > 50) {
+        if (currentPage >= 50) {
           console.log('⚠️  Stopped at 50 pages for safety');
           break;
         }
 
-        // Rate limit protection: Vänta lite mellan requests
+        currentPage++;
+
+        // Rate limit protection: 500ms delay mellan requests
         if (currentPage <= totalPages) {
-          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
 
       } catch (error) {
@@ -114,13 +123,13 @@ class AdversusAPI {
       }
     }
 
-    console.log(`✅ TOTAL: Fetched ${allLeads.length} leads across ${currentPage - 1} pages`);
+    console.log(`\n✅ TOTAL: Fetched ${allLeads.length} leads across ${currentPage} pages\n`);
 
     return {
       leads: allLeads,
       meta: {
         totalCount: allLeads.length,
-        totalPages: currentPage - 1
+        totalPages: currentPage
       }
     };
   }
@@ -130,19 +139,20 @@ class AdversusAPI {
     return await this.request(`/users/${userId}`);
   }
 
-  // Hämta users (with pagination support)
+  // Hämta users
   async getUsers(params = {}) {
     const defaultParams = {
       page: 1,
-      pageSize: 1000,  // Get as many as possible
+      pageSize: 1000,
       includeMeta: true,
       ...params
     };
     
     const response = await this.request('/users', defaultParams);
     
-    if (response.meta) {
-      console.log(`👥 Users fetched: Page ${response.meta.currentPage}/${response.meta.totalPages}, Total: ${response.meta.totalCount} users`);
+    if (response.meta && response.meta.pagination) {
+      const p = response.meta.pagination;
+      console.log(`👥 Users: Page ${p.page}/${p.pageCount}, Total users on page: ${response.users?.length || 0}`);
     }
     
     return response;
@@ -159,8 +169,9 @@ class AdversusAPI {
     
     const response = await this.request('/groups', defaultParams);
     
-    if (response.meta) {
-      console.log(`👨‍👩‍👧‍👦 Groups fetched: Page ${response.meta.currentPage}/${response.meta.totalPages}, Total: ${response.meta.totalCount} groups`);
+    if (response.meta && response.meta.pagination) {
+      const p = response.meta.pagination;
+      console.log(`👨‍👩‍👧‍👦 Groups: Page ${p.page}/${p.pageCount}, Total groups on page: ${response.groups?.length || 0}`);
     }
     
     return response;
