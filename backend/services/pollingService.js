@@ -8,13 +8,21 @@ class PollingService {
     this.lastCheckTime = new Date(Date.now() - 60000); // Börja 1 minut bakåt
     this.isPolling = false;
     this.userCache = new Map(); // Cache för user-info
+    this.lastUserListFetch = null; // När vi senast hämtade user-listan
   }
 
   start() {
     console.log(`🔄 Starting polling (${this.pollInterval}ms interval)`);
     this.isPolling = true;
+    
+    // Hämta user-lista direkt vid start
+    this.refreshUserCache();
+    
     this.poll();
     this.intervalId = setInterval(() => this.poll(), this.pollInterval);
+    
+    // Refresh user cache varje 5 minuter
+    this.userCacheInterval = setInterval(() => this.refreshUserCache(), 300000);
   }
 
   stop() {
@@ -23,36 +31,42 @@ class PollingService {
     if (this.intervalId) {
       clearInterval(this.intervalId);
     }
+    if (this.userCacheInterval) {
+      clearInterval(this.userCacheInterval);
+    }
   }
 
-  async getUserInfo(userId) {
-    // Check cache first
-    if (this.userCache.has(userId)) {
-      return this.userCache.get(userId);
-    }
-
+  async refreshUserCache() {
     try {
-      // Fetch from Adversus API
-      const userResponse = await adversusAPI.getUser(userId);
-      const user = userResponse.users?.[0];
+      console.log('📡 Refreshing user cache from Adversus...');
+      const usersResponse = await adversusAPI.getUsers();
+      const users = usersResponse.users || [];
       
-      if (user) {
+      // Populate cache
+      users.forEach(user => {
         const userInfo = {
           userId: user.id,
           name: user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim() || `Agent ${user.id}`,
           email: user.email || ''
         };
-        
-        // Cache it
-        this.userCache.set(userId, userInfo);
-        
-        return userInfo;
-      }
+        this.userCache.set(user.id, userInfo);
+      });
+      
+      this.lastUserListFetch = new Date();
+      console.log(`✅ User cache refreshed with ${users.length} users`);
     } catch (error) {
-      console.error(`Error fetching user ${userId}:`, error.message);
+      console.error('❌ Error refreshing user cache:', error.message);
+    }
+  }
+
+  getUserInfo(userId) {
+    // Check cache first
+    if (this.userCache.has(userId)) {
+      return this.userCache.get(userId);
     }
 
-    // Fallback
+    // Fallback if not in cache
+    console.log(`⚠️  User ${userId} not in cache, using fallback name`);
     return {
       userId: userId,
       name: `Agent ${userId}`,
@@ -93,13 +107,12 @@ class PollingService {
           const savedDeal = await database.addDeal(deal);
           
           if (savedDeal) {
-            // Hämta agent-info (check local first, then Adversus API)
+            // Hämta agent-info (check local first, then cache)
             let agent = await database.getAgent(deal.userId);
             
             if (!agent || !agent.name || agent.name === `Agent ${deal.userId}`) {
-              // Fetch from Adversus API
-              console.log(`📡 Fetching user info for ${deal.userId} from Adversus API...`);
-              const userInfo = await this.getUserInfo(deal.userId);
+              // Get from cache (no API call!)
+              const userInfo = this.getUserInfo(deal.userId);
               
               // Save/update in local database
               agent = await database.addAgent({
@@ -108,6 +121,8 @@ class PollingService {
                 email: userInfo.email,
                 profileImage: agent?.profileImage || null
               });
+              
+              console.log(`📝 Updated agent info for ${userInfo.name}`);
             }
             
             // Skicka notifikation via WebSocket
@@ -148,9 +163,10 @@ class PollingService {
   }
 
   // Clear user cache (for re-sync)
-  clearCache() {
+  async clearCache() {
     this.userCache.clear();
     console.log('🧹 User cache cleared');
+    await this.refreshUserCache();
   }
 }
 
