@@ -252,7 +252,7 @@ router.delete('/leaderboards/:id', async (req, res) => {
   }
 });
 
-// LEADERBOARD DATA - SMART CACHING STRATEGI
+// LEADERBOARD DATA - FIXED GROUP FILTERING
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -273,7 +273,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     const usersResult = await adversusAPI.getUsers();
     const adversusUsers = usersResult.users || [];
     
-    // SMART FILTRERING: Hämta bara group-info för relevanta users
+    // FIXED: Proper group filtering
     let filteredUserIds = null;
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
       console.log(`🔍 Filtering by user groups:`, leaderboard.userGroups);
@@ -288,16 +288,18 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         
         filteredUserIds = new Set();
         
-        // Hämta group-info för varje relevant user (bara users som har deals!)
+        // Hämta group-info för varje relevant user
         for (const userId of uniqueUserIds) {
           try {
             // Hämta detaljerad user-info med memberOf
-            const userDetailResponse = await adversusAPI.request(`/users/${userId}`);
+            const userDetailResponse = await adversusAPI.getUser(userId);
             const userDetail = userDetailResponse.users?.[0];
             
             if (userDetail && userDetail.memberOf) {
               // Extrahera group IDs från memberOf array
               const userGroupIds = userDetail.memberOf.map(membership => parseInt(membership.id));
+              
+              console.log(`   User ${userId} (${userDetail.name || 'Unknown'}) is in groups: [${userGroupIds.join(', ')}]`);
               
               // Kolla om user tillhör någon av target groups
               const hasMatchingGroup = targetGroupIds.some(targetId => 
@@ -306,7 +308,12 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
               
               if (hasMatchingGroup) {
                 filteredUserIds.add(userId);
+                console.log(`   ✅ User ${userId} matched!`);
+              } else {
+                console.log(`   ❌ User ${userId} NOT in selected groups`);
               }
+            } else {
+              console.log(`   ⚠️ User ${userId} has no memberOf data`);
             }
           } catch (error) {
             console.error(`   ⚠️ Could not fetch details for user ${userId}:`, error.message);
@@ -315,16 +322,16 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         
         console.log(`👥 Filtered to ${filteredUserIds.size} users from ${leaderboard.userGroups.length} groups`);
         
-        // Om INGA users matchade, visa varning och fallback
+        // FIXED: Don't fall back to showing all - keep empty set if no matches
         if (filteredUserIds.size === 0) {
           console.log(`⚠️  WARNING: No users matched the selected groups!`);
-          console.log(`   Falling back to showing ALL users instead.`);
-          filteredUserIds = null;
+          console.log(`   This will result in an empty leaderboard - as expected!`);
+          // Keep filteredUserIds as empty Set - this is correct behavior
         }
       } catch (error) {
         console.error(`❌ Error fetching user group info:`, error.message);
-        console.log(`   Falling back to showing ALL users`);
-        filteredUserIds = null;
+        console.log(`   Showing empty leaderboard due to error`);
+        filteredUserIds = new Set(); // Empty set on error
       }
     } else {
       console.log(`👥 No groups filter - showing ALL users`);
@@ -339,8 +346,10 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       
       if (!userId) return;
       
-      // Filtrera på user groups om specificerat
-      if (filteredUserIds && !filteredUserIds.has(userId)) return;
+      // FIXED: Proper filtering - if we have a filter, check membership
+      if (filteredUserIds && !filteredUserIds.has(userId)) {
+        return; // Skip this user
+      }
       
       if (!stats[userId]) {
         stats[userId] = {
@@ -379,7 +388,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       };
     }).sort((a, b) => b.totalCommission - a.totalCommission);
     
-    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents`);
+    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents after filtering`);
     
     res.json({
       leaderboard: leaderboard,
