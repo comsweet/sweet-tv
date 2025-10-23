@@ -12,7 +12,7 @@ class SlideshowService {
     try {
       await fs.mkdir(this.dbPath, { recursive: true });
 
-      // Skapa slideshows.json
+      // Skapa slideshows.json om den inte finns
       try {
         await fs.access(this.slideshowsFile);
       } catch {
@@ -24,18 +24,18 @@ class SlideshowService {
   }
 
   async getSlideshows() {
-    const data = await fs.readFile(this.slideshowsFile, 'utf8');
-    return JSON.parse(data).slideshows;
+    try {
+      const data = await fs.readFile(this.slideshowsFile, 'utf8');
+      return JSON.parse(data).slideshows;
+    } catch (error) {
+      console.error('Error reading slideshows:', error);
+      return [];
+    }
   }
 
   async getSlideshow(id) {
     const slideshows = await this.getSlideshows();
     return slideshows.find(s => s.id === id);
-  }
-
-  async getActiveSlideshows() {
-    const slideshows = await this.getSlideshows();
-    return slideshows.filter(s => s.active);
   }
 
   async addSlideshow(slideshow) {
@@ -44,8 +44,8 @@ class SlideshowService {
     const newSlideshow = {
       id: Date.now().toString(),
       name: slideshow.name,
-      leaderboards: slideshow.leaderboards || [], // Array of leaderboard IDs
-      duration: slideshow.duration || 30, // Seconds per slide
+      leaderboards: slideshow.leaderboards || [],
+      duration: slideshow.duration || 15,
       active: slideshow.active !== undefined ? slideshow.active : true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -77,6 +77,11 @@ class SlideshowService {
     const filtered = slideshows.filter(s => s.id !== id);
     await fs.writeFile(this.slideshowsFile, JSON.stringify({ slideshows: filtered }, null, 2));
     return true;
+  }
+
+  async getActiveSlideshows() {
+    const slideshows = await this.getSlideshows();
+    return slideshows.filter(s => s.active);
   }
 }
 
