@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import socketService from '../services/socket';
-import { getActiveLeaderboards, getLeaderboardStats2 } from '../services/api';
+import { getSlideshow, getLeaderboardStats2 } from '../services/api';
 import './Display.css';
 
 const playNotificationSound = () => {
@@ -86,7 +87,7 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
   };
 
   return (
-    <div className="leaderboard-card-display">
+    <div className="leaderboard-card-display slideshow-mode">
       <div className="leaderboard-header">
         <h2>{leaderboard.name}</h2>
         <p className="leaderboard-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
@@ -96,7 +97,7 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
         <div className="no-data-display">Inga affärer än</div>
       ) : (
         <div className="leaderboard-items">
-          {stats.slice(0, 10).map((item, index) => (
+          {stats.slice(0, 15).map((item, index) => (
             <div 
               key={item.userId} 
               className={`leaderboard-item-display ${index === 0 ? 'first-place' : ''}`}
@@ -137,58 +138,91 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
 };
 
 const Display = () => {
+  const [searchParams] = useSearchParams();
+  const slideshowId = searchParams.get('slideshow');
+  
+  const [slideshow, setSlideshow] = useState(null);
   const [leaderboardsData, setLeaderboardsData] = useState([]);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const slideIntervalRef = useRef(null);
 
-  const fetchLeaderboards = async () => {
+  const fetchSlideshowData = async () => {
+    if (!slideshowId) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const response = await getActiveLeaderboards();
-      const activeLeaderboards = response.data;
+      const response = await getSlideshow(slideshowId);
+      const slideshowData = response.data;
+      setSlideshow(slideshowData);
       
-      // Hämta stats för varje aktiv leaderboard
+      // Hämta stats för alla leaderboards i slideshow
       const leaderboardsWithStats = await Promise.all(
-        activeLeaderboards.map(async (lb) => {
+        slideshowData.leaderboards.map(async (leaderboardId) => {
           try {
-            const statsResponse = await getLeaderboardStats2(lb.id);
+            const statsResponse = await getLeaderboardStats2(leaderboardId);
             return {
-              leaderboard: lb,
+              leaderboard: statsResponse.data.leaderboard,
               stats: statsResponse.data.stats || []
             };
           } catch (error) {
-            console.error(`Error fetching stats for leaderboard ${lb.id}:`, error);
-            return {
-              leaderboard: lb,
-              stats: []
-            };
+            console.error(`Error fetching stats for leaderboard ${leaderboardId}:`, error);
+            return null;
           }
         })
       );
       
-      setLeaderboardsData(leaderboardsWithStats);
+      // Filtrera bort null-värden
+      setLeaderboardsData(leaderboardsWithStats.filter(Boolean));
       setIsLoading(false);
     } catch (error) {
-      console.error('Error fetching leaderboards:', error);
+      console.error('Error fetching slideshow:', error);
       setIsLoading(false);
     }
   };
 
+  // Hämta data första gången och sedan varje minut
   useEffect(() => {
-    fetchLeaderboards();
-    const interval = setInterval(fetchLeaderboards, 60000); // Uppdatera varje minut
+    fetchSlideshowData();
+    const interval = setInterval(fetchSlideshowData, 60000);
+    return () => clearInterval(interval);
+  }, [slideshowId]);
 
+  // Slideshow rotation
+  useEffect(() => {
+    if (!slideshow || leaderboardsData.length === 0) return;
+
+    const duration = (slideshow.duration || 30) * 1000;
+    
+    slideIntervalRef.current = setInterval(() => {
+      setCurrentSlideIndex((prevIndex) => 
+        (prevIndex + 1) % leaderboardsData.length
+      );
+    }, duration);
+
+    return () => {
+      if (slideIntervalRef.current) {
+        clearInterval(slideIntervalRef.current);
+      }
+    };
+  }, [slideshow, leaderboardsData]);
+
+  // WebSocket för notifikationer
+  useEffect(() => {
     socketService.connect();
 
     const handleNewDeal = (notification) => {
       console.log('New deal received:', notification);
       setCurrentNotification(notification);
-      fetchLeaderboards();
+      fetchSlideshowData(); // Uppdatera stats
     };
 
     socketService.onNewDeal(handleNewDeal);
 
     return () => {
-      clearInterval(interval);
       socketService.offNewDeal(handleNewDeal);
     };
   }, []);
@@ -197,39 +231,58 @@ const Display = () => {
     setCurrentNotification(null);
   };
 
-  // Bestäm grid-layout baserat på antal leaderboards
-  const getGridClass = () => {
-    const count = leaderboardsData.length;
-    if (count === 1) return 'grid-1';
-    if (count === 2) return 'grid-2';
-    if (count <= 4) return 'grid-4';
-    return 'grid-4'; // Max 4 leaderboards i taget
-  };
+  if (isLoading) {
+    return (
+      <div className="display-container">
+        <div className="loading-display">Laddar slideshow...</div>
+      </div>
+    );
+  }
+
+  if (!slideshowId) {
+    return (
+      <div className="display-container">
+        <div className="no-leaderboards">
+          <p>Ingen slideshow vald</p>
+          <p className="hint">Lägg till ?slideshow=ID i URL:en</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!slideshow || leaderboardsData.length === 0) {
+    return (
+      <div className="display-container">
+        <div className="no-leaderboards">
+          <p>Kunde inte ladda slideshow</p>
+          <p className="hint">Kontrollera att slideshow:en finns och har leaderboards</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentSlide = leaderboardsData[currentSlideIndex];
 
   return (
     <div className="display-container">
       <header className="display-header">
-        <h1>🏆 Sweet TV Leaderboards</h1>
-      </header>
-
-      {isLoading ? (
-        <div className="loading-display">Laddar...</div>
-      ) : leaderboardsData.length === 0 ? (
-        <div className="no-leaderboards">
-          <p>Inga aktiva leaderboards</p>
-          <p className="hint">Skapa en leaderboard i Admin-panelen</p>
-        </div>
-      ) : (
-        <div className={`leaderboards-grid ${getGridClass()}`}>
-          {leaderboardsData.slice(0, 4).map(({ leaderboard, stats }) => (
-            <LeaderboardCard 
-              key={leaderboard.id}
-              leaderboard={leaderboard}
-              stats={stats}
+        <h1>🏆 {slideshow.name}</h1>
+        <div className="slideshow-indicator">
+          {leaderboardsData.map((_, index) => (
+            <span 
+              key={index} 
+              className={`indicator-dot ${index === currentSlideIndex ? 'active' : ''}`}
             />
           ))}
         </div>
-      )}
+      </header>
+
+      <div className="slideshow-container">
+        <LeaderboardCard 
+          leaderboard={currentSlide.leaderboard}
+          stats={currentSlide.stats}
+        />
+      </div>
 
       {currentNotification && (
         <DealNotification 
