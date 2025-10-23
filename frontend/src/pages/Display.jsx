@@ -164,7 +164,9 @@ const Display = () => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
   const slideIntervalRef = useRef(null);
+  const progressIntervalRef = useRef(null);
 
   const fetchSlideshowData = async () => {
     if (!slideshowId) {
@@ -223,21 +225,46 @@ const Display = () => {
     return () => clearInterval(interval);
   }, [slideshowId]);
 
-  // Slideshow rotation
+  // Slideshow rotation with progress bar
   useEffect(() => {
     if (!slideshow || leaderboardsData.length === 0) return;
 
     const duration = (slideshow.duration || 30) * 1000;
-    
+    const progressUpdateInterval = 100; // Update every 100ms
+
+    // Reset progress
+    setProgress(0);
+
+    // Progress bar animation
+    let elapsed = 0;
+    progressIntervalRef.current = setInterval(() => {
+      elapsed += progressUpdateInterval;
+      const newProgress = Math.min((elapsed / duration) * 100, 100);
+      setProgress(newProgress);
+    }, progressUpdateInterval);
+
+    // Slide rotation
     slideIntervalRef.current = setInterval(() => {
-      setCurrentSlideIndex((prevIndex) => 
-        (prevIndex + 1) % leaderboardsData.length
-      );
+      setCurrentSlideIndex((prevIndex) => {
+        const nextIndex = (prevIndex + 1) % leaderboardsData.length;
+        
+        // Preload hint (data is already loaded, but log for future preload logic)
+        const nextNextIndex = (nextIndex + 1) % leaderboardsData.length;
+        console.log(`🔄 Next slide: ${nextIndex + 1}, Preload ready: ${nextNextIndex + 1}`);
+        
+        // Reset progress for new slide
+        setProgress(0);
+        
+        return nextIndex;
+      });
     }, duration);
 
     return () => {
       if (slideIntervalRef.current) {
         clearInterval(slideIntervalRef.current);
+      }
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
       }
     };
   }, [slideshow, leaderboardsData]);
@@ -323,6 +350,9 @@ const Display = () => {
               className={`indicator-dot ${index === currentSlideIndex ? 'active' : ''}`}
             />
           ))}
+        </div>
+        <div className="slideshow-progress-bar">
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
       </header>
 
