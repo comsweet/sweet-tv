@@ -252,7 +252,7 @@ router.delete('/leaderboards/:id', async (req, res) => {
   }
 });
 
-// LEADERBOARD DATA - FIXED GROUP FILTERING
+// LEADERBOARD DATA - FIXED: Use direct group field from /users instead of /users/{id}
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -263,75 +263,86 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     const { startDate, endDate } = leaderboardService.getDateRange(leaderboard);
     
     console.log(`📊 Fetching leaderboard "${leaderboard.name}" stats from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`🔍 Selected groups in leaderboard: [${leaderboard.userGroups.join(', ')}]`);
     
     const result = await adversusAPI.getLeadsInDateRange(startDate, endDate);
     const leads = result.leads || [];
     
     console.log(`✅ Found ${leads.length} success leads`);
     
-    // Hämta alla users för namn/email
+    // Hämta alla users för namn/email OCH group info
     const usersResult = await adversusAPI.getUsers();
     const adversusUsers = usersResult.users || [];
+    console.log(`👥 Found ${adversusUsers.length} users from Adversus`);
     
-    // FIXED: Proper group filtering
+    // FIXED: Build user-to-group mapping from /users endpoint
+    // Use user.group.id (NOT memberOf which is team!)
+    const userGroupMap = new Map();
+    adversusUsers.forEach(user => {
+      let userGroupId = null;
+      
+      // Primary: user.group.id (this is the correct user group)
+      if (user.group && typeof user.group === 'object' && user.group.id) {
+        userGroupId = parseInt(user.group.id);
+      } 
+      // Fallback: user.groupId
+      else if (user.groupId) {
+        userGroupId = parseInt(user.groupId);
+      } 
+      // Fallback: user.group as number
+      else if (user.group && typeof user.group === 'number') {
+        userGroupId = parseInt(user.group);
+      }
+      // NOTE: We do NOT use memberOf - that's team, not group!
+      
+      if (userGroupId) {
+        userGroupMap.set(user.id, {
+          groupId: userGroupId,
+          groupName: user.group?.name || 'Unknown'
+        });
+      }
+    });
+    
+    console.log(`📋 Built group mapping for ${userGroupMap.size} users`);
+    
+    // FIXED: Simple and efficient filtering
     let filteredUserIds = null;
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
-      console.log(`🔍 Filtering by user groups:`, leaderboard.userGroups);
+      console.log(`🔍 Filtering by user groups...`);
       
-      try {
-        // Extrahera unika userIds från leads
-        const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
-        console.log(`   Found ${uniqueUserIds.length} unique users in leads`);
+      const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
+      console.log(`   Target group IDs: [${targetGroupIds.join(', ')}]`);
+      
+      filteredUserIds = new Set();
+      
+      // Check each user in leads
+      const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
+      console.log(`   Found ${uniqueUserIds.length} unique users in leads`);
+      
+      uniqueUserIds.forEach(userId => {
+        const userGroupData = userGroupMap.get(userId);
+        const user = adversusUsers.find(u => u.id === userId);
+        const userName = user?.name || user?.firstname || `User ${userId}`;
         
-        // Konvertera target groups till integers
-        const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
-        
-        filteredUserIds = new Set();
-        
-        // Hämta group-info för varje relevant user
-        for (const userId of uniqueUserIds) {
-          try {
-            // Hämta detaljerad user-info med memberOf
-            const userDetailResponse = await adversusAPI.getUser(userId);
-            const userDetail = userDetailResponse.users?.[0];
-            
-            if (userDetail && userDetail.memberOf) {
-              // Extrahera group IDs från memberOf array
-              const userGroupIds = userDetail.memberOf.map(membership => parseInt(membership.id));
-              
-              console.log(`   User ${userId} (${userDetail.name || 'Unknown'}) is in groups: [${userGroupIds.join(', ')}]`);
-              
-              // Kolla om user tillhör någon av target groups
-              const hasMatchingGroup = targetGroupIds.some(targetId => 
-                userGroupIds.includes(targetId)
-              );
-              
-              if (hasMatchingGroup) {
-                filteredUserIds.add(userId);
-                console.log(`   ✅ User ${userId} matched!`);
-              } else {
-                console.log(`   ❌ User ${userId} NOT in selected groups`);
-              }
-            } else {
-              console.log(`   ⚠️ User ${userId} has no memberOf data`);
-            }
-          } catch (error) {
-            console.error(`   ⚠️ Could not fetch details for user ${userId}:`, error.message);
+        if (userGroupData) {
+          const { groupId, groupName } = userGroupData;
+          console.log(`   User ${userId} (${userName}) is in group ${groupId} (${groupName})`);
+          
+          if (targetGroupIds.includes(groupId)) {
+            filteredUserIds.add(userId);
+            console.log(`      ✅ MATCH!`);
+          } else {
+            console.log(`      ❌ Not in selected groups`);
           }
+        } else {
+          console.log(`   ⚠️  User ${userId} (${userName}) has no group info`);
         }
-        
-        console.log(`👥 Filtered to ${filteredUserIds.size} users from ${leaderboard.userGroups.length} groups`);
-        
-        // FIXED: Don't fall back to showing all - keep empty set if no matches
-        if (filteredUserIds.size === 0) {
-          console.log(`⚠️  WARNING: No users matched the selected groups!`);
-          console.log(`   This will result in an empty leaderboard - as expected!`);
-          // Keep filteredUserIds as empty Set - this is correct behavior
-        }
-      } catch (error) {
-        console.error(`❌ Error fetching user group info:`, error.message);
-        console.log(`   Showing empty leaderboard due to error`);
-        filteredUserIds = new Set(); // Empty set on error
+      });
+      
+      console.log(`👥 Filtered to ${filteredUserIds.size} users from ${leaderboard.userGroups.length} selected groups`);
+      
+      if (filteredUserIds.size === 0) {
+        console.log(`⚠️  WARNING: No users matched the selected groups!`);
       }
     } else {
       console.log(`👥 No groups filter - showing ALL users`);
@@ -346,7 +357,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       
       if (!userId) return;
       
-      // FIXED: Proper filtering - if we have a filter, check membership
+      // Apply filter if we have one
       if (filteredUserIds && !filteredUserIds.has(userId)) {
         return; // Skip this user
       }
@@ -388,7 +399,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       };
     }).sort((a, b) => b.totalCommission - a.totalCommission);
     
-    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents after filtering`);
+    console.log(`📈 Final leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents after filtering`);
     
     res.json({
       leaderboard: leaderboard,
@@ -400,6 +411,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching leaderboard stats:', error.message);
+    console.error(error.stack);
     res.status(500).json({ error: error.message });
   }
 });
