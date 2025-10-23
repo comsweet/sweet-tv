@@ -28,6 +28,27 @@ class AdversusAPI {
     }
   }
 
+  // Hämta "Order date" från resultData
+  getOrderDate(lead) {
+    if (!lead.resultData) return null;
+    
+    // Sök efter "Order date" field (case-insensitive)
+    const orderDateField = lead.resultData.find(field => 
+      field.label && field.label.toLowerCase() === 'order date'
+    );
+    
+    if (orderDateField && orderDateField.value) {
+      return new Date(orderDateField.value);
+    }
+    
+    // Fallback: använd lastUpdatedTime
+    if (lead.lastUpdatedTime) {
+      return new Date(lead.lastUpdatedTime);
+    }
+    
+    return null;
+  }
+
   // Hämta leads med filter - för polling
   async getSuccessLeads(fromDate) {
     const filters = {
@@ -47,24 +68,34 @@ class AdversusAPI {
     return await this.request('/leads', params);
   }
 
-  // Hämta ALLA leads - MED KORREKT ADVERSUS PAGINATION
+  // Hämta ALLA leads - FILTRERAR PÅ ORDER DATE
   async getLeadsInDateRange(startDate, endDate) {
+    // BRED FILTRERING: Hämta lite mer än requested period
+    // för att säkerställa vi får alla deals baserat på Order date
+    const bufferDays = 7; // 7 dagars buffer
+    const bufferStart = new Date(startDate);
+    bufferStart.setDate(bufferStart.getDate() - bufferDays);
+    const bufferEnd = new Date(endDate);
+    bufferEnd.setDate(bufferEnd.getDate() + bufferDays);
+
     const filters = {
       "status": { "$eq": "success" },
       "lastUpdatedTime": { 
-        "$gt": startDate.toISOString(),
-        "$lt": endDate.toISOString()
+        "$gt": bufferStart.toISOString(),
+        "$lt": bufferEnd.toISOString()
       }
     };
 
-    console.log('🔍 Fetching leads with filters:', JSON.stringify(filters));
+    console.log('🔍 Fetching leads with broad filter (with buffer for Order date)');
+    console.log(`   API Filter: ${bufferStart.toISOString()} to ${bufferEnd.toISOString()}`);
+    console.log(`   Target Order Date Range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
     let allLeads = [];
     let currentPage = 1;
     let totalPages = 1;
-    const pageSize = 1000; // Max enligt Adversus
+    const pageSize = 1000;
 
-    // PAGINATION LOOP med korrekt Adversus struktur
+    // PAGINATION LOOP
     while (currentPage <= totalPages) {
       const params = {
         filters: JSON.stringify(filters),
@@ -72,7 +103,7 @@ class AdversusAPI {
         pageSize: pageSize,
         sortProperty: 'lastUpdatedTime',
         sortDirection: 'DESC',
-        includeMeta: true  // VIKTIGT!
+        includeMeta: true
       };
 
       try {
@@ -86,25 +117,22 @@ class AdversusAPI {
           console.log(`   ✅ Got ${leads.length} leads on page ${currentPage}`);
         }
 
-        // KORREKT ADVERSUS META STRUKTUR
+        // Adversus pagination structure
         if (response.meta && response.meta.pagination) {
           const pagination = response.meta.pagination;
           totalPages = pagination.pageCount || 1;
           
-          console.log(`   📊 Pagination: Page ${pagination.page}/${pagination.pageCount}, PageSize: ${pagination.pageSize}`);
+          console.log(`   📊 Pagination: Page ${pagination.page}/${pagination.pageCount}`);
           
-          // Om vi är på sista sidan, sluta
           if (!pagination.nextUrl || pagination.page >= pagination.pageCount) {
-            console.log(`   ✅ Reached last page (${pagination.page})`);
+            console.log(`   ✅ Reached last page`);
             break;
           }
         } else {
-          // Ingen meta = endast en sida
           console.log('   ℹ️  No pagination meta, assuming single page');
           break;
         }
 
-        // Safety: Max 50 sidor (50,000 leads)
         if (currentPage >= 50) {
           console.log('⚠️  Stopped at 50 pages for safety');
           break;
@@ -112,7 +140,6 @@ class AdversusAPI {
 
         currentPage++;
 
-        // Rate limit protection: 500ms delay mellan requests
         if (currentPage <= totalPages) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
@@ -123,13 +150,44 @@ class AdversusAPI {
       }
     }
 
-    console.log(`\n✅ TOTAL: Fetched ${allLeads.length} leads across ${currentPage} pages\n`);
+    console.log(`\n✅ Fetched ${allLeads.length} total leads from API`);
+
+    // FILTRERA PÅ ORDER DATE
+    console.log(`\n🔍 Filtering by Order date...`);
+    const filteredLeads = allLeads.filter(lead => {
+      const orderDate = this.getOrderDate(lead);
+      
+      if (!orderDate) {
+        console.log(`   ⚠️  Lead ${lead.id}: No order date found, skipping`);
+        return false;
+      }
+      
+      const isInRange = orderDate >= startDate && orderDate <= endDate;
+      
+      if (!isInRange) {
+        // Debug: Visa leads utanför range
+        // console.log(`   ⏭️  Lead ${lead.id}: Order date ${orderDate.toISOString()} outside range, skipping`);
+      }
+      
+      return isInRange;
+    });
+
+    console.log(`✅ ${filteredLeads.length} leads match Order date range`);
+    console.log(`   (Filtered out ${allLeads.length - filteredLeads.length} leads outside date range)\n`);
+
+    // SORTERA efter Order date (nyast först)
+    filteredLeads.sort((a, b) => {
+      const dateA = this.getOrderDate(a);
+      const dateB = this.getOrderDate(b);
+      return dateB - dateA; // DESC
+    });
 
     return {
-      leads: allLeads,
+      leads: filteredLeads,
       meta: {
-        totalCount: allLeads.length,
-        totalPages: currentPage
+        totalCount: filteredLeads.length,
+        totalPages: currentPage,
+        unfilteredCount: allLeads.length
       }
     };
   }
@@ -152,7 +210,7 @@ class AdversusAPI {
     
     if (response.meta && response.meta.pagination) {
       const p = response.meta.pagination;
-      console.log(`👥 Users: Page ${p.page}/${p.pageCount}, Total users on page: ${response.users?.length || 0}`);
+      console.log(`👥 Users: Page ${p.page}/${p.pageCount}`);
     }
     
     return response;
@@ -171,7 +229,7 @@ class AdversusAPI {
     
     if (response.meta && response.meta.pagination) {
       const p = response.meta.pagination;
-      console.log(`👨‍👩‍👧‍👦 Groups: Page ${p.page}/${p.pageCount}, Total groups on page: ${response.groups?.length || 0}`);
+      console.log(`👨‍👩‍👧‍👦 Groups: Page ${p.page}/${p.pageCount}`);
     }
     
     return response;
