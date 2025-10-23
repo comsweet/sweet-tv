@@ -20,10 +20,10 @@ class AdversusAPI {
       return response.data;
     } catch (error) {
       if (error.response?.status === 429) {
-        console.error('Rate limit exceeded');
+        console.error('⏰ Rate limit exceeded');
         throw new Error('RATE_LIMIT_EXCEEDED');
       }
-      console.error('API Error:', error.message);
+      console.error('❌ API Error:', error.message);
       throw error;
     }
   }
@@ -41,13 +41,13 @@ class AdversusAPI {
       pageSize: 100,
       sortProperty: 'lastUpdatedTime',
       sortDirection: 'DESC',
-      includeMeta: true  // Include pagination metadata
+      includeMeta: true
     };
 
     return await this.request('/leads', params);
   }
 
-  // Hämta leads med datum-range - för statistik
+  // Hämta ALLA leads med datum-range - MED FULLSTÄNDIG PAGINATION
   async getLeadsInDateRange(startDate, endDate) {
     const filters = {
       "status": { "$eq": "success" },
@@ -57,30 +57,72 @@ class AdversusAPI {
       }
     };
 
-    const params = {
-      filters: JSON.stringify(filters),
-      page: 1,
-      pageSize: 1000,  // Max för att få så många som möjligt
-      sortProperty: 'lastUpdatedTime',
-      sortDirection: 'DESC',
-      includeMeta: true
-    };
-
     console.log('🔍 Fetching leads with filters:', JSON.stringify(filters));
 
-    const response = await this.request('/leads', params);
-    
-    // Log metadata if available
-    if (response.meta) {
-      console.log(`📊 Meta: Page ${response.meta.currentPage}/${response.meta.totalPages}, Total: ${response.meta.totalCount} leads`);
-      
-      // If there are more pages, warn about it
-      if (response.meta.totalPages > 1) {
-        console.log(`⚠️  Warning: ${response.meta.totalPages} pages available, but only fetching page 1. Consider pagination for complete data.`);
+    let allLeads = [];
+    let currentPage = 1;
+    let totalPages = 1;
+
+    // PAGINATION LOOP - Hämta alla sidor!
+    while (currentPage <= totalPages) {
+      const params = {
+        filters: JSON.stringify(filters),
+        page: currentPage,
+        pageSize: 1000,  // Max per sida
+        sortProperty: 'lastUpdatedTime',
+        sortDirection: 'DESC',
+        includeMeta: true
+      };
+
+      try {
+        console.log(`📄 Fetching page ${currentPage}...`);
+        const response = await this.request('/leads', params);
+        
+        // Lägg till leads från denna sida
+        if (response.leads && response.leads.length > 0) {
+          allLeads.push(...response.leads);
+          console.log(`   ✅ Got ${response.leads.length} leads on page ${currentPage}`);
+        }
+
+        // Uppdatera pagination info
+        if (response.meta) {
+          totalPages = response.meta.totalPages || 1;
+          console.log(`📊 Meta: Page ${response.meta.currentPage}/${totalPages}, Total: ${response.meta.totalCount} leads`);
+        } else {
+          // Ingen meta = endast en sida
+          console.log('   ℹ️  No meta returned, assuming single page');
+          break;
+        }
+
+        // Gå till nästa sida
+        currentPage++;
+
+        // Safety: Max 50 sidor (50,000 leads)
+        if (currentPage > 50) {
+          console.log('⚠️  Stopped at 50 pages for safety');
+          break;
+        }
+
+        // Rate limit protection: Vänta lite mellan requests
+        if (currentPage <= totalPages) {
+          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+        }
+
+      } catch (error) {
+        console.error(`❌ Error fetching page ${currentPage}:`, error.message);
+        break;
       }
     }
 
-    return response;
+    console.log(`✅ TOTAL: Fetched ${allLeads.length} leads across ${currentPage - 1} pages`);
+
+    return {
+      leads: allLeads,
+      meta: {
+        totalCount: allLeads.length,
+        totalPages: currentPage - 1
+      }
+    };
   }
 
   // Hämta user details
@@ -122,50 +164,6 @@ class AdversusAPI {
     }
     
     return response;
-  }
-
-  // Helper method to fetch ALL pages if needed
-  async getAllPages(endpoint, initialParams = {}) {
-    const allResults = [];
-    let currentPage = 1;
-    let totalPages = 1;
-    
-    while (currentPage <= totalPages) {
-      const params = {
-        ...initialParams,
-        page: currentPage,
-        includeMeta: true
-      };
-      
-      const response = await this.request(endpoint, params);
-      
-      // Add results
-      if (response.leads) {
-        allResults.push(...response.leads);
-      } else if (response.users) {
-        allResults.push(...response.users);
-      } else if (response.groups) {
-        allResults.push(...response.groups);
-      }
-      
-      // Update pagination info
-      if (response.meta) {
-        totalPages = response.meta.totalPages;
-        console.log(`📄 Fetched page ${currentPage}/${totalPages}`);
-      } else {
-        break; // No meta, assume single page
-      }
-      
-      currentPage++;
-      
-      // Safety break after 50 pages
-      if (currentPage > 50) {
-        console.log('⚠️  Stopped after 50 pages for safety');
-        break;
-      }
-    }
-    
-    return allResults;
   }
 }
 
