@@ -86,18 +86,32 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
     return labels[period] || period;
   };
 
+  // Calculate total deals
+  const totalDeals = stats.reduce((sum, item) => sum + item.dealCount, 0);
+
   return (
     <div className="leaderboard-card-display slideshow-mode">
       <div className="leaderboard-header">
-        <h2>{leaderboard.name}</h2>
-        <p className="leaderboard-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
+        {totalDeals > 0 && (
+          <div className="total-deals-badge">
+            <div>Totalt</div>
+            <div className="total-deals-number">{totalDeals} 🎯</div>
+          </div>
+        )}
+        
+        <div className="leaderboard-title">
+          <h2>{leaderboard.name}</h2>
+          <p className="leaderboard-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
+        </div>
+        
+        <div style={{ width: '120px' }}></div> {/* Spacer for symmetry */}
       </div>
 
       {stats.length === 0 ? (
         <div className="no-data-display">Inga affärer än</div>
       ) : (
-        <div className={`leaderboard-items ${stats.length > 15 ? 'ultra-compact' : ''}`}>
-          {stats.slice(0, 20).map((item, index) => (
+        <div className="leaderboard-items">
+          {stats.slice(0, 25).map((item, index) => (
             <div 
               key={item.userId} 
               className={`leaderboard-item-display ${index === 0 ? 'first-place' : ''}`}
@@ -123,7 +137,11 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
               
               <div className="agent-info-display">
                 <h3 className="agent-name-display">{item.agent.name}</h3>
-                <p className="agent-stats-display">🎯 {item.dealCount} affärer</p>
+              </div>
+              
+              <div className="deals-display">
+                <span className="emoji">🎯</span>
+                <span className="number">{item.dealCount}</span>
               </div>
               
               <div className="commission-display">
