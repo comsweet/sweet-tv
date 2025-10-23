@@ -3,7 +3,6 @@ const router = express.Router();
 const adversusAPI = require('../services/adversusAPI');
 const database = require('../services/database');
 const leaderboardService = require('../services/leaderboards');
-const slideshowService = require('../services/slideshows');
 const multer = require('multer');
 const path = require('path');
 
@@ -128,6 +127,7 @@ router.get('/stats/leaderboard', async (req, res) => {
     
     console.log(`📊 Fetching stats from ${start.toISOString()} to ${end.toISOString()}`);
     
+    // Hämtar ALLA leads med pagination
     const result = await adversusAPI.getLeadsInDateRange(start, end);
     const leads = result.leads || [];
     
@@ -154,20 +154,11 @@ router.get('/stats/leaderboard', async (req, res) => {
         };
       }
       
-      // Commission är i resultData (ID 70163)
       const commissionField = lead.resultData?.find(f => f.id === 70163);
-      const commissionValue = commissionField?.value || '0';
-      const commission = parseFloat(commissionValue.replace(/[,\s]/g, '')) || 0;
+      const commission = parseFloat(commissionField?.value || 0);
       
-      // MultiDeals är i masterData (ID 74126)
-      const multiDealsField = lead.masterData?.find(f => f.id === 74126);
-      const multiDeals = parseFloat(multiDealsField?.value || '1') || 1;
-      
-      // Total commission = commission * multiDeals
-      const totalCommission = commission * multiDeals;
-      
-      stats[userId].totalCommission += totalCommission;
-      stats[userId].dealCount += multiDeals; // Count actual number of deals
+      stats[userId].totalCommission += commission;
+      stats[userId].dealCount += 1;
     });
     
     const leaderboard = Object.values(stats).map(stat => {
@@ -262,7 +253,7 @@ router.delete('/leaderboards/:id', async (req, res) => {
   }
 });
 
-// LEADERBOARD DATA - FIXED: Use direct group field from /users instead of /users/{id}
+// LEADERBOARD STATS - OPTIMIZED MED FULL PAGINATION
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -272,105 +263,95 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
 
     const { startDate, endDate } = leaderboardService.getDateRange(leaderboard);
     
-    console.log(`📊 Fetching leaderboard "${leaderboard.name}" stats from ${startDate.toISOString()} to ${endDate.toISOString()}`);
-    console.log(`🔍 Selected groups in leaderboard: [${leaderboard.userGroups.join(', ')}]`);
+    console.log(`\n📊 ========================================`);
+    console.log(`📊 Fetching leaderboard "${leaderboard.name}"`);
+    console.log(`📊 Period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`📊 ========================================\n`);
     
+    // HÄMTAR ALLA LEADS MED FULL PAGINATION
     const result = await adversusAPI.getLeadsInDateRange(startDate, endDate);
     const leads = result.leads || [];
     
-    console.log(`✅ Found ${leads.length} success leads`);
+    console.log(`\n✅ Total leads fetched: ${leads.length}`);
     
-    // Hämta alla users för namn/email OCH group info
+    // Hämta alla users EN GÅNG
     const usersResult = await adversusAPI.getUsers();
     const adversusUsers = usersResult.users || [];
-    console.log(`👥 Found ${adversusUsers.length} users from Adversus`);
-    
-    // FIXED: Build user-to-group mapping from /users endpoint
-    // Use user.group.id (NOT memberOf which is team!)
-    const userGroupMap = new Map();
-    adversusUsers.forEach(user => {
-      let userGroupId = null;
-      
-      // Primary: user.group.id (this is the correct user group)
-      if (user.group && typeof user.group === 'object' && user.group.id) {
-        userGroupId = parseInt(user.group.id);
-      } 
-      // Fallback: user.groupId
-      else if (user.groupId) {
-        userGroupId = parseInt(user.groupId);
-      } 
-      // Fallback: user.group as number
-      else if (user.group && typeof user.group === 'number') {
-        userGroupId = parseInt(user.group);
-      }
-      // NOTE: We do NOT use memberOf - that's team, not group!
-      
-      if (userGroupId) {
-        userGroupMap.set(user.id, {
-          groupId: userGroupId,
-          groupName: user.group?.name || 'Unknown'
-        });
-      }
-    });
-    
-    console.log(`📋 Built group mapping for ${userGroupMap.size} users`);
-    
-    // FIXED: Simple and efficient filtering
-    let filteredUserIds = null;
-    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
-      console.log(`🔍 Filtering by user groups...`);
-      
-      const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
-      console.log(`   Target group IDs: [${targetGroupIds.join(', ')}]`);
-      
-      filteredUserIds = new Set();
-      
-      // Check each user in leads
-      const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
-      console.log(`   Found ${uniqueUserIds.length} unique users in leads`);
-      
-      uniqueUserIds.forEach(userId => {
-        const userGroupData = userGroupMap.get(userId);
-        const user = adversusUsers.find(u => u.id === userId);
-        const userName = user?.name || user?.firstname || `User ${userId}`;
-        
-        if (userGroupData) {
-          const { groupId, groupName } = userGroupData;
-          console.log(`   User ${userId} (${userName}) is in group ${groupId} (${groupName})`);
-          
-          if (targetGroupIds.includes(groupId)) {
-            filteredUserIds.add(userId);
-            console.log(`      ✅ MATCH!`);
-          } else {
-            console.log(`      ❌ Not in selected groups`);
-          }
-        } else {
-          console.log(`   ⚠️  User ${userId} (${userName}) has no group info`);
-        }
-      });
-      
-      console.log(`👥 Filtered to ${filteredUserIds.size} users from ${leaderboard.userGroups.length} selected groups`);
-      
-      if (filteredUserIds.size === 0) {
-        console.log(`⚠️  WARNING: No users matched the selected groups!`);
-      }
-    } else {
-      console.log(`👥 No groups filter - showing ALL users`);
-    }
+    console.log(`👥 Total users cached: ${adversusUsers.length}`);
     
     const localAgents = await database.getAgents();
     
+    // FILTRERING PÅ USER GROUPS
+    let filteredUserIds = null;
+    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
+      console.log(`\n🔍 Filtering by user groups: [${leaderboard.userGroups.join(', ')}]`);
+      
+      const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
+      filteredUserIds = new Set();
+      
+      // Extrahera unika userIds från leads
+      const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
+      console.log(`   Found ${uniqueUserIds.length} unique users in leads`);
+      
+      // Check each user's groups
+      let checkedCount = 0;
+      for (const userId of uniqueUserIds) {
+        try {
+          // Försök cached user först
+          const cachedUser = adversusUsers.find(u => String(u.id) === String(userId));
+          
+          if (cachedUser && cachedUser.memberOf) {
+            const userGroupIds = cachedUser.memberOf.map(m => parseInt(m.id));
+            const hasMatchingGroup = targetGroupIds.some(targetId => userGroupIds.includes(targetId));
+            
+            if (hasMatchingGroup) {
+              filteredUserIds.add(userId);
+            }
+          } else {
+            // Fallback: Fetch individual user
+            const userDetailResponse = await adversusAPI.getUser(userId);
+            const userDetail = userDetailResponse.users?.[0];
+            
+            if (userDetail && userDetail.memberOf) {
+              const userGroupIds = userDetail.memberOf.map(m => parseInt(m.id));
+              const hasMatchingGroup = targetGroupIds.some(targetId => userGroupIds.includes(targetId));
+              
+              if (hasMatchingGroup) {
+                filteredUserIds.add(userId);
+              }
+            }
+          }
+          
+          checkedCount++;
+          if (checkedCount % 10 === 0) {
+            console.log(`   Checked ${checkedCount}/${uniqueUserIds.length} users...`);
+          }
+        } catch (error) {
+          console.error(`   ⚠️  Error checking user ${userId}:`, error.message);
+        }
+      }
+      
+      console.log(`\n👥 Result: ${filteredUserIds.size} users matched the selected groups`);
+      
+      if (filteredUserIds.size === 0) {
+        console.log(`⚠️  WARNING: No users matched! Showing all users as fallback.`);
+        filteredUserIds = null;
+      }
+    } else {
+      console.log(`\n👥 No group filter - showing ALL users`);
+    }
+    
+    // BERÄKNA STATS
     const stats = {};
+    let processedLeads = 0;
     
     leads.forEach(lead => {
       const userId = lead.lastContactedBy;
       
       if (!userId) return;
       
-      // Apply filter if we have one
-      if (filteredUserIds && !filteredUserIds.has(userId)) {
-        return; // Skip this user
-      }
+      // Filtrera på user groups
+      if (filteredUserIds && !filteredUserIds.has(userId)) return;
       
       if (!stats[userId]) {
         stats[userId] = {
@@ -380,22 +361,17 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         };
       }
       
-      // Commission är i resultData (ID 70163)
       const commissionField = lead.resultData?.find(f => f.id === 70163);
-      const commissionValue = commissionField?.value || '0';
-      const commission = parseFloat(commissionValue.replace(/[,\s]/g, '')) || 0;
+      const commission = parseFloat(commissionField?.value || 0);
       
-      // MultiDeals är i masterData (ID 74126)
-      const multiDealsField = lead.masterData?.find(f => f.id === 74126);
-      const multiDeals = parseFloat(multiDealsField?.value || '1') || 1;
-      
-      // Total commission = commission * multiDeals
-      const totalCommission = commission * multiDeals;
-      
-      stats[userId].totalCommission += totalCommission;
-      stats[userId].dealCount += multiDeals; // Count actual number of deals
+      stats[userId].totalCommission += commission;
+      stats[userId].dealCount += 1;
+      processedLeads++;
     });
     
+    console.log(`\n📈 Processed ${processedLeads} leads for ${Object.keys(stats).length} agents`);
+    
+    // SKAPA FINAL LEADERBOARD
     const leaderboardStats = Object.values(stats).map(stat => {
       const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
       const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
@@ -418,7 +394,8 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       };
     }).sort((a, b) => b.totalCommission - a.totalCommission);
     
-    console.log(`📈 Final leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents after filtering`);
+    console.log(`\n✅ Final leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents`);
+    console.log(`📊 ========================================\n`);
     
     res.json({
       leaderboard: leaderboard,
@@ -426,72 +403,23 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       dateRange: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
+      },
+      meta: {
+        totalLeads: leads.length,
+        processedLeads: processedLeads,
+        totalAgents: leaderboardStats.length
       }
     });
   } catch (error) {
-    console.error('❌ Error fetching leaderboard stats:', error.message);
-    console.error(error.stack);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// SLIDESHOWS CRUD
-router.get('/slideshows', async (req, res) => {
-  try {
-    const slideshows = await slideshowService.getSlideshows();
-    res.json(slideshows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get('/slideshows/active', async (req, res) => {
-  try {
-    const activeSlideshows = await slideshowService.getActiveSlideshows();
-    res.json(activeSlideshows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get('/slideshows/:id', async (req, res) => {
-  try {
-    const slideshow = await slideshowService.getSlideshow(req.params.id);
-    if (!slideshow) {
-      return res.status(404).json({ error: 'Slideshow not found' });
+    console.error('\n❌ Error fetching leaderboard stats:', error.message);
+    
+    if (error.message === 'RATE_LIMIT_EXCEEDED') {
+      return res.status(429).json({ 
+        error: 'Rate limit exceeded. Please wait a moment.',
+        retryAfter: 60 
+      });
     }
-    res.json(slideshow);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post('/slideshows', async (req, res) => {
-  try {
-    const slideshow = await slideshowService.addSlideshow(req.body);
-    res.json(slideshow);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.put('/slideshows/:id', async (req, res) => {
-  try {
-    const slideshow = await slideshowService.updateSlideshow(req.params.id, req.body);
-    if (!slideshow) {
-      return res.status(404).json({ error: 'Slideshow not found' });
-    }
-    res.json(slideshow);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.delete('/slideshows/:id', async (req, res) => {
-  try {
-    await slideshowService.deleteSlideshow(req.params.id);
-    res.json({ success: true });
-  } catch (error) {
+    
     res.status(500).json({ error: error.message });
   }
 });
@@ -503,30 +431,6 @@ router.post('/poll/trigger', async (req, res) => {
     if (pollingService) {
       await pollingService.checkNow();
       res.json({ success: true, message: 'Manual poll triggered' });
-    } else {
-      res.status(500).json({ error: 'Polling service not available' });
-    }
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Re-sync - Clear cache and refresh all data
-router.post('/sync/refresh', async (req, res) => {
-  try {
-    const pollingService = req.app.get('pollingService');
-    if (pollingService) {
-      // Clear user cache
-      pollingService.clearCache();
-      
-      // Trigger fresh poll
-      await pollingService.checkNow();
-      
-      res.json({ 
-        success: true, 
-        message: 'Cache cleared and data refreshed',
-        timestamp: new Date().toISOString()
-      });
     } else {
       res.status(500).json({ error: 'Polling service not available' });
     }
