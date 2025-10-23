@@ -96,8 +96,8 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
       {stats.length === 0 ? (
         <div className="no-data-display">Inga affärer än</div>
       ) : (
-        <div className="leaderboard-items">
-          {stats.slice(0, 15).map((item, index) => (
+        <div className={`leaderboard-items ${stats.length > 15 ? 'ultra-compact' : ''}`}>
+          {stats.slice(0, 20).map((item, index) => (
             <div 
               key={item.userId} 
               className={`leaderboard-item-display ${index === 0 ? 'first-place' : ''}`}
@@ -123,7 +123,7 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
               
               <div className="agent-info-display">
                 <h3 className="agent-name-display">{item.agent.name}</h3>
-                <p className="agent-stats-display">{item.dealCount} affärer</p>
+                <p className="agent-stats-display">🎯 {item.dealCount} affärer</p>
               </div>
               
               <div className="commission-display">
