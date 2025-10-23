@@ -511,4 +511,28 @@ router.post('/poll/trigger', async (req, res) => {
   }
 });
 
+// Re-sync - Clear cache and refresh all data
+router.post('/sync/refresh', async (req, res) => {
+  try {
+    const pollingService = req.app.get('pollingService');
+    if (pollingService) {
+      // Clear user cache
+      pollingService.clearCache();
+      
+      // Trigger fresh poll
+      await pollingService.checkNow();
+      
+      res.json({ 
+        success: true, 
+        message: 'Cache cleared and data refreshed',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({ error: 'Polling service not available' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
