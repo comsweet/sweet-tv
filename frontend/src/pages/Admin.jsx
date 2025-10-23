@@ -10,7 +10,11 @@ import {
   getLeaderboards,
   createLeaderboard,
   updateLeaderboard,
-  deleteLeaderboard
+  deleteLeaderboard,
+  getSlideshows,
+  createSlideshow,
+  updateSlideshow,
+  deleteSlideshow
 } from '../services/api';
 import './Admin.css';
 
@@ -21,6 +25,7 @@ const Admin = () => {
   const [userGroups, setUserGroups] = useState([]);
   const [stats, setStats] = useState([]);
   const [leaderboards, setLeaderboards] = useState([]);
+  const [slideshows, setSlideshows] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   
   // Statistik
@@ -40,6 +45,16 @@ const Admin = () => {
     timePeriod: 'month',
     customStartDate: '',
     customEndDate: '',
+    active: true
+  });
+
+  // Slideshow modal
+  const [showSlideshowModal, setShowSlideshowModal] = useState(false);
+  const [editingSlideshow, setEditingSlideshow] = useState(null);
+  const [slideshowForm, setSlideshowForm] = useState({
+    name: '',
+    leaderboards: [],
+    duration: 30,
     active: true
   });
 
@@ -85,6 +100,13 @@ const Admin = () => {
         ]);
         setLeaderboards(leaderboardsRes.data);
         setUserGroups(groupsRes.data.groups || []);
+      } else if (activeTab === 'slideshows') {
+        const [slideshowsRes, leaderboardsRes] = await Promise.all([
+          getSlideshows(),
+          getLeaderboards()
+        ]);
+        setSlideshows(slideshowsRes.data);
+        setLeaderboards(leaderboardsRes.data);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -194,7 +216,7 @@ const Admin = () => {
     }
   };
 
-  const handleToggleActive = async (leaderboard) => {
+  const handleToggleLeaderboardActive = async (leaderboard) => {
     try {
       await updateLeaderboard(leaderboard.id, {
         ...leaderboard,
@@ -220,6 +242,118 @@ const Admin = () => {
         userGroups: [...currentGroups, groupId]
       });
     }
+  };
+
+  // Slideshow functions
+  const handleAddSlideshow = () => {
+    setEditingSlideshow(null);
+    setSlideshowForm({
+      name: '',
+      leaderboards: [],
+      duration: 30,
+      active: true
+    });
+    setShowSlideshowModal(true);
+  };
+
+  const handleEditSlideshow = (slideshow) => {
+    setEditingSlideshow(slideshow);
+    setSlideshowForm({
+      name: slideshow.name,
+      leaderboards: slideshow.leaderboards || [],
+      duration: slideshow.duration || 30,
+      active: slideshow.active
+    });
+    setShowSlideshowModal(true);
+  };
+
+  const handleSaveSlideshow = async () => {
+    try {
+      if (!slideshowForm.name.trim()) {
+        alert('Namn krävs!');
+        return;
+      }
+
+      if (slideshowForm.leaderboards.length === 0) {
+        alert('Välj minst en leaderboard!');
+        return;
+      }
+
+      if (editingSlideshow) {
+        await updateSlideshow(editingSlideshow.id, slideshowForm);
+      } else {
+        await createSlideshow(slideshowForm);
+      }
+      
+      setShowSlideshowModal(false);
+      fetchData();
+    } catch (error) {
+      console.error('Error saving slideshow:', error);
+      alert('Fel vid sparande: ' + error.message);
+    }
+  };
+
+  const handleDeleteSlideshow = async (id) => {
+    if (!confirm('Är du säker på att du vill ta bort denna slideshow?')) return;
+    
+    try {
+      await deleteSlideshow(id);
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting slideshow:', error);
+      alert('Fel vid borttagning: ' + error.message);
+    }
+  };
+
+  const handleToggleSlideshowActive = async (slideshow) => {
+    try {
+      await updateSlideshow(slideshow.id, {
+        ...slideshow,
+        active: !slideshow.active
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error toggling active:', error);
+      alert('Fel: ' + error.message);
+    }
+  };
+
+  const handleLeaderboardToggle = (leaderboardId) => {
+    const currentLeaderboards = slideshowForm.leaderboards;
+    if (currentLeaderboards.includes(leaderboardId)) {
+      setSlideshowForm({
+        ...slideshowForm,
+        leaderboards: currentLeaderboards.filter(id => id !== leaderboardId)
+      });
+    } else {
+      setSlideshowForm({
+        ...slideshowForm,
+        leaderboards: [...currentLeaderboards, leaderboardId]
+      });
+    }
+  };
+
+  const handleReorderLeaderboard = (index, direction) => {
+    const newLeaderboards = [...slideshowForm.leaderboards];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    if (newIndex >= 0 && newIndex < newLeaderboards.length) {
+      [newLeaderboards[index], newLeaderboards[newIndex]] = [newLeaderboards[newIndex], newLeaderboards[index]];
+      setSlideshowForm({
+        ...slideshowForm,
+        leaderboards: newLeaderboards
+      });
+    }
+  };
+
+  const getSlideshowUrl = (slideshowId) => {
+    const baseUrl = window.location.origin + window.location.pathname;
+    return `${baseUrl}#/?slideshow=${slideshowId}`;
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    alert('URL kopierad till urklipp!');
   };
 
   const getTimePeriodLabel = (period) => {
@@ -259,6 +393,12 @@ const Admin = () => {
           onClick={() => setActiveTab('leaderboards')}
         >
           🏆 Leaderboards
+        </button>
+        <button 
+          className={activeTab === 'slideshows' ? 'active' : ''}
+          onClick={() => setActiveTab('slideshows')}
+        >
+          🎬 Slideshows
         </button>
         <button 
           className={activeTab === 'stats' ? 'active' : ''}
@@ -351,7 +491,7 @@ const Admin = () => {
                         <input 
                           type="checkbox" 
                           checked={lb.active}
-                          onChange={() => handleToggleActive(lb)}
+                          onChange={() => handleToggleLeaderboardActive(lb)}
                         />
                         <span className="toggle-slider"></span>
                       </label>
@@ -380,6 +520,80 @@ const Admin = () => {
                       ✏️ Redigera
                     </button>
                     <button onClick={() => handleDeleteLeaderboard(lb.id)} className="btn-danger">
+                      🗑️ Ta bort
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Slideshows Tab - NEW! */}
+        {activeTab === 'slideshows' && !isLoading && (
+          <div className="slideshows-section">
+            <div className="section-header">
+              <h2>Slideshows ({slideshows.length})</h2>
+              <button onClick={handleAddSlideshow} className="btn-primary">
+                ➕ Skapa Slideshow
+              </button>
+            </div>
+
+            <div className="slideshows-list">
+              {slideshows.map(slideshow => (
+                <div key={slideshow.id} className="slideshow-card">
+                  <div className="slideshow-card-header">
+                    <h3>{slideshow.name}</h3>
+                    <div className="slideshow-status">
+                      <label className="toggle-switch">
+                        <input 
+                          type="checkbox" 
+                          checked={slideshow.active}
+                          onChange={() => handleToggleSlideshowActive(slideshow)}
+                        />
+                        <span className="toggle-slider"></span>
+                      </label>
+                      <span className={slideshow.active ? 'status-active' : 'status-inactive'}>
+                        {slideshow.active ? '✓ Aktiv' : '○ Inaktiv'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="slideshow-card-body">
+                    <div className="slideshow-info">
+                      <span className="info-label">Antal leaderboards:</span>
+                      <span className="info-value">{slideshow.leaderboards.length}</span>
+                    </div>
+                    
+                    <div className="slideshow-info">
+                      <span className="info-label">Duration per slide:</span>
+                      <span className="info-value">{slideshow.duration} sekunder</span>
+                    </div>
+
+                    <div className="slideshow-url">
+                      <span className="info-label">TV URL:</span>
+                      <div className="url-copy-box">
+                        <input 
+                          type="text" 
+                          value={getSlideshowUrl(slideshow.id)} 
+                          readOnly 
+                          className="url-input"
+                        />
+                        <button 
+                          onClick={() => copyToClipboard(getSlideshowUrl(slideshow.id))}
+                          className="btn-copy"
+                        >
+                          📋 Kopiera
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="slideshow-card-footer">
+                    <button onClick={() => handleEditSlideshow(slideshow)} className="btn-secondary">
+                      ✏️ Redigera
+                    </button>
+                    <button onClick={() => handleDeleteSlideshow(slideshow.id)} className="btn-danger">
                       🗑️ Ta bort
                     </button>
                   </div>
@@ -545,6 +759,105 @@ const Admin = () => {
                 Avbryt
               </button>
               <button onClick={handleSaveLeaderboard} className="btn-primary">
+                Spara
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slideshow Modal - NEW! */}
+      {showSlideshowModal && (
+        <div className="modal-overlay" onClick={() => setShowSlideshowModal(false)}>
+          <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingSlideshow ? 'Redigera Slideshow' : 'Skapa Slideshow'}</h2>
+            
+            <div className="form-group">
+              <label>Namn:</label>
+              <input
+                type="text"
+                value={slideshowForm.name}
+                onChange={(e) => setSlideshowForm({ ...slideshowForm, name: e.target.value })}
+                placeholder="t.ex. Bangkok Office TV"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Duration per slide (sekunder):</label>
+              <input
+                type="number"
+                min="5"
+                max="300"
+                value={slideshowForm.duration}
+                onChange={(e) => setSlideshowForm({ ...slideshowForm, duration: parseInt(e.target.value) })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Välj leaderboards att visa:</label>
+              <div className="checkbox-group">
+                {leaderboards.map(lb => (
+                  <label key={lb.id} className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={slideshowForm.leaderboards.includes(lb.id)}
+                      onChange={() => handleLeaderboardToggle(lb.id)}
+                    />
+                    <span>{lb.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {slideshowForm.leaderboards.length > 0 && (
+              <div className="form-group">
+                <label>Ordning (dra för att ändra):</label>
+                <div className="leaderboard-order-list">
+                  {slideshowForm.leaderboards.map((lbId, index) => {
+                    const lb = leaderboards.find(l => l.id === lbId);
+                    return (
+                      <div key={lbId} className="order-item">
+                        <span className="order-number">{index + 1}.</span>
+                        <span className="order-name">{lb?.name || 'Unknown'}</span>
+                        <div className="order-controls">
+                          <button 
+                            onClick={() => handleReorderLeaderboard(index, 'up')}
+                            disabled={index === 0}
+                            className="btn-icon"
+                          >
+                            ▲
+                          </button>
+                          <button 
+                            onClick={() => handleReorderLeaderboard(index, 'down')}
+                            disabled={index === slideshowForm.leaderboards.length - 1}
+                            className="btn-icon"
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={slideshowForm.active}
+                  onChange={(e) => setSlideshowForm({ ...slideshowForm, active: e.target.checked })}
+                />
+                <span>Aktiv</span>
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button onClick={() => setShowSlideshowModal(false)} className="btn-secondary">
+                Avbryt
+              </button>
+              <button onClick={handleSaveSlideshow} className="btn-primary">
                 Spara
               </button>
             </div>
