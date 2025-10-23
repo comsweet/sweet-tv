@@ -44,4 +44,12 @@ export const updateLeaderboard = (id, data) => api.put(`/leaderboards/${id}`, da
 export const deleteLeaderboard = (id) => api.delete(`/leaderboards/${id}`);
 export const getLeaderboardStats2 = (id) => api.get(`/leaderboards/${id}/stats`);
 
+// Slideshows
+export const getSlideshows = () => api.get('/slideshows');
+export const getActiveSlideshows = () => api.get('/slideshows/active');
+export const getSlideshow = (id) => api.get(`/slideshows/${id}`);
+export const createSlideshow = (data) => api.post('/slideshows', data);
+export const updateSlideshow = (id, data) => api.put(`/slideshows/${id}`, data);
+export const deleteSlideshow = (id) => api.delete(`/slideshows/${id}`);
+
 export default api;
