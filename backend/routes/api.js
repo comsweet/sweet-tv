@@ -252,7 +252,7 @@ router.delete('/leaderboards/:id', async (req, res) => {
   }
 });
 
-// LEADERBOARD DATA - UPPDATERAD MED FIX
+// LEADERBOARD DATA - SMART CACHING STRATEGI
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -269,52 +269,62 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     
     console.log(`✅ Found ${leads.length} success leads`);
     
+    // Hämta alla users för namn/email
     const usersResult = await adversusAPI.getUsers();
     const adversusUsers = usersResult.users || [];
     
-    // UPPDATERAD FILTRERING
+    // SMART FILTRERING: Hämta bara group-info för relevanta users
     let filteredUserIds = null;
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
       console.log(`🔍 Filtering by user groups:`, leaderboard.userGroups);
       
-      // Konvertera alla group IDs till nummer för jämförelse
-      const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
-      console.log(`   Target group IDs (as integers):`, targetGroupIds);
-      
-      filteredUserIds = new Set();
-      
-      adversusUsers.forEach(user => {
-        // Hämta user groups på olika sätt beroende på API-struktur
-        const userGroupIds = user.groups || user.groupIds || [];
+      try {
+        // Extrahera unika userIds från leads
+        const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
+        console.log(`   Found ${uniqueUserIds.length} unique users in leads`);
         
-        // Konvertera till integers för säker jämförelse
-        const userGroupIdsInt = Array.isArray(userGroupIds) 
-          ? userGroupIds.map(id => parseInt(id))
-          : [];
+        // Konvertera target groups till integers
+        const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
         
-        // Logga första 5 users för debug
-        if (filteredUserIds.size < 5) {
-          console.log(`   User ${user.id} (${user.name}) has groups:`, userGroupIdsInt);
+        filteredUserIds = new Set();
+        
+        // Hämta group-info för varje relevant user (bara users som har deals!)
+        for (const userId of uniqueUserIds) {
+          try {
+            // Hämta detaljerad user-info med memberOf
+            const userDetailResponse = await adversusAPI.request(`/users/${userId}`);
+            const userDetail = userDetailResponse.users?.[0];
+            
+            if (userDetail && userDetail.memberOf) {
+              // Extrahera group IDs från memberOf array
+              const userGroupIds = userDetail.memberOf.map(membership => parseInt(membership.id));
+              
+              // Kolla om user tillhör någon av target groups
+              const hasMatchingGroup = targetGroupIds.some(targetId => 
+                userGroupIds.includes(targetId)
+              );
+              
+              if (hasMatchingGroup) {
+                filteredUserIds.add(userId);
+              }
+            }
+          } catch (error) {
+            console.error(`   ⚠️ Could not fetch details for user ${userId}:`, error.message);
+          }
         }
         
-        // Kolla om user tillhör någon av target groups
-        const hasMatchingGroup = targetGroupIds.some(targetId => 
-          userGroupIdsInt.includes(targetId)
-        );
+        console.log(`👥 Filtered to ${filteredUserIds.size} users from ${leaderboard.userGroups.length} groups`);
         
-        if (hasMatchingGroup) {
-          filteredUserIds.add(user.id);
+        // Om INGA users matchade, visa varning och fallback
+        if (filteredUserIds.size === 0) {
+          console.log(`⚠️  WARNING: No users matched the selected groups!`);
+          console.log(`   Falling back to showing ALL users instead.`);
+          filteredUserIds = null;
         }
-      });
-      
-      console.log(`👥 Filtered to ${filteredUserIds.size} users from ${leaderboard.userGroups.length} groups`);
-      
-      // Om INGA users matchade efter filtrering, logga varning
-      if (filteredUserIds.size === 0) {
-        console.log(`⚠️  WARNING: No users matched the selected groups!`);
-        console.log(`   This likely means the user groups in Adversus don't match what was selected.`);
-        console.log(`   Falling back to showing ALL users instead.`);
-        filteredUserIds = null; // Återställ till null = visa alla
+      } catch (error) {
+        console.error(`❌ Error fetching user group info:`, error.message);
+        console.log(`   Falling back to showing ALL users`);
+        filteredUserIds = null;
       }
     } else {
       console.log(`👥 No groups filter - showing ALL users`);
@@ -329,7 +339,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       
       if (!userId) return;
       
-      // Filtrera på user groups om specificerat OCH om filter finns
+      // Filtrera på user groups om specificerat
       if (filteredUserIds && !filteredUserIds.has(userId)) return;
       
       if (!stats[userId]) {
