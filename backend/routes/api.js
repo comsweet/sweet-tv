@@ -253,7 +253,7 @@ router.delete('/leaderboards/:id', async (req, res) => {
   }
 });
 
-// LEADERBOARD STATS
+// LEADERBOARD STATS - MED FIXAD GROUP FILTERING
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -279,6 +279,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     
     const localAgents = await database.getAgents();
     
+    // FIXAD GROUP FILTERING - ANVÄNDER 'group' ISTÄLLET FÖR 'memberOf'
     let filteredUserIds = null;
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
       console.log(`\n🔍 Filtering by user groups: [${leaderboard.userGroups.join(', ')}]`);
@@ -294,23 +295,25 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         try {
           const cachedUser = adversusUsers.find(u => String(u.id) === String(userId));
           
-          if (cachedUser && cachedUser.memberOf) {
-            const userGroupIds = cachedUser.memberOf.map(m => parseInt(m.id));
-            const hasMatchingGroup = targetGroupIds.some(targetId => userGroupIds.includes(targetId));
+          if (cachedUser) {
+            // KOLLA 'group' FÄLTET (INTE memberOf)
+            const userGroupId = cachedUser.group ? parseInt(cachedUser.group.id) : null;
             
-            if (hasMatchingGroup) {
+            if (userGroupId && targetGroupIds.includes(userGroupId)) {
               filteredUserIds.add(userId);
+              console.log(`   ✓ User ${userId} (${cachedUser.name}) matches group ${userGroupId}`);
             }
           } else {
+            // Fallback: Fetch individual user
             const userDetailResponse = await adversusAPI.getUser(userId);
             const userDetail = userDetailResponse.users?.[0];
             
-            if (userDetail && userDetail.memberOf) {
-              const userGroupIds = userDetail.memberOf.map(m => parseInt(m.id));
-              const hasMatchingGroup = targetGroupIds.some(targetId => userGroupIds.includes(targetId));
+            if (userDetail && userDetail.group) {
+              const userGroupId = parseInt(userDetail.group.id);
               
-              if (hasMatchingGroup) {
+              if (targetGroupIds.includes(userGroupId)) {
                 filteredUserIds.add(userId);
+                console.log(`   ✓ User ${userId} matches group ${userGroupId}`);
               }
             }
           }
