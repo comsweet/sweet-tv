@@ -6,9 +6,28 @@ class AdversusAPI {
     this.username = process.env.ADVERSUS_USERNAME;
     this.password = process.env.ADVERSUS_PASSWORD;
     this.auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
+    
+    // Rate limiting
+    this.lastRequestTime = 0;
+    this.minRequestInterval = 1500; // 1.5 sekunder mellan requests
+  }
+
+  async waitForRateLimit() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const waitTime = this.minRequestInterval - timeSinceLastRequest;
+      console.log(`   ⏳ Rate limit: Waiting ${waitTime}ms...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    this.lastRequestTime = Date.now();
   }
 
   async request(endpoint, params = {}) {
+    await this.waitForRateLimit();
+    
     try {
       const response = await axios.get(`${this.baseURL}${endpoint}`, {
         headers: {
@@ -20,7 +39,9 @@ class AdversusAPI {
       return response.data;
     } catch (error) {
       if (error.response?.status === 429) {
-        console.error('⏰ Rate limit exceeded');
+        console.error('⏰ Rate limit exceeded - backing off');
+        // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 5000));
         throw new Error('RATE_LIMIT_EXCEEDED');
       }
       console.error('❌ API Error:', error.message);
@@ -28,11 +49,9 @@ class AdversusAPI {
     }
   }
 
-  // Hämta "Order date" från resultData
   getOrderDate(lead) {
     if (!lead.resultData) return null;
     
-    // Sök efter "Order date" field (case-insensitive)
     const orderDateField = lead.resultData.find(field => 
       field.label && field.label.toLowerCase() === 'order date'
     );
@@ -41,7 +60,6 @@ class AdversusAPI {
       return new Date(orderDateField.value);
     }
     
-    // Fallback: använd lastUpdatedTime
     if (lead.lastUpdatedTime) {
       return new Date(lead.lastUpdatedTime);
     }
@@ -49,7 +67,6 @@ class AdversusAPI {
     return null;
   }
 
-  // Hämta leads med filter - för polling
   async getSuccessLeads(fromDate) {
     const filters = {
       "status": { "$eq": "success" },
@@ -68,11 +85,8 @@ class AdversusAPI {
     return await this.request('/leads', params);
   }
 
-  // Hämta ALLA leads - FILTRERAR PÅ ORDER DATE
   async getLeadsInDateRange(startDate, endDate) {
-    // BRED FILTRERING: Hämta lite mer än requested period
-    // för att säkerställa vi får alla deals baserat på Order date
-    const bufferDays = 7; // 7 dagars buffer
+    const bufferDays = 7;
     const bufferStart = new Date(startDate);
     bufferStart.setDate(bufferStart.getDate() - bufferDays);
     const bufferEnd = new Date(endDate);
@@ -95,7 +109,6 @@ class AdversusAPI {
     let totalPages = 1;
     const pageSize = 1000;
 
-    // PAGINATION LOOP
     while (currentPage <= totalPages) {
       const params = {
         filters: JSON.stringify(filters),
@@ -117,7 +130,6 @@ class AdversusAPI {
           console.log(`   ✅ Got ${leads.length} leads on page ${currentPage}`);
         }
 
-        // Adversus pagination structure
         if (response.meta && response.meta.pagination) {
           const pagination = response.meta.pagination;
           totalPages = pagination.pageCount || 1;
@@ -133,53 +145,43 @@ class AdversusAPI {
           break;
         }
 
-        if (currentPage >= 50) {
-          console.log('⚠️  Stopped at 50 pages for safety');
+        if (currentPage >= 10) {
+          console.log('⚠️  Stopped at 10 pages to respect rate limits');
           break;
         }
 
         currentPage++;
 
-        if (currentPage <= totalPages) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
       } catch (error) {
         console.error(`❌ Error fetching page ${currentPage}:`, error.message);
+        
+        if (error.message === 'RATE_LIMIT_EXCEEDED') {
+          console.log('⏸️  Stopping pagination due to rate limit');
+        }
         break;
       }
     }
 
     console.log(`\n✅ Fetched ${allLeads.length} total leads from API`);
 
-    // FILTRERA PÅ ORDER DATE
     console.log(`\n🔍 Filtering by Order date...`);
     const filteredLeads = allLeads.filter(lead => {
       const orderDate = this.getOrderDate(lead);
       
       if (!orderDate) {
-        console.log(`   ⚠️  Lead ${lead.id}: No order date found, skipping`);
         return false;
       }
       
-      const isInRange = orderDate >= startDate && orderDate <= endDate;
-      
-      if (!isInRange) {
-        // Debug: Visa leads utanför range
-        // console.log(`   ⏭️  Lead ${lead.id}: Order date ${orderDate.toISOString()} outside range, skipping`);
-      }
-      
-      return isInRange;
+      return orderDate >= startDate && orderDate <= endDate;
     });
 
     console.log(`✅ ${filteredLeads.length} leads match Order date range`);
     console.log(`   (Filtered out ${allLeads.length - filteredLeads.length} leads outside date range)\n`);
 
-    // SORTERA efter Order date (nyast först)
     filteredLeads.sort((a, b) => {
       const dateA = this.getOrderDate(a);
       const dateB = this.getOrderDate(b);
-      return dateB - dateA; // DESC
+      return dateB - dateA;
     });
 
     return {
@@ -192,12 +194,10 @@ class AdversusAPI {
     };
   }
 
-  // Hämta user details
   async getUser(userId) {
     return await this.request(`/users/${userId}`);
   }
 
-  // Hämta users
   async getUsers(params = {}) {
     const defaultParams = {
       page: 1,
@@ -216,7 +216,6 @@ class AdversusAPI {
     return response;
   }
 
-  // Hämta user groups
   async getUserGroups(params = {}) {
     const defaultParams = {
       page: 1,
