@@ -110,11 +110,13 @@ class PollingService {
             // Hämta agent-info (check local first, then cache)
             let agent = await database.getAgent(deal.userId);
             
-            if (!agent || !agent.name || agent.name === `Agent ${deal.userId}`) {
-              // Get from cache (no API call!)
-              const userInfo = this.getUserInfo(deal.userId);
+            // Get user info from cache (populated at startup)
+            const userInfo = this.getUserInfo(deal.userId);
+            
+            // If agent doesn't exist OR has no proper name, save/update it
+            if (!agent || !agent.name || agent.name === `Agent ${deal.userId}` || agent.name === 'Agent null') {
+              console.log(`📝 Saving/updating agent info for ${userInfo.name} (ID: ${deal.userId})`);
               
-              // Save/update in local database
               agent = await database.addAgent({
                 userId: userInfo.userId,
                 name: userInfo.name,
@@ -122,24 +124,29 @@ class PollingService {
                 profileImage: agent?.profileImage || null
               });
               
-              console.log(`📝 Updated agent info for ${userInfo.name}`);
+              console.log(`✅ Agent saved:`, agent);
             }
+            
+            // Double-check we have a proper name
+            const finalAgentName = agent?.name && agent.name !== 'Agent null' && agent.name !== `Agent ${deal.userId}`
+              ? agent.name
+              : userInfo.name;
             
             // Skicka notifikation via WebSocket
             const notification = {
               deal: savedDeal,
               agent: {
-                userId: agent.userId,
-                name: agent.name,
-                email: agent.email || '',
-                profileImage: agent.profileImage || null
+                userId: deal.userId,
+                name: finalAgentName,
+                email: agent?.email || userInfo.email || '',
+                profileImage: agent?.profileImage || null
               },
               commission: deal.commission,
               timestamp: new Date().toISOString()
             };
             
             this.io.emit('new_deal', notification);
-            console.log(`🎉 New deal notification sent for ${notification.agent.name}`);
+            console.log(`🎉 New deal notification sent for ${notification.agent.name} (${notification.agent.userId})`);
           }
         }
       }
