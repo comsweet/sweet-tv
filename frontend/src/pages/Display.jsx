@@ -177,27 +177,41 @@ const Display = () => {
       const slideshowData = response.data;
       setSlideshow(slideshowData);
       
+      console.log('📊 Slideshow data:', slideshowData);
+      console.log('📋 Leaderboard IDs:', slideshowData.leaderboards);
+      
       // Hämta stats för alla leaderboards i slideshow
       const leaderboardsWithStats = await Promise.all(
         slideshowData.leaderboards.map(async (leaderboardId) => {
           try {
+            console.log(`🔍 Fetching stats for leaderboard ${leaderboardId}...`);
             const statsResponse = await getLeaderboardStats2(leaderboardId);
+            console.log(`✅ Stats fetched for ${leaderboardId}:`, statsResponse.data);
             return {
               leaderboard: statsResponse.data.leaderboard,
               stats: statsResponse.data.stats || []
             };
           } catch (error) {
-            console.error(`Error fetching stats for leaderboard ${leaderboardId}:`, error);
+            console.error(`❌ Error fetching stats for leaderboard ${leaderboardId}:`, error);
+            // Skip this leaderboard if it fails
             return null;
           }
         })
       );
       
-      // Filtrera bort null-värden
-      setLeaderboardsData(leaderboardsWithStats.filter(Boolean));
+      // Filtrera bort null-värden (misslyckade fetches)
+      const validLeaderboards = leaderboardsWithStats.filter(Boolean);
+      
+      console.log(`📈 Successfully loaded ${validLeaderboards.length}/${slideshowData.leaderboards.length} leaderboards`);
+      
+      if (validLeaderboards.length === 0) {
+        console.error('⚠️  No valid leaderboards found in slideshow');
+      }
+      
+      setLeaderboardsData(validLeaderboards);
       setIsLoading(false);
     } catch (error) {
-      console.error('Error fetching slideshow:', error);
+      console.error('❌ Error fetching slideshow:', error);
       setIsLoading(false);
     }
   };
@@ -272,8 +286,25 @@ const Display = () => {
     return (
       <div className="display-container">
         <div className="no-leaderboards">
-          <p>Kunde inte ladda slideshow</p>
-          <p className="hint">Kontrollera att slideshow:en finns och har leaderboards</p>
+          <p>⚠️ Kunde inte ladda slideshow</p>
+          {slideshow && slideshow.leaderboards.length > 0 ? (
+            <>
+              <p className="hint">Slideshow:en har {slideshow.leaderboards.length} leaderboard(s)</p>
+              <p className="hint">men inga kunde laddas korrekt</p>
+              <p className="hint" style={{ marginTop: '1rem', fontSize: '1rem' }}>
+                Kontrollera att leaderboards med följande ID:n finns:
+              </p>
+              <ul style={{ listStyle: 'none', padding: 0, marginTop: '0.5rem' }}>
+                {slideshow.leaderboards.map(id => (
+                  <li key={id} style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.8)' }}>
+                    • {id}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="hint">Kontrollera att slideshow:en finns och har leaderboards</p>
+          )}
         </div>
       </div>
     );
