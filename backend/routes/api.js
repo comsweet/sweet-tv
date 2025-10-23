@@ -153,11 +153,20 @@ router.get('/stats/leaderboard', async (req, res) => {
         };
       }
       
+      // Commission är i resultData (ID 70163)
       const commissionField = lead.resultData?.find(f => f.id === 70163);
-      const commission = parseFloat(commissionField?.value || 0);
+      const commissionValue = commissionField?.value || '0';
+      const commission = parseFloat(commissionValue.replace(/[,\s]/g, '')) || 0;
       
-      stats[userId].totalCommission += commission;
-      stats[userId].dealCount += 1;
+      // MultiDeals är i masterData (ID 74126)
+      const multiDealsField = lead.masterData?.find(f => f.id === 74126);
+      const multiDeals = parseFloat(multiDealsField?.value || '1') || 1;
+      
+      // Total commission = commission * multiDeals
+      const totalCommission = commission * multiDeals;
+      
+      stats[userId].totalCommission += totalCommission;
+      stats[userId].dealCount += multiDeals; // Count actual number of deals
     });
     
     const leaderboard = Object.values(stats).map(stat => {
@@ -370,11 +379,20 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         };
       }
       
+      // Commission är i resultData (ID 70163)
       const commissionField = lead.resultData?.find(f => f.id === 70163);
-      const commission = parseFloat(commissionField?.value || 0);
+      const commissionValue = commissionField?.value || '0';
+      const commission = parseFloat(commissionValue.replace(/[,\s]/g, '')) || 0;
       
-      stats[userId].totalCommission += commission;
-      stats[userId].dealCount += 1;
+      // MultiDeals är i masterData (ID 74126)
+      const multiDealsField = lead.masterData?.find(f => f.id === 74126);
+      const multiDeals = parseFloat(multiDealsField?.value || '1') || 1;
+      
+      // Total commission = commission * multiDeals
+      const totalCommission = commission * multiDeals;
+      
+      stats[userId].totalCommission += totalCommission;
+      stats[userId].dealCount += multiDeals; // Count actual number of deals
     });
     
     const leaderboardStats = Object.values(stats).map(stat => {
