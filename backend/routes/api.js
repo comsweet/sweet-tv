@@ -3,6 +3,7 @@ const router = express.Router();
 const adversusAPI = require('../services/adversusAPI');
 const database = require('../services/database');
 const leaderboardService = require('../services/leaderboards');
+const slideshowService = require('../services/slideshows');
 const multer = require('multer');
 const path = require('path');
 
@@ -127,7 +128,6 @@ router.get('/stats/leaderboard', async (req, res) => {
     
     console.log(`📊 Fetching stats from ${start.toISOString()} to ${end.toISOString()}`);
     
-    // Hämtar ALLA leads med pagination
     const result = await adversusAPI.getLeadsInDateRange(start, end);
     const leads = result.leads || [];
     
@@ -253,7 +253,7 @@ router.delete('/leaderboards/:id', async (req, res) => {
   }
 });
 
-// LEADERBOARD STATS - OPTIMIZED MED FULL PAGINATION
+// LEADERBOARD STATS
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -268,20 +268,17 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     console.log(`📊 Period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
     console.log(`📊 ========================================\n`);
     
-    // HÄMTAR ALLA LEADS MED FULL PAGINATION
     const result = await adversusAPI.getLeadsInDateRange(startDate, endDate);
     const leads = result.leads || [];
     
     console.log(`\n✅ Total leads fetched: ${leads.length}`);
     
-    // Hämta alla users EN GÅNG
     const usersResult = await adversusAPI.getUsers();
     const adversusUsers = usersResult.users || [];
     console.log(`👥 Total users cached: ${adversusUsers.length}`);
     
     const localAgents = await database.getAgents();
     
-    // FILTRERING PÅ USER GROUPS
     let filteredUserIds = null;
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
       console.log(`\n🔍 Filtering by user groups: [${leaderboard.userGroups.join(', ')}]`);
@@ -289,15 +286,12 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
       filteredUserIds = new Set();
       
-      // Extrahera unika userIds från leads
       const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
       console.log(`   Found ${uniqueUserIds.length} unique users in leads`);
       
-      // Check each user's groups
       let checkedCount = 0;
       for (const userId of uniqueUserIds) {
         try {
-          // Försök cached user först
           const cachedUser = adversusUsers.find(u => String(u.id) === String(userId));
           
           if (cachedUser && cachedUser.memberOf) {
@@ -308,7 +302,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
               filteredUserIds.add(userId);
             }
           } else {
-            // Fallback: Fetch individual user
             const userDetailResponse = await adversusAPI.getUser(userId);
             const userDetail = userDetailResponse.users?.[0];
             
@@ -341,7 +334,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       console.log(`\n👥 No group filter - showing ALL users`);
     }
     
-    // BERÄKNA STATS
     const stats = {};
     let processedLeads = 0;
     
@@ -350,7 +342,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       
       if (!userId) return;
       
-      // Filtrera på user groups
       if (filteredUserIds && !filteredUserIds.has(userId)) return;
       
       if (!stats[userId]) {
@@ -371,7 +362,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     
     console.log(`\n📈 Processed ${processedLeads} leads for ${Object.keys(stats).length} agents`);
     
-    // SKAPA FINAL LEADERBOARD
     const leaderboardStats = Object.values(stats).map(stat => {
       const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
       const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
@@ -420,6 +410,67 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       });
     }
     
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// SLIDESHOWS CRUD
+router.get('/slideshows', async (req, res) => {
+  try {
+    const slideshows = await slideshowService.getSlideshows();
+    res.json(slideshows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/slideshows/active', async (req, res) => {
+  try {
+    const activeSlideshows = await slideshowService.getActiveSlideshows();
+    res.json(activeSlideshows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/slideshows/:id', async (req, res) => {
+  try {
+    const slideshow = await slideshowService.getSlideshow(req.params.id);
+    if (!slideshow) {
+      return res.status(404).json({ error: 'Slideshow not found' });
+    }
+    res.json(slideshow);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/slideshows', async (req, res) => {
+  try {
+    const slideshow = await slideshowService.addSlideshow(req.body);
+    res.json(slideshow);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/slideshows/:id', async (req, res) => {
+  try {
+    const slideshow = await slideshowService.updateSlideshow(req.params.id, req.body);
+    if (!slideshow) {
+      return res.status(404).json({ error: 'Slideshow not found' });
+    }
+    res.json(slideshow);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/slideshows/:id', async (req, res) => {
+  try {
+    await slideshowService.deleteSlideshow(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
