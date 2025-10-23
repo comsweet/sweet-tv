@@ -1,6 +1,6 @@
 .display-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   padding: 0.75rem;
   color: white;
 }
@@ -8,6 +8,7 @@
 .display-header {
   text-align: center;
   margin-bottom: 0.75rem;
+  position: relative;
 }
 
 .display-header h1 {
@@ -34,6 +35,28 @@
 .indicator-dot.active {
   background: white;
   transform: scale(1.3);
+}
+
+/* Progress Bar - NEW! */
+.slideshow-progress-bar {
+  position: absolute;
+  bottom: -0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 600px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #F5A623 0%, #00B2E3 100%);
+  border-radius: 2px;
+  transition: width 0.1s linear;
+  box-shadow: 0 0 10px rgba(245, 166, 35, 0.5);
 }
 
 .slideshow-container {
@@ -89,7 +112,7 @@
   grid-template-rows: repeat(2, 1fr);
 }
 
-/* Leaderboard Card Display - BALANCED SIZING */
+/* Leaderboard Card Display - SWEET COMMUNICATION COLORS */
 .leaderboard-card-display {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
@@ -103,7 +126,7 @@
   text-align: center;
   margin-bottom: 0.5rem;
   padding-bottom: 0.5rem;
-  border-bottom: 3px solid #667eea;
+  border-bottom: 3px solid #005A9C;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -118,28 +141,28 @@
 .leaderboard-header h2 {
   margin: 0;
   font-size: 1.3rem;
-  color: #2c3e50;
+  color: #333333;
   font-weight: 700;
 }
 
 .leaderboard-period {
   margin: 0.2rem 0 0;
   font-size: 0.85rem;
-  color: #7f8c8d;
+  color: #7F8C8D;
   font-weight: 500;
 }
 
-/* Total Deals Counter - BETTER POSITIONED */
+/* Total Deals Counter - SWEET COLORS */
 .total-deals-badge {
   position: absolute;
   left: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   color: white;
   padding: 0.4rem 0.8rem;
   border-radius: 8px;
   font-weight: 700;
   font-size: 0.8rem;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 90, 156, 0.3);
   white-space: nowrap;
 }
 
@@ -152,7 +175,7 @@
 .no-data-display {
   text-align: center;
   padding: 3rem;
-  color: #7f8c8d;
+  color: #7F8C8D;
   font-size: 1.5rem;
 }
 
@@ -174,7 +197,7 @@
   padding: 0.45rem 0.7rem;
   background: white;
   border-radius: 8px;
-  border: 2px solid #e1e8ed;
+  border: 2px solid #F5F5F5;
   transition: all 0.2s ease;
   min-height: 46px;
 }
@@ -184,14 +207,14 @@
   box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
 }
 
-/* GOLD - First place */
+/* GOLD - First place - SWEET ORANGE ACCENT */
 .leaderboard-item-display.first-place {
-  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-  border-color: #ffd700;
-  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+  background: linear-gradient(135deg, #F5A623 0%, #FFD700 100%);
+  border-color: #F5A623;
+  box-shadow: 0 4px 15px rgba(245, 166, 35, 0.4);
 }
 
-/* SILVER - Second place - IMPROVED */
+/* SILVER - Second place */
 .leaderboard-item-display:nth-child(2) {
   background: linear-gradient(135deg, #e8e8e8 0%, #d0d0d0 100%);
   border-color: #c0c0c0;
@@ -209,7 +232,7 @@
   font-size: 1rem;
   font-weight: 700;
   text-align: center;
-  color: #2c3e50;
+  color: #333333;
   line-height: 1;
 }
 
@@ -219,7 +242,7 @@
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #e1e8ed;
+  border: 2px solid #F5F5F5;
   flex-shrink: 0;
 }
 
@@ -227,7 +250,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   color: white;
   font-size: 1rem;
   font-weight: bold;
@@ -245,21 +268,21 @@
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: #333333;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
 }
 
-/* Deals Column */
+/* Deals Column - SWEET BLUE */
 .deals-display {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   font-size: 1rem;
   font-weight: 700;
-  color: #667eea;
+  color: #005A9C;
   white-space: nowrap;
   justify-content: center;
 }
@@ -275,12 +298,12 @@
 .commission-display {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #27ae60;
+  color: #00B2E3;
   white-space: nowrap;
   text-align: right;
 }
 
-/* Deal Notification */
+/* Deal Notification - SWEET COLORS */
 .deal-notification {
   position: fixed;
   top: 50%;
@@ -310,6 +333,7 @@
   gap: 2rem;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   min-width: 500px;
+  border-top: 5px solid #F5A623;
 }
 
 .notification-avatar,
@@ -318,7 +342,7 @@
   height: 120px;
   border-radius: 50%;
   object-fit: cover;
-  border: 5px solid #667eea;
+  border: 5px solid #005A9C;
   flex-shrink: 0;
 }
 
@@ -326,7 +350,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   color: white;
   font-size: 3rem;
   font-weight: bold;
@@ -339,39 +363,39 @@
 .notification-name {
   margin: 0 0 1rem;
   font-size: 2.5rem;
-  color: #2c3e50;
+  color: #333333;
 }
 
 .notification-commission {
   margin: 0 0 0.5rem;
   font-size: 3rem;
   font-weight: bold;
-  color: #27ae60;
+  color: #00B2E3;
 }
 
 .notification-message {
   margin: 0;
   font-size: 1.5rem;
-  color: #7f8c8d;
+  color: #7F8C8D;
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling - SWEET BLUE */
 .leaderboard-items::-webkit-scrollbar {
   width: 5px;
 }
 
 .leaderboard-items::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #F5F5F5;
   border-radius: 10px;
 }
 
 .leaderboard-items::-webkit-scrollbar-thumb {
-  background: #667eea;
+  background: #005A9C;
   border-radius: 10px;
 }
 
 .leaderboard-items::-webkit-scrollbar-thumb:hover {
-  background: #764ba2;
+  background: #00B2E3;
 }
 
 /* Responsive */
@@ -474,5 +498,9 @@
   
   .total-deals-number {
     font-size: 1rem;
+  }
+  
+  .slideshow-progress-bar {
+    width: 90%;
   }
 }
