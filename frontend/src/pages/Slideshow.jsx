@@ -230,19 +230,14 @@ const Slideshow = () => {
     const handleNewDeal = (notification) => {
       console.log('🎉 New deal:', notification);
       
-      // Only show notification if:
-      // 1. Agent exists
-      // 2. Agent name is valid
-      // 3. Commission is > 0
-      const commission = parseFloat(notification.commission || 0);
-      
+      // Only show notification if agent exists and valid
+      // Commission check is done in backend - we only get valid deals here!
       if (notification.agent && 
           notification.agent.name && 
-          notification.agent.name !== 'Agent null' &&
-          commission > 0) {
+          notification.agent.name !== 'Agent null') {
         setCurrentNotification(notification);
       } else {
-        console.log('⏭️  Skipping notification (invalid agent or 0 commission)');
+        console.log('⏭️  Skipping notification (invalid agent)');
       }
       
       // Update leaderboard data in background (no page reload!)
