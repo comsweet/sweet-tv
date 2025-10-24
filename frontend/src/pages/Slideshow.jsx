@@ -5,14 +5,9 @@ import socketService from '../services/socket';
 import { getSlideshow, getLeaderboardStats2 } from '../services/api';
 import './Slideshow.css';
 
-const playNotificationSound = () => {
-  const audio = new Audio('/notification.mp3');
-  audio.play().catch(e => console.log('Could not play sound:', e));
-};
-
 const DealNotification = ({ notification, onComplete }) => {
   useEffect(() => {
-    playNotificationSound();
+    // NO SOUND - notification.mp3 doesn't exist!
     
     const duration = 3000;
     const end = Date.now() + duration;
@@ -210,9 +205,39 @@ const Slideshow = () => {
 
     const handleNewDeal = (notification) => {
       console.log('🎉 New deal:', notification);
-      setCurrentNotification(notification);
-      // NO REFRESH - bara visa notifikationen!
-      // Data uppdateras först vid manuell reload eller nästa morgon
+      
+      // Only show notification if agent exists
+      if (notification.agent && notification.agent.name && notification.agent.name !== 'Agent null') {
+        setCurrentNotification(notification);
+      }
+      
+      // Update leaderboard data in background (no page reload!)
+      // Wait 2s for backend to process the deal
+      setTimeout(async () => {
+        try {
+          console.log('📊 Updating leaderboard data...');
+          
+          // Re-fetch only the current leaderboard's stats
+          const currentLB = leaderboardsData[currentIndex];
+          if (currentLB) {
+            const statsResponse = await getLeaderboardStats2(currentLB.leaderboard.id);
+            
+            // Update only this leaderboard in the array
+            setLeaderboardsData(prev => {
+              const updated = [...prev];
+              updated[currentIndex] = {
+                leaderboard: currentLB.leaderboard,
+                stats: statsResponse.data.stats || []
+              };
+              return updated;
+            });
+            
+            console.log('✅ Leaderboard data updated!');
+          }
+        } catch (error) {
+          console.error('Error updating leaderboard:', error);
+        }
+      }, 2000);
     };
 
     socketService.onNewDeal(handleNewDeal);
@@ -220,7 +245,7 @@ const Slideshow = () => {
     return () => {
       socketService.offNewDeal(handleNewDeal);
     };
-  }, [id]);
+  }, [id, leaderboardsData, currentIndex]);
 
   // Slideshow rotation with progress bar
   useEffect(() => {
