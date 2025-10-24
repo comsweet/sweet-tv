@@ -1,14 +1,23 @@
 .slideshow-container {
-  min-height: 100vh;
-  width: 100vw;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   position: fixed;
   top: 0;
   left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   overflow: hidden;
   color: white;
   margin: 0;
   padding: 0;
+}
+
+/* Force remove any body margins */
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
 }
 
 /* Loading & Error States */
@@ -99,39 +108,41 @@
   pointer-events: all;
 }
 
-/* Slide Content */
+/* Slide Content - Optimized for 1920x1080 TV */
 .slideshow-content {
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 5rem 3rem 2rem;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 4rem 4rem 2rem;
   height: 100vh;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .slideshow-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   animation: slideInFromTop 0.6s ease-out;
 }
 
 .slideshow-header h1 {
   margin: 0;
-  font-size: 3rem;
+  font-size: 2.5rem;
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   animation: fadeInScale 0.6s ease-out;
 }
 
 .slideshow-period {
-  margin: 0.5rem 0 0;
-  font-size: 1.3rem;
+  margin: 0.3rem 0 0;
+  font-size: 1.1rem;
   color: rgba(255, 255, 255, 0.9);
   animation: fadeIn 0.8s ease-out;
 }
 
 .slideshow-stats {
-  margin: 0.5rem 0 0;
-  font-size: 1.1rem;
+  margin: 0.3rem 0 0;
+  font-size: 1rem;
   color: rgba(255, 255, 255, 0.8);
   animation: fadeIn 1s ease-out;
 }
@@ -198,15 +209,16 @@
 .slideshow-item {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding: 1rem 1.5rem;
-  margin-bottom: 1rem;
+  gap: 1rem;
+  padding: 0.6rem 1.5rem;
+  margin-bottom: 0.6rem;
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   transition: all 0.3s ease;
   opacity: 0;
   animation: slideInFromLeft 0.5s ease-out forwards;
+  min-height: 50px;
 }
 
 .slideshow-item:hover {
@@ -217,29 +229,30 @@
 .slideshow-item.first-place {
   background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
   border-color: #ffd700;
-  transform: scale(1.05);
-  box-shadow: 0 15px 50px rgba(255, 215, 0, 0.4);
+  border-width: 3px;
+  transform: scale(1.02);
+  box-shadow: 0 8px 30px rgba(255, 215, 0, 0.4);
 }
 
 .slideshow-item.first-place:hover {
-  transform: scale(1.05) translateX(20px);
+  transform: scale(1.02) translateX(20px);
 }
 
 .slideshow-rank {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: bold;
-  min-width: 60px;
+  min-width: 50px;
   text-align: center;
   color: #2c3e50;
 }
 
 .slideshow-avatar,
 .slideshow-avatar-placeholder {
-  width: 60px;
-  height: 60px;
+  width: 45px;
+  height: 45px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid rgba(102, 126, 234, 0.3);
+  border: 2px solid rgba(102, 126, 234, 0.3);
   flex-shrink: 0;
 }
 
@@ -249,7 +262,7 @@
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  font-size: 2rem;
+  font-size: 1.2rem;
   font-weight: bold;
 }
 
@@ -259,8 +272,8 @@
 }
 
 .slideshow-name {
-  margin: 0 0 0.3rem;
-  font-size: 1.3rem;
+  margin: 0 0 0.2rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: #2c3e50;
   white-space: nowrap;
@@ -270,13 +283,13 @@
 
 .slideshow-deals {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: #7f8c8d;
 }
 
 .slideshow-commission {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: bold;
   color: #27ae60;
   white-space: nowrap;
