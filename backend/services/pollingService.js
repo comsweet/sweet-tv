@@ -43,11 +43,20 @@ class PollingService {
           const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
           const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
 
+          const commission = commissionField?.value || '0';
+          const commissionValue = parseFloat(commission);
+          
+          // SKIP deals without commission (vänta tills agent har fyllt i!)
+          if (commissionValue === 0 || !commissionField?.value) {
+            console.log(`⏭️  Skipping lead ${lead.id} - no commission yet (agent hasn't filled it)`);
+            continue; // Vänta till nästa poll!
+          }
+
           const deal = {
             leadId: lead.id,
             userId: lead.lastContactedBy,
             campaignId: lead.campaignId,
-            commission: commissionField?.value || '0',
+            commission: commission,
             multiDeals: multiDealsField?.value || '0',
             orderDate: orderDateField?.value || lead.lastUpdatedTime,
             status: lead.status
