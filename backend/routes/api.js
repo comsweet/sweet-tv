@@ -3,35 +3,18 @@ const router = express.Router();
 const adversusAPI = require('../services/adversusAPI');
 const database = require('../services/database');
 const leaderboardService = require('../services/leaderboards');
-const slideshowService = require('../services/slideshows'); // ← NY!
+const slideshowService = require('../services/slideshows');
 const leaderboardCache = require('../services/leaderboardCache');
 const multer = require('multer');
 const path = require('path');
 
-// Profilbilds-uppladdning
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../data/profile-images'));
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'agent-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// CLOUDINARY CONFIG (för Render - persistent storage!)
+const { cloudinary, storage: cloudinaryStorage } = require('../config/cloudinary');
 
+// Multer upload med Cloudinary
 const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const filetypes = /jpeg|jpg|png|gif|webp/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error('Only image files allowed!'));
-  }
+  storage: cloudinaryStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
 });
 
 // Health check
@@ -79,19 +62,25 @@ router.delete('/agents/:userId', async (req, res) => {
   }
 });
 
+// PROFILE IMAGE UPLOAD (Cloudinary!)
 router.post('/agents/:userId/profile-image', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
-    const imageUrl = `/profile-images/${req.file.filename}`;
+    // Cloudinary URL (permanent!)
+    const imageUrl = req.file.path;
+    
+    console.log(`📸 Uploaded image to Cloudinary: ${imageUrl}`);
+    
     const agent = await database.updateAgent(req.params.userId, {
       profileImage: imageUrl
     });
     
     res.json({ imageUrl, agent });
   } catch (error) {
+    console.error('Error uploading image:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -254,7 +243,7 @@ router.delete('/leaderboards/:id', async (req, res) => {
   }
 });
 
-// SLIDESHOWS CRUD (NY!)
+// SLIDESHOWS CRUD
 router.get('/slideshows', async (req, res) => {
   try {
     const slideshows = await slideshowService.getSlideshows();
