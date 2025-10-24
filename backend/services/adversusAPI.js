@@ -9,7 +9,7 @@ class AdversusAPI {
     
     // Rate limiting
     this.lastRequestTime = 0;
-    this.minRequestInterval = 1500; // 1.5s mellan requests
+    this.minRequestInterval = 3000; // 3s mellan requests (Adversus burst limit är sträng!)
     
     // Concurrent request limiting (max 2 samtidigt)
     this.requestQueue = [];
