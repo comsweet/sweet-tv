@@ -178,13 +178,22 @@ const Slideshow = () => {
             stats: statsResponse.data.stats || []
           });
           
-          // Delay mellan varje leaderboard
+          console.log(`✅ Loaded (${statsResponse.data.stats?.length || 0} agents)`);
+          
+          // Delay mellan varje leaderboard (3s för rate limit protection!)
           if (i < slideshowData.leaderboards.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            console.log('⏳ Waiting 3s...');
+            await new Promise(resolve => setTimeout(resolve, 3000));
           }
           
         } catch (error) {
-          console.error(`Error loading leaderboard ${lbId}:`, error);
+          console.error(`❌ Error loading leaderboard ${lbId}:`, error);
+          
+          // If rate limit, wait longer
+          if (error.response?.status === 429) {
+            console.log('⏰ Rate limit! Waiting 10s...');
+            await new Promise(resolve => setTimeout(resolve, 10000));
+          }
         }
       }
       
@@ -215,27 +224,35 @@ const Slideshow = () => {
       // Wait 2s for backend to process the deal
       setTimeout(async () => {
         try {
-          console.log('📊 Updating leaderboard data...');
+          console.log('📊 Updating leaderboard data after deal...');
           
-          // Re-fetch only the current leaderboard's stats
-          const currentLB = leaderboardsData[currentIndex];
-          if (currentLB) {
-            const statsResponse = await getLeaderboardStats2(currentLB.leaderboard.id);
-            
-            // Update only this leaderboard in the array
-            setLeaderboardsData(prev => {
-              const updated = [...prev];
-              updated[currentIndex] = {
-                leaderboard: currentLB.leaderboard,
+          // Re-fetch ALL leaderboards (but don't show loading screen)
+          const response = await getSlideshow(id);
+          const slideshowData = response.data;
+          
+          const updatedLeaderboards = [];
+          for (let i = 0; i < slideshowData.leaderboards.length; i++) {
+            const lbId = slideshowData.leaderboards[i];
+            try {
+              const statsResponse = await getLeaderboardStats2(lbId);
+              updatedLeaderboards.push({
+                leaderboard: statsResponse.data.leaderboard,
                 stats: statsResponse.data.stats || []
-              };
-              return updated;
-            });
-            
-            console.log('✅ Leaderboard data updated!');
+              });
+              
+              // Small delay between fetches
+              if (i < slideshowData.leaderboards.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+            } catch (error) {
+              console.error(`Error updating leaderboard ${lbId}:`, error);
+            }
           }
+          
+          setLeaderboardsData(updatedLeaderboards);
+          console.log('✅ All leaderboard data updated silently!');
         } catch (error) {
-          console.error('Error updating leaderboard:', error);
+          console.error('Error updating leaderboards:', error);
         }
       }, 2000);
     };
@@ -245,7 +262,7 @@ const Slideshow = () => {
     return () => {
       socketService.offNewDeal(handleNewDeal);
     };
-  }, [id, leaderboardsData, currentIndex]);
+  }, [id]); // ← ONLY id as dependency!
 
   // Slideshow rotation with progress bar
   useEffect(() => {
