@@ -7,6 +7,29 @@ const slideshowService = require('../services/slideshows');
 const multer = require('multer');
 const path = require('path');
 
+// GLOBAL CACHE för users (uppdateras var 5:e minut)
+let usersCache = {
+  users: [],
+  lastFetch: 0,
+  cacheDuration: 5 * 60 * 1000 // 5 minuter
+};
+
+async function getCachedUsers() {
+  const now = Date.now();
+  
+  if (usersCache.users.length === 0 || (now - usersCache.lastFetch) > usersCache.cacheDuration) {
+    console.log('♻️  Refreshing users cache...');
+    const usersResult = await adversusAPI.getUsers();
+    usersCache.users = usersResult.users || [];
+    usersCache.lastFetch = now;
+    console.log(`✅ Cached ${usersCache.users.length} users`);
+  } else {
+    console.log(`📦 Using cached users (${usersCache.users.length} users, age: ${Math.round((now - usersCache.lastFetch) / 1000)}s)`);
+  }
+  
+  return usersCache.users;
+}
+
 // Profilbilds-uppladdning
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -133,10 +156,7 @@ router.get('/stats/leaderboard', async (req, res) => {
     
     console.log(`✅ Found ${leads.length} success leads`);
     
-    const usersResult = await adversusAPI.getUsers();
-    const adversusUsers = usersResult.users || [];
-    console.log(`👥 Found ${adversusUsers.length} users from Adversus`);
-    
+    const adversusUsers = await getCachedUsers();
     const localAgents = await database.getAgents();
     
     const stats = {};
@@ -253,7 +273,7 @@ router.delete('/leaderboards/:id', async (req, res) => {
   }
 });
 
-// LEADERBOARD STATS - MED FIXAD GROUP FILTERING
+// LEADERBOARD STATS - MED GLOBAL USER CACHE
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -264,25 +284,23 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     const { startDate, endDate } = leaderboardService.getDateRange(leaderboard);
     
     console.log(`\n📊 ========================================`);
-    console.log(`📊 Fetching leaderboard "${leaderboard.name}"`);
+    console.log(`📊 Leaderboard: "${leaderboard.name}"`);
     console.log(`📊 Period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
     console.log(`📊 ========================================\n`);
     
     const result = await adversusAPI.getLeadsInDateRange(startDate, endDate);
     const leads = result.leads || [];
     
-    console.log(`\n✅ Total leads fetched: ${leads.length}`);
+    console.log(`✅ Total leads fetched: ${leads.length}`);
     
-    const usersResult = await adversusAPI.getUsers();
-    const adversusUsers = usersResult.users || [];
-    console.log(`👥 Total users cached: ${adversusUsers.length}`);
-    
+    // ANVÄND CACHED USERS (sparar 50+ API calls!)
+    const adversusUsers = await getCachedUsers();
     const localAgents = await database.getAgents();
     
-    // FIXAD GROUP FILTERING - ANVÄNDER 'group' ISTÄLLET FÖR 'memberOf'
+    // GROUP FILTERING - Använder user.group.id
     let filteredUserIds = null;
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
-      console.log(`\n🔍 Filtering by user groups: [${leaderboard.userGroups.join(', ')}]`);
+      console.log(`\n🔍 Filtering by groups: [${leaderboard.userGroups.join(', ')}]`);
       
       const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
       filteredUserIds = new Set();
@@ -290,47 +308,24 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
       console.log(`   Found ${uniqueUserIds.length} unique users in leads`);
       
-      let checkedCount = 0;
+      // Filtrera direkt från cache (INGA extra API calls!)
       for (const userId of uniqueUserIds) {
-        try {
-          const cachedUser = adversusUsers.find(u => String(u.id) === String(userId));
+        const cachedUser = adversusUsers.find(u => String(u.id) === String(userId));
+        
+        if (cachedUser && cachedUser.group) {
+          const userGroupId = parseInt(cachedUser.group.id);
           
-          if (cachedUser) {
-            // KOLLA 'group' FÄLTET (INTE memberOf)
-            const userGroupId = cachedUser.group ? parseInt(cachedUser.group.id) : null;
-            
-            if (userGroupId && targetGroupIds.includes(userGroupId)) {
-              filteredUserIds.add(userId);
-              console.log(`   ✓ User ${userId} (${cachedUser.name}) matches group ${userGroupId}`);
-            }
-          } else {
-            // Fallback: Fetch individual user
-            const userDetailResponse = await adversusAPI.getUser(userId);
-            const userDetail = userDetailResponse.users?.[0];
-            
-            if (userDetail && userDetail.group) {
-              const userGroupId = parseInt(userDetail.group.id);
-              
-              if (targetGroupIds.includes(userGroupId)) {
-                filteredUserIds.add(userId);
-                console.log(`   ✓ User ${userId} matches group ${userGroupId}`);
-              }
-            }
+          if (targetGroupIds.includes(userGroupId)) {
+            filteredUserIds.add(userId);
+            console.log(`   ✓ User ${userId} (${cachedUser.name}) matches group ${userGroupId}`);
           }
-          
-          checkedCount++;
-          if (checkedCount % 10 === 0) {
-            console.log(`   Checked ${checkedCount}/${uniqueUserIds.length} users...`);
-          }
-        } catch (error) {
-          console.error(`   ⚠️  Error checking user ${userId}:`, error.message);
         }
       }
       
-      console.log(`\n👥 Result: ${filteredUserIds.size} users matched the selected groups`);
+      console.log(`\n👥 Result: ${filteredUserIds.size} users matched`);
       
       if (filteredUserIds.size === 0) {
-        console.log(`⚠️  WARNING: No users matched! Showing all users as fallback.`);
+        console.log(`⚠️  No users matched! Showing all users.`);
         filteredUserIds = null;
       }
     } else {
@@ -344,7 +339,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       const userId = lead.lastContactedBy;
       
       if (!userId) return;
-      
       if (filteredUserIds && !filteredUserIds.has(userId)) return;
       
       if (!stats[userId]) {
@@ -387,7 +381,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       };
     }).sort((a, b) => b.totalCommission - a.totalCommission);
     
-    console.log(`\n✅ Final leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents`);
+    console.log(`✅ Final: ${leaderboardStats.length} agents`);
     console.log(`📊 ========================================\n`);
     
     res.json({
@@ -404,11 +398,11 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('\n❌ Error fetching leaderboard stats:', error.message);
+    console.error('\n❌ Error:', error.message);
     
     if (error.message === 'RATE_LIMIT_EXCEEDED') {
       return res.status(429).json({ 
-        error: 'Rate limit exceeded. Please wait a moment.',
+        error: 'Rate limit exceeded',
         retryAfter: 60 
       });
     }
