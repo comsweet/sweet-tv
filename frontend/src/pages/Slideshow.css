@@ -1,9 +1,14 @@
 .slideshow-container {
   min-height: 100vh;
+  width: 100vw;
   background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
   overflow: hidden;
   color: white;
+  margin: 0;
+  padding: 0;
 }
 
 /* Loading & Error States */
@@ -55,6 +60,26 @@
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
 }
 
+/* Progress Bar */
+.slideshow-progress-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 200;
+  overflow: hidden;
+}
+
+.slideshow-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  width: 0%;
+  transition: width 0.1s linear;
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
+}
+
 /* Slide Container */
 .slideshow-slide {
   position: absolute;
@@ -76,9 +101,9 @@
 
 /* Slide Content */
 .slideshow-content {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 6rem 2rem 2rem;
+  padding: 5rem 3rem 2rem;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -86,22 +111,29 @@
 
 .slideshow-header {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
   animation: slideInFromTop 0.6s ease-out;
 }
 
 .slideshow-header h1 {
   margin: 0;
-  font-size: 4rem;
+  font-size: 3rem;
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   animation: fadeInScale 0.6s ease-out;
 }
 
 .slideshow-period {
-  margin: 1rem 0 0;
-  font-size: 1.8rem;
+  margin: 0.5rem 0 0;
+  font-size: 1.3rem;
   color: rgba(255, 255, 255, 0.9);
   animation: fadeIn 0.8s ease-out;
+}
+
+.slideshow-stats {
+  margin: 0.5rem 0 0;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  animation: fadeIn 1s ease-out;
 }
 
 /* Animations */
@@ -166,11 +198,11 @@
 .slideshow-item {
   display: flex;
   align-items: center;
-  gap: 2rem;
-  padding: 1.5rem 2rem;
-  margin-bottom: 1.5rem;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
+  border-radius: 15px;
   border: 3px solid rgba(255, 255, 255, 0.3);
   transition: all 0.3s ease;
   opacity: 0;
@@ -194,20 +226,20 @@
 }
 
 .slideshow-rank {
-  font-size: 3rem;
+  font-size: 2rem;
   font-weight: bold;
-  min-width: 80px;
+  min-width: 60px;
   text-align: center;
   color: #2c3e50;
 }
 
 .slideshow-avatar,
 .slideshow-avatar-placeholder {
-  width: 80px;
-  height: 80px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   object-fit: cover;
-  border: 4px solid rgba(102, 126, 234, 0.3);
+  border: 3px solid rgba(102, 126, 234, 0.3);
   flex-shrink: 0;
 }
 
@@ -227,8 +259,8 @@
 }
 
 .slideshow-name {
-  margin: 0 0 0.5rem;
-  font-size: 1.8rem;
+  margin: 0 0 0.3rem;
+  font-size: 1.3rem;
   font-weight: 600;
   color: #2c3e50;
   white-space: nowrap;
@@ -238,12 +270,13 @@
 
 .slideshow-deals {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1rem;
+  font-weight: 500;
   color: #7f8c8d;
 }
 
 .slideshow-commission {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: bold;
   color: #27ae60;
   white-space: nowrap;
