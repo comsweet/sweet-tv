@@ -4,15 +4,15 @@ const path = require('path');
 class SlideshowService {
   constructor() {
     // PERSISTENT DISK på Render!
-    const isPersistentDisk = process.env.RENDER && fs.existsSync('/var/data');
+    const isRender = process.env.RENDER === 'true';
     
-    this.dbPath = isPersistentDisk 
+    this.dbPath = isRender 
       ? '/var/data'
       : path.join(__dirname, '../data');
     
     this.slideshowsFile = path.join(this.dbPath, 'slideshows.json');
     
-    console.log(`💾 Slideshows path: ${this.dbPath} (persistent: ${isPersistentDisk})`);
+    console.log(`💾 Slideshows path: ${this.dbPath} (isRender: ${isRender})`);
     
     this.initDatabase();
   }
