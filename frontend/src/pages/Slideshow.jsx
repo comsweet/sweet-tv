@@ -9,11 +9,13 @@ const DealNotification = ({ notification, onComplete }) => {
   useEffect(() => {
     // NO SOUND - notification.mp3 doesn't exist!
     
-    const duration = 3000;
-    const end = Date.now() + duration;
+    const confettiDuration = 3000;
+    const confettiEnd = Date.now() + confettiDuration;
+    
+    let confettiFrame;
     const colors = ['#bb0000', '#ffffff', '#00bb00'];
 
-    (function frame() {
+    const runConfetti = () => {
       confetti({
         particleCount: 3,
         angle: 60,
@@ -29,17 +31,30 @@ const DealNotification = ({ notification, onComplete }) => {
         colors: colors
       });
 
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
+      if (Date.now() < confettiEnd) {
+        confettiFrame = requestAnimationFrame(runConfetti);
       }
-    })();
+    };
+    
+    runConfetti();
 
-    const timer = setTimeout(() => {
+    // GUARANTEE cleanup after 5 seconds
+    const cleanupTimer = setTimeout(() => {
+      console.log('🧹 Cleaning up notification...');
+      if (confettiFrame) {
+        cancelAnimationFrame(confettiFrame);
+      }
       onComplete();
     }, 5000);
 
-    return () => clearTimeout(timer);
-  }, [onComplete]);
+    return () => {
+      console.log('🧹 Component unmounting - cleanup');
+      clearTimeout(cleanupTimer);
+      if (confettiFrame) {
+        cancelAnimationFrame(confettiFrame);
+      }
+    };
+  }, [notification, onComplete]); // Include dependencies!
 
   const { agent, commission } = notification;
 
@@ -215,9 +230,19 @@ const Slideshow = () => {
     const handleNewDeal = (notification) => {
       console.log('🎉 New deal:', notification);
       
-      // Only show notification if agent exists
-      if (notification.agent && notification.agent.name && notification.agent.name !== 'Agent null') {
+      // Only show notification if:
+      // 1. Agent exists
+      // 2. Agent name is valid
+      // 3. Commission is > 0
+      const commission = parseFloat(notification.commission || 0);
+      
+      if (notification.agent && 
+          notification.agent.name && 
+          notification.agent.name !== 'Agent null' &&
+          commission > 0) {
         setCurrentNotification(notification);
+      } else {
+        console.log('⏭️  Skipping notification (invalid agent or 0 commission)');
       }
       
       // Update leaderboard data in background (no page reload!)
@@ -294,6 +319,7 @@ const Slideshow = () => {
   }, [leaderboardsData, slideshow]);
 
   const handleNotificationComplete = () => {
+    console.log('✅ Notification complete - clearing state');
     setCurrentNotification(null);
   };
 
