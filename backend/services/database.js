@@ -3,29 +3,42 @@ const path = require('path');
 
 class DatabaseService {
   constructor() {
-    this.dbPath = path.join(__dirname, '../data');
+    // PERSISTENT DISK på Render!
+    // Fallback till local för development
+    const isPersistentDisk = process.env.RENDER && fs.existsSync('/var/data');
+    
+    this.dbPath = isPersistentDisk 
+      ? '/var/data'  // Render persistent disk
+      : path.join(__dirname, '../data'); // Local development
+    
     this.agentsFile = path.join(this.dbPath, 'agents.json');
     this.dealsFile = path.join(this.dbPath, 'deals.json');
+    
+    console.log(`💾 Database path: ${this.dbPath} (persistent: ${isPersistentDisk})`);
+    
     this.initDatabase();
   }
 
   async initDatabase() {
     try {
       await fs.mkdir(this.dbPath, { recursive: true });
-      await fs.mkdir(path.join(this.dbPath, 'profile-images'), { recursive: true });
 
       // Skapa agents.json
       try {
         await fs.access(this.agentsFile);
+        console.log('✅ agents.json exists');
       } catch {
         await fs.writeFile(this.agentsFile, JSON.stringify({ agents: [] }, null, 2));
+        console.log('📝 Created agents.json');
       }
 
       // Skapa deals.json
       try {
         await fs.access(this.dealsFile);
+        console.log('✅ deals.json exists');
       } catch {
         await fs.writeFile(this.dealsFile, JSON.stringify({ deals: [] }, null, 2));
+        console.log('📝 Created deals.json');
       }
     } catch (error) {
       console.error('Error initializing database:', error);
@@ -54,6 +67,7 @@ class DatabaseService {
     }
     
     await fs.writeFile(this.agentsFile, JSON.stringify({ agents }, null, 2));
+    console.log(`💾 Saved agent ${agent.userId} to persistent disk`);
     return agent;
   }
 
@@ -64,6 +78,7 @@ class DatabaseService {
     if (index !== -1) {
       agents[index] = { ...agents[index], ...updates };
       await fs.writeFile(this.agentsFile, JSON.stringify({ agents }, null, 2));
+      console.log(`💾 Updated agent ${userId} on persistent disk`);
       return agents[index];
     }
     return null;
@@ -73,6 +88,7 @@ class DatabaseService {
     const agents = await this.getAgents();
     const filtered = agents.filter(a => a.userId !== userId);
     await fs.writeFile(this.agentsFile, JSON.stringify({ agents: filtered }, null, 2));
+    console.log(`🗑️  Deleted agent ${userId} from persistent disk`);
     return true;
   }
 
@@ -99,6 +115,7 @@ class DatabaseService {
     };
     deals.push(newDeal);
     await fs.writeFile(this.dealsFile, JSON.stringify({ deals }, null, 2));
+    console.log(`💾 Saved deal ${newDeal.id} to persistent disk`);
     return newDeal;
   }
 
