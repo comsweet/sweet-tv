@@ -4,15 +4,15 @@ const path = require('path');
 class LeaderboardService {
   constructor() {
     // PERSISTENT DISK på Render!
-    const isPersistentDisk = process.env.RENDER && fs.existsSync('/var/data');
+    const isRender = process.env.RENDER === 'true';
     
-    this.dbPath = isPersistentDisk 
+    this.dbPath = isRender 
       ? '/var/data'
       : path.join(__dirname, '../data');
     
     this.leaderboardsFile = path.join(this.dbPath, 'leaderboards.json');
     
-    console.log(`💾 Leaderboards path: ${this.dbPath} (persistent: ${isPersistentDisk})`);
+    console.log(`💾 Leaderboards path: ${this.dbPath} (isRender: ${isRender})`);
     
     this.initDatabase();
   }
