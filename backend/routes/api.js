@@ -3,7 +3,8 @@ const router = express.Router();
 const adversusAPI = require('../services/adversusAPI');
 const database = require('../services/database');
 const leaderboardService = require('../services/leaderboards');
-const leaderboardCache = require('../services/leaderboardCache'); // ← TILLAGT FÖR CACHE
+const slideshowService = require('../services/slideshows'); // ← NY!
+const leaderboardCache = require('../services/leaderboardCache');
 const multer = require('multer');
 const path = require('path');
 
@@ -247,6 +248,67 @@ router.put('/leaderboards/:id', async (req, res) => {
 router.delete('/leaderboards/:id', async (req, res) => {
   try {
     await leaderboardService.deleteLeaderboard(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// SLIDESHOWS CRUD (NY!)
+router.get('/slideshows', async (req, res) => {
+  try {
+    const slideshows = await slideshowService.getSlideshows();
+    res.json(slideshows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/slideshows/active', async (req, res) => {
+  try {
+    const activeSlideshows = await slideshowService.getActiveSlideshows();
+    res.json(activeSlideshows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/slideshows/:id', async (req, res) => {
+  try {
+    const slideshow = await slideshowService.getSlideshow(req.params.id);
+    if (!slideshow) {
+      return res.status(404).json({ error: 'Slideshow not found' });
+    }
+    res.json(slideshow);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/slideshows', async (req, res) => {
+  try {
+    const slideshow = await slideshowService.addSlideshow(req.body);
+    res.json(slideshow);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/slideshows/:id', async (req, res) => {
+  try {
+    const slideshow = await slideshowService.updateSlideshow(req.params.id, req.body);
+    if (!slideshow) {
+      return res.status(404).json({ error: 'Slideshow not found' });
+    }
+    res.json(slideshow);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/slideshows/:id', async (req, res) => {
+  try {
+    await slideshowService.deleteSlideshow(req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
