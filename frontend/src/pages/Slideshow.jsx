@@ -101,7 +101,7 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
           <div className="slideshow-no-data">Inga affärer än</div>
         ) : (
           <div className="slideshow-items">
-            {stats.slice(0, 10).map((item, index) => (
+            {stats.slice(0, 20).map((item, index) => (
               <div 
                 key={item.userId} 
                 className={`slideshow-item ${index === 0 ? 'first-place' : ''}`}
@@ -206,14 +206,13 @@ const Slideshow = () => {
   useEffect(() => {
     fetchSlideshowData();
     
-    // NO automatic refresh - only refresh on new deal or manual reload
-    
     socketService.connect();
 
     const handleNewDeal = (notification) => {
       console.log('🎉 New deal:', notification);
       setCurrentNotification(notification);
-      setTimeout(() => fetchSlideshowData(), 3000);
+      // NO REFRESH - bara visa notifikationen!
+      // Data uppdateras först vid manuell reload eller nästa morgon
     };
 
     socketService.onNewDeal(handleNewDeal);
