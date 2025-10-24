@@ -366,8 +366,11 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     const usersResult = await adversusAPI.getUsers();
     const adversusUsers = usersResult.users || [];
     
-    // SMART FILTRERING
+    // ========================================
+    // 🔧 FIXED: SMART USER GROUP FILTERING
+    // ========================================
     let filteredUserIds = null;
+    
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
       console.log(`🔍 Filtering by user groups:`, leaderboard.userGroups);
       
@@ -375,6 +378,8 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
         const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
         filteredUserIds = new Set();
+        
+        console.log(`   📋 Checking ${uniqueUserIds.length} unique users against ${targetGroupIds.length} target groups`);
         
         for (const userId of uniqueUserIds) {
           try {
@@ -389,23 +394,39 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
               
               if (hasMatchingGroup) {
                 filteredUserIds.add(userId);
+                console.log(`   ✅ User ${userId} matched (groups: ${userGroupIds.join(', ')})`);
+              } else {
+                console.log(`   ❌ User ${userId} NOT matched (groups: ${userGroupIds.join(', ')})`);
               }
+            } else {
+              console.log(`   ⚠️  User ${userId} has no group memberships`);
             }
             
             await new Promise(resolve => setTimeout(resolve, 100));
           } catch (error) {
-            console.error(`   ⚠️ Could not fetch details for user ${userId}:`, error.message);
+            console.error(`   ⚠️  Could not fetch details for user ${userId}:`, error.message);
+            // Continue processing other users even if one fails
           }
         }
         
+        console.log(`   📊 Filter result: ${filteredUserIds.size} users matched out of ${uniqueUserIds.length}`);
+        
+        // ⭐ VIKTIGT: Om inga användare matchar, BEHÅLL den tomma Set:en!
+        // Detta gör att leaderboardet blir tomt (korrekt) istället för att visa alla
         if (filteredUserIds.size === 0) {
-          filteredUserIds = null;
+          console.log(`   ⚠️  No users matched the selected groups - leaderboard will be empty`);
+          // BEHÅLL filteredUserIds som tom Set istället för null!
         }
       } catch (error) {
         console.error(`❌ Error filtering user groups:`, error.message);
-        filteredUserIds = null;
+        // ⭐ Om filtreringen misslyckades helt, behåll tom Set för säkerhet
+        filteredUserIds = new Set();
+        console.log(`   ⚠️  Filtering failed - returning empty leaderboard for safety`);
       }
     }
+    // ========================================
+    // END OF FIX
+    // ========================================
     
     const localAgents = await database.getAgents();
     
@@ -415,6 +436,8 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       const userId = lead.lastContactedBy;
       
       if (!userId) return;
+      
+      // ⭐ ANVÄND FILTRERINGEN (även om Set är tom!)
       if (filteredUserIds && !filteredUserIds.has(userId)) return;
       
       if (!stats[userId]) {
