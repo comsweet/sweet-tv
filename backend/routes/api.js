@@ -4,17 +4,16 @@ const adversusAPI = require('../services/adversusAPI');
 const database = require('../services/database');
 const leaderboardService = require('../services/leaderboards');
 const slideshowService = require('../services/slideshows');
+const dealsCache = require('../services/dealsCache'); // ← PERSISTENT CACHE!
 const leaderboardCache = require('../services/leaderboardCache');
+const { cloudinary, imageStorage } = require('../config/cloudinary');
 const multer = require('multer');
 const path = require('path');
 
-// CLOUDINARY CONFIG (för Render - persistent storage!)
-const { cloudinary, storage: cloudinaryStorage } = require('../config/cloudinary');
-
 // Multer upload med Cloudinary
 const upload = multer({ 
-  storage: cloudinaryStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  storage: imageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 // Health check
@@ -69,9 +68,7 @@ router.post('/agents/:userId/profile-image', upload.single('image'), async (req,
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
-    // Cloudinary URL (permanent!)
     const imageUrl = req.file.path;
-    
     console.log(`📸 Uploaded image to Cloudinary: ${imageUrl}`);
     
     const agent = await database.updateAgent(req.params.userId, {
@@ -104,7 +101,7 @@ router.get('/adversus/user-groups', async (req, res) => {
   }
 });
 
-// STATS
+// STATS (MED PERSISTENT CACHE!)
 router.get('/stats/leaderboard', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -118,14 +115,30 @@ router.get('/stats/leaderboard', async (req, res) => {
     
     console.log(`📊 Fetching stats from ${start.toISOString()} to ${end.toISOString()}`);
     
-    const result = await adversusAPI.getLeadsInDateRange(start, end);
-    const leads = result.leads || [];
+    // AUTO-SYNC DEALS CACHE (syncar var 6:e timme)
+    await dealsCache.autoSync(adversusAPI);
     
-    console.log(`✅ Found ${leads.length} success leads`);
+    // HÄMTA FRÅN CACHE ISTÄLLET FÖR ADVERSUS!
+    const cachedDeals = await dealsCache.getDealsInRange(start, end);
+    
+    // Konvertera till leads-format för kompatibilitet
+    const leads = cachedDeals.map(deal => ({
+      id: deal.leadId,
+      lastContactedBy: deal.userId,
+      campaignId: deal.campaignId,
+      status: deal.status,
+      lastUpdatedTime: deal.orderDate,
+      resultData: [
+        { id: 70163, value: String(deal.commission) },
+        { label: 'MultiDeals', value: deal.multiDeals },
+        { label: 'Order date', value: deal.orderDate }
+      ]
+    }));
+    
+    console.log(`✅ Loaded ${leads.length} deals from cache`);
     
     const usersResult = await adversusAPI.getUsers();
     const adversusUsers = usersResult.users || [];
-    console.log(`👥 Found ${adversusUsers.length} users from Adversus`);
     
     const localAgents = await database.getAgents();
     
@@ -304,7 +317,7 @@ router.delete('/slideshows/:id', async (req, res) => {
   }
 });
 
-// LEADERBOARD DATA WITH SMART CACHING
+// LEADERBOARD DATA WITH PERSISTENT DEALS CACHE
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -314,7 +327,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
 
     const { startDate, endDate } = leaderboardService.getDateRange(leaderboard);
     
-    // TRY CACHE FIRST
+    // TRY IN-MEMORY CACHE FIRST (5 min TTL)
     const cached = leaderboardCache.get(
       req.params.id,
       startDate.toISOString(),
@@ -322,31 +335,44 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     );
     
     if (cached) {
-      console.log(`✅ Serving from cache: ${leaderboard.name}`);
+      console.log(`✅ Serving from memory cache: ${leaderboard.name}`);
       return res.json(cached);
     }
     
-    // CACHE MISS - Fetch from Adversus
-    console.log(`📊 Cache miss - fetching from API: ${leaderboard.name}`);
+    console.log(`📊 Cache miss - loading from persistent cache: ${leaderboard.name}`);
     
-    const result = await adversusAPI.getLeadsInDateRange(startDate, endDate);
-    const leads = result.leads || [];
+    // AUTO-SYNC PERSISTENT DEALS CACHE (var 6:e timme)
+    await dealsCache.autoSync(adversusAPI);
     
-    console.log(`✅ Found ${leads.length} success leads`);
+    // HÄMTA FRÅN PERSISTENT CACHE
+    const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
     
-    // Hämta alla users för namn/email
+    // Konvertera till leads-format
+    const leads = cachedDeals.map(deal => ({
+      id: deal.leadId,
+      lastContactedBy: deal.userId,
+      campaignId: deal.campaignId,
+      status: deal.status,
+      lastUpdatedTime: deal.orderDate,
+      resultData: [
+        { id: 70163, value: String(deal.commission) },
+        { label: 'MultiDeals', value: deal.multiDeals },
+        { label: 'Order date', value: deal.orderDate }
+      ]
+    }));
+    
+    console.log(`✅ Loaded ${leads.length} deals from persistent cache`);
+    
     const usersResult = await adversusAPI.getUsers();
     const adversusUsers = usersResult.users || [];
     
-    // SMART FILTRERING: Hämta bara group-info för relevanta users
+    // SMART FILTRERING
     let filteredUserIds = null;
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
       console.log(`🔍 Filtering by user groups:`, leaderboard.userGroups);
       
       try {
         const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
-        console.log(`   Found ${uniqueUserIds.length} unique users in leads`);
-        
         const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
         filteredUserIds = new Set();
         
@@ -366,25 +392,19 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
               }
             }
             
-            // CRITICAL: Delay between user requests
             await new Promise(resolve => setTimeout(resolve, 100));
           } catch (error) {
             console.error(`   ⚠️ Could not fetch details for user ${userId}:`, error.message);
           }
         }
         
-        console.log(`👥 Filtered to ${filteredUserIds.size} users from ${leaderboard.userGroups.length} groups`);
-        
         if (filteredUserIds.size === 0) {
-          console.log(`⚠️  WARNING: No users matched - showing ALL users instead`);
           filteredUserIds = null;
         }
       } catch (error) {
         console.error(`❌ Error filtering user groups:`, error.message);
         filteredUserIds = null;
       }
-    } else {
-      console.log(`👥 No groups filter - showing ALL users`);
     }
     
     const localAgents = await database.getAgents();
@@ -395,8 +415,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       const userId = lead.lastContactedBy;
       
       if (!userId) return;
-      
-      // Filtrera på user groups om specificerat
       if (filteredUserIds && !filteredUserIds.has(userId)) return;
       
       if (!stats[userId]) {
@@ -445,7 +463,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       }
     };
     
-    // CACHE THE RESULT
+    // CACHE IN MEMORY (5 min TTL)
     leaderboardCache.set(
       req.params.id,
       startDate.toISOString(),
@@ -453,7 +471,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       responseData
     );
     
-    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents (CACHED)`);
+    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents`);
     
     res.json(responseData);
   } catch (error) {
@@ -498,6 +516,44 @@ router.get('/leaderboards/cache/stats', async (req, res) => {
   try {
     const stats = leaderboardCache.getStats();
     res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DEALS CACHE ENDPOINTS (PERSISTENT!)
+router.post('/deals/sync', async (req, res) => {
+  try {
+    console.log('🔄 Manual deals sync triggered from admin');
+    const deals = await dealsCache.forceSync(adversusAPI);
+    res.json({ 
+      success: true, 
+      message: `Synced ${deals.length} deals`,
+      deals: deals.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/deals/stats', async (req, res) => {
+  try {
+    const stats = await dealsCache.getStats();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/deals/clean', async (req, res) => {
+  try {
+    await dealsCache.cleanOldDeals();
+    const stats = await dealsCache.getStats();
+    res.json({ 
+      success: true, 
+      message: 'Cleaned old deals',
+      stats 
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
