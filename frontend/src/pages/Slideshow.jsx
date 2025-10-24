@@ -6,13 +6,14 @@ import { getSlideshow, getLeaderboardStats2 } from '../services/api';
 import './Slideshow.css';
 
 const DealNotification = ({ notification, onComplete }) => {
+  const cleanupTimerRef = useRef(null);
+  const confettiFrameRef = useRef(null);
+
   useEffect(() => {
-    // NO SOUND - notification.mp3 doesn't exist!
+    console.log('🎉 Notification mounted:', notification.agent.name);
     
     const confettiDuration = 3000;
     const confettiEnd = Date.now() + confettiDuration;
-    
-    let confettiFrame;
     const colors = ['#bb0000', '#ffffff', '#00bb00'];
 
     const runConfetti = () => {
@@ -32,29 +33,31 @@ const DealNotification = ({ notification, onComplete }) => {
       });
 
       if (Date.now() < confettiEnd) {
-        confettiFrame = requestAnimationFrame(runConfetti);
+        confettiFrameRef.current = requestAnimationFrame(runConfetti);
       }
     };
     
     runConfetti();
 
     // GUARANTEE cleanup after 5 seconds
-    const cleanupTimer = setTimeout(() => {
-      console.log('🧹 Cleaning up notification...');
-      if (confettiFrame) {
-        cancelAnimationFrame(confettiFrame);
+    cleanupTimerRef.current = setTimeout(() => {
+      console.log('🧹 Cleaning up notification (5s timeout)');
+      if (confettiFrameRef.current) {
+        cancelAnimationFrame(confettiFrameRef.current);
       }
       onComplete();
     }, 5000);
 
     return () => {
-      console.log('🧹 Component unmounting - cleanup');
-      clearTimeout(cleanupTimer);
-      if (confettiFrame) {
-        cancelAnimationFrame(confettiFrame);
+      console.log('🧹 Component unmounting');
+      if (cleanupTimerRef.current) {
+        clearTimeout(cleanupTimerRef.current);
+      }
+      if (confettiFrameRef.current) {
+        cancelAnimationFrame(confettiFrameRef.current);
       }
     };
-  }, [notification, onComplete]); // Include dependencies!
+  }, []); // ← EMPTY! Only run once on mount!
 
   const { agent, commission } = notification;
 
