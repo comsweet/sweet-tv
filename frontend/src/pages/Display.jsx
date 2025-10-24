@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import socketService from '../services/socket';
-import { getSlideshow, getLeaderboardStats2 } from '../services/api';
+import { getActiveLeaderboards, getLeaderboardStats2 } from '../services/api';
 import './Display.css';
 
 const playNotificationSound = () => {
@@ -14,20 +13,20 @@ const DealNotification = ({ notification, onComplete }) => {
   useEffect(() => {
     playNotificationSound();
     
-    const duration = 2000; // Reduced from 3000 for better TV performance
+    const duration = 3000;
     const end = Date.now() + duration;
     const colors = ['#bb0000', '#ffffff', '#00bb00'];
 
     (function frame() {
       confetti({
-        particleCount: 2, // Reduced from 3
+        particleCount: 3,
         angle: 60,
         spread: 55,
         origin: { x: 0 },
         colors: colors
       });
       confetti({
-        particleCount: 2, // Reduced from 3
+        particleCount: 3,
         angle: 120,
         spread: 55,
         origin: { x: 1 },
@@ -41,7 +40,7 @@ const DealNotification = ({ notification, onComplete }) => {
 
     const timer = setTimeout(() => {
       onComplete();
-    }, 4000); // Reduced from 5000
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, [onComplete]);
@@ -86,32 +85,18 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
     return labels[period] || period;
   };
 
-  // Calculate total deals
-  const totalDeals = stats.reduce((sum, item) => sum + item.dealCount, 0);
-
   return (
-    <div className="leaderboard-card-display slideshow-mode">
+    <div className="leaderboard-card-display">
       <div className="leaderboard-header">
-        {totalDeals > 0 && (
-          <div className="total-deals-badge">
-            <div>Totalt</div>
-            <div className="total-deals-number">{totalDeals} 🎯</div>
-          </div>
-        )}
-        
-        <div className="leaderboard-title">
-          <h2>{leaderboard.name}</h2>
-          <p className="leaderboard-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
-        </div>
-        
-        <div style={{ width: '120px' }}></div> {/* Spacer for symmetry */}
+        <h2>{leaderboard.name}</h2>
+        <p className="leaderboard-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
       </div>
 
       {stats.length === 0 ? (
         <div className="no-data-display">Inga affärer än</div>
       ) : (
         <div className="leaderboard-items">
-          {stats.slice(0, 25).map((item, index) => (
+          {stats.slice(0, 10).map((item, index) => (
             <div 
               key={item.userId} 
               className={`leaderboard-item-display ${index === 0 ? 'first-place' : ''}`}
@@ -137,11 +122,7 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
               
               <div className="agent-info-display">
                 <h3 className="agent-name-display">{item.agent.name}</h3>
-              </div>
-              
-              <div className="deals-display">
-                <span className="emoji">🎯</span>
-                <span className="number">{item.dealCount}</span>
+                <p className="agent-stats-display">{item.dealCount} affärer</p>
               </div>
               
               <div className="commission-display">
@@ -156,132 +137,89 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
 };
 
 const Display = () => {
-  const [searchParams] = useSearchParams();
-  const slideshowId = searchParams.get('slideshow');
-  
-  const [slideshow, setSlideshow] = useState(null);
   const [leaderboardsData, setLeaderboardsData] = useState([]);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [progress, setProgress] = useState(0);
-  const slideIntervalRef = useRef(null);
-  const progressIntervalRef = useRef(null);
+  const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
 
-  const fetchSlideshowData = async () => {
-    if (!slideshowId) {
-      setIsLoading(false);
-      return;
-    }
-
+  // SEQUENTIAL LOADING - Ladda leaderboards EN I TAGET
+  const fetchLeaderboards = async () => {
     try {
-      const response = await getSlideshow(slideshowId);
-      const slideshowData = response.data;
-      setSlideshow(slideshowData);
+      setIsLoading(true);
       
-      console.log('📊 Slideshow data:', slideshowData);
-      console.log('📋 Leaderboard IDs:', slideshowData.leaderboards);
+      // Steg 1: Hämta aktiva leaderboards
+      const response = await getActiveLeaderboards();
+      const activeLeaderboards = response.data;
       
-      // Hämta stats för alla leaderboards i slideshow
-      const leaderboardsWithStats = await Promise.all(
-        slideshowData.leaderboards.map(async (leaderboardId) => {
-          try {
-            console.log(`🔍 Fetching stats for leaderboard ${leaderboardId}...`);
-            const statsResponse = await getLeaderboardStats2(leaderboardId);
-            console.log(`✅ Stats fetched for ${leaderboardId}:`, statsResponse.data);
-            return {
-              leaderboard: statsResponse.data.leaderboard,
-              stats: statsResponse.data.stats || []
-            };
-          } catch (error) {
-            console.error(`❌ Error fetching stats for leaderboard ${leaderboardId}:`, error);
-            // Skip this leaderboard if it fails
-            return null;
+      console.log(`📊 Fetching stats for ${activeLeaderboards.length} leaderboards SEQUENTIALLY...`);
+      
+      setLoadingProgress({ current: 0, total: activeLeaderboards.length });
+      
+      const leaderboardsWithStats = [];
+      
+      // Steg 2: Hämta stats EN leaderboard i taget (inte alla samtidigt!)
+      for (let i = 0; i < activeLeaderboards.length; i++) {
+        const lb = activeLeaderboards[i];
+        
+        setLoadingProgress({ current: i + 1, total: activeLeaderboards.length });
+        console.log(`📈 Loading leaderboard ${i + 1}/${activeLeaderboards.length}: "${lb.name}"`);
+        
+        try {
+          const statsResponse = await getLeaderboardStats2(lb.id);
+          leaderboardsWithStats.push({
+            leaderboard: lb,
+            stats: statsResponse.data.stats || []
+          });
+          
+          console.log(`✅ Loaded "${lb.name}" (${statsResponse.data.stats?.length || 0} agents)`);
+          
+          // VIKTIGT: Delay mellan varje leaderboard (på frontend också!)
+          if (i < activeLeaderboards.length - 1) {
+            console.log('⏳ Waiting 2s before next leaderboard...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
           }
-        })
-      );
-      
-      // Filtrera bort null-värden (misslyckade fetches)
-      const validLeaderboards = leaderboardsWithStats.filter(Boolean);
-      
-      console.log(`📈 Successfully loaded ${validLeaderboards.length}/${slideshowData.leaderboards.length} leaderboards`);
-      
-      if (validLeaderboards.length === 0) {
-        console.error('⚠️  No valid leaderboards found in slideshow');
+          
+        } catch (error) {
+          console.error(`❌ Error loading "${lb.name}":`, error);
+          leaderboardsWithStats.push({
+            leaderboard: lb,
+            stats: []
+          });
+        }
       }
       
-      setLeaderboardsData(validLeaderboards);
+      console.log(`✅ All ${leaderboardsWithStats.length} leaderboards loaded!`);
+      setLeaderboardsData(leaderboardsWithStats);
       setIsLoading(false);
+      
     } catch (error) {
-      console.error('❌ Error fetching slideshow:', error);
+      console.error('❌ Error fetching leaderboards:', error);
       setIsLoading(false);
     }
   };
 
-  // Hämta data första gången och sedan varje minut
   useEffect(() => {
-    fetchSlideshowData();
-    const interval = setInterval(fetchSlideshowData, 60000);
-    return () => clearInterval(interval);
-  }, [slideshowId]);
+    fetchLeaderboards();
+    
+    // Refresh varje 5 minuter (inte varje minut, för att spara API calls)
+    const interval = setInterval(fetchLeaderboards, 5 * 60 * 1000);
 
-  // Slideshow rotation with progress bar
-  useEffect(() => {
-    if (!slideshow || leaderboardsData.length === 0) return;
-
-    const duration = (slideshow.duration || 30) * 1000;
-    const progressUpdateInterval = 100; // Update every 100ms
-
-    // Reset progress
-    setProgress(0);
-
-    // Progress bar animation
-    let elapsed = 0;
-    progressIntervalRef.current = setInterval(() => {
-      elapsed += progressUpdateInterval;
-      const newProgress = Math.min((elapsed / duration) * 100, 100);
-      setProgress(newProgress);
-    }, progressUpdateInterval);
-
-    // Slide rotation
-    slideIntervalRef.current = setInterval(() => {
-      setCurrentSlideIndex((prevIndex) => {
-        const nextIndex = (prevIndex + 1) % leaderboardsData.length;
-        
-        // Preload hint (data is already loaded, but log for future preload logic)
-        const nextNextIndex = (nextIndex + 1) % leaderboardsData.length;
-        console.log(`🔄 Next slide: ${nextIndex + 1}, Preload ready: ${nextNextIndex + 1}`);
-        
-        // Reset progress for new slide
-        setProgress(0);
-        
-        return nextIndex;
-      });
-    }, duration);
-
-    return () => {
-      if (slideIntervalRef.current) {
-        clearInterval(slideIntervalRef.current);
-      }
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-    };
-  }, [slideshow, leaderboardsData]);
-
-  // WebSocket för notifikationer
-  useEffect(() => {
     socketService.connect();
 
     const handleNewDeal = (notification) => {
-      console.log('New deal received:', notification);
+      console.log('🎉 New deal received:', notification);
       setCurrentNotification(notification);
-      fetchSlideshowData(); // Uppdatera stats
+      
+      // Refresh leaderboards efter en deal (med delay)
+      setTimeout(() => {
+        fetchLeaderboards();
+      }, 3000);
     };
 
     socketService.onNewDeal(handleNewDeal);
 
     return () => {
+      clearInterval(interval);
       socketService.offNewDeal(handleNewDeal);
     };
   }, []);
@@ -290,78 +228,45 @@ const Display = () => {
     setCurrentNotification(null);
   };
 
-  if (isLoading) {
-    return (
-      <div className="display-container">
-        <div className="loading-display">Laddar slideshow...</div>
-      </div>
-    );
-  }
-
-  if (!slideshowId) {
-    return (
-      <div className="display-container">
-        <div className="no-leaderboards">
-          <p>Ingen slideshow vald</p>
-          <p className="hint">Lägg till ?slideshow=ID i URL:en</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!slideshow || leaderboardsData.length === 0) {
-    return (
-      <div className="display-container">
-        <div className="no-leaderboards">
-          <p>⚠️ Kunde inte ladda slideshow</p>
-          {slideshow && slideshow.leaderboards.length > 0 ? (
-            <>
-              <p className="hint">Slideshow:en har {slideshow.leaderboards.length} leaderboard(s)</p>
-              <p className="hint">men inga kunde laddas korrekt</p>
-              <p className="hint" style={{ marginTop: '1rem', fontSize: '1rem' }}>
-                Kontrollera att leaderboards med följande ID:n finns:
-              </p>
-              <ul style={{ listStyle: 'none', padding: 0, marginTop: '0.5rem' }}>
-                {slideshow.leaderboards.map(id => (
-                  <li key={id} style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.8)' }}>
-                    • {id}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="hint">Kontrollera att slideshow:en finns och har leaderboards</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const currentSlide = leaderboardsData[currentSlideIndex];
+  const getGridClass = () => {
+    const count = leaderboardsData.length;
+    if (count === 1) return 'grid-1';
+    if (count === 2) return 'grid-2';
+    if (count <= 4) return 'grid-4';
+    return 'grid-4';
+  };
 
   return (
     <div className="display-container">
       <header className="display-header">
-        <h1>🏆 {slideshow.name}</h1>
-        <div className="slideshow-indicator">
-          {leaderboardsData.map((_, index) => (
-            <span 
-              key={index} 
-              className={`indicator-dot ${index === currentSlideIndex ? 'active' : ''}`}
+        <h1>🏆 Sweet TV Leaderboards</h1>
+      </header>
+
+      {isLoading ? (
+        <div className="loading-display">
+          <p>Laddar leaderboards...</p>
+          {loadingProgress.total > 0 && (
+            <p style={{ fontSize: '1.2rem', marginTop: '1rem', color: 'rgba(255,255,255,0.8)' }}>
+              {loadingProgress.current} / {loadingProgress.total}
+            </p>
+          )}
+        </div>
+      ) : leaderboardsData.length === 0 ? (
+        <div className="no-leaderboards">
+          <p>Inga aktiva leaderboards</p>
+          <p className="hint">Skapa en leaderboard i Admin-panelen</p>
+        </div>
+      ) : (
+        <div className={`leaderboards-grid ${getGridClass()}`}>
+          {leaderboardsData.slice(0, 4).map(({ leaderboard, stats }) => (
+            <LeaderboardCard 
+              key={leaderboard.id}
+              leaderboard={leaderboard}
+              stats={stats}
             />
           ))}
         </div>
-        <div className="slideshow-progress-bar">
-          <div className="progress-fill" style={{ width: `${progress}%` }} />
-        </div>
-      </header>
-
-      <div className="slideshow-container">
-        <LeaderboardCard 
-          leaderboard={currentSlide.leaderboard}
-          stats={currentSlide.stats}
-        />
-      </div>
+      )}
 
       {currentNotification && (
         <DealNotification 
