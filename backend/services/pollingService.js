@@ -7,22 +7,13 @@ class PollingService {
     this.pollInterval = parseInt(process.env.POLL_INTERVAL) || 30000;
     this.lastCheckTime = new Date(Date.now() - 60000); // Börja 1 minut bakåt
     this.isPolling = false;
-    this.userCache = new Map(); // Cache för user-info
-    this.lastUserListFetch = null; // När vi senast hämtade user-listan
   }
 
   start() {
     console.log(`🔄 Starting polling (${this.pollInterval}ms interval)`);
     this.isPolling = true;
-    
-    // Hämta user-lista direkt vid start
-    this.refreshUserCache();
-    
     this.poll();
     this.intervalId = setInterval(() => this.poll(), this.pollInterval);
-    
-    // Refresh user cache varje 5 minuter
-    this.userCacheInterval = setInterval(() => this.refreshUserCache(), 300000);
   }
 
   stop() {
@@ -31,47 +22,6 @@ class PollingService {
     if (this.intervalId) {
       clearInterval(this.intervalId);
     }
-    if (this.userCacheInterval) {
-      clearInterval(this.userCacheInterval);
-    }
-  }
-
-  async refreshUserCache() {
-    try {
-      console.log('📡 Refreshing user cache from Adversus...');
-      const usersResponse = await adversusAPI.getUsers();
-      const users = usersResponse.users || [];
-      
-      // Populate cache
-      users.forEach(user => {
-        const userInfo = {
-          userId: user.id,
-          name: user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim() || `Agent ${user.id}`,
-          email: user.email || ''
-        };
-        this.userCache.set(user.id, userInfo);
-      });
-      
-      this.lastUserListFetch = new Date();
-      console.log(`✅ User cache refreshed with ${users.length} users`);
-    } catch (error) {
-      console.error('❌ Error refreshing user cache:', error.message);
-    }
-  }
-
-  getUserInfo(userId) {
-    // Check cache first
-    if (this.userCache.has(userId)) {
-      return this.userCache.get(userId);
-    }
-
-    // Fallback if not in cache
-    console.log(`⚠️  User ${userId} not in cache, using fallback name`);
-    return {
-      userId: userId,
-      name: `Agent ${userId}`,
-      email: ''
-    };
   }
 
   async poll() {
@@ -90,7 +40,7 @@ class PollingService {
         for (const lead of newLeads) {
           // Hitta commission från resultData (id 70163)
           const commissionField = lead.resultData?.find(f => f.id === 70163);
-          const multiDealsField = lead.masterData?.find(f => f.id === 74126);
+          const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
           const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
 
           const deal = {
@@ -98,7 +48,7 @@ class PollingService {
             userId: lead.lastContactedBy,
             campaignId: lead.campaignId,
             commission: commissionField?.value || '0',
-            multiDeals: multiDealsField?.value || '1',
+            multiDeals: multiDealsField?.value || '0',
             orderDate: orderDateField?.value || lead.lastUpdatedTime,
             status: lead.status
           };
@@ -107,46 +57,49 @@ class PollingService {
           const savedDeal = await database.addDeal(deal);
           
           if (savedDeal) {
-            // Hämta agent-info (check local first, then cache)
+            // Hämta agent-info
             let agent = await database.getAgent(deal.userId);
             
-            // Get user info from cache (populated at startup)
-            const userInfo = this.getUserInfo(deal.userId);
-            
-            // If agent doesn't exist OR has no proper name, save/update it
-            if (!agent || !agent.name || agent.name === `Agent ${deal.userId}` || agent.name === 'Agent null') {
-              console.log(`📝 Saving/updating agent info for ${userInfo.name} (ID: ${deal.userId})`);
-              
-              agent = await database.addAgent({
-                userId: userInfo.userId,
-                name: userInfo.name,
-                email: userInfo.email,
-                profileImage: agent?.profileImage || null
-              });
-              
-              console.log(`✅ Agent saved:`, agent);
+            // Om agent inte finns lokalt, försök hämta från Adversus
+            if (!agent) {
+              try {
+                const userResponse = await adversusAPI.getUser(deal.userId);
+                const adversusUser = userResponse.users?.[0];
+                
+                if (adversusUser) {
+                  agent = {
+                    userId: deal.userId,
+                    name: adversusUser.name || 
+                          `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
+                          null,
+                    email: adversusUser.email || '',
+                    profileImage: null
+                  };
+                  
+                  // Spara agent för framtida lookups
+                  if (agent.name) {
+                    await database.addAgent(agent);
+                  }
+                }
+              } catch (error) {
+                console.error(`⚠️  Could not fetch user ${deal.userId}:`, error.message);
+              }
             }
             
-            // Double-check we have a proper name
-            const finalAgentName = agent?.name && agent.name !== 'Agent null' && agent.name !== `Agent ${deal.userId}`
-              ? agent.name
-              : userInfo.name;
-            
-            // Skicka notifikation via WebSocket
-            const notification = {
-              deal: savedDeal,
-              agent: {
-                userId: deal.userId,
-                name: finalAgentName,
-                email: agent?.email || userInfo.email || '',
-                profileImage: agent?.profileImage || null
-              },
-              commission: deal.commission,
-              timestamp: new Date().toISOString()
-            };
-            
-            this.io.emit('new_deal', notification);
-            console.log(`🎉 New deal notification sent for ${notification.agent.name} (${notification.agent.userId})`);
+            // Skicka notifikation ENDAST om vi har en giltig agent
+            if (agent && agent.name && agent.name !== 'Agent null') {
+              const notification = {
+                deal: savedDeal,
+                agent: agent,
+                commission: deal.commission,
+                timestamp: new Date().toISOString()
+              };
+              
+              this.io.emit('new_deal', notification);
+              console.log(`🎉 New deal notification sent for ${agent.name}`);
+            } else {
+              console.log(`⚠️  Skipping notification - no valid agent for userId ${deal.userId}`);
+            }
           }
         }
       }
@@ -167,13 +120,6 @@ class PollingService {
 
   async checkNow() {
     return await this.poll();
-  }
-
-  // Clear user cache (for re-sync)
-  async clearCache() {
-    this.userCache.clear();
-    console.log('🧹 User cache cleared');
-    await this.refreshUserCache();
   }
 }
 
