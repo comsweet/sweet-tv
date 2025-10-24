@@ -9,7 +9,12 @@ class AdversusAPI {
     
     // Rate limiting
     this.lastRequestTime = 0;
-    this.minRequestInterval = 1500; // 1.5 sekunder mellan requests
+    this.minRequestInterval = 1500; // 1.5s mellan requests
+    
+    // Concurrent request limiting (max 2 samtidigt)
+    this.requestQueue = [];
+    this.activeRequests = 0;
+    this.maxConcurrent = 2;
   }
 
   async waitForRateLimit() {
@@ -18,15 +23,25 @@ class AdversusAPI {
     
     if (timeSinceLastRequest < this.minRequestInterval) {
       const waitTime = this.minRequestInterval - timeSinceLastRequest;
-      console.log(`   ⏳ Rate limit: Waiting ${waitTime}ms...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
     
     this.lastRequestTime = Date.now();
   }
 
+  async waitForConcurrentSlot() {
+    // Vänta tills det finns plats (< 2 aktiva requests)
+    while (this.activeRequests >= this.maxConcurrent) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
   async request(endpoint, params = {}) {
+    // Vänta på både rate limit OCH concurrent slot
+    await this.waitForConcurrentSlot();
     await this.waitForRateLimit();
+    
+    this.activeRequests++;
     
     try {
       const response = await axios.get(`${this.baseURL}${endpoint}`, {
@@ -34,18 +49,22 @@ class AdversusAPI {
           'Authorization': `Basic ${this.auth}`,
           'Content-Type': 'application/json'
         },
-        params
+        params,
+        timeout: 30000 // 30s timeout
       });
+      
       return response.data;
     } catch (error) {
       if (error.response?.status === 429) {
         console.error('⏰ Rate limit exceeded - backing off');
-        // Exponential backoff
         await new Promise(resolve => setTimeout(resolve, 5000));
         throw new Error('RATE_LIMIT_EXCEEDED');
       }
+      
       console.error('❌ API Error:', error.message);
       throw error;
+    } finally {
+      this.activeRequests--;
     }
   }
 
@@ -100,9 +119,10 @@ class AdversusAPI {
       }
     };
 
-    console.log('🔍 Fetching leads with broad filter (with buffer for Order date)');
-    console.log(`   API Filter: ${bufferStart.toISOString()} to ${bufferEnd.toISOString()}`);
-    console.log(`   Target Order Date Range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log('🔍 Fetching leads (Order date range: %s to %s)', 
+      startDate.toISOString().split('T')[0], 
+      endDate.toISOString().split('T')[0]
+    );
 
     let allLeads = [];
     let currentPage = 1;
@@ -120,63 +140,56 @@ class AdversusAPI {
       };
 
       try {
-        console.log(`📄 Fetching page ${currentPage}/${totalPages}...`);
+        console.log(`   📄 Page ${currentPage}/${totalPages} (${this.activeRequests} active requests)...`);
         const response = await this.request('/leads', params);
         
         const leads = response.leads || [];
         
         if (leads.length > 0) {
           allLeads.push(...leads);
-          console.log(`   ✅ Got ${leads.length} leads on page ${currentPage}`);
+          console.log(`   ✅ Got ${leads.length} leads`);
         }
 
         if (response.meta && response.meta.pagination) {
           const pagination = response.meta.pagination;
           totalPages = pagination.pageCount || 1;
           
-          console.log(`   📊 Pagination: Page ${pagination.page}/${pagination.pageCount}`);
-          
           if (!pagination.nextUrl || pagination.page >= pagination.pageCount) {
-            console.log(`   ✅ Reached last page`);
+            console.log(`   ✅ Last page reached`);
             break;
           }
         } else {
-          console.log('   ℹ️  No pagination meta, assuming single page');
           break;
         }
 
+        // Safety: Max 10 pages
         if (currentPage >= 10) {
-          console.log('⚠️  Stopped at 10 pages to respect rate limits');
+          console.log('   ⚠️  Stopped at 10 pages (rate limit protection)');
           break;
         }
 
         currentPage++;
 
       } catch (error) {
-        console.error(`❌ Error fetching page ${currentPage}:`, error.message);
+        console.error(`   ❌ Error on page ${currentPage}:`, error.message);
         
         if (error.message === 'RATE_LIMIT_EXCEEDED') {
-          console.log('⏸️  Stopping pagination due to rate limit');
+          console.log('   ⏸️  Stopping due to rate limit');
         }
         break;
       }
     }
 
-    console.log(`\n✅ Fetched ${allLeads.length} total leads from API`);
+    console.log(`   ✅ Fetched ${allLeads.length} total leads\n`);
 
-    console.log(`\n🔍 Filtering by Order date...`);
+    // Filter på Order date
     const filteredLeads = allLeads.filter(lead => {
       const orderDate = this.getOrderDate(lead);
-      
-      if (!orderDate) {
-        return false;
-      }
-      
+      if (!orderDate) return false;
       return orderDate >= startDate && orderDate <= endDate;
     });
 
-    console.log(`✅ ${filteredLeads.length} leads match Order date range`);
-    console.log(`   (Filtered out ${allLeads.length - filteredLeads.length} leads outside date range)\n`);
+    console.log(`   📅 ${filteredLeads.length} leads match Order date range\n`);
 
     filteredLeads.sort((a, b) => {
       const dateA = this.getOrderDate(a);
@@ -206,12 +219,9 @@ class AdversusAPI {
       ...params
     };
     
+    console.log('👥 Fetching all users...');
     const response = await this.request('/users', defaultParams);
-    
-    if (response.meta && response.meta.pagination) {
-      const p = response.meta.pagination;
-      console.log(`👥 Users: Page ${p.page}/${p.pageCount}`);
-    }
+    console.log(`   ✅ Got ${response.users?.length || 0} users\n`);
     
     return response;
   }
@@ -225,11 +235,6 @@ class AdversusAPI {
     };
     
     const response = await this.request('/groups', defaultParams);
-    
-    if (response.meta && response.meta.pagination) {
-      const p = response.meta.pagination;
-      console.log(`👨‍👩‍👧‍👦 Groups: Page ${p.page}/${p.pageCount}`);
-    }
     
     return response;
   }
