@@ -3,32 +3,9 @@ const router = express.Router();
 const adversusAPI = require('../services/adversusAPI');
 const database = require('../services/database');
 const leaderboardService = require('../services/leaderboards');
-const slideshowService = require('../services/slideshows');
+const leaderboardCache = require('../services/leaderboardCache'); // ← TILLAGT FÖR CACHE
 const multer = require('multer');
 const path = require('path');
-
-// GLOBAL CACHE för users (uppdateras var 5:e minut)
-let usersCache = {
-  users: [],
-  lastFetch: 0,
-  cacheDuration: 5 * 60 * 1000 // 5 minuter
-};
-
-async function getCachedUsers() {
-  const now = Date.now();
-  
-  if (usersCache.users.length === 0 || (now - usersCache.lastFetch) > usersCache.cacheDuration) {
-    console.log('♻️  Refreshing users cache...');
-    const usersResult = await adversusAPI.getUsers();
-    usersCache.users = usersResult.users || [];
-    usersCache.lastFetch = now;
-    console.log(`✅ Cached ${usersCache.users.length} users`);
-  } else {
-    console.log(`📦 Using cached users (${usersCache.users.length} users, age: ${Math.round((now - usersCache.lastFetch) / 1000)}s)`);
-  }
-  
-  return usersCache.users;
-}
 
 // Profilbilds-uppladdning
 const storage = multer.diskStorage({
@@ -156,7 +133,10 @@ router.get('/stats/leaderboard', async (req, res) => {
     
     console.log(`✅ Found ${leads.length} success leads`);
     
-    const adversusUsers = await getCachedUsers();
+    const usersResult = await adversusAPI.getUsers();
+    const adversusUsers = usersResult.users || [];
+    console.log(`👥 Found ${adversusUsers.length} users from Adversus`);
+    
     const localAgents = await database.getAgents();
     
     const stats = {};
@@ -273,7 +253,7 @@ router.delete('/leaderboards/:id', async (req, res) => {
   }
 });
 
-// LEADERBOARD STATS - MED GLOBAL USER CACHE
+// LEADERBOARD DATA WITH SMART CACHING
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -283,62 +263,89 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
 
     const { startDate, endDate } = leaderboardService.getDateRange(leaderboard);
     
-    console.log(`\n📊 ========================================`);
-    console.log(`📊 Leaderboard: "${leaderboard.name}"`);
-    console.log(`📊 Period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
-    console.log(`📊 ========================================\n`);
+    // TRY CACHE FIRST
+    const cached = leaderboardCache.get(
+      req.params.id,
+      startDate.toISOString(),
+      endDate.toISOString()
+    );
+    
+    if (cached) {
+      console.log(`✅ Serving from cache: ${leaderboard.name}`);
+      return res.json(cached);
+    }
+    
+    // CACHE MISS - Fetch from Adversus
+    console.log(`📊 Cache miss - fetching from API: ${leaderboard.name}`);
     
     const result = await adversusAPI.getLeadsInDateRange(startDate, endDate);
     const leads = result.leads || [];
     
-    console.log(`✅ Total leads fetched: ${leads.length}`);
+    console.log(`✅ Found ${leads.length} success leads`);
     
-    // ANVÄND CACHED USERS (sparar 50+ API calls!)
-    const adversusUsers = await getCachedUsers();
-    const localAgents = await database.getAgents();
+    // Hämta alla users för namn/email
+    const usersResult = await adversusAPI.getUsers();
+    const adversusUsers = usersResult.users || [];
     
-    // GROUP FILTERING - Använder user.group.id
+    // SMART FILTRERING: Hämta bara group-info för relevanta users
     let filteredUserIds = null;
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
-      console.log(`\n🔍 Filtering by groups: [${leaderboard.userGroups.join(', ')}]`);
+      console.log(`🔍 Filtering by user groups:`, leaderboard.userGroups);
       
-      const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
-      filteredUserIds = new Set();
-      
-      const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
-      console.log(`   Found ${uniqueUserIds.length} unique users in leads`);
-      
-      // Filtrera direkt från cache (INGA extra API calls!)
-      for (const userId of uniqueUserIds) {
-        const cachedUser = adversusUsers.find(u => String(u.id) === String(userId));
+      try {
+        const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
+        console.log(`   Found ${uniqueUserIds.length} unique users in leads`);
         
-        if (cachedUser && cachedUser.group) {
-          const userGroupId = parseInt(cachedUser.group.id);
-          
-          if (targetGroupIds.includes(userGroupId)) {
-            filteredUserIds.add(userId);
-            console.log(`   ✓ User ${userId} (${cachedUser.name}) matches group ${userGroupId}`);
+        const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
+        filteredUserIds = new Set();
+        
+        for (const userId of uniqueUserIds) {
+          try {
+            const userDetailResponse = await adversusAPI.request(`/users/${userId}`);
+            const userDetail = userDetailResponse.users?.[0];
+            
+            if (userDetail && userDetail.memberOf) {
+              const userGroupIds = userDetail.memberOf.map(membership => parseInt(membership.id));
+              const hasMatchingGroup = targetGroupIds.some(targetId => 
+                userGroupIds.includes(targetId)
+              );
+              
+              if (hasMatchingGroup) {
+                filteredUserIds.add(userId);
+              }
+            }
+            
+            // CRITICAL: Delay between user requests
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } catch (error) {
+            console.error(`   ⚠️ Could not fetch details for user ${userId}:`, error.message);
           }
         }
-      }
-      
-      console.log(`\n👥 Result: ${filteredUserIds.size} users matched`);
-      
-      if (filteredUserIds.size === 0) {
-        console.log(`⚠️  No users matched! Showing all users.`);
+        
+        console.log(`👥 Filtered to ${filteredUserIds.size} users from ${leaderboard.userGroups.length} groups`);
+        
+        if (filteredUserIds.size === 0) {
+          console.log(`⚠️  WARNING: No users matched - showing ALL users instead`);
+          filteredUserIds = null;
+        }
+      } catch (error) {
+        console.error(`❌ Error filtering user groups:`, error.message);
         filteredUserIds = null;
       }
     } else {
-      console.log(`\n👥 No group filter - showing ALL users`);
+      console.log(`👥 No groups filter - showing ALL users`);
     }
     
+    const localAgents = await database.getAgents();
+    
     const stats = {};
-    let processedLeads = 0;
     
     leads.forEach(lead => {
       const userId = lead.lastContactedBy;
       
       if (!userId) return;
+      
+      // Filtrera på user groups om specificerat
       if (filteredUserIds && !filteredUserIds.has(userId)) return;
       
       if (!stats[userId]) {
@@ -354,10 +361,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       
       stats[userId].totalCommission += commission;
       stats[userId].dealCount += 1;
-      processedLeads++;
     });
-    
-    console.log(`\n📈 Processed ${processedLeads} leads for ${Object.keys(stats).length} agents`);
     
     const leaderboardStats = Object.values(stats).map(stat => {
       const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
@@ -381,93 +385,28 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       };
     }).sort((a, b) => b.totalCommission - a.totalCommission);
     
-    console.log(`✅ Final: ${leaderboardStats.length} agents`);
-    console.log(`📊 ========================================\n`);
-    
-    res.json({
+    const responseData = {
       leaderboard: leaderboard,
       stats: leaderboardStats,
       dateRange: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
-      },
-      meta: {
-        totalLeads: leads.length,
-        processedLeads: processedLeads,
-        totalAgents: leaderboardStats.length
       }
-    });
-  } catch (error) {
-    console.error('\n❌ Error:', error.message);
+    };
     
-    if (error.message === 'RATE_LIMIT_EXCEEDED') {
-      return res.status(429).json({ 
-        error: 'Rate limit exceeded',
-        retryAfter: 60 
-      });
-    }
+    // CACHE THE RESULT
+    leaderboardCache.set(
+      req.params.id,
+      startDate.toISOString(),
+      endDate.toISOString(),
+      responseData
+    );
     
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// SLIDESHOWS CRUD
-router.get('/slideshows', async (req, res) => {
-  try {
-    const slideshows = await slideshowService.getSlideshows();
-    res.json(slideshows);
+    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents (CACHED)`);
+    
+    res.json(responseData);
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get('/slideshows/active', async (req, res) => {
-  try {
-    const activeSlideshows = await slideshowService.getActiveSlideshows();
-    res.json(activeSlideshows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get('/slideshows/:id', async (req, res) => {
-  try {
-    const slideshow = await slideshowService.getSlideshow(req.params.id);
-    if (!slideshow) {
-      return res.status(404).json({ error: 'Slideshow not found' });
-    }
-    res.json(slideshow);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post('/slideshows', async (req, res) => {
-  try {
-    const slideshow = await slideshowService.addSlideshow(req.body);
-    res.json(slideshow);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.put('/slideshows/:id', async (req, res) => {
-  try {
-    const slideshow = await slideshowService.updateSlideshow(req.params.id, req.body);
-    if (!slideshow) {
-      return res.status(404).json({ error: 'Slideshow not found' });
-    }
-    res.json(slideshow);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.delete('/slideshows/:id', async (req, res) => {
-  try {
-    await slideshowService.deleteSlideshow(req.params.id);
-    res.json({ success: true });
-  } catch (error) {
+    console.error('❌ Error fetching leaderboard stats:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -482,6 +421,32 @@ router.post('/poll/trigger', async (req, res) => {
     } else {
       res.status(500).json({ error: 'Polling service not available' });
     }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// CACHE ENDPOINTS
+router.post('/leaderboards/cache/invalidate', async (req, res) => {
+  try {
+    const { leaderboardId } = req.body;
+    
+    if (leaderboardId) {
+      leaderboardCache.invalidate(leaderboardId);
+      res.json({ success: true, message: `Invalidated cache for ${leaderboardId}` });
+    } else {
+      leaderboardCache.clear();
+      res.json({ success: true, message: 'Cleared all cache' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/leaderboards/cache/stats', async (req, res) => {
+  try {
+    const stats = leaderboardCache.getStats();
+    res.json(stats);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
