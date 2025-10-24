@@ -86,12 +86,15 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
     return labels[period] || period;
   };
 
+  const totalDeals = stats.reduce((sum, stat) => sum + stat.dealCount, 0);
+
   return (
     <div className={`slideshow-slide ${isActive ? 'active' : ''}`}>
       <div className="slideshow-content">
         <div className="slideshow-header">
           <h1>{leaderboard.name}</h1>
           <p className="slideshow-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
+          <p className="slideshow-stats">📊 {totalDeals} affärer totalt • {stats.length} agenter</p>
         </div>
 
         {stats.length === 0 ? (
@@ -149,7 +152,9 @@ const Slideshow = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
   const intervalRef = useRef(null);
+  const progressIntervalRef = useRef(null);
 
   // Fetch slideshow och leaderboards data
   const fetchSlideshowData = async () => {
@@ -201,9 +206,8 @@ const Slideshow = () => {
   useEffect(() => {
     fetchSlideshowData();
     
-    // Refresh varje 5 minuter
-    const refreshInterval = setInterval(fetchSlideshowData, 5 * 60 * 1000);
-
+    // NO automatic refresh - only refresh on new deal or manual reload
+    
     socketService.connect();
 
     const handleNewDeal = (notification) => {
@@ -215,26 +219,36 @@ const Slideshow = () => {
     socketService.onNewDeal(handleNewDeal);
 
     return () => {
-      clearInterval(refreshInterval);
       socketService.offNewDeal(handleNewDeal);
     };
   }, [id]);
 
-  // Slideshow rotation
+  // Slideshow rotation with progress bar
   useEffect(() => {
     if (leaderboardsData.length === 0 || !slideshow) return;
 
-    const duration = (slideshow.duration || 15) * 1000; // Convert to ms
+    const duration = (slideshow.duration || 15) * 1000;
     
-    // Start rotation
+    // Reset progress
+    setProgress(0);
+    
+    // Progress bar animation (updates every 100ms)
+    progressIntervalRef.current = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) return 0;
+        return prev + (100 / (duration / 100));
+      });
+    }, 100);
+    
+    // Slide rotation
     intervalRef.current = setInterval(() => {
+      setProgress(0);
       setCurrentIndex((prev) => (prev + 1) % leaderboardsData.length);
     }, duration);
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     };
   }, [leaderboardsData, slideshow]);
 
@@ -266,6 +280,14 @@ const Slideshow = () => {
 
   return (
     <div className="slideshow-container">
+      {/* Progress bar */}
+      <div className="slideshow-progress-bar">
+        <div 
+          className="slideshow-progress-fill"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
       {/* Progress indicators */}
       <div className="slideshow-indicators">
         {leaderboardsData.map((_, index) => (
