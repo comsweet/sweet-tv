@@ -4,17 +4,17 @@ const path = require('path');
 class DatabaseService {
   constructor() {
     // PERSISTENT DISK på Render!
-    // Fallback till local för development
-    const isPersistentDisk = process.env.RENDER && fs.existsSync('/var/data');
+    // Check if we're on Render and use persistent disk
+    const isRender = process.env.RENDER === 'true';
     
-    this.dbPath = isPersistentDisk 
+    this.dbPath = isRender 
       ? '/var/data'  // Render persistent disk
       : path.join(__dirname, '../data'); // Local development
     
     this.agentsFile = path.join(this.dbPath, 'agents.json');
     this.dealsFile = path.join(this.dbPath, 'deals.json');
     
-    console.log(`💾 Database path: ${this.dbPath} (persistent: ${isPersistentDisk})`);
+    console.log(`💾 Database path: ${this.dbPath} (isRender: ${isRender})`);
     
     this.initDatabase();
   }
