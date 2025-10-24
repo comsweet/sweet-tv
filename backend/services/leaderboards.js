@@ -3,8 +3,17 @@ const path = require('path');
 
 class LeaderboardService {
   constructor() {
-    this.dbPath = path.join(__dirname, '../data');
+    // PERSISTENT DISK på Render!
+    const isPersistentDisk = process.env.RENDER && fs.existsSync('/var/data');
+    
+    this.dbPath = isPersistentDisk 
+      ? '/var/data'
+      : path.join(__dirname, '../data');
+    
     this.leaderboardsFile = path.join(this.dbPath, 'leaderboards.json');
+    
+    console.log(`💾 Leaderboards path: ${this.dbPath} (persistent: ${isPersistentDisk})`);
+    
     this.initDatabase();
   }
 
@@ -15,8 +24,10 @@ class LeaderboardService {
       // Skapa leaderboards.json
       try {
         await fs.access(this.leaderboardsFile);
+        console.log('✅ leaderboards.json exists');
       } catch {
         await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards: [] }, null, 2));
+        console.log('📝 Created leaderboards.json');
       }
     } catch (error) {
       console.error('Error initializing leaderboards database:', error);
@@ -55,6 +66,7 @@ class LeaderboardService {
     
     leaderboards.push(newLeaderboard);
     await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards }, null, 2));
+    console.log(`💾 Saved leaderboard "${newLeaderboard.name}" to persistent disk`);
     return newLeaderboard;
   }
 
@@ -69,6 +81,7 @@ class LeaderboardService {
         updatedAt: new Date().toISOString()
       };
       await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards }, null, 2));
+      console.log(`💾 Updated leaderboard "${leaderboards[index].name}" on persistent disk`);
       return leaderboards[index];
     }
     return null;
@@ -78,6 +91,7 @@ class LeaderboardService {
     const leaderboards = await this.getLeaderboards();
     const filtered = leaderboards.filter(lb => lb.id !== id);
     await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards: filtered }, null, 2));
+    console.log(`🗑️  Deleted leaderboard from persistent disk`);
     return true;
   }
 
