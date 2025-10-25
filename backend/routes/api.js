@@ -449,6 +449,41 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       stats[userId].dealCount += 1;
     });
     
+    // ========================================
+    // 🎯 FEATURE: Show all users from selected groups (even with 0 deals)
+    // ========================================
+    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
+      const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
+      
+      console.log(`   👥 Adding all users from selected groups (including 0 deals)...`);
+      
+      adversusUsers.forEach(adversusUser => {
+        if (adversusUser && adversusUser.group && adversusUser.group.id) {
+          const userGroupId = parseInt(adversusUser.group.id);
+          
+          // Om user är i någon av target groups
+          if (targetGroupIds.includes(userGroupId)) {
+            const userId = String(adversusUser.id);
+            
+            // Om user inte redan finns i stats (dvs har 0 deals), lägg till dem
+            if (!stats[userId]) {
+              stats[userId] = {
+                userId: userId,
+                totalCommission: 0,
+                dealCount: 0
+              };
+              console.log(`   ➕ Added user ${userId} with 0 deals`);
+            }
+          }
+        }
+      });
+      
+      console.log(`   ✅ Total users in leaderboard: ${Object.keys(stats).length}`);
+    }
+    // ========================================
+    // END OF FEATURE
+    // ========================================
+    
     const leaderboardStats = Object.values(stats).map(stat => {
       const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
       const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
