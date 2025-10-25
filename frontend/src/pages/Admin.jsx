@@ -115,6 +115,9 @@ const Admin = () => {
     setIsLoading(false);
   };
 
+  // ============================================
+  // 🔧 FIXED: Image upload now updates state directly!
+  // ============================================
   const handleImageUpload = async (userId, event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -132,8 +135,19 @@ const Admin = () => {
         });
       }
       
-      await uploadProfileImage(userId, file);
-      fetchData();
+      // 🎯 Få tillbaka URL direkt från uppladdningen
+      const response = await uploadProfileImage(userId, file);
+      const imageUrl = response.data.imageUrl;
+      
+      console.log('✅ Image uploaded:', imageUrl);
+      
+      // 🎯 Uppdatera agents state DIREKT istället för att hämta allt igen
+      setAgents(prevAgents => prevAgents.map(agent => 
+        String(agent.userId) === String(userId)
+          ? { ...agent, profileImage: imageUrl }
+          : agent
+      ));
+      
       alert('Profilbild uppladdad!');
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -529,7 +543,7 @@ const Admin = () => {
           </div>
         )}
 
-        {/* Slideshows Tab - NEW! */}
+        {/* Slideshows Tab */}
         {activeTab === 'slideshows' && !isLoading && (
           <div className="slideshows-section">
             <div className="section-header">
@@ -766,7 +780,7 @@ const Admin = () => {
         </div>
       )}
 
-      {/* Slideshow Modal - NEW! */}
+      {/* Slideshow Modal */}
       {showSlideshowModal && (
         <div className="modal-overlay" onClick={() => setShowSlideshowModal(false)}>
           <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
