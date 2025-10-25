@@ -6,14 +6,22 @@ const leaderboardService = require('../services/leaderboards');
 const slideshowService = require('../services/slideshows');
 const dealsCache = require('../services/dealsCache');
 const leaderboardCache = require('../services/leaderboardCache');
-const { cloudinary, imageStorage } = require('../config/cloudinary');
+const { cloudinary, storage } = require('../config/cloudinary'); // FIXED: Was 'imageStorage', now 'storage'
 const multer = require('multer');
 const path = require('path');
 
-// Multer upload med Cloudinary
+// Multer upload med Cloudinary (max 5MB, med filetype validation)
 const upload = multer({ 
-  storage: imageStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }
+  storage: storage, // FIXED: Now correctly using the storage from cloudinary config
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPEG, PNG, GIF and WebP allowed.'));
+    }
+  }
 });
 
 // Health check
@@ -68,12 +76,34 @@ router.post('/agents/:userId/profile-image', upload.single('image'), async (req,
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
+    // Cloudinary returnerar URL i req.file.path
     const imageUrl = req.file.path;
     console.log(`📸 Uploaded image to Cloudinary: ${imageUrl}`);
     
+    // Hämta befintlig agent för att få gamla bilden
+    const existingAgent = await database.getAgent(req.params.userId);
+    const oldImageUrl = existingAgent?.profileImage;
+    
+    // Uppdatera agent med ny bild
     const agent = await database.updateAgent(req.params.userId, {
       profileImage: imageUrl
     });
+    
+    // OPTIONAL: Radera gammal bild från Cloudinary (om vi vill spara storage)
+    if (oldImageUrl && oldImageUrl.includes('cloudinary')) {
+      try {
+        // Extrahera public_id från URL
+        const urlParts = oldImageUrl.split('/');
+        const filename = urlParts[urlParts.length - 1];
+        const publicId = `sweet-tv-profiles/${filename.split('.')[0]}`;
+        
+        await cloudinary.uploader.destroy(publicId);
+        console.log(`🗑️  Deleted old image from Cloudinary: ${publicId}`);
+      } catch (deleteError) {
+        console.error('⚠️  Could not delete old image:', deleteError.message);
+        // Continue anyway - not critical
+      }
+    }
     
     res.json({ imageUrl, agent });
   } catch (error) {
@@ -363,10 +393,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     
     console.log(`✅ Loaded ${leads.length} deals from persistent cache`);
     
-    // ========================================
-    // 🔧 FIXED: Use group.id instead of memberOf
-    // ========================================
-    
     // Hämta alla users EN gång (istället för att göra separata requests!)
     const usersResult = await adversusAPI.getUsers();
     const adversusUsers = usersResult.users || [];
@@ -418,10 +444,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       }
     }
     
-    // ========================================
-    // END OF FIX
-    // ========================================
-    
     const localAgents = await database.getAgents();
     
     const stats = {};
@@ -448,41 +470,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       stats[userId].totalCommission += commission;
       stats[userId].dealCount += 1;
     });
-    
-    // ========================================
-    // 🎯 FEATURE: Show all users from selected groups (even with 0 deals)
-    // ========================================
-    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
-      const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
-      
-      console.log(`   👥 Adding all users from selected groups (including 0 deals)...`);
-      
-      adversusUsers.forEach(adversusUser => {
-        if (adversusUser && adversusUser.group && adversusUser.group.id) {
-          const userGroupId = parseInt(adversusUser.group.id);
-          
-          // Om user är i någon av target groups
-          if (targetGroupIds.includes(userGroupId)) {
-            const userId = String(adversusUser.id);
-            
-            // Om user inte redan finns i stats (dvs har 0 deals), lägg till dem
-            if (!stats[userId]) {
-              stats[userId] = {
-                userId: userId,
-                totalCommission: 0,
-                dealCount: 0
-              };
-              console.log(`   ➕ Added user ${userId} with 0 deals`);
-            }
-          }
-        }
-      });
-      
-      console.log(`   ✅ Total users in leaderboard: ${Object.keys(stats).length}`);
-    }
-    // ========================================
-    // END OF FEATURE
-    // ========================================
     
     const leaderboardStats = Object.values(stats).map(stat => {
       const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
