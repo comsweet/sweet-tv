@@ -757,7 +757,7 @@ router.delete('/sounds/:id', async (req, res) => {
   }
 });
 
-// LINK agent to sound
+// 🔥 UPPDATERAD: LINK agent to sound - Uppdaterar BÅDA filerna!
 router.post('/sounds/:id/link-agent', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -765,14 +765,40 @@ router.post('/sounds/:id/link-agent', async (req, res) => {
       return res.status(400).json({ error: 'userId required' });
     }
     
+    console.log(`🔗 Linking agent ${userId} to sound ${req.params.id}`);
+    
+    // STEG 1: Lägg till i soundLibrary.json
     const sound = await soundLibrary.linkAgent(req.params.id, userId);
+    console.log(`✅ Added to sound linkedAgents`);
+    
+    // STEG 2: Uppdatera agents.json för att sätta customSound
+    const agent = await database.getAgent(userId);
+    if (agent) {
+      // Om agenten redan har ett annat customSound, ta bort från det ljudet först
+      if (agent.customSound && agent.customSound !== sound.url) {
+        const sounds = await soundLibrary.getSounds();
+        const oldSound = sounds.find(s => s.url === agent.customSound);
+        if (oldSound) {
+          await soundLibrary.unlinkAgent(oldSound.id, userId);
+          console.log(`✅ Removed agent from old sound`);
+        }
+      }
+      
+      await database.updateAgent(userId, {
+        customSound: sound.url,
+        preferCustomSound: true
+      });
+      console.log(`✅ Set customSound for agent ${agent.name || userId}`);
+    }
+    
     res.json(sound);
   } catch (error) {
+    console.error('❌ Error linking agent:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// UNLINK agent from sound
+// 🔥 UPPDATERAD: UNLINK agent from sound - Uppdaterar BÅDA filerna!
 router.post('/sounds/:id/unlink-agent', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -780,9 +806,26 @@ router.post('/sounds/:id/unlink-agent', async (req, res) => {
       return res.status(400).json({ error: 'userId required' });
     }
     
+    console.log(`🔗 Unlinking agent ${userId} from sound ${req.params.id}`);
+    
+    // STEG 1: Ta bort från soundLibrary.json
     const sound = await soundLibrary.unlinkAgent(req.params.id, userId);
+    console.log(`✅ Removed from sound linkedAgents`);
+    
+    // STEG 2: Uppdatera agents.json för att ta bort customSound
+    // Men BARA om agenten faktiskt hade detta ljud som customSound
+    const agent = await database.getAgent(userId);
+    if (agent && agent.customSound === sound.url) {
+      await database.updateAgent(userId, {
+        customSound: null,
+        preferCustomSound: false
+      });
+      console.log(`✅ Removed customSound from agent ${agent.name || userId}`);
+    }
+    
     res.json(sound);
   } catch (error) {
+    console.error('❌ Error unlinking agent:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -816,8 +859,7 @@ router.post('/sounds/test-simple', (req, res) => {
   res.json({ success: true, message: 'Test works!' });
 });
 
-// 🧹 CLEANUP ORPHANED SOUND REFERENCES
-// Fixar alla befintliga agenter som har gamla ljudkopplingar som inte längre är aktiva
+// 🧹 CLEANUP ORPHANED SOUND REFERENCES (gammal version - rensar bara agents.json)
 router.post('/sounds/cleanup', async (req, res) => {
   try {
     console.log('🧹 Starting cleanup of orphaned sound references...');
@@ -885,6 +927,129 @@ router.post('/sounds/cleanup', async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error during cleanup:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      details: error.stack 
+    });
+  }
+});
+
+// 🔥 NYA: FORCE CLEANUP - Synkroniserar soundLibrary.json och agents.json
+router.post('/sounds/force-cleanup', async (req, res) => {
+  try {
+    console.log('🧹 Starting FORCE CLEANUP of sound references...');
+    
+    // Hämta alla ljud och agenter
+    const sounds = await soundLibrary.getSounds();
+    const agents = await database.getAgents();
+    
+    console.log(`📊 Found ${sounds.length} sounds and ${agents.length} agents`);
+    
+    let soundsCleaned = 0;
+    let agentsCleaned = 0;
+    let totalRemovedLinks = 0;
+    
+    // ========== STEG 1: Rensa soundLibrary.json ==========
+    // För varje ljud, kolla om linkedAgents faktiskt har customSound
+    for (const sound of sounds) {
+      if (!sound.linkedAgents || sound.linkedAgents.length === 0) {
+        continue;
+      }
+      
+      const validLinks = [];
+      const removedLinks = [];
+      
+      for (const userId of sound.linkedAgents) {
+        const agent = agents.find(a => String(a.userId) === String(userId));
+        
+        // Kolla om agenten finns OCH har detta ljud som customSound
+        const hasValidLink = agent && 
+                           agent.customSound === sound.url && 
+                           agent.preferCustomSound === true;
+        
+        if (hasValidLink) {
+          validLinks.push(userId);
+        } else {
+          removedLinks.push(userId);
+          totalRemovedLinks++;
+          
+          const agentName = agent?.name || `Agent ${userId}`;
+          console.log(`🧹 Removing ${agentName} (${userId}) from sound "${sound.name}"`);
+        }
+      }
+      
+      // Uppdatera ljudet om vi tagit bort länkar
+      if (removedLinks.length > 0) {
+        await soundLibrary.updateSound(sound.id, {
+          linkedAgents: validLinks
+        });
+        soundsCleaned++;
+        
+        console.log(`✅ Cleaned sound "${sound.name}": removed ${removedLinks.length} invalid links`);
+      }
+    }
+    
+    // ========== STEG 2: Rensa agents.json ==========
+    // För varje agent med customSound, kolla att ljudet faktiskt finns
+    for (const agent of agents) {
+      if (!agent.customSound || !agent.preferCustomSound) {
+        continue;
+      }
+      
+      // Kolla om det finns ett ljud med denna URL
+      const sound = sounds.find(s => s.url === agent.customSound);
+      
+      if (!sound) {
+        // Ljudet finns inte alls - rensa agent
+        console.log(`🧹 Removing orphaned customSound from agent ${agent.name || agent.userId}`);
+        
+        await database.updateAgent(agent.userId, {
+          customSound: null,
+          preferCustomSound: false
+        });
+        
+        agentsCleaned++;
+        continue;
+      }
+      
+      // Kolla om agenten finns i ljudets linkedAgents
+      const isLinked = sound.linkedAgents && 
+                      sound.linkedAgents.some(id => String(id) === String(agent.userId));
+      
+      if (!isLinked) {
+        // Agenten har customSound men finns inte i ljudets linkedAgents
+        console.log(`🧹 Removing unlinked customSound from agent ${agent.name || agent.userId}`);
+        
+        await database.updateAgent(agent.userId, {
+          customSound: null,
+          preferCustomSound: false
+        });
+        
+        agentsCleaned++;
+      }
+    }
+    
+    console.log(`✅ FORCE CLEANUP COMPLETE!`);
+    console.log(`   - Cleaned ${soundsCleaned} sounds`);
+    console.log(`   - Removed ${totalRemovedLinks} invalid links from sounds`);
+    console.log(`   - Cleaned ${agentsCleaned} agents`);
+    
+    res.json({
+      success: true,
+      message: `Cleanup complete!`,
+      soundsCleaned,
+      agentsCleaned,
+      totalRemovedLinks,
+      details: {
+        soundsChecked: sounds.length,
+        agentsChecked: agents.length
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error during force cleanup:', error);
     console.error('Stack:', error.stack);
     res.status(500).json({ 
       success: false,
