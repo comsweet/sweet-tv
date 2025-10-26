@@ -1,6 +1,6 @@
 // KOMPLETT INLINE CSS VERSION - frontend/src/components/DualLeaderboardSlide.jsx
 // INGA EXTERNA CSS FILER BEHÖVS!
-// Fixar: Separat scroll, Dart emoji, Frozen topp 3
+// Fixar: Separat scroll, Dart emoji, Frozen topp 3, OCH SCROLLA HELA VÄGEN!
 
 import { useState, useEffect } from 'react';
 
@@ -232,7 +232,12 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const rowHeight = 52;
     const visibleRows = 15; // Minskad från 18 eftersom topp 3 är frozen
     const needsScroll = scrollableStats.length > visibleRows;
-    const maxScroll = needsScroll ? (scrollableStats.length - visibleRows) * rowHeight : 0;
+    
+    // 🔥 FIX: Scrolla hela vägen så sista användaren garanterat syns!
+    // Beräkna total höjd av innehåll och container, lägg till extra rowHeight för säkerhet
+    const containerHeight = visibleRows * rowHeight;
+    const totalContentHeight = scrollableStats.length * rowHeight;
+    const maxScroll = needsScroll ? Math.max(0, totalContentHeight - containerHeight + rowHeight) : 0;
 
     // 🔥 Använd rätt scroll position beroende på side
     const scrollPosition = side === 'left' ? leftScrollPosition : rightScrollPosition;
