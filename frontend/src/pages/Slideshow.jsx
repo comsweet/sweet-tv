@@ -1,8 +1,12 @@
+// frontend/src/pages/Slideshow.jsx
+// 🔄 UPPDATERA DENNA FIL - Ersätt hela innehållet
+
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
-import { getSlideshow, getLeaderboardStats2 } from '../services/api';
+import { getSlideshow, getLeaderboardStats2, getLeaderboard } from '../services/api';
 import DealNotification from '../components/DealNotification.jsx';
+import DualLeaderboardSlide from '../components/DualLeaderboardSlide.jsx'; // ✨ NY IMPORT
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -17,7 +21,6 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
     return labels[period] || period;
   };
 
-  // 🔥 Helper function för commission klass
   const getCommissionClass = (commission) => {
     if (commission === 0) return 'zero';
     if (commission < 3400) return 'low';
@@ -50,7 +53,6 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
                     animationDelay: isActive ? `${index * 0.1}s` : '0s'
                   }}
                 >
-                  {/* Rank */}
                   <div className="slideshow-rank">
                     {index === 0 && !isZeroDeals && '🥇'}
                     {index === 1 && !isZeroDeals && '🥈'}
@@ -58,7 +60,6 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
                     {(index > 2 || isZeroDeals) && `#${index + 1}`}
                   </div>
                   
-                  {/* Avatar */}
                   {item.agent.profileImage ? (
                     <img 
                       src={item.agent.profileImage} 
@@ -71,20 +72,17 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
                     </div>
                   )}
                   
-                  {/* Name - 🔥 UPDATED: Lägg till zero-deals klass på namnet */}
                   <div className="slideshow-info">
                     <h3 className={`slideshow-name ${isZeroDeals ? 'zero-deals' : ''}`}>
                       {item.agent.name}
                     </h3>
                   </div>
                   
-                  {/* Deals column with dart emoji */}
                   <div className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
                     <span className="emoji">🎯</span>
                     <span>{item.dealCount} affärer</span>
                   </div>
                   
-                  {/* 🔥 UPDATED: Commission med färglogik baserat på belopp */}
                   <div className={`slideshow-commission ${getCommissionClass(item.totalCommission)}`}>
                     {item.totalCommission.toLocaleString('sv-SE')} THB
                   </div>
@@ -110,69 +108,122 @@ const Slideshow = () => {
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
 
-  // Fetch slideshow och leaderboards data
+  // ✨ UPPDATERAD: Fetch slideshow med stöd för både single och dual mode
   const fetchSlideshowData = async (silent = false) => {
     try {
       if (!silent) {
         setIsLoading(true);
       }
       
-      // Hämta slideshow config
       const slideshowResponse = await getSlideshow(id);
       const slideshowData = slideshowResponse.data;
       setSlideshow(slideshowData);
       
-      if (!silent) {
-        console.log(`📺 Slideshow "${slideshowData.name}" with ${slideshowData.leaderboards.length} leaderboards`);
-      }
-      
-      // Hämta stats för varje leaderboard SEKVENTIELLT
-      const leaderboardsWithStats = [];
-      
-      for (let i = 0; i < slideshowData.leaderboards.length; i++) {
-        const lbId = slideshowData.leaderboards[i];
+      // ✨ NYTT: Hantera både single och dual mode
+      if (slideshowData.type === 'dual' && slideshowData.dualSlides) {
+        // Dual mode
+        if (!silent) {
+          console.log(`📺 Dual Slideshow "${slideshowData.name}" with ${slideshowData.dualSlides.length} dual slides`);
+        }
         
-        try {
-          if (!silent) {
-            console.log(`📈 Loading leaderboard ${i + 1}/${slideshowData.leaderboards.length}`);
-          }
-          const statsResponse = await getLeaderboardStats2(lbId);
+        const dualSlidesData = [];
+        
+        for (let i = 0; i < slideshowData.dualSlides.length; i++) {
+          const dualSlide = slideshowData.dualSlides[i];
           
-          leaderboardsWithStats.push({
-            leaderboard: statsResponse.data.leaderboard,
-            stats: statsResponse.data.stats || []
-          });
-          
-          if (!silent) {
-            console.log(`✅ Loaded (${statsResponse.data.stats?.length || 0} agents)`);
-          }
-          
-          // Delay mellan varje leaderboard (3s för rate limit protection!)
-          if (i < slideshowData.leaderboards.length - 1) {
+          try {
             if (!silent) {
-              console.log('⏳ Waiting 3s...');
+              console.log(`📈 Loading dual slide ${i + 1}/${slideshowData.dualSlides.length}`);
             }
-            await new Promise(resolve => setTimeout(resolve, 3000));
-          }
-          
-        } catch (error) {
-          console.error(`❌ Error loading leaderboard ${lbId}:`, error);
-          
-          // If rate limit, wait longer
-          if (error.response?.status === 429) {
-            console.log('⏰ Rate limit! Waiting 10s...');
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            
+            // Hämta båda leaderboards parallellt
+            const [leftStatsRes, rightStatsRes] = await Promise.all([
+              getLeaderboardStats2(dualSlide.left),
+              getLeaderboardStats2(dualSlide.right)
+            ]);
+            
+            dualSlidesData.push({
+              type: 'dual',
+              duration: dualSlide.duration,
+              leftLeaderboard: leftStatsRes.data.leaderboard,
+              rightLeaderboard: rightStatsRes.data.leaderboard,
+              leftStats: leftStatsRes.data.stats || [],
+              rightStats: rightStatsRes.data.stats || []
+            });
+            
+            if (!silent) {
+              console.log(`✅ Loaded dual slide (${leftStatsRes.data.stats?.length || 0} + ${rightStatsRes.data.stats?.length || 0} agents)`);
+            }
+            
+            // Delay mellan slides
+            if (i < slideshowData.dualSlides.length - 1) {
+              if (!silent) console.log('⏳ Waiting 3s...');
+              await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+            
+          } catch (error) {
+            console.error(`❌ Error loading dual slide:`, error);
+            if (error.response?.status === 429) {
+              console.log('⏰ Rate limit! Waiting 10s...');
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
           }
         }
+        
+        setLeaderboardsData(dualSlidesData);
+        
+      } else {
+        // Single mode (original logic)
+        if (!silent) {
+          console.log(`📺 Single Slideshow "${slideshowData.name}" with ${slideshowData.leaderboards.length} leaderboards`);
+        }
+        
+        const leaderboardsWithStats = [];
+        
+        for (let i = 0; i < slideshowData.leaderboards.length; i++) {
+          const lbId = slideshowData.leaderboards[i];
+          
+          try {
+            if (!silent) {
+              console.log(`📈 Loading leaderboard ${i + 1}/${slideshowData.leaderboards.length}`);
+            }
+            
+            const statsResponse = await getLeaderboardStats2(lbId);
+            
+            leaderboardsWithStats.push({
+              type: 'single',
+              leaderboard: statsResponse.data.leaderboard,
+              stats: statsResponse.data.stats || []
+            });
+            
+            if (!silent) {
+              console.log(`✅ Loaded (${statsResponse.data.stats?.length || 0} agents)`);
+            }
+            
+            // Delay mellan leaderboards
+            if (i < slideshowData.leaderboards.length - 1) {
+              if (!silent) console.log('⏳ Waiting 3s...');
+              await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+            
+          } catch (error) {
+            console.error(`❌ Error loading leaderboard ${lbId}:`, error);
+            if (error.response?.status === 429) {
+              console.log('⏰ Rate limit! Waiting 10s...');
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+          }
+        }
+        
+        setLeaderboardsData(leaderboardsWithStats);
       }
       
       if (!silent) {
-        console.log(`✅ Loaded ${leaderboardsWithStats.length} leaderboards for slideshow`);
+        console.log(`✅ Loaded slideshow successfully`);
       } else {
-        console.log(`🔄 Silent refresh: Updated ${leaderboardsWithStats.length} leaderboards`);
+        console.log(`🔄 Silent refresh complete`);
       }
       
-      setLeaderboardsData(leaderboardsWithStats);
       setIsLoading(false);
       
     } catch (error) {
@@ -182,29 +233,24 @@ const Slideshow = () => {
   };
 
   useEffect(() => {
-    // Initial fetch
     fetchSlideshowData();
     
-    // AUTOMATIC REFRESH var 2:e minut (background update)
     refreshIntervalRef.current = setInterval(() => {
       console.log('🔄 Auto-refresh: Updating leaderboard data...');
-      fetchSlideshowData(true); // silent = true (no loading screen)
-    }, 2 * 60 * 1000); // 2 minuter
+      fetchSlideshowData(true);
+    }, 2 * 60 * 1000);
     
-    // Socket för real-time notifications
     socketService.connect();
 
     const handleNewDeal = (notification) => {
       console.log('🎉 New deal:', notification);
       
-      // Show notification if agent is valid
       if (notification.agent && 
           notification.agent.name && 
           notification.agent.name !== 'Agent null') {
         setCurrentNotification(notification);
       }
       
-      // IMMEDIATE BACKGROUND UPDATE efter notification
       setTimeout(() => {
         console.log('🔄 Deal received: Refreshing leaderboard data...');
         fetchSlideshowData(true);
@@ -221,16 +267,15 @@ const Slideshow = () => {
     };
   }, [id]);
 
-  // Slideshow rotation with progress bar
+  // ✨ UPPDATERAD: Slide rotation med individuell duration per slide
   useEffect(() => {
     if (leaderboardsData.length === 0 || !slideshow) return;
 
-    const duration = (slideshow.duration || 15) * 1000;
+    const currentSlide = leaderboardsData[currentIndex];
+    const duration = (currentSlide?.duration || slideshow.duration || 15) * 1000;
     
-    // Reset progress
     setProgress(0);
     
-    // Progress bar animation (updates every 100ms)
     progressIntervalRef.current = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) return 0;
@@ -238,7 +283,6 @@ const Slideshow = () => {
       });
     }, 100);
     
-    // Slide rotation
     intervalRef.current = setInterval(() => {
       setProgress(0);
       setCurrentIndex((prev) => (prev + 1) % leaderboardsData.length);
@@ -248,7 +292,7 @@ const Slideshow = () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     };
-  }, [leaderboardsData, slideshow]);
+  }, [leaderboardsData, slideshow, currentIndex]);
 
   const handleNotificationComplete = () => {
     console.log('✅ Notification complete - clearing state');
@@ -279,7 +323,6 @@ const Slideshow = () => {
 
   return (
     <div className="slideshow-container">
-      {/* Progress bar */}
       <div className="slideshow-progress-bar">
         <div 
           className="slideshow-progress-fill"
@@ -287,7 +330,6 @@ const Slideshow = () => {
         />
       </div>
 
-      {/* Progress indicators */}
       <div className="slideshow-indicators">
         {leaderboardsData.map((_, index) => (
           <div 
@@ -297,17 +339,33 @@ const Slideshow = () => {
         ))}
       </div>
 
-      {/* Slides */}
-      {leaderboardsData.map((data, index) => (
-        <LeaderboardSlide
-          key={data.leaderboard.id}
-          leaderboard={data.leaderboard}
-          stats={data.stats}
-          isActive={index === currentIndex}
-        />
-      ))}
+      {/* ✨ UPPDATERAD: Render både single och dual slides */}
+      {leaderboardsData.map((slideData, index) => {
+        const isActive = index === currentIndex;
+        
+        if (slideData.type === 'dual') {
+          return (
+            <DualLeaderboardSlide
+              key={index}
+              leftLeaderboard={slideData.leftLeaderboard}
+              rightLeaderboard={slideData.rightLeaderboard}
+              leftStats={slideData.leftStats}
+              rightStats={slideData.rightStats}
+              isActive={isActive}
+            />
+          );
+        } else {
+          return (
+            <LeaderboardSlide
+              key={slideData.leaderboard.id}
+              leaderboard={slideData.leaderboard}
+              stats={slideData.stats}
+              isActive={isActive}
+            />
+          );
+        }
+      })}
 
-      {/* Deal notification */}
       {currentNotification && (
         <DealNotification 
           notification={currentNotification}
