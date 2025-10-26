@@ -249,6 +249,36 @@ const Admin = () => {
     }
   };
 
+  const clearDealsDatabase = async () => {
+  if (!confirm('Är du säker? Detta rensar alla deals från databasen!')) return;
+  
+  try {
+    const response = await fetch(`${API_URL}/deals/database`, {
+      method: 'DELETE'
+    });
+    const data = await response.json();
+    alert(data.message);
+  } catch (error) {
+    console.error('Error clearing deals:', error);
+    alert('Fel: ' + error.message);
+  }
+};
+
+  const clearDealsDatabase = async () => {
+  if (!confirm('Är du säker? Detta rensar alla deals från databasen!')) return;
+  
+  try {
+    const response = await fetch(`${API_URL}/deals/database`, {
+      method: 'DELETE'
+    });
+    const data = await response.json();
+    alert(data.message);
+  } catch (error) {
+    console.error('Error clearing deals:', error);
+    alert('Fel: ' + error.message);
+  }
+};
+
   // Leaderboard functions
   const handleAddLeaderboard = () => {
     setEditingLeaderboard(null);
@@ -489,6 +519,9 @@ const Admin = () => {
             🔄 Kolla nya affärer
           </button>
         </div>
+          <button onClick={clearDealsDatabase} className="btn-danger">
+            🗑️ Rensa Deals Database
+          </button>
       </header>
 
       <div className="admin-tabs">
