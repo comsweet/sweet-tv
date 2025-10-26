@@ -48,7 +48,21 @@ class DatabaseService {
   // AGENTS
   async getAgents() {
     const data = await fs.readFile(this.agentsFile, 'utf8');
-    return JSON.parse(data).agents;
+    const agents = JSON.parse(data).agents;
+    
+    // 🔍 DEBUG: Logga alla agents med profilbilder
+    const withImages = agents.filter(a => a.profileImage);
+    console.log(`👥 Loaded ${agents.length} agents (${withImages.length} with profile images)`);
+    
+    if (withImages.length > 0) {
+      console.log('📸 Sample agent with image:', {
+        userId: withImages[0].userId,
+        name: withImages[0].name,
+        profileImage: withImages[0].profileImage?.substring(0, 50) + '...'
+      });
+    }
+    
+    return agents;
   }
 
   async getAgent(userId) {
