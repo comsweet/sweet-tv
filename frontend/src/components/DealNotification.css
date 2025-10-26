@@ -1,0 +1,33 @@
+/* Additional styles for milestone notifications */
+
+.notification-message.milestone {
+  font-size: 1.3rem !important;
+  font-weight: bold;
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: milestoneGlow 1s infinite alternate;
+}
+
+@keyframes milestoneGlow {
+  from {
+    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
+  }
+  to {
+    filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.8));
+  }
+}
+
+/* Gold confetti colors for milestone */
+.deal-notification.milestone .notification-content {
+  border: 3px solid #ffd700;
+  box-shadow: 0 30px 80px rgba(255, 215, 0, 0.4);
+  animation: milestoneShake 0.5s ease-in-out;
+}
+
+@keyframes milestoneShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
