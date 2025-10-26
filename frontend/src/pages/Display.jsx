@@ -9,9 +9,8 @@ const playNotificationSound = () => {
   audio.play().catch(e => console.log('Could not play sound:', e));
 };
 
-const DealNotification = ({ notification, onComplete }) => {
-  useEffect(() => {
-    playNotificationSound();
+import DealNotification from '../components/DealNotification';
+import '../components/DealNotification.css';
     
     const duration = 3000;
     const end = Date.now() + duration;
