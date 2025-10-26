@@ -1,11 +1,188 @@
-// FIXED VERSION - frontend/src/components/DualLeaderboardSlide.jsx
-// Fixar: 
-// 1. Separat scroll för varje kolumn (44 vs 37 problem)
-// 2. Dart emoji istället för hjärta
-// 3. Freeze topp 3 (de stannar synliga medan resten scrollar)
+// KOMPLETT INLINE CSS VERSION - frontend/src/components/DualLeaderboardSlide.jsx
+// INGA EXTERNA CSS FILER BEHÖVS!
+// Fixar: Separat scroll, Dart emoji, Frozen topp 3
 
 import { useState, useEffect } from 'react';
-import './DualLeaderboardSlide.css';
+
+// 🎨 ALL CSS INLINE - Garanterat att fungera!
+const styles = {
+  slide: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0,
+    transform: 'translateX(100%) scale(0.9)',
+    transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+    pointerEvents: 'none'
+  },
+  slideActive: {
+    opacity: 1,
+    transform: 'translateX(0) scale(1)',
+    pointerEvents: 'all'
+  },
+  container: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '2rem',
+    height: '100vh',
+    padding: '3rem 2rem 2rem',
+    boxSizing: 'border-box'
+  },
+  column: {
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: '20px',
+    padding: '1.5rem',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+    overflow: 'hidden'
+  },
+  header: {
+    textAlign: 'center',
+    marginBottom: '1rem',
+    paddingBottom: '0.8rem',
+    borderBottom: '3px solid #667eea',
+    flexShrink: 0
+  },
+  headerTitle: {
+    margin: 0,
+    fontSize: '1.6rem',
+    color: '#2c3e50',
+    fontWeight: 'bold'
+  },
+  period: {
+    margin: '0.3rem 0 0',
+    fontSize: '0.95rem',
+    color: '#7f8c8d'
+  },
+  stats: {
+    margin: '0.3rem 0 0',
+    fontSize: '0.85rem',
+    color: '#95a5a6'
+  },
+  frozenSection: {
+    flexShrink: 0,
+    marginBottom: '0.8rem',
+    paddingBottom: '0.8rem',
+    borderBottom: '2px solid rgba(102, 126, 234, 0.2)',
+    background: 'linear-gradient(180deg, rgba(102, 126, 234, 0.05) 0%, transparent 100%)',
+    borderRadius: '10px',
+    padding: '0.5rem'
+  },
+  scrollContainer: {
+    position: 'relative',
+    overflow: 'hidden',
+    flex: 1
+  },
+  items: {
+    willChange: 'transform'
+  },
+  item: {
+    display: 'grid',
+    gridTemplateColumns: '50px 40px 1fr 100px 130px',
+    alignItems: 'center',
+    gap: '0.6rem',
+    padding: '0.4rem 0.8rem',
+    marginBottom: '0.4rem',
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: '10px',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    transition: 'all 0.3s ease'
+  },
+  itemFirstPlace: {
+    background: 'linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)',
+    borderColor: '#ffd700',
+    borderWidth: '3px',
+    transform: 'scale(1.02)',
+    boxShadow: '0 8px 30px rgba(255, 215, 0, 0.4)'
+  },
+  itemFrozen: {
+    position: 'relative',
+    zIndex: 10,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+  },
+  rank: {
+    fontSize: '1.1rem',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#2c3e50'
+  },
+  avatar: {
+    width: '35px',
+    height: '35px',
+    borderRadius: '50%',
+    objectFit: 'cover',
+    border: '2px solid rgba(102, 126, 234, 0.3)',
+    flexShrink: 0
+  },
+  avatarPlaceholder: {
+    width: '35px',
+    height: '35px',
+    borderRadius: '50%',
+    border: '2px solid rgba(102, 126, 234, 0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    color: 'white',
+    fontSize: '0.9rem',
+    fontWeight: 'bold'
+  },
+  info: {
+    minWidth: 0
+  },
+  name: {
+    margin: 0,
+    fontSize: '0.95rem',
+    fontWeight: 600,
+    color: '#2c3e50',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  },
+  nameZero: {
+    color: '#e74c3c'
+  },
+  deals: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.3rem',
+    fontSize: '1rem',
+    fontWeight: 600,
+    color: '#2c3e50'
+  },
+  commission: {
+    fontSize: '0.95rem',
+    fontWeight: 'bold',
+    textAlign: 'right',
+    whiteSpace: 'nowrap'
+  },
+  commissionZero: {
+    color: '#e74c3c'
+  },
+  commissionLow: {
+    color: '#e67e22'
+  },
+  commissionHigh: {
+    color: '#27ae60'
+  },
+  scrollIndicator: {
+    textAlign: 'center',
+    padding: '0.5rem',
+    background: 'rgba(102, 126, 234, 0.1)',
+    borderRadius: '8px',
+    marginTop: '0.5rem',
+    flexShrink: 0
+  },
+  scrollIndicatorText: {
+    fontSize: '0.85rem',
+    color: '#667eea',
+    fontWeight: 500
+  }
+};
 
 const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, rightStats, isActive }) => {
   // 🔥 SEPARAT SCROLL för varje kolumn!
@@ -27,10 +204,10 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     return labels[period] || period;
   };
 
-  const getCommissionClass = (commission) => {
-    if (!commission || commission === 0) return 'zero';
-    if (commission < 3400) return 'low';
-    return 'high';
+  const getCommissionStyle = (commission) => {
+    if (!commission || commission === 0) return styles.commissionZero;
+    if (commission < 3400) return styles.commissionLow;
+    return styles.commissionHigh;
   };
 
   // Reset scroll when slide becomes inactive
@@ -86,17 +263,17 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       const isFirstPlace = index === 0 && !isZeroDeals;
       const commission = item.totalCommission || 0;
 
+      const itemStyle = {
+        ...styles.item,
+        height: `${rowHeight}px`,
+        ...(isFirstPlace ? styles.itemFirstPlace : {}),
+        ...(isFrozen ? styles.itemFrozen : {})
+      };
+
       return (
-        <div
-          key={`${item.userId || index}-${item.agent.id || index}`}
-          className={`dual-leaderboard-item ${isFirstPlace ? 'first-place' : ''} ${isZeroDeals ? 'zero-deals' : ''} ${isFrozen ? 'frozen' : ''}`}
-          style={{ 
-            height: `${rowHeight}px`,
-            animationDelay: isActive ? `${index * 0.05}s` : '0s'
-          }}
-        >
+        <div key={`${item.userId || index}-${item.agent.id || index}`} style={itemStyle}>
           {/* Rank */}
-          <div className="dual-rank">
+          <div style={styles.rank}>
             {index === 0 && !isZeroDeals && '🥇'}
             {index === 1 && !isZeroDeals && '🥈'}
             {index === 2 && !isZeroDeals && '🥉'}
@@ -108,29 +285,29 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             <img
               src={item.agent.profileImage}
               alt={item.agent.name || 'Agent'}
-              className="dual-avatar"
+              style={styles.avatar}
             />
           ) : (
-            <div className="dual-avatar-placeholder">
+            <div style={styles.avatarPlaceholder}>
               {(item.agent.name && item.agent.name.charAt(0)) || '?'}
             </div>
           )}
 
           {/* Name */}
-          <div className="dual-info">
-            <p className={`dual-name ${isZeroDeals ? 'zero-deals' : ''}`}>
+          <div style={styles.info}>
+            <p style={{ ...styles.name, ...(isZeroDeals ? styles.nameZero : {}) }}>
               {item.agent.name || `Agent ${item.userId || '?'}`}
             </p>
           </div>
 
-          {/* Deals - 🎯 DART EMOJI ISTÄLLET FÖR HJÄRTA! */}
-          <div className="dual-deals">
-            <span className="deal-icon">🎯</span>
-            <span className={isZeroDeals ? 'zero' : ''}>{item.dealCount || 0}</span>
+          {/* Deals - 🎯 DART EMOJI! */}
+          <div style={styles.deals}>
+            <span>🎯</span>
+            <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
           </div>
 
           {/* Commission */}
-          <div className={`dual-commission ${getCommissionClass(commission)}`}>
+          <div style={{ ...styles.commission, ...getCommissionStyle(commission) }}>
             {commission.toLocaleString('sv-SE')} THB
           </div>
         </div>
@@ -138,18 +315,18 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     };
 
     return (
-      <div className="dual-leaderboard-column">
-        <div className="dual-leaderboard-header">
-          <h2>{leaderboard.name || 'Unnamed'}</h2>
-          <p className="dual-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
-          <p className="dual-stats">
+      <div style={styles.column}>
+        <div style={styles.header}>
+          <h2 style={styles.headerTitle}>{leaderboard.name || 'Unnamed'}</h2>
+          <p style={styles.period}>{getTimePeriodLabel(leaderboard.timePeriod)}</p>
+          <p style={styles.stats}>
             📊 {totalDeals} {totalDeals === 1 ? 'affär' : 'affärer'} • {stats.length} {stats.length === 1 ? 'agent' : 'agenter'}
           </p>
         </div>
 
         {/* 🔥 FROZEN TOP 3 - Visas alltid */}
         {topStats.length > 0 && (
-          <div className="dual-leaderboard-frozen">
+          <div style={styles.frozenSection}>
             {topStats.map((item, index) => renderItem(item, index, true))}
           </div>
         )}
@@ -157,13 +334,10 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         {/* SCROLLABLE REST */}
         {scrollableStats.length > 0 && (
           <>
-            <div 
-              className="dual-leaderboard-scroll-container"
-              style={{ height: `${visibleRows * rowHeight}px` }}
-            >
-              <div 
-                className="dual-leaderboard-items"
-                style={{ 
+            <div style={{ ...styles.scrollContainer, height: `${visibleRows * rowHeight}px` }}>
+              <div
+                style={{
+                  ...styles.items,
                   transform: `translateY(-${scrollPosition}px)`,
                   transition: 'transform 0.1s linear'
                 }}
@@ -173,8 +347,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             </div>
 
             {needsScroll && (
-              <div className="dual-scroll-indicator">
-                <span>Scrollar automatiskt...</span>
+              <div style={styles.scrollIndicator}>
+                <span style={styles.scrollIndicatorText}>Scrollar automatiskt...</span>
               </div>
             )}
           </>
@@ -183,19 +357,16 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     );
   };
 
+  const slideStyle = {
+    ...styles.slide,
+    ...(isActive ? styles.slideActive : {})
+  };
+
   return (
-    <div className={`dual-leaderboard-slide ${isActive ? 'active' : ''}`}>
-      <div className="dual-leaderboard-container">
-        <LeaderboardColumn
-          leaderboard={leftLeaderboard}
-          stats={leftStats}
-          side="left"
-        />
-        <LeaderboardColumn
-          leaderboard={rightLeaderboard}
-          stats={rightStats}
-          side="right"
-        />
+    <div style={slideStyle}>
+      <div style={styles.container}>
+        <LeaderboardColumn leaderboard={leftLeaderboard} stats={leftStats} side="left" />
+        <LeaderboardColumn leaderboard={rightLeaderboard} stats={rightStats} side="right" />
       </div>
     </div>
   );
