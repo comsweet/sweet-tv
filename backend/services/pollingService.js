@@ -1,5 +1,7 @@
 const adversusAPI = require('./adversusAPI');
 const database = require('./database');
+const soundSettings = require('./soundSettings');
+const soundLibrary = require('./soundLibrary');
 
 class PollingService {
   constructor(io) {
@@ -62,6 +64,10 @@ class PollingService {
             status: lead.status
           };
           
+          // BERÄKNA DAGENS TOTAL INNAN denna deal
+          const previousTotal = await database.getTodayTotalForAgent(deal.userId);
+          const newTotal = previousTotal + commissionValue;
+          
           // Spara dealen
           const savedDeal = await database.addDeal(deal);
           
@@ -82,7 +88,9 @@ class PollingService {
                           `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
                           null,
                     email: adversusUser.email || '',
-                    profileImage: null
+                    profileImage: null,
+                    customSound: null,
+                    preferCustomSound: false
                   };
                   
                   // Spara agent för framtida lookups
@@ -97,15 +105,47 @@ class PollingService {
             
             // Skicka notifikation ENDAST om vi har en giltig agent
             if (agent && agent.name && agent.name !== 'Agent null') {
+              
+              // 🎵 SOUND SELECTION LOGIC
+              const settings = await soundSettings.getSettings();
+              const dailyBudget = settings.dailyBudget || 3400;
+              
+              let soundType = 'default';
+              let soundUrl = settings.defaultSound;
+              
+              // 1. Kolla om agent NÅR milestone (dagsbudget)
+              const reachedBudget = newTotal >= dailyBudget && previousTotal < dailyBudget;
+              
+              if (reachedBudget && !agent.preferCustomSound) {
+                // 🏆 MILESTONE! Agent når dagsbudget FÖRSTA gången idag
+                soundType = 'milestone';
+                soundUrl = settings.milestoneSound || soundUrl;
+                console.log(`🏆 MILESTONE! ${agent.name} reached ${dailyBudget} THB (${previousTotal} → ${newTotal})`);
+              } else {
+                // 2. Annars, kolla om agent har personligt ljud
+                const agentSound = await soundLibrary.getSoundForAgent(deal.userId);
+                if (agentSound) {
+                  soundType = 'agent';
+                  soundUrl = agentSound.url;
+                  console.log(`💰 Playing custom sound for ${agent.name}`);
+                } else {
+                  console.log(`🔔 Playing default sound for ${agent.name}`);
+                }
+              }
+              
               const notification = {
                 deal: savedDeal,
                 agent: agent,
                 commission: deal.commission,
+                soundType: soundType,
+                soundUrl: soundUrl,
+                dailyTotal: newTotal,
+                reachedBudget: reachedBudget,
                 timestamp: new Date().toISOString()
               };
               
               this.io.emit('new_deal', notification);
-              console.log(`🎉 New deal notification sent for ${agent.name}`);
+              console.log(`🎉 New deal notification sent for ${agent.name} (sound: ${soundType})`);
             } else {
               console.log(`⚠️  Skipping notification - no valid agent for userId ${deal.userId}`);
             }
