@@ -8,6 +8,8 @@ import confetti from 'canvas-confetti';
  * - milestone: Dagsbudget ljud (agent reached daily budget)
  * - agent: Agent's custom sound
  * - default: Standard pling
+ * 
+ * 🔥 UPDATED: Popup visas i 10 sekunder (matchar max ljudlängd)
  */
 const DealNotification = ({ notification, onComplete }) => {
   const cleanupTimerRef = useRef(null);
@@ -64,9 +66,9 @@ const DealNotification = ({ notification, onComplete }) => {
     
     runConfetti();
 
-    // CLEANUP after 5 seconds
+    // 🔥 UPDATED: CLEANUP after 10 seconds (up from 5 seconds)
     cleanupTimerRef.current = setTimeout(() => {
-      console.log('🧹 Cleaning up notification (5s timeout)');
+      console.log('🧹 Cleaning up notification (10s timeout)');
       if (confettiFrameRef.current) {
         cancelAnimationFrame(confettiFrameRef.current);
       }
@@ -75,7 +77,7 @@ const DealNotification = ({ notification, onComplete }) => {
         audioRef.current.src = '';
       }
       onComplete();
-    }, 5000);
+    }, 10000);
 
     return () => {
       console.log('🧹 Component unmounting');
