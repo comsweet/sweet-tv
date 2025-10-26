@@ -2,7 +2,8 @@ const adversusAPI = require('./adversusAPI');
 const database = require('./database');
 const soundSettings = require('./soundSettings');
 const soundLibrary = require('./soundLibrary');
-const leaderboardCache = require('./leaderboardCache'); // 🔥 IMPORT CACHE!
+const leaderboardCache = require('./leaderboardCache');
+const dealsCache = require('./dealsCache'); // 🔥 IMPORT PERSISTENT DEALS CACHE!
 
 class PollingService {
   constructor(io) {
@@ -185,6 +186,25 @@ class PollingService {
       // 🔥 CRITICAL FIX: INVALIDATE LEADERBOARD CACHE!
       console.log('🗑️  Invalidating all leaderboard caches after new deal');
       leaderboardCache.clear();
+      
+      // 🔥 NEW FIX: ADD TO PERSISTENT DEALS CACHE!
+      try {
+        const allDeals = await dealsCache.getCache();
+        allDeals.push({
+          leadId: deal.leadId,
+          userId: deal.userId,
+          campaignId: deal.campaignId,
+          commission: parseFloat(deal.commission),
+          multiDeals: deal.multiDeals,
+          orderDate: deal.orderDate,
+          status: deal.status,
+          syncedAt: new Date().toISOString()
+        });
+        await dealsCache.saveCache(allDeals);
+        console.log('💾 Added new deal to persistent deals cache');
+      } catch (cacheError) {
+        console.error('⚠️  Could not add deal to persistent cache:', cacheError.message);
+      }
       
       // Log om det kom från pending queue
       if (fromPending) {
