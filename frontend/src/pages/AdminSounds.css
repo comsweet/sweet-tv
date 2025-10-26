@@ -85,6 +85,50 @@
   border-color: #667eea;
 }
 
+/* 🔥 NY: Cleanup Section */
+.sounds-cleanup-section {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.sounds-cleanup-section h3 {
+  margin: 0 0 0.5rem 0;
+  color: #856404;
+  font-size: 1.3rem;
+}
+
+.cleanup-hint {
+  color: #856404;
+  margin: 0.5rem 0 1rem 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+.btn-warning:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
+}
+
+.btn-warning:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Library Section */
 .sounds-library-section {
   background: white;
