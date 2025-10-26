@@ -765,4 +765,18 @@ router.get('/sounds/agent/:userId', async (req, res) => {
   }
 });
 
+javascript// 🔍 DEBUG ENDPOINT - Se innehållet i agents.json
+router.get('/debug/agents-raw', async (req, res) => {
+  try {
+    const fs = require('fs').promises;
+    const path = require('path');
+    const filePath = path.join('/var/data', 'agents.json');
+    const data = await fs.readFile(filePath, 'utf8');
+    res.setHeader('Content-Type', 'application/json');
+    res.send(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
