@@ -32,43 +32,56 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
           <div className="slideshow-no-data">Inga affärer än</div>
         ) : (
           <div className="slideshow-items">
-            {stats.slice(0, 20).map((item, index) => (
-              <div 
-                key={item.userId} 
-                className={`slideshow-item ${index === 0 ? 'first-place' : ''}`}
-                style={{ 
-                  animationDelay: isActive ? `${index * 0.1}s` : '0s'
-                }}
-              >
-                <div className="slideshow-rank">
-                  {index === 0 && '🥇'}
-                  {index === 1 && '🥈'}
-                  {index === 2 && '🥉'}
-                  {index > 2 && `#${index + 1}`}
-                </div>
-                
-                {item.agent.profileImage ? (
-                  <img 
-                    src={item.agent.profileImage} 
-                    alt={item.agent.name}
-                    className="slideshow-avatar"
-                  />
-                ) : (
-                  <div className="slideshow-avatar-placeholder">
-                    {item.agent.name?.charAt(0) || '?'}
+            {stats.slice(0, 20).map((item, index) => {
+              const isZeroDeals = item.dealCount === 0;
+              
+              return (
+                <div 
+                  key={item.userId} 
+                  className={`slideshow-item ${index === 0 && !isZeroDeals ? 'first-place' : ''} ${isZeroDeals ? 'zero-deals' : ''}`}
+                  style={{ 
+                    animationDelay: isActive ? `${index * 0.1}s` : '0s'
+                  }}
+                >
+                  {/* Rank */}
+                  <div className="slideshow-rank">
+                    {index === 0 && !isZeroDeals && '🥇'}
+                    {index === 1 && !isZeroDeals && '🥈'}
+                    {index === 2 && !isZeroDeals && '🥉'}
+                    {(index > 2 || isZeroDeals) && `#${index + 1}`}
                   </div>
-                )}
-                
-                <div className="slideshow-info">
-                  <h3 className="slideshow-name">{item.agent.name}</h3>
-                  <p className="slideshow-deals">{item.dealCount} affärer</p>
+                  
+                  {/* Avatar */}
+                  {item.agent.profileImage ? (
+                    <img 
+                      src={item.agent.profileImage} 
+                      alt={item.agent.name}
+                      className="slideshow-avatar"
+                    />
+                  ) : (
+                    <div className="slideshow-avatar-placeholder">
+                      {item.agent.name?.charAt(0) || '?'}
+                    </div>
+                  )}
+                  
+                  {/* Name */}
+                  <div className="slideshow-info">
+                    <h3 className="slideshow-name">{item.agent.name}</h3>
+                  </div>
+                  
+                  {/* 🔥 NEW: Deals column with dart emoji */}
+                  <div className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
+                    <span className="emoji">🎯</span>
+                    <span>{item.dealCount} affärer</span>
+                  </div>
+                  
+                  {/* 🔥 UPDATED: Commission with red color for zero */}
+                  <div className={`slideshow-commission ${isZeroDeals ? 'zero' : ''}`}>
+                    {item.totalCommission.toLocaleString('sv-SE')} THB
+                  </div>
                 </div>
-                
-                <div className="slideshow-commission">
-                  {item.totalCommission.toLocaleString('sv-SE')} THB
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -88,7 +101,7 @@ const Slideshow = () => {
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
 
-  // 🔥 FIXED: Fetch slideshow och leaderboards data
+  // Fetch slideshow och leaderboards data
   const fetchSlideshowData = async (silent = false) => {
     try {
       if (!silent) {
@@ -163,7 +176,7 @@ const Slideshow = () => {
     // Initial fetch
     fetchSlideshowData();
     
-    // 🔥 AUTOMATIC REFRESH var 2:e minut (background update)
+    // AUTOMATIC REFRESH var 2:e minut (background update)
     refreshIntervalRef.current = setInterval(() => {
       console.log('🔄 Auto-refresh: Updating leaderboard data...');
       fetchSlideshowData(true); // silent = true (no loading screen)
@@ -182,11 +195,10 @@ const Slideshow = () => {
         setCurrentNotification(notification);
       }
       
-      // 🔥 FIXED: IMMEDIATE BACKGROUND UPDATE efter notification
-      // Vänta 5s för att backend ska processa dealen
+      // IMMEDIATE BACKGROUND UPDATE efter notification
       setTimeout(() => {
         console.log('🔄 Deal received: Refreshing leaderboard data...');
-        fetchSlideshowData(true); // Silent refresh - FIXED function name!
+        fetchSlideshowData(true);
       }, 5000);
     };
 
