@@ -632,6 +632,19 @@ router.post('/deals/clean', async (req, res) => {
   }
 });
 
+// CLEAR DEALS DATABASE (för testing/reset)
+router.delete('/deals/database', async (req, res) => {
+  try {
+    await database.clearDeals();
+    res.json({ 
+      success: true, 
+      message: 'Cleared deals database (deals.json)'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== SOUND MANAGEMENT ====================
 
 // GET sound settings
