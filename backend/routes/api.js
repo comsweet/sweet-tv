@@ -820,44 +820,71 @@ router.post('/sounds/cleanup', async (req, res) => {
     const sounds = await soundLibrary.getSounds();
     const agents = await database.getAgents();
     
+    console.log(`📊 Found ${sounds.length} sounds and ${agents.length} agents`);
+    
     let cleanedCount = 0;
+    let checkedCount = 0;
     
     // För varje agent, kolla om de har ljudkopplingar
     for (const agent of agents) {
-      const userIdNum = typeof agent.userId === 'string' ? parseInt(agent.userId, 10) : agent.userId;
-      
-      // Kolla om agenten finns i något ljuds linkedAgents array
-      const hasActiveSoundLink = sounds.some(sound => 
-        sound.linkedAgents.some(linkedId => {
-          const normalizedLinkedId = typeof linkedId === 'string' ? parseInt(linkedId, 10) : linkedId;
-          return normalizedLinkedId === userIdNum;
-        })
-      );
-      
-      // Om agenten INTE finns i något ljuds linkedAgents men har customSound/preferCustomSound
-      if (!hasActiveSoundLink && (agent.customSound || agent.preferCustomSound)) {
-        console.log(`🧹 Cleaning orphaned sound reference for agent ${agent.name || userIdNum} (${userIdNum})`);
+      try {
+        // Skip if agent has no userId
+        if (!agent.userId) {
+          console.log(`⚠️  Skipping agent without userId`);
+          continue;
+        }
         
-        await database.updateAgent(userIdNum, {
-          customSound: null,
-          preferCustomSound: false
+        const userIdNum = typeof agent.userId === 'string' ? parseInt(agent.userId, 10) : agent.userId;
+        checkedCount++;
+        
+        // Kolla om agenten finns i något ljuds linkedAgents array
+        const hasActiveSoundLink = sounds.some(sound => {
+          // Safety check: ensure linkedAgents exists and is an array
+          if (!sound.linkedAgents || !Array.isArray(sound.linkedAgents)) {
+            return false;
+          }
+          
+          return sound.linkedAgents.some(linkedId => {
+            const normalizedLinkedId = typeof linkedId === 'string' ? parseInt(linkedId, 10) : linkedId;
+            return normalizedLinkedId === userIdNum;
+          });
         });
         
-        cleanedCount++;
+        // Om agenten INTE finns i något ljuds linkedAgents men har customSound/preferCustomSound
+        if (!hasActiveSoundLink && (agent.customSound || agent.preferCustomSound)) {
+          console.log(`🧹 Cleaning orphaned sound reference for agent ${agent.name || userIdNum} (${userIdNum})`);
+          
+          await database.updateAgent(userIdNum, {
+            customSound: null,
+            preferCustomSound: false
+          });
+          
+          cleanedCount++;
+        }
+      } catch (agentError) {
+        console.error(`❌ Error processing agent ${agent.userId}:`, agentError.message);
+        // Continue with next agent
+        continue;
       }
     }
     
-    console.log(`✅ Cleanup complete! Cleaned ${cleanedCount} orphaned sound references`);
+    console.log(`✅ Cleanup complete! Checked ${checkedCount} agents, cleaned ${cleanedCount} orphaned references`);
     
     res.json({
       success: true,
       message: `Cleaned ${cleanedCount} orphaned sound references`,
-      cleanedCount: cleanedCount
+      cleanedCount: cleanedCount,
+      checkedCount: checkedCount
     });
     
   } catch (error) {
-    console.error('Error during cleanup:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error during cleanup:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      details: error.stack 
+    });
   }
 });
 
