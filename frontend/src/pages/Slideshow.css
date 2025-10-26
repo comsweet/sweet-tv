@@ -108,12 +108,12 @@ body {
   pointer-events: all;
 }
 
-/* Slide Content - Optimized for 1080p TV (20 agents!) */
+/* Slide Content */
 .slideshow-content {
   max-width: 100%;
   width: 100%;
   margin: 0;
-  padding: 2.5rem 3rem 1rem; /* 🔥 REDUCED padding */
+  padding: 2.5rem 3rem 1rem;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -122,27 +122,27 @@ body {
 
 .slideshow-header {
   text-align: center;
-  margin-bottom: 1rem; /* 🔥 REDUCED from 1.5rem */
+  margin-bottom: 1rem;
   animation: slideInFromTop 0.6s ease-out;
 }
 
 .slideshow-header h1 {
   margin: 0;
-  font-size: 2.2rem; /* 🔥 REDUCED from 2.5rem */
+  font-size: 2.2rem;
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   animation: fadeInScale 0.6s ease-out;
 }
 
 .slideshow-period {
-  margin: 0.2rem 0 0; /* 🔥 REDUCED from 0.3rem */
-  font-size: 1rem; /* 🔥 REDUCED from 1.1rem */
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
   color: rgba(255, 255, 255, 0.9);
   animation: fadeIn 0.8s ease-out;
 }
 
 .slideshow-stats {
-  margin: 0.2rem 0 0; /* 🔥 REDUCED from 0.3rem */
-  font-size: 0.9rem; /* 🔥 REDUCED from 1rem */
+  margin: 0.2rem 0 0;
+  font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.8);
   animation: fadeIn 1s ease-out;
 }
@@ -199,27 +199,27 @@ body {
   animation: fadeIn 1s ease-out;
 }
 
-/* Leaderboard Items - COMPACT for 20 agents on 1080p */
+/* Leaderboard Items */
 .slideshow-items {
   flex: 1;
   overflow-y: auto;
-  padding-right: 0.5rem; /* 🔥 REDUCED from 1rem */
+  padding-right: 0.5rem;
 }
 
 .slideshow-item {
   display: grid;
-  grid-template-columns: 60px 50px 1fr 140px 160px; /* 🔥 NEW LAYOUT: rank, avatar, name, DEALS, commission */
+  grid-template-columns: 60px 50px 1fr 140px 160px;
   align-items: center;
-  gap: 0.8rem; /* 🔥 REDUCED from 1rem */
-  padding: 0.4rem 1rem; /* 🔥 REDUCED from 0.6rem 1.5rem */
-  margin-bottom: 0.4rem; /* 🔥 REDUCED from 0.6rem */
+  gap: 0.8rem;
+  padding: 0.4rem 1rem;
+  margin-bottom: 0.4rem;
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 10px; /* 🔥 REDUCED from 12px */
+  border-radius: 10px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   transition: all 0.3s ease;
   opacity: 0;
   animation: slideInFromLeft 0.5s ease-out forwards;
-  min-height: 45px; /* 🔥 REDUCED from 50px */
+  min-height: 45px;
 }
 
 .slideshow-item:hover {
@@ -227,15 +227,9 @@ body {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
 
-/* 🔥 NEW: Zero deals styling */
-.slideshow-item.zero-deals {
-  background: rgba(200, 200, 200, 0.85); /* Grå bakgrund */
-  border-color: rgba(150, 150, 150, 0.4);
-  opacity: 0.85;
-}
-
+/* 🔥 UPDATED: Zero deals styling - mindre hover-effekt */
 .slideshow-item.zero-deals:hover {
-  transform: translateX(10px) scale(1.01); /* Mindre hover-effekt */
+  transform: translateX(10px) scale(1.01);
 }
 
 .slideshow-item.first-place {
@@ -251,7 +245,7 @@ body {
 }
 
 .slideshow-rank {
-  font-size: 1.3rem; /* 🔥 REDUCED from 1.5rem */
+  font-size: 1.3rem;
   font-weight: bold;
   text-align: center;
   color: #2c3e50;
@@ -259,7 +253,7 @@ body {
 
 .slideshow-avatar,
 .slideshow-avatar-placeholder {
-  width: 40px; /* 🔥 REDUCED from 45px */
+  width: 40px;
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
@@ -273,17 +267,17 @@ body {
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  font-size: 1rem; /* 🔥 REDUCED from 1.2rem */
+  font-size: 1rem;
   font-weight: bold;
 }
 
 .slideshow-info {
-  min-width: 0; /* Important for text-overflow */
+  min-width: 0;
 }
 
 .slideshow-name {
   margin: 0;
-  font-size: 1rem; /* 🔥 REDUCED from 1.1rem */
+  font-size: 1rem;
   font-weight: 600;
   color: #2c3e50;
   white-space: nowrap;
@@ -291,9 +285,12 @@ body {
   text-overflow: ellipsis;
 }
 
-/* 🔥 REMOVED old .slideshow-deals - replaced with new column */
+/* 🔥 NEW: Rött namn för zero deals */
+.slideshow-name.zero-deals {
+  color: #e74c3c;
+}
 
-/* 🔥 NEW: Deals column (middle column) */
+/* Deals column */
 .slideshow-deals-column {
   display: flex;
   align-items: center;
@@ -309,24 +306,35 @@ body {
   font-size: 1.3rem;
 }
 
-/* 🔥 NEW: Zero deals text styling */
 .slideshow-deals-column.zero {
   color: #95a5a6;
   font-weight: 500;
 }
 
+/* 🔥 UPDATED: Commission färglogik */
 .slideshow-commission {
-  font-size: 1.2rem; /* 🔥 REDUCED from 1.3rem */
+  font-size: 1.2rem;
   font-weight: bold;
-  color: #27ae60;
   white-space: nowrap;
   text-align: right;
 }
 
-/* 🔥 NEW: Zero commission in RED */
+/* Röd för 0 THB */
 .slideshow-commission.zero {
   color: #e74c3c;
   font-weight: 600;
+}
+
+/* Svart för under 3400 THB */
+.slideshow-commission.low {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+/* Grön för 3400 THB eller över */
+.slideshow-commission.high {
+  color: #27ae60;
+  font-weight: bold;
 }
 
 /* Deal Notification */
@@ -419,7 +427,7 @@ body {
 
 /* Scrollbar */
 .slideshow-items::-webkit-scrollbar {
-  width: 8px; /* 🔥 REDUCED from 10px */
+  width: 8px;
 }
 
 .slideshow-items::-webkit-scrollbar-track {
