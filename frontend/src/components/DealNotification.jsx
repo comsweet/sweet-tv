@@ -9,7 +9,10 @@ import confetti from 'canvas-confetti';
  * - agent: Agent's custom sound
  * - default: Standard pling
  * 
- * 🔥 UPDATED: Popup visas i 10 sekunder (matchar max ljudlängd)
+ * 🔥 UPDATED: 
+ * - Popup visas i 10 sekunder (matchar max ljudlängd)
+ * - Mörk backdrop bakom popupen för bättre fokus
+ * - Konfetti varar hela 10 sekunder (matchar popup-duration)
  */
 const DealNotification = ({ notification, onComplete }) => {
   const cleanupTimerRef = useRef(null);
@@ -36,8 +39,8 @@ const DealNotification = ({ notification, onComplete }) => {
       console.log('⚠️  No sound URL provided');
     }
     
-    // CONFETTI ANIMATION
-    const confettiDuration = 3000;
+    // CONFETTI ANIMATION - varar lika länge som popupen (10s)
+    const confettiDuration = 10000;
     const confettiEnd = Date.now() + confettiDuration;
     const colors = notification.soundType === 'milestone' 
       ? ['#ffd700', '#ffffff', '#ffed4e'] // Gold for milestone
@@ -66,7 +69,7 @@ const DealNotification = ({ notification, onComplete }) => {
     
     runConfetti();
 
-    // 🔥 UPDATED: CLEANUP after 10 seconds (up from 5 seconds)
+    // 🔥 CLEANUP after 10 seconds
     cleanupTimerRef.current = setTimeout(() => {
       console.log('🧹 Cleaning up notification (10s timeout)');
       if (confettiFrameRef.current) {
@@ -97,38 +100,43 @@ const DealNotification = ({ notification, onComplete }) => {
   const { agent, commission, soundType, dailyTotal } = notification;
 
   return (
-    <div className="deal-notification">
-      <audio ref={audioRef} />
+    <>
+      {/* 🔥 NEW: Mörk backdrop bakom popupen */}
+      <div className="notification-backdrop"></div>
       
-      <div className="notification-content">
-        {agent.profileImage && (
-          <img 
-            src={agent.profileImage} 
-            alt={agent.name}
-            className="notification-avatar"
-          />
-        )}
-        {!agent.profileImage && (
-          <div className="notification-avatar-placeholder">
-            {agent.name?.charAt(0) || '?'}
-          </div>
-        )}
-        <div className="notification-text">
-          <h2 className="notification-name">{agent.name}</h2>
-          <p className="notification-commission">
-            +{parseFloat(commission).toLocaleString('sv-SE')} THB
-          </p>
-          {soundType === 'milestone' && dailyTotal && (
-            <p className="notification-message milestone">
-              🏆 DAGSBUDGET NÅD! ({dailyTotal.toLocaleString('sv-SE')} THB idag)
+      <div className="deal-notification">
+        <audio ref={audioRef} />
+        
+        <div className="notification-content">
+          {agent.profileImage && (
+            <img 
+              src={agent.profileImage} 
+              alt={agent.name}
+              className="notification-avatar"
+            />
+          )}
+          {!agent.profileImage && (
+            <div className="notification-avatar-placeholder">
+              {agent.name?.charAt(0) || '?'}
+            </div>
+          )}
+          <div className="notification-text">
+            <h2 className="notification-name">{agent.name}</h2>
+            <p className="notification-commission">
+              +{parseFloat(commission).toLocaleString('sv-SE')} THB
             </p>
-          )}
-          {soundType !== 'milestone' && (
-            <p className="notification-message">🎉 Ny affär registrerad!</p>
-          )}
+            {soundType === 'milestone' && dailyTotal && (
+              <p className="notification-message milestone">
+                🏆 DAGSBUDGET NÅD! ({dailyTotal.toLocaleString('sv-SE')} THB idag)
+              </p>
+            )}
+            {soundType !== 'milestone' && (
+              <p className="notification-message">🎉 Ny affär registrerad!</p>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
