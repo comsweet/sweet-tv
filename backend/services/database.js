@@ -60,15 +60,22 @@ class DatabaseService {
     const agents = await this.getAgents();
     const existingIndex = agents.findIndex(a => a.userId === agent.userId);
     
+    // Default sound preferences
+    const agentData = {
+      ...agent,
+      customSound: agent.customSound || null,
+      preferCustomSound: agent.preferCustomSound !== undefined ? agent.preferCustomSound : false
+    };
+    
     if (existingIndex !== -1) {
-      agents[existingIndex] = { ...agents[existingIndex], ...agent };
+      agents[existingIndex] = { ...agents[existingIndex], ...agentData };
     } else {
-      agents.push(agent);
+      agents.push(agentData);
     }
     
     await fs.writeFile(this.agentsFile, JSON.stringify({ agents }, null, 2));
     console.log(`💾 Saved agent ${agent.userId} to persistent disk`);
-    return agent;
+    return agentData;
   }
 
   async updateAgent(userId, updates) {
@@ -125,6 +132,22 @@ class DatabaseService {
       const dealDate = new Date(deal.orderDate || deal.timestamp);
       return dealDate >= startDate && dealDate <= endDate;
     });
+  }
+
+  // Get today's deals for a specific agent
+  async getTodayDealsForAgent(userId) {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    
+    const deals = await this.getDealsInRange(startOfDay, endOfDay);
+    return deals.filter(deal => String(deal.userId) === String(userId));
+  }
+
+  // Get today's total commission for agent
+  async getTodayTotalForAgent(userId) {
+    const todayDeals = await this.getTodayDealsForAgent(userId);
+    return todayDeals.reduce((sum, deal) => sum + parseFloat(deal.commission || 0), 0);
   }
 }
 
