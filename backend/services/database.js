@@ -163,6 +163,13 @@ class DatabaseService {
     const todayDeals = await this.getTodayDealsForAgent(userId);
     return todayDeals.reduce((sum, deal) => sum + parseFloat(deal.commission || 0), 0);
   }
+
+  // 🔥 CLEAR ALL DEALS (för testing/reset)
+  async clearDeals() {
+    await fs.writeFile(this.dealsFile, JSON.stringify({ deals: [] }, null, 2));
+    console.log('🗑️  Cleared all deals from database');
+    return true;
+  }
 }
 
 module.exports = new DatabaseService();
