@@ -17,6 +17,13 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
     return labels[period] || period;
   };
 
+  // 🔥 Helper function för commission klass
+  const getCommissionClass = (commission) => {
+    if (commission === 0) return 'zero';
+    if (commission < 3400) return 'low';
+    return 'high';
+  };
+
   const totalDeals = stats.reduce((sum, stat) => sum + stat.dealCount, 0);
 
   return (
@@ -64,19 +71,21 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
                     </div>
                   )}
                   
-                  {/* Name */}
+                  {/* Name - 🔥 UPDATED: Lägg till zero-deals klass på namnet */}
                   <div className="slideshow-info">
-                    <h3 className="slideshow-name">{item.agent.name}</h3>
+                    <h3 className={`slideshow-name ${isZeroDeals ? 'zero-deals' : ''}`}>
+                      {item.agent.name}
+                    </h3>
                   </div>
                   
-                  {/* 🔥 NEW: Deals column with dart emoji */}
+                  {/* Deals column with dart emoji */}
                   <div className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
                     <span className="emoji">🎯</span>
                     <span>{item.dealCount} affärer</span>
                   </div>
                   
-                  {/* 🔥 UPDATED: Commission with red color for zero */}
-                  <div className={`slideshow-commission ${isZeroDeals ? 'zero' : ''}`}>
+                  {/* 🔥 UPDATED: Commission med färglogik baserat på belopp */}
+                  <div className={`slideshow-commission ${getCommissionClass(item.totalCommission)}`}>
                     {item.totalCommission.toLocaleString('sv-SE')} THB
                   </div>
                 </div>
