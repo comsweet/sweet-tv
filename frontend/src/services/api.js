@@ -56,6 +56,7 @@ export const deleteSlideshow = (id) => api.delete(`/slideshows/${id}`);
 export const getSoundSettings = () => api.get('/sounds/settings');
 export const updateSoundSettings = (data) => api.put('/sounds/settings', data);
 export const getSounds = () => api.get('/sounds');
+export const getSound = (id) => api.get(`/sounds/${id}`);
 export const uploadSound = (file) => {
   const formData = new FormData();
   formData.append('sound', file);
@@ -71,5 +72,6 @@ export const linkAgentToSound = (soundId, userId) =>
   api.post(`/sounds/${soundId}/link-agent`, { userId });
 export const unlinkAgentFromSound = (soundId, userId) => 
   api.post(`/sounds/${soundId}/unlink-agent`, { userId });
+export const getSoundForAgent = (userId) => api.get(`/sounds/agent/${userId}`);
 
 export default api;
