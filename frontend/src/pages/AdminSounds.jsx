@@ -5,6 +5,7 @@ import {
   getSounds,
   uploadSound,
   deleteSound,
+  updateSound,
   linkAgentToSound,
   unlinkAgentFromSound,
   getAgents
