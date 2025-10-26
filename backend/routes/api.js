@@ -810,4 +810,55 @@ router.get('/sounds/agent/:userId', async (req, res) => {
   }
 });
 
+// 🧹 CLEANUP ORPHANED SOUND REFERENCES
+// Fixar alla befintliga agenter som har gamla ljudkopplingar som inte längre är aktiva
+router.post('/sounds/cleanup', async (req, res) => {
+  try {
+    console.log('🧹 Starting cleanup of orphaned sound references...');
+    
+    // Hämta alla ljud och agenter
+    const sounds = await soundLibrary.getSounds();
+    const agents = await database.getAgents();
+    
+    let cleanedCount = 0;
+    
+    // För varje agent, kolla om de har ljudkopplingar
+    for (const agent of agents) {
+      const userIdNum = typeof agent.userId === 'string' ? parseInt(agent.userId, 10) : agent.userId;
+      
+      // Kolla om agenten finns i något ljuds linkedAgents array
+      const hasActiveSoundLink = sounds.some(sound => 
+        sound.linkedAgents.some(linkedId => {
+          const normalizedLinkedId = typeof linkedId === 'string' ? parseInt(linkedId, 10) : linkedId;
+          return normalizedLinkedId === userIdNum;
+        })
+      );
+      
+      // Om agenten INTE finns i något ljuds linkedAgents men har customSound/preferCustomSound
+      if (!hasActiveSoundLink && (agent.customSound || agent.preferCustomSound)) {
+        console.log(`🧹 Cleaning orphaned sound reference for agent ${agent.name || userIdNum} (${userIdNum})`);
+        
+        await database.updateAgent(userIdNum, {
+          customSound: null,
+          preferCustomSound: false
+        });
+        
+        cleanedCount++;
+      }
+    }
+    
+    console.log(`✅ Cleanup complete! Cleaned ${cleanedCount} orphaned sound references`);
+    
+    res.json({
+      success: true,
+      message: `Cleaned ${cleanedCount} orphaned sound references`,
+      cleanedCount: cleanedCount
+    });
+    
+  } catch (error) {
+    console.error('Error during cleanup:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
