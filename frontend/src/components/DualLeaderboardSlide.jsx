@@ -1,10 +1,21 @@
-// frontend/src/components/DualLeaderboardSlide.jsx
+// FIXED VERSION - frontend/src/components/DualLeaderboardSlide.jsx
 
 import { useState, useEffect } from 'react';
 import './DualLeaderboardSlide.css';
 
 const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, rightStats, isActive }) => {
   const [scrollPosition, setScrollPosition] = useState(0);
+
+  // Guard clause - returnera early om data saknas
+  if (!leftLeaderboard || !rightLeaderboard) {
+    console.error('❌ DualLeaderboardSlide: Missing leaderboard data');
+    return null;
+  }
+
+  if (!Array.isArray(leftStats) || !Array.isArray(rightStats)) {
+    console.error('❌ DualLeaderboardSlide: Stats must be arrays');
+    return null;
+  }
 
   const getTimePeriodLabel = (period) => {
     const labels = {
@@ -17,7 +28,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
   };
 
   const getCommissionClass = (commission) => {
-    if (commission === 0) return 'zero';
+    if (!commission || commission === 0) return 'zero';
     if (commission < 3400) return 'low';
     return 'high';
   };
@@ -53,15 +64,21 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     }
   }, [isActive]);
 
-  const LeaderboardColumn = ({ leaderboard, stats, side }) => {
-    const totalDeals = stats.reduce((sum, stat) => sum + stat.dealCount, 0);
+  const LeaderboardColumn = ({ leaderboard, stats }) => {
+    if (!leaderboard || !Array.isArray(stats)) {
+      return null;
+    }
+
+    const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
     return (
       <div className="dual-leaderboard-column">
         <div className="dual-leaderboard-header">
-          <h2>{leaderboard.name}</h2>
+          <h2>{leaderboard.name || 'Unnamed'}</h2>
           <p className="dual-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
-          <p className="dual-stats">📊 {totalDeals} affärer • {stats.length} agenter</p>
+          <p className="dual-stats">
+            📊 {totalDeals} {totalDeals === 1 ? 'affär' : 'affärer'} • {stats.length} {stats.length === 1 ? 'agent' : 'agenter'}
+          </p>
         </div>
 
         <div 
@@ -76,12 +93,18 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             }}
           >
             {stats.map((item, index) => {
-              const isZeroDeals = item.dealCount === 0;
+              if (!item || !item.agent) {
+                console.warn('⚠️ Invalid item at index', index);
+                return null;
+              }
+
+              const isZeroDeals = !item.dealCount || item.dealCount === 0;
               const isFirstPlace = index === 0 && !isZeroDeals;
+              const commission = item.totalCommission || 0;
 
               return (
                 <div
-                  key={item.userId}
+                  key={`${item.userId || index}-${item.agent.id || index}`}
                   className={`dual-leaderboard-item ${isFirstPlace ? 'first-place' : ''} ${isZeroDeals ? 'zero-deals' : ''}`}
                   style={{ 
                     height: `${rowHeight}px`,
@@ -100,31 +123,31 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
                   {item.agent.profileImage ? (
                     <img
                       src={item.agent.profileImage}
-                      alt={item.agent.name}
+                      alt={item.agent.name || 'Agent'}
                       className="dual-avatar"
                     />
                   ) : (
                     <div className="dual-avatar-placeholder">
-                      {item.agent.name?.charAt(0) || '?'}
+                      {(item.agent.name && item.agent.name.charAt(0)) || '?'}
                     </div>
                   )}
 
                   {/* Name */}
                   <div className="dual-info">
                     <p className={`dual-name ${isZeroDeals ? 'zero-deals' : ''}`}>
-                      {item.agent.name || `Agent ${item.userId}`}
+                      {item.agent.name || `Agent ${item.userId || '?'}`}
                     </p>
                   </div>
 
                   {/* Deals */}
                   <div className="dual-deals">
                     <span className="deal-heart">❤️</span>
-                    <span className={isZeroDeals ? 'zero' : ''}>{item.dealCount}</span>
+                    <span className={isZeroDeals ? 'zero' : ''}>{item.dealCount || 0}</span>
                   </div>
 
                   {/* Commission */}
-                  <div className={`dual-commission ${getCommissionClass(item.totalCommission)}`}>
-                    {item.totalCommission} THB
+                  <div className={`dual-commission ${getCommissionClass(commission)}`}>
+                    {commission.toLocaleString('sv-SE')} THB
                   </div>
                 </div>
               );
@@ -147,12 +170,10 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         <LeaderboardColumn
           leaderboard={leftLeaderboard}
           stats={leftStats}
-          side="left"
         />
         <LeaderboardColumn
           leaderboard={rightLeaderboard}
           stats={rightStats}
-          side="right"
         />
       </div>
     </div>
