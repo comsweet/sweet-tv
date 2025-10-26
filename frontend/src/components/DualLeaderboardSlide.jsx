@@ -1,5 +1,4 @@
 // frontend/src/components/DualLeaderboardSlide.jsx
-// ✨ NY FIL - Skapa denna fil i frontend/src/components/
 
 import { useState, useEffect } from 'react';
 import './DualLeaderboardSlide.css';
