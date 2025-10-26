@@ -6,7 +6,9 @@ const leaderboardService = require('../services/leaderboards');
 const slideshowService = require('../services/slideshows');
 const dealsCache = require('../services/dealsCache');
 const leaderboardCache = require('../services/leaderboardCache');
-const { cloudinary, storage } = require('../config/cloudinary'); // FIXED: Was 'imageStorage', now 'storage'
+const { cloudinary, imageStorage, soundStorage } = require('../config/cloudinary');
+const soundSettings = require('../services/soundSettings');
+const soundLibrary = require('../services/soundLibrary');
 const multer = require('multer');
 const path = require('path');
 
