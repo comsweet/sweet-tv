@@ -86,18 +86,23 @@ const Slideshow = () => {
   const [progress, setProgress] = useState(0);
   const intervalRef = useRef(null);
   const progressIntervalRef = useRef(null);
+  const refreshIntervalRef = useRef(null);
 
-  // Fetch slideshow och leaderboards data
-  const fetchSlideshowData = async () => {
+  // 🔥 NY: Fetch slideshow och leaderboards data
+  const fetchSlideshowData = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+      }
       
       // Hämta slideshow config
       const slideshowResponse = await getSlideshow(id);
       const slideshowData = slideshowResponse.data;
       setSlideshow(slideshowData);
       
-      console.log(`📺 Slideshow "${slideshowData.name}" with ${slideshowData.leaderboards.length} leaderboards`);
+      if (!silent) {
+        console.log(`📺 Slideshow "${slideshowData.name}" with ${slideshowData.leaderboards.length} leaderboards`);
+      }
       
       // Hämta stats för varje leaderboard SEKVENTIELLT
       const leaderboardsWithStats = [];
@@ -106,7 +111,9 @@ const Slideshow = () => {
         const lbId = slideshowData.leaderboards[i];
         
         try {
-          console.log(`📈 Loading leaderboard ${i + 1}/${slideshowData.leaderboards.length}`);
+          if (!silent) {
+            console.log(`📈 Loading leaderboard ${i + 1}/${slideshowData.leaderboards.length}`);
+          }
           const statsResponse = await getLeaderboardStats2(lbId);
           
           leaderboardsWithStats.push({
@@ -114,11 +121,15 @@ const Slideshow = () => {
             stats: statsResponse.data.stats || []
           });
           
-          console.log(`✅ Loaded (${statsResponse.data.stats?.length || 0} agents)`);
+          if (!silent) {
+            console.log(`✅ Loaded (${statsResponse.data.stats?.length || 0} agents)`);
+          }
           
           // Delay mellan varje leaderboard (3s för rate limit protection!)
           if (i < slideshowData.leaderboards.length - 1) {
-            console.log('⏳ Waiting 3s...');
+            if (!silent) {
+              console.log('⏳ Waiting 3s...');
+            }
             await new Promise(resolve => setTimeout(resolve, 3000));
           }
           
@@ -133,7 +144,12 @@ const Slideshow = () => {
         }
       }
       
-      console.log(`✅ Loaded ${leaderboardsWithStats.length} leaderboards for slideshow`);
+      if (!silent) {
+        console.log(`✅ Loaded ${leaderboardsWithStats.length} leaderboards for slideshow`);
+      } else {
+        console.log(`🔄 Silent refresh: Updated ${leaderboardsWithStats.length} leaderboards`);
+      }
+      
       setLeaderboardsData(leaderboardsWithStats);
       setIsLoading(false);
       
@@ -144,66 +160,45 @@ const Slideshow = () => {
   };
 
   useEffect(() => {
+    // Initial fetch
     fetchSlideshowData();
     
+    // 🔥 NY: AUTOMATIC REFRESH var 2:e minut (background update)
+    refreshIntervalRef.current = setInterval(() => {
+      console.log('🔄 Auto-refresh: Updating leaderboard data...');
+      fetchSlideshowData(true); // silent = true (no loading screen)
+    }, 2 * 60 * 1000); // 2 minuter
+    
+    // Socket för real-time notifications
     socketService.connect();
 
     const handleNewDeal = (notification) => {
       console.log('🎉 New deal:', notification);
       
-      // Only show notification if agent exists and valid
-      // Commission check is done in backend - we only get valid deals here!
+      // Show notification if agent is valid
       if (notification.agent && 
           notification.agent.name && 
           notification.agent.name !== 'Agent null') {
         setCurrentNotification(notification);
-      } else {
-        console.log('⏭️  Skipping notification (invalid agent)');
       }
       
-      // Update leaderboard data in background (no page reload!)
-      // Wait 2s for backend to process the deal
-      setTimeout(async () => {
-        try {
-          console.log('📊 Updating leaderboard data after deal...');
-          
-          // Re-fetch ALL leaderboards (but don't show loading screen)
-          const response = await getSlideshow(id);
-          const slideshowData = response.data;
-          
-          const updatedLeaderboards = [];
-          for (let i = 0; i < slideshowData.leaderboards.length; i++) {
-            const lbId = slideshowData.leaderboards[i];
-            try {
-              const statsResponse = await getLeaderboardStats2(lbId);
-              updatedLeaderboards.push({
-                leaderboard: statsResponse.data.leaderboard,
-                stats: statsResponse.data.stats || []
-              });
-              
-              // Small delay between fetches
-              if (i < slideshowData.leaderboards.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-              }
-            } catch (error) {
-              console.error(`Error updating leaderboard ${lbId}:`, error);
-            }
-          }
-          
-          setLeaderboardsData(updatedLeaderboards);
-          console.log('✅ All leaderboard data updated silently!');
-        } catch (error) {
-          console.error('Error updating leaderboards:', error);
-        }
-      }, 2000);
+      // 🔥 NY: IMMEDIATE BACKGROUND UPDATE (istället för 2s delay)
+      // Vänta 5s för att backend ska processa dealen
+      setTimeout(() => {
+        console.log('🔄 Deal received: Refreshing leaderboard data...');
+        fetchSlideshowData(true); // Silent refresh
+      }, 5000);
     };
 
     socketService.onNewDeal(handleNewDeal);
 
     return () => {
       socketService.offNewDeal(handleNewDeal);
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
     };
-  }, [id]); // ← ONLY id as dependency!
+  }, [id]);
 
   // Slideshow rotation with progress bar
   useEffect(() => {
