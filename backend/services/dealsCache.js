@@ -233,6 +233,25 @@ class DealsCache {
       uniqueAgents: new Set(deals.map(d => d.userId)).size
     };
   }
+
+  // 🔥 NY FUNKTION: Get today's total commission for agent (FROM CACHE!)
+  async getTodayTotalForAgent(userId) {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    
+    const allDeals = await this.getCache();
+    const todayDeals = allDeals.filter(deal => {
+      const dealDate = new Date(deal.orderDate);
+      return dealDate >= startOfDay && 
+             dealDate <= endOfDay && 
+             String(deal.userId) === String(userId);
+    });
+    
+    const total = todayDeals.reduce((sum, deal) => sum + parseFloat(deal.commission || 0), 0);
+    console.log(`📊 Today's total for agent ${userId}: ${total} THB (from ${todayDeals.length} deals in cache)`);
+    return total;
+  }
 }
 
 module.exports = new DealsCache();
