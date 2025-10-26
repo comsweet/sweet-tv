@@ -13,6 +13,9 @@ import {
 } from '../services/api';
 import './AdminSounds.css';
 
+// 🔥 FIX: Använd samma API base URL som resten av appen
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const AdminSounds = () => {
   const [sounds, setSounds] = useState([]);
   const [settings, setSettings] = useState({
@@ -208,8 +211,9 @@ const AdminSounds = () => {
     }
   };
 
-  // 🧪 TEST FUNKTION - Använder test-route istället för cleanup
-  const handleCleanupOrphanedReferences = async () => {
+  // 🧪 TEST FUNKTION
+  // 🔥 FIX: Använd absolut URL med API_BASE_URL
+  const handleTestRouting = async () => {
     if (!confirm('DETTA ÄR EN TEST - Klicka OK för att testa routing')) {
       return;
     }
@@ -217,9 +221,13 @@ const AdminSounds = () => {
     setIsLoading(true);
     try {
       console.log('🧪 Calling TEST API...');
+      console.log('🔗 API Base URL:', API_BASE_URL);
       
-      // 🔥 ÄNDRAD URL - TEST ROUTE ISTÄLLET
-      const response = await fetch('/api/sounds/test-simple', {
+      // 🔥 FIX: Använd absolut URL istället för relativ
+      const testUrl = `${API_BASE_URL}/sounds/test-simple`;
+      console.log('🎯 Test URL:', testUrl);
+      
+      const response = await fetch(testUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -228,7 +236,6 @@ const AdminSounds = () => {
       
       console.log('📡 Response status:', response.status);
       
-      // Check if response is JSON
       const contentType = response.headers.get('content-type');
       console.log('📡 Content-Type:', contentType);
       
@@ -240,13 +247,57 @@ const AdminSounds = () => {
       console.log('📦 Response data:', data);
       
       if (response.ok && data.success) {
-        alert(`✅ TEST LYCKADES!\n\n${data.message}\n\nRouting fungerar!`);
+        alert(`✅ TEST LYCKADES!\n\n${data.message}\n\nRouting fungerar!\n\nNu kan du använda cleanup-funktionen.`);
       } else {
         throw new Error(data.error || 'Test failed');
       }
     } catch (error) {
       console.error('❌ Error during test:', error);
       alert(`TEST MISSLYCKADES: ${error.message}\n\nKolla browser console och server logs.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 🧹 CLEANUP FUNKTION
+  // 🔥 FIX: Använd absolut URL med API_BASE_URL
+  const handleCleanupOrphanedReferences = async () => {
+    if (!confirm('Detta kommer att rensa gamla ljudkopplingar i agents.json som inte längre är aktiva. Fortsätt?')) {
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log('🧹 Starting cleanup...');
+      
+      // 🔥 FIX: Använd absolut URL istället för relativ
+      const cleanupUrl = `${API_BASE_URL}/sounds/cleanup`;
+      console.log('🎯 Cleanup URL:', cleanupUrl);
+      
+      const response = await fetch(cleanupUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const contentType = response.headers.get('content-type');
+      
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText} - Not JSON!`);
+      }
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        alert(`✅ CLEANUP KLAR!\n\n${data.message}\n\nKontrollerade: ${data.checkedCount} agenter\nRensade: ${data.cleanedCount} gamla kopplingar`);
+        fetchData(); // Uppdatera vyn
+      } else {
+        throw new Error(data.error || 'Cleanup failed');
+      }
+    } catch (error) {
+      console.error('❌ Error during cleanup:', error);
+      alert(`CLEANUP MISSLYCKADES: ${error.message}\n\nKolla browser console och server logs.`);
     } finally {
       setIsLoading(false);
     }
@@ -329,19 +380,33 @@ const AdminSounds = () => {
         </div>
       </div>
 
-      {/* 🧪 TEST SEKTION */}
+      {/* 🧪 TEST & CLEANUP SEKTION */}
       <div className="sounds-cleanup-section">
         <h3>🧪 TEST ROUTING</h3>
         <p className="cleanup-hint">
           Klicka här för att testa om routing fungerar. Detta gör ingen cleanup ännu.
         </p>
         <button 
-          onClick={handleCleanupOrphanedReferences}
+          onClick={handleTestRouting}
           className="btn-warning"
           disabled={isLoading}
         >
           {isLoading ? 'Testar...' : '🧪 Testa routing'}
         </button>
+
+        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #ddd' }}>
+          <h3>🧹 RENSA GAMLA LJUDKOPPLINGAR</h3>
+          <p className="cleanup-hint">
+            När test-funktionen ovan fungerar, använd denna för att rensa gamla ljudkopplingar i agents.json.
+          </p>
+          <button 
+            onClick={handleCleanupOrphanedReferences}
+            className="btn-danger"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Rensar...' : '🧹 Kör cleanup'}
+          </button>
+        </div>
       </div>
 
       {/* Library Section */}
