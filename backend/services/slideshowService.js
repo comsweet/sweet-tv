@@ -1,10 +1,21 @@
+// backend/services/slideshowService.js
+
 const fs = require('fs').promises;
 const path = require('path');
 
 class SlideshowService {
   constructor() {
-    this.dbPath = path.join(__dirname, '../data');
+    // PERSISTENT DISK på Render!
+    const isRender = process.env.RENDER === 'true';
+    
+    this.dbPath = isRender 
+      ? '/var/data'
+      : path.join(__dirname, '../data');
+    
     this.slideshowsFile = path.join(this.dbPath, 'slideshows.json');
+    
+    console.log(`💾 Slideshows path: ${this.dbPath} (isRender: ${isRender})`);
+    
     this.initDatabase();
   }
 
@@ -15,8 +26,10 @@ class SlideshowService {
       // Skapa slideshows.json
       try {
         await fs.access(this.slideshowsFile);
+        console.log('✅ slideshows.json exists');
       } catch {
         await fs.writeFile(this.slideshowsFile, JSON.stringify({ slideshows: [] }, null, 2));
+        console.log('📝 Created slideshows.json');
       }
     } catch (error) {
       console.error('Error initializing slideshows database:', error);
@@ -44,7 +57,9 @@ class SlideshowService {
     const newSlideshow = {
       id: Date.now().toString(),
       name: slideshow.name,
+      type: slideshow.type || 'single', // ✨ NYTT - Stöd för type
       leaderboards: slideshow.leaderboards || [],
+      dualSlides: slideshow.dualSlides || [], // ✨ NYTT - Stöd för dualSlides
       duration: slideshow.duration || 15,
       active: slideshow.active !== undefined ? slideshow.active : true,
       createdAt: new Date().toISOString(),
@@ -53,6 +68,7 @@ class SlideshowService {
     
     slideshows.push(newSlideshow);
     await fs.writeFile(this.slideshowsFile, JSON.stringify({ slideshows }, null, 2));
+    console.log(`💾 Saved ${newSlideshow.type} slideshow "${newSlideshow.name}" to persistent disk`);
     return newSlideshow;
   }
 
@@ -67,6 +83,7 @@ class SlideshowService {
         updatedAt: new Date().toISOString()
       };
       await fs.writeFile(this.slideshowsFile, JSON.stringify({ slideshows }, null, 2));
+      console.log(`💾 Updated slideshow "${slideshows[index].name}" on persistent disk`);
       return slideshows[index];
     }
     return null;
@@ -76,6 +93,7 @@ class SlideshowService {
     const slideshows = await this.getSlideshows();
     const filtered = slideshows.filter(s => s.id !== id);
     await fs.writeFile(this.slideshowsFile, JSON.stringify({ slideshows: filtered }, null, 2));
+    console.log(`🗑️  Deleted slideshow from persistent disk`);
     return true;
   }
 }
