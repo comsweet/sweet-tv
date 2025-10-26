@@ -421,6 +421,12 @@ const Admin = () => {
         >
           📊 Statistik
         </button>
+        <button 
+          className={activeTab === 'sounds' ? 'active' : ''}
+          onClick={() => setActiveTab('sounds')}
+        >
+          🔊 Ljud
+        </button>
       </div>
 
       <div className="admin-content">
@@ -616,6 +622,10 @@ const Admin = () => {
               ))}
             </div>
           </div>
+        )}
+
+        {activeTab === 'sounds' && !isLoading && (
+        <AdminSounds />
         )}
 
         {/* Stats Tab */}
