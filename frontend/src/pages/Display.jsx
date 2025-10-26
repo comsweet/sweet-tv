@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import socketService from '../services/socket';
 import { getActiveLeaderboards, getLeaderboardStats2 } from '../services/api';
-import DealNotification from '../components/DealNotification';
+import DealNotification from '../components/DealNotification.jsx';
 import '../components/DealNotification.css';
 import './Display.css';
 
