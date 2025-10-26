@@ -27,40 +27,53 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
         <div className="no-data-display">Inga affärer än</div>
       ) : (
         <div className="leaderboard-items">
-          {stats.slice(0, 10).map((item, index) => (
-            <div 
-              key={item.userId} 
-              className={`leaderboard-item-display ${index === 0 ? 'first-place' : ''}`}
-            >
-              <div className="rank-display">
-                {index === 0 && '🥇'}
-                {index === 1 && '🥈'}
-                {index === 2 && '🥉'}
-                {index > 2 && `#${index + 1}`}
-              </div>
-              
-              {item.agent.profileImage ? (
-                <img 
-                  src={item.agent.profileImage} 
-                  alt={item.agent.name}
-                  className="agent-avatar-display"
-                />
-              ) : (
-                <div className="agent-avatar-placeholder-display">
-                  {item.agent.name?.charAt(0) || '?'}
+          {stats.slice(0, 10).map((item, index) => {
+            const isZeroDeals = item.dealCount === 0;
+            
+            return (
+              <div 
+                key={item.userId} 
+                className={`leaderboard-item-display ${index === 0 && !isZeroDeals ? 'first-place' : ''} ${isZeroDeals ? 'zero-deals' : ''}`}
+              >
+                {/* Rank */}
+                <div className="rank-display">
+                  {index === 0 && !isZeroDeals && '🥇'}
+                  {index === 1 && !isZeroDeals && '🥈'}
+                  {index === 2 && !isZeroDeals && '🥉'}
+                  {(index > 2 || isZeroDeals) && `#${index + 1}`}
                 </div>
-              )}
-              
-              <div className="agent-info-display">
-                <h3 className="agent-name-display">{item.agent.name}</h3>
-                <p className="agent-stats-display">{item.dealCount} affärer</p>
+                
+                {/* Avatar */}
+                {item.agent.profileImage ? (
+                  <img 
+                    src={item.agent.profileImage} 
+                    alt={item.agent.name}
+                    className="agent-avatar-display"
+                  />
+                ) : (
+                  <div className="agent-avatar-placeholder-display">
+                    {item.agent.name?.charAt(0) || '?'}
+                  </div>
+                )}
+                
+                {/* Name */}
+                <div className="agent-info-display">
+                  <h3 className="agent-name-display">{item.agent.name}</h3>
+                </div>
+                
+                {/* 🔥 NEW: Deals column with dart emoji */}
+                <div className={`deals-column-display ${isZeroDeals ? 'zero' : ''}`}>
+                  <span className="emoji">🎯</span>
+                  <span>{item.dealCount} affärer</span>
+                </div>
+                
+                {/* 🔥 UPDATED: Commission with red color for zero */}
+                <div className={`commission-display ${isZeroDeals ? 'zero' : ''}`}>
+                  {item.totalCommission.toLocaleString('sv-SE')} THB
+                </div>
               </div>
-              
-              <div className="commission-display">
-                {item.totalCommission.toLocaleString('sv-SE')} THB
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -74,7 +87,7 @@ const Display = () => {
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
   const refreshIntervalRef = useRef(null);
 
-  // 🔥 FIXED: Fetch leaderboards med silent mode
+  // Fetch leaderboards med silent mode
   const fetchLeaderboards = async (silent = false) => {
     try {
       if (!silent) {
@@ -150,7 +163,7 @@ const Display = () => {
     // Initial fetch
     fetchLeaderboards();
     
-    // 🔥 AUTOMATIC REFRESH var 2:e minut (background update)
+    // AUTOMATIC REFRESH var 2:e minut (background update)
     refreshIntervalRef.current = setInterval(() => {
       console.log('🔄 Auto-refresh: Updating leaderboard data...');
       fetchLeaderboards(true); // silent = true (no loading screen)
@@ -162,10 +175,10 @@ const Display = () => {
       console.log('🎉 New deal received:', notification);
       setCurrentNotification(notification);
       
-      // 🔥 FIXED: IMMEDIATE BACKGROUND UPDATE efter notification
+      // IMMEDIATE BACKGROUND UPDATE efter notification
       setTimeout(() => {
         console.log('🔄 Deal received: Refreshing leaderboard data...');
-        fetchLeaderboards(true); // Silent refresh - FIXED function name!
+        fetchLeaderboards(true);
       }, 5000);
     };
 
