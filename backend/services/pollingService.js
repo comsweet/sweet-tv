@@ -8,14 +8,14 @@ const dealsCache = require('./dealsCache'); // 🔥 IMPORT PERSISTENT DEALS CACH
 class PollingService {
   constructor(io) {
     this.io = io;
-    this.pollInterval = parseInt(process.env.POLL_INTERVAL) || 30000;
+    this.pollInterval = parseInt(process.env.POLL_INTERVAL) || 15000;
     this.lastCheckTime = new Date(Date.now() - 60000); // Börja 1 minut bakåt
     this.isPolling = false;
     
     // 🔥 NY: Pending deals queue för deals som väntar på commission
     this.pendingDeals = new Map(); // { leadId: { lead, attempts, firstSeen } }
-    this.maxRetries = 6; // Max 6 försök = ~3 minuter (30s * 6)
-    this.retryDelay = 30000; // Samma som pollInterval
+    this.maxRetries = 10; // Max 10 försök = ~2.5 minuter (15s * 10)
+    this.retryDelay = 15000; // Samma som pollInterval
   }
 
   start() {
