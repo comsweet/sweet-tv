@@ -8,7 +8,7 @@ import {
   linkAgentToSound,
   unlinkAgentFromSound,
   getAgents
-} from '../services/soundApi';
+} from '../services/api';
 import './AdminSounds.css';
 
 const AdminSounds = () => {
