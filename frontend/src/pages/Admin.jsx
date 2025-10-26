@@ -17,6 +17,7 @@ import {
   deleteSlideshow
 } from '../services/api';
 import './Admin.css';
+import AdminSounds from './AdminSounds';
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState('agents');
