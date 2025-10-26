@@ -9,7 +9,7 @@ import {
   linkAgentToSound,
   unlinkAgentFromSound,
   getAgents,
-  getAdversusUsers  // 🔥 NYTT: Lägg till denna import
+  getAdversusUsers
 } from '../services/api';
 import './AdminSounds.css';
 
@@ -30,21 +30,19 @@ const AdminSounds = () => {
     fetchData();
   }, []);
 
-  // 🔥 UPPDATERAD: Hämta agenter från både Adversus OCH lokala databasen
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const [soundsRes, settingsRes, adversusRes, localAgentsRes] = await Promise.all([
         getSounds(),
         getSoundSettings(),
-        getAdversusUsers(),      // 🔥 NYTT: Hämta alla agenter från Adversus
-        getAgents()              // Hämta lokala agenter (för profilbilder etc)
+        getAdversusUsers(),
+        getAgents()
       ]);
       
       const adversusUsersList = adversusRes.data.users || [];
       const localAgents = localAgentsRes.data;
       
-      // 🔥 NYTT: Kombinera Adversus-data med lokal data (samma logik som på Agents-tabben)
       const combinedAgents = adversusUsersList.map(user => {
         const localAgent = localAgents.find(a => String(a.userId) === String(user.id));
         return {
@@ -57,7 +55,7 @@ const AdminSounds = () => {
       
       setSounds(soundsRes.data);
       setSettings(settingsRes.data);
-      setAgents(combinedAgents);  // 🔥 Använd kombinerad lista istället
+      setAgents(combinedAgents);
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('Fel vid hämtning: ' + error.message);
@@ -69,20 +67,17 @@ const AdminSounds = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Validera filtyp
     const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg'];
     if (!allowedTypes.includes(file.type)) {
       alert('Endast MP3, WAV och OGG är tillåtna!');
       return;
     }
 
-    // Validera storlek (2MB)
     if (file.size > 2 * 1024 * 1024) {
       alert('Filen är för stor! Max 2MB.');
       return;
     }
 
-    // Validera duration (10 sekunder)
     const audio = new Audio();
     const reader = new FileReader();
 
@@ -94,20 +89,18 @@ const AdminSounds = () => {
           return;
         }
 
-        // Upload till backend
         try {
           setIsUploading(true);
           const response = await uploadSound(file);
           console.log('✅ Sound uploaded:', response.data);
           
-          // Uppdatera duration i backend
           await updateSound(response.data.id, {
             duration: audio.duration
           });
           
           fetchData();
           alert('Ljud uppladdat!');
-          event.target.value = ''; // Reset input
+          event.target.value = '';
         } catch (error) {
           console.error('Error uploading sound:', error);
           alert('Fel vid uppladdning: ' + error.message);
@@ -122,7 +115,6 @@ const AdminSounds = () => {
   const handleDeleteSound = async (soundId) => {
     const sound = sounds.find(s => s.id === soundId);
     
-    // Check if sound is in use
     const isDefaultSound = settings.defaultSound === sound.url;
     const isMilestoneSound = settings.milestoneSound === sound.url;
     const hasLinkedAgents = sound.linkedAgents && sound.linkedAgents.length > 0;
@@ -151,11 +143,9 @@ const AdminSounds = () => {
 
   const handlePlaySound = (soundUrl) => {
     if (playingSound === soundUrl) {
-      // Stop
       audioRef.current?.pause();
       setPlayingSound(null);
     } else {
-      // Play
       if (audioRef.current) {
         audioRef.current.src = soundUrl;
         audioRef.current.play();
@@ -216,6 +206,36 @@ const AdminSounds = () => {
       console.error('Error unlinking agent:', error);
       alert('Fel: ' + error.message);
     }
+  };
+
+  // 🔥 NY FUNKTION: Cleanup orphaned sound references
+  const handleCleanupOrphanedReferences = async () => {
+    if (!confirm('Detta kommer att rensa alla gamla ljudkopplingar som inte längre är aktiva. Fortsätt?')) {
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/sounds/cleanup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert(`✅ ${data.message}`);
+        fetchData();
+      } else {
+        throw new Error(data.error || 'Cleanup failed');
+      }
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      alert('Fel vid rensning: ' + error.message);
+    }
+    setIsLoading(false);
   };
 
   const getSoundName = (url) => {
@@ -293,6 +313,21 @@ const AdminSounds = () => {
             onBlur={(e) => handleUpdateBudget(e.target.value)}
           />
         </div>
+      </div>
+
+      {/* 🔥 NY SEKTION: Cleanup */}
+      <div className="sounds-cleanup-section">
+        <h3>🧹 Rensa gamla ljudkopplingar</h3>
+        <p className="cleanup-hint">
+          Om en agent spelar fel ljud efter att du tagit bort kopplingen, klicka här för att rensa gamla referenser.
+        </p>
+        <button 
+          onClick={handleCleanupOrphanedReferences}
+          className="btn-warning"
+          disabled={isLoading}
+        >
+          {isLoading ? 'Rensar...' : '🧹 Rensa gamla ljudkopplingar'}
+        </button>
       </div>
 
       {/* Library Section */}
