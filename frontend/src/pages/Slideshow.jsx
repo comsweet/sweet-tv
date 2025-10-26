@@ -88,7 +88,7 @@ const Slideshow = () => {
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
 
-  // 🔥 NY: Fetch slideshow och leaderboards data
+  // 🔥 FIXED: Fetch slideshow och leaderboards data
   const fetchSlideshowData = async (silent = false) => {
     try {
       if (!silent) {
@@ -163,7 +163,7 @@ const Slideshow = () => {
     // Initial fetch
     fetchSlideshowData();
     
-    // 🔥 NY: AUTOMATIC REFRESH var 2:e minut (background update)
+    // 🔥 AUTOMATIC REFRESH var 2:e minut (background update)
     refreshIntervalRef.current = setInterval(() => {
       console.log('🔄 Auto-refresh: Updating leaderboard data...');
       fetchSlideshowData(true); // silent = true (no loading screen)
@@ -182,11 +182,11 @@ const Slideshow = () => {
         setCurrentNotification(notification);
       }
       
-      // 🔥 NY: IMMEDIATE BACKGROUND UPDATE (istället för 2s delay)
+      // 🔥 FIXED: IMMEDIATE BACKGROUND UPDATE efter notification
       // Vänta 5s för att backend ska processa dealen
       setTimeout(() => {
         console.log('🔄 Deal received: Refreshing leaderboard data...');
-        fetchSlideshowData(true); // Silent refresh
+        fetchSlideshowData(true); // Silent refresh - FIXED function name!
       }, 5000);
     };
 
