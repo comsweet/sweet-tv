@@ -193,6 +193,30 @@ const Admin = () => {
           }
         }
       );
+
+      // 🔥 NY FUNKTION: Rensa deals database
+      const handleClearDealsDatabase = async () => {
+        if (!confirm('⚠️ VARNING: Detta raderar alla deals från databasen!\n\nDetta påverkar "dagens totaler" för notifikationer.\nLeaderboards påverkas EJ (de använder deals-cache).\n\nFortsätt?')) {
+          return;
+  }
+
+  try {
+    const response = await axios.delete(`${API_BASE_URL}/deals/database`);
+    
+    if (response.data.success) {
+      alert('✅ ' + response.data.message);
+      console.log('✅ Cleared deals database');
+      
+      // Refresh om vi är på stats
+      if (activeTab === 'stats') {
+        fetchData();
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error clearing deals database:', error);
+    alert('❌ Fel: ' + (error.response?.data?.error || error.message));
+  }
+};
       
       setSyncProgress('✅ Synkning klar!');
       console.log('✅ Sync response:', response.data);
@@ -484,6 +508,12 @@ const Admin = () => {
             style={{ opacity: isSyncing ? 0.6 : 1 }}
           >
             {isSyncing ? '⏳ Uppdaterar...' : '⚡ Force Refresh'}
+          </button>
+          <button 
+            onClick={handleClearDealsDatabase} 
+            className="btn-danger"
+            title="Rensar deals.json (dagens totaler för notifikationer)"
+          > 🗑️ Rensa Deals DB
           </button>
           <button onClick={handleManualPoll} className="btn-secondary" disabled={isLoading}>
             🔄 Kolla nya affärer
