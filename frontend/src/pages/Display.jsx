@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import socketService from '../services/socket';
 import { getActiveLeaderboards, getLeaderboardStats2 } from '../services/api';
 import DealNotification from '../components/DealNotification.jsx';
@@ -72,28 +72,36 @@ const Display = () => {
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
+  const refreshIntervalRef = useRef(null);
 
-  // SEQUENTIAL LOADING - Ladda leaderboards EN I TAGET
-  const fetchLeaderboards = async () => {
+  // 🔥 NY: Fetch leaderboards med silent mode
+  const fetchLeaderboards = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+      }
       
       // Steg 1: Hämta aktiva leaderboards
       const response = await getActiveLeaderboards();
       const activeLeaderboards = response.data;
       
-      console.log(`📊 Fetching stats for ${activeLeaderboards.length} leaderboards SEQUENTIALLY...`);
-      
-      setLoadingProgress({ current: 0, total: activeLeaderboards.length });
+      if (!silent) {
+        console.log(`📊 Fetching stats for ${activeLeaderboards.length} leaderboards SEQUENTIALLY...`);
+        setLoadingProgress({ current: 0, total: activeLeaderboards.length });
+      } else {
+        console.log(`🔄 Silent refresh: Updating ${activeLeaderboards.length} leaderboards...`);
+      }
       
       const leaderboardsWithStats = [];
       
-      // Steg 2: Hämta stats EN leaderboard i taget (inte alla samtidigt!)
+      // Steg 2: Hämta stats EN leaderboard i taget
       for (let i = 0; i < activeLeaderboards.length; i++) {
         const lb = activeLeaderboards[i];
         
-        setLoadingProgress({ current: i + 1, total: activeLeaderboards.length });
-        console.log(`📈 Loading leaderboard ${i + 1}/${activeLeaderboards.length}: "${lb.name}"`);
+        if (!silent) {
+          setLoadingProgress({ current: i + 1, total: activeLeaderboards.length });
+          console.log(`📈 Loading leaderboard ${i + 1}/${activeLeaderboards.length}: "${lb.name}"`);
+        }
         
         try {
           const statsResponse = await getLeaderboardStats2(lb.id);
@@ -102,11 +110,15 @@ const Display = () => {
             stats: statsResponse.data.stats || []
           });
           
-          console.log(`✅ Loaded "${lb.name}" (${statsResponse.data.stats?.length || 0} agents)`);
+          if (!silent) {
+            console.log(`✅ Loaded "${lb.name}" (${statsResponse.data.stats?.length || 0} agents)`);
+          }
           
-          // VIKTIGT: Delay mellan varje leaderboard (på frontend också!)
+          // Delay mellan varje leaderboard
           if (i < activeLeaderboards.length - 1) {
-            console.log('⏳ Waiting 2s before next leaderboard...');
+            if (!silent) {
+              console.log('⏳ Waiting 2s before next leaderboard...');
+            }
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
           
@@ -119,7 +131,12 @@ const Display = () => {
         }
       }
       
-      console.log(`✅ All ${leaderboardsWithStats.length} leaderboards loaded!`);
+      if (!silent) {
+        console.log(`✅ All ${leaderboardsWithStats.length} leaderboards loaded!`);
+      } else {
+        console.log(`🔄 Silent refresh: Updated ${leaderboardsWithStats.length} leaderboards`);
+      }
+      
       setLeaderboardsData(leaderboardsWithStats);
       setIsLoading(false);
       
@@ -130,10 +147,14 @@ const Display = () => {
   };
 
   useEffect(() => {
+    // Initial fetch
     fetchLeaderboards();
     
-    // Refresh varje 5 minuter (inte varje minut, för att spara API calls)
-    const interval = setInterval(fetchLeaderboards, 5 * 60 * 1000);
+    // 🔥 NY: AUTOMATIC REFRESH var 2:e minut (background update)
+    refreshIntervalRef.current = setInterval(() => {
+      console.log('🔄 Auto-refresh: Updating leaderboard data...');
+      fetchLeaderboards(true); // silent = true (no loading screen)
+    }, 2 * 60 * 1000); // 2 minuter
 
     socketService.connect();
 
@@ -141,17 +162,20 @@ const Display = () => {
       console.log('🎉 New deal received:', notification);
       setCurrentNotification(notification);
       
-      // Refresh leaderboards efter en deal (med delay)
+      // 🔥 NY: IMMEDIATE BACKGROUND UPDATE
       setTimeout(() => {
-        fetchLeaderboards();
-      }, 3000);
+        console.log('🔄 Deal received: Refreshing leaderboard data...');
+        fetchLeaderboards(true); // Silent refresh
+      }, 5000);
     };
 
     socketService.onNewDeal(handleNewDeal);
 
     return () => {
-      clearInterval(interval);
       socketService.offNewDeal(handleNewDeal);
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
     };
   }, []);
 
