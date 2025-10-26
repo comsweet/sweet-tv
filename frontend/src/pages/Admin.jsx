@@ -16,8 +16,8 @@ import {
   updateSlideshow,
   deleteSlideshow
 } from '../services/api';
-import './Admin.css';
 import AdminSounds from './AdminSounds';
+import './Admin.css';
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState('agents');
@@ -109,6 +109,7 @@ const Admin = () => {
         setSlideshows(slideshowsRes.data);
         setLeaderboards(leaderboardsRes.data);
       }
+      // activeTab === 'sounds' hanteras av AdminSounds själv
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('Fel vid hämtning: ' + error.message);
@@ -116,9 +117,6 @@ const Admin = () => {
     setIsLoading(false);
   };
 
-  // ============================================
-  // 🔧 FIXED: Image upload now updates state directly!
-  // ============================================
   const handleImageUpload = async (userId, event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -136,13 +134,11 @@ const Admin = () => {
         });
       }
       
-      // 🎯 Få tillbaka URL direkt från uppladdningen
       const response = await uploadProfileImage(userId, file);
       const imageUrl = response.data.imageUrl;
       
       console.log('✅ Image uploaded:', imageUrl);
       
-      // 🎯 Uppdatera agents state DIREKT istället för att hämta allt igen
       setAgents(prevAgents => prevAgents.map(agent => 
         String(agent.userId) === String(userId)
           ? { ...agent, profileImage: imageUrl }
@@ -416,21 +412,21 @@ const Admin = () => {
           🎬 Slideshows
         </button>
         <button 
-          className={activeTab === 'stats' ? 'active' : ''}
-          onClick={() => setActiveTab('stats')}
-        >
-          📊 Statistik
-        </button>
-        <button 
           className={activeTab === 'sounds' ? 'active' : ''}
           onClick={() => setActiveTab('sounds')}
         >
           🔊 Ljud
         </button>
+        <button 
+          className={activeTab === 'stats' ? 'active' : ''}
+          onClick={() => setActiveTab('stats')}
+        >
+          📊 Statistik
+        </button>
       </div>
 
       <div className="admin-content">
-        {isLoading && <div className="loading">Laddar...</div>}
+        {isLoading && activeTab !== 'sounds' && <div className="loading">Laddar...</div>}
 
         {/* Agents Tab */}
         {activeTab === 'agents' && !isLoading && (
@@ -624,8 +620,9 @@ const Admin = () => {
           </div>
         )}
 
-        {activeTab === 'sounds' && !isLoading && (
-        <AdminSounds />
+        {/* Sounds Tab */}
+        {activeTab === 'sounds' && (
+          <AdminSounds />
         )}
 
         {/* Stats Tab */}
