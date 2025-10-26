@@ -65,15 +65,15 @@ const AdminSounds = () => {
       return;
     }
 
-    // Validera duration (5 sekunder) - använd HTML5 Audio API
+    // 🔥 UPDATED: Validera duration (10 sekunder) - använd HTML5 Audio API
     const audio = new Audio();
     const reader = new FileReader();
 
     reader.onload = (e) => {
       audio.src = e.target.result;
       audio.onloadedmetadata = async () => {
-        if (audio.duration > 5) {
-          alert('Ljudet är för långt! Max 5 sekunder.');
+        if (audio.duration > 10) {
+          alert('Ljudet är för långt! Max 10 sekunder.');
           return;
         }
 
@@ -218,7 +218,8 @@ const AdminSounds = () => {
       {/* Upload Section */}
       <div className="sounds-upload-section">
         <h3>📤 Ladda upp nytt ljud</h3>
-        <p className="upload-hint">Max 5 sekunder, MP3/WAV/OGG, max 2MB</p>
+        {/* 🔥 UPDATED: Text ändrad till 10 sekunder */}
+        <p className="upload-hint">Max 10 sekunder, MP3/WAV/OGG, max 2MB</p>
         <label className="upload-button">
           {isUploading ? '⏳ Laddar upp...' : '📁 Välj ljudfil'}
           <input
