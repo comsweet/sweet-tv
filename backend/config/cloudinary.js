@@ -8,8 +8,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Multer storage för Cloudinary
-const storage = new CloudinaryStorage({
+// Multer storage för BILDER (profile images)
+const imageStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'sweet-tv-profiles', // Folder name i Cloudinary
@@ -29,4 +29,20 @@ const storage = new CloudinaryStorage({
   }
 });
 
-module.exports = { cloudinary, storage };
+// Multer storage för LJUD (sound files)
+const soundStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'sweet-tv-sounds',
+    resource_type: 'video', // Cloudinary använder "video" för audio också
+    allowed_formats: ['mp3', 'wav', 'ogg'],
+    public_id: (req, file) => {
+      // Custom filename: sound-{timestamp}
+      const timestamp = Date.now();
+      const originalName = file.originalname.replace(/\.[^/.]+$/, ''); // Ta bort extension
+      return `sound-${originalName}-${timestamp}`;
+    }
+  }
+});
+
+module.exports = { cloudinary, imageStorage, soundStorage };
