@@ -6,14 +6,15 @@ const leaderboardService = require('../services/leaderboards');
 const slideshowService = require('../services/slideshows');
 const dealsCache = require('../services/dealsCache');
 const leaderboardCache = require('../services/leaderboardCache');
-const { cloudinary, imageStorage, soundStorage } = require('../config/cloudinary');
 const soundSettings = require('../services/soundSettings');
 const soundLibrary = require('../services/soundLibrary');
+const { cloudinary, imageStorage, soundStorage } = require('../config/cloudinary');
 const multer = require('multer');
 const path = require('path');
 
 // Multer upload med Cloudinary (max 5MB, med filetype validation)
-const upload = multer({ storage: imageStorage, // FIXED: Now correctly using the storage from cloudinary config
+const upload = multer({ 
+  storage: imageStorage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
@@ -631,6 +632,19 @@ router.get('/sounds', async (req, res) => {
   }
 });
 
+// GET single sound
+router.get('/sounds/:id', async (req, res) => {
+  try {
+    const sound = await soundLibrary.getSound(req.params.id);
+    if (!sound) {
+      return res.status(404).json({ error: 'Sound not found' });
+    }
+    res.json(sound);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // UPLOAD new sound
 const uploadSound = multer({ 
   storage: soundStorage,
@@ -736,6 +750,16 @@ router.put('/sounds/:id', async (req, res) => {
       return res.status(404).json({ error: 'Sound not found' });
     }
     res.json(sound);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET sound for specific agent
+router.get('/sounds/agent/:userId', async (req, res) => {
+  try {
+    const sound = await soundLibrary.getSoundForAgent(req.params.userId);
+    res.json(sound || null);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
