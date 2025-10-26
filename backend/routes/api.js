@@ -374,7 +374,7 @@ router.delete('/slideshows/:id', async (req, res) => {
   }
 });
 
-// LEADERBOARD DATA WITH PERSISTENT DEALS CACHE
+// 🔥 FIXED: LEADERBOARD DATA WITH PERSISTENT DEALS CACHE - VISA ALLA AGENTER INKL DE MED 0 DEALS!
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -430,38 +430,30 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       console.log(`🔍 Filtering by user groups:`, leaderboard.userGroups);
       
       try {
-        const uniqueUserIds = [...new Set(leads.map(lead => lead.lastContactedBy).filter(id => id))];
         const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
         filteredUserIds = new Set();
         
-        console.log(`   📋 Checking ${uniqueUserIds.length} unique users against ${targetGroupIds.length} target groups`);
+        // 🔥 FIXED: Hämta ALLA users från de valda grupperna (inte bara de med deals!)
+        console.log(`   📋 Finding ALL users in ${targetGroupIds.length} target groups...`);
         
-        // Loop genom alla users som har deals
-        for (const userId of uniqueUserIds) {
-          // Hitta user i adversusUsers array (som vi redan har!)
-          const adversusUser = adversusUsers.find(u => String(u.id) === String(userId));
-          
-          if (adversusUser && adversusUser.group && adversusUser.group.id) {
-            // Använd group.id (singular!) istället för memberOf
+        // Loop genom ALLA adversus users och kolla vilka som tillhör grupperna
+        for (const adversusUser of adversusUsers) {
+          if (adversusUser.group && adversusUser.group.id) {
             const userGroupId = parseInt(adversusUser.group.id);
             
             // Kolla om user's primary group matchar någon av target groups
             if (targetGroupIds.includes(userGroupId)) {
-              filteredUserIds.add(userId);
-              console.log(`   ✅ User ${userId} matched (group: ${userGroupId})`);
-            } else {
-              console.log(`   ❌ User ${userId} NOT matched (group: ${userGroupId})`);
+              filteredUserIds.add(adversusUser.id);
+              console.log(`   ✅ User ${adversusUser.id} (${adversusUser.name}) matched (group: ${userGroupId})`);
             }
-          } else {
-            console.log(`   ⚠️  User ${userId} has no primary group`);
           }
         }
         
-        console.log(`   📊 Filter result: ${filteredUserIds.size} users matched out of ${uniqueUserIds.length}`);
+        console.log(`   📊 Filter result: ${filteredUserIds.size} users in selected groups`);
         
         // Om inga users matchar, behåll tom Set (visar inga users)
         if (filteredUserIds.size === 0) {
-          console.log(`   ⚠️  No users matched the selected groups - leaderboard will be empty`);
+          console.log(`   ⚠️  No users found in the selected groups`);
         }
       } catch (error) {
         console.error(`❌ Error filtering user groups:`, error.message);
@@ -473,8 +465,22 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     
     const localAgents = await database.getAgents();
     
+    // 🔥 FIXED: Initialize stats for ALL filtered users (även de med 0 deals!)
     const stats = {};
     
+    if (filteredUserIds) {
+      // Om vi har filter, skapa entries för ALLA users i grupperna
+      for (const userId of filteredUserIds) {
+        stats[userId] = {
+          userId: userId,
+          totalCommission: 0,
+          dealCount: 0
+        };
+      }
+      console.log(`   📊 Initialized stats for ${Object.keys(stats).length} users in groups (including those with 0 deals)`);
+    }
+    
+    // Räkna deals för varje user
     leads.forEach(lead => {
       const userId = lead.lastContactedBy;
       
@@ -483,6 +489,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       // Använd filtreringen (om den finns)
       if (filteredUserIds && !filteredUserIds.has(userId)) return;
       
+      // Om ingen filter, skapa entry first time vi ser usern
       if (!stats[userId]) {
         stats[userId] = {
           userId: userId,
@@ -537,7 +544,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       responseData
     );
     
-    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents`);
+    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents (including ${leaderboardStats.filter(s => s.dealCount === 0).length} with 0 deals)`);
     
     res.json(responseData);
   } catch (error) {
