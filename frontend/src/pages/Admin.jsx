@@ -167,6 +167,28 @@ const Admin = () => {
     setIsLoading(false);
   };
 
+  const handleForceSyncDeals = async () => {
+    if (!confirm('Detta synkar alla deals från Adversus (kan ta några minuter). Fortsätt?')) return;
+    
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/deals/sync', { method: 'POST' });
+      const data = await response.json();
+      alert(`✅ Synkade ${data.deals} deals från Adversus!\n\nLeaderboards uppdateras automatiskt.`);
+      
+      // Refresh current tab data
+      if (activeTab === 'stats' || activeTab === 'leaderboards') {
+        setTimeout(() => {
+          fetchData();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error syncing deals:', error);
+      alert('Fel vid synkroniering: ' + error.message);
+    }
+    setIsLoading(false);
+  };
+
   // Leaderboard functions
   const handleAddLeaderboard = () => {
     setEditingLeaderboard(null);
@@ -381,9 +403,14 @@ const Admin = () => {
     <div className="admin-container">
       <header className="admin-header">
         <h1>⚙️ Sweet TV Admin</h1>
-        <button onClick={handleManualPoll} className="btn-primary" disabled={isLoading}>
-          🔄 Kolla efter nya affärer
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button onClick={handleForceSyncDeals} className="btn-primary" disabled={isLoading}>
+            🔄 Synka Deals Cache
+          </button>
+          <button onClick={handleManualPoll} className="btn-primary" disabled={isLoading}>
+            🔍 Kolla efter nya affärer
+          </button>
+        </div>
       </header>
 
       <div className="admin-tabs">
