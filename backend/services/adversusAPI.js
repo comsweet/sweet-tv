@@ -105,9 +105,20 @@ class AdversusAPI {
   }
 
   async getLeadsInDateRange(startDate, endDate) {
+    // FIXAD VERSION: Tar bort dubbel buffer FÖRE, behåller buffer EFTER
+    // 
+    // Rolling window HAR redan buffer före (7 dagar innan månadsskifte)
+    // → Vi behöver INTE lägga till extra buffer före här!
+    // 
+    // Buffer EFTER behövs för "week" leaderboards över månadsskifte
+    // → När Nov 1 faller på fredag vill vi fånga hela veckan (Oct 28 - Nov 3)
+    
     const bufferDays = 7;
-    const bufferStart = new Date(startDate);
-    bufferStart.setDate(bufferStart.getDate() - bufferDays);
+    
+    // ✅ INGEN buffer före - använd startDate direkt från rolling window
+    const bufferStart = startDate;
+    
+    // ✅ BEHÅLL buffer efter för "week" leaderboards över månadsskifte
     const bufferEnd = new Date(endDate);
     bufferEnd.setDate(bufferEnd.getDate() + bufferDays);
 
@@ -122,6 +133,11 @@ class AdversusAPI {
     console.log('🔍 Fetching leads (Order date range: %s to %s)', 
       startDate.toISOString().split('T')[0], 
       endDate.toISOString().split('T')[0]
+    );
+    console.log('   API query range: %s to %s (buffer after: %d days)', 
+      bufferStart.toISOString().split('T')[0],
+      bufferEnd.toISOString().split('T')[0],
+      bufferDays
     );
 
     let allLeads = [];
