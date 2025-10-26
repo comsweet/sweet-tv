@@ -245,33 +245,37 @@ class PollingService {
       // Skicka notifikation ENDAST om vi har en giltig agent
       if (agent && agent.name && agent.name !== 'Agent null') {
         
-        // 🎵 SOUND SELECTION LOGIC
-        const settings = await soundSettings.getSettings();
-        const dailyBudget = settings.dailyBudget || 3400;
+      // 🎵 SOUND SELECTION LOGIC - UPPDATERAD
+      const settings = await soundSettings.getSettings();
+      const dailyBudget = settings.dailyBudget || 3600;
+      
+      let soundType = 'default';
+      let soundUrl = settings.defaultSound;
+      
+      // Kolla om agenten har nått milestone denna dealen
+      const reachedBudget = newTotal >= dailyBudget && previousTotal < dailyBudget;
+      
+      if (newTotal < dailyBudget) {
+        // ⭐ UNDER DAGSBUDGET: Alltid standard pling ljud
+        soundType = 'default';
+        soundUrl = settings.defaultSound;
+        console.log(`🔔 Playing default sound for ${agent.name} (${newTotal} THB < ${dailyBudget} THB)`);
+      } else {
+        // ⭐ PÅ/ÖVER DAGSBUDGET: Personligt ljud eller milestone ljud
+        const agentSound = await soundLibrary.getSoundForAgent(deal.userId);
         
-        let soundType = 'default';
-        let soundUrl = settings.defaultSound;
-        
-        // 1. Kolla om agent NÅR milestone (dagsbudget)
-        const reachedBudget = newTotal >= dailyBudget && previousTotal < dailyBudget;
-        
-        if (reachedBudget && !agent.preferCustomSound) {
-          // 🏆 MILESTONE! Agent når dagsbudget FÖRSTA gången idag
-          soundType = 'milestone';
-          soundUrl = settings.milestoneSound || soundUrl;
-          console.log(`🏆 MILESTONE! ${agent.name} reached ${dailyBudget} THB (${previousTotal} → ${newTotal})`);
+        if (agentSound) {
+          // 1. Agent har personligt ljud → spela det
+          soundType = 'agent';
+          soundUrl = agentSound.url;
+          console.log(`💰 Playing custom sound for ${agent.name} (${newTotal} THB)`);
         } else {
-          // 2. Annars, kolla om agent har personligt ljud
-          const agentSound = await soundLibrary.getSoundForAgent(deal.userId);
-          if (agentSound) {
-            soundType = 'agent';
-            soundUrl = agentSound.url;
-            console.log(`💰 Playing custom sound for ${agent.name}`);
-          } else {
-            console.log(`🔔 Playing default sound for ${agent.name}`);
-          }
+          // 2. Agent har INGET personligt ljud → spela dagsbudget ljud
+          soundType = 'milestone';
+          soundUrl = settings.milestoneSound || settings.defaultSound;
+          console.log(`🏆 Playing milestone sound for ${agent.name} (${newTotal} THB >= ${dailyBudget} THB)`);
         }
-        
+      }
         const notification = {
           deal: savedDeal,
           agent: agent,
