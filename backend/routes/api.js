@@ -810,6 +810,12 @@ router.get('/sounds/agent/:userId', async (req, res) => {
   }
 });
 
+// 🧪 TEST ROUTE
+router.post('/sounds/test-simple', (req, res) => {
+  console.log('🧪 TEST ROUTE HIT!');
+  res.json({ success: true, message: 'Test works!' });
+});
+
 // 🧹 CLEANUP ORPHANED SOUND REFERENCES
 // Fixar alla befintliga agenter som har gamla ljudkopplingar som inte längre är aktiva
 router.post('/sounds/cleanup', async (req, res) => {
