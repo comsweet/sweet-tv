@@ -52,4 +52,24 @@ export const createSlideshow = (data) => api.post('/slideshows', data);
 export const updateSlideshow = (id, data) => api.put(`/slideshows/${id}`, data);
 export const deleteSlideshow = (id) => api.delete(`/slideshows/${id}`);
 
+// Sound Management
+export const getSoundSettings = () => api.get('/sounds/settings');
+export const updateSoundSettings = (data) => api.put('/sounds/settings', data);
+export const getSounds = () => api.get('/sounds');
+export const uploadSound = (file) => {
+  const formData = new FormData();
+  formData.append('sound', file);
+  return api.post('/sounds/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};
+export const deleteSound = (id) => api.delete(`/sounds/${id}`);
+export const updateSound = (id, data) => api.put(`/sounds/${id}`, data);
+export const linkAgentToSound = (soundId, userId) => 
+  api.post(`/sounds/${soundId}/link-agent`, { userId });
+export const unlinkAgentFromSound = (soundId, userId) => 
+  api.post(`/sounds/${soundId}/unlink-agent`, { userId });
+
 export default api;
