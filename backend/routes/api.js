@@ -13,8 +13,7 @@ const multer = require('multer');
 const path = require('path');
 
 // Multer upload med Cloudinary (max 5MB, med filetype validation)
-const upload = multer({ 
-  storage: storage, // FIXED: Now correctly using the storage from cloudinary config
+const upload = multer({ storage: imageStorage, // FIXED: Now correctly using the storage from cloudinary config
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
@@ -595,6 +594,148 @@ router.post('/deals/clean', async (req, res) => {
       message: 'Cleaned old deals',
       stats 
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== SOUND MANAGEMENT ====================
+
+// GET sound settings
+router.get('/sounds/settings', async (req, res) => {
+  try {
+    const settings = await soundSettings.getSettings();
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// UPDATE sound settings
+router.put('/sounds/settings', async (req, res) => {
+  try {
+    const settings = await soundSettings.updateSettings(req.body);
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET all sounds
+router.get('/sounds', async (req, res) => {
+  try {
+    const sounds = await soundLibrary.getSounds();
+    res.json(sounds);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// UPLOAD new sound
+const uploadSound = multer({ 
+  storage: soundStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only MP3, WAV, and OGG allowed.'));
+    }
+  }
+});
+
+router.post('/sounds/upload', uploadSound.single('sound'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    const soundUrl = req.file.path;
+    const originalName = req.file.originalname;
+    
+    console.log(`🎵 Uploaded sound to Cloudinary: ${soundUrl}`);
+    
+    const sound = await soundLibrary.addSound({
+      name: originalName,
+      url: soundUrl,
+      duration: null
+    });
+    
+    res.json(sound);
+  } catch (error) {
+    console.error('Error uploading sound:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE sound
+router.delete('/sounds/:id', async (req, res) => {
+  try {
+    const sound = await soundLibrary.getSound(req.params.id);
+    if (!sound) {
+      return res.status(404).json({ error: 'Sound not found' });
+    }
+    
+    // Delete from Cloudinary
+    if (sound.url && sound.url.includes('cloudinary')) {
+      try {
+        const urlParts = sound.url.split('/');
+        const filename = urlParts[urlParts.length - 1];
+        const publicId = `sweet-tv-sounds/${filename.split('.')[0]}`;
+        
+        await cloudinary.uploader.destroy(publicId, { resource_type: 'video' });
+        console.log(`🗑️  Deleted sound from Cloudinary: ${publicId}`);
+      } catch (deleteError) {
+        console.error('⚠️  Could not delete sound from Cloudinary:', deleteError.message);
+      }
+    }
+    
+    await soundLibrary.deleteSound(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// LINK agent to sound
+router.post('/sounds/:id/link-agent', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId required' });
+    }
+    
+    const sound = await soundLibrary.linkAgent(req.params.id, userId);
+    res.json(sound);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// UNLINK agent from sound
+router.post('/sounds/:id/unlink-agent', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId required' });
+    }
+    
+    const sound = await soundLibrary.unlinkAgent(req.params.id, userId);
+    res.json(sound);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// UPDATE sound metadata
+router.put('/sounds/:id', async (req, res) => {
+  try {
+    const sound = await soundLibrary.updateSound(req.params.id, req.body);
+    if (!sound) {
+      return res.status(404).json({ error: 'Sound not found' });
+    }
+    res.json(sound);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
