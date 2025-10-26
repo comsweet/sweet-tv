@@ -632,13 +632,20 @@ router.post('/deals/clean', async (req, res) => {
   }
 });
 
-// CLEAR DEALS DATABASE (för testing/reset)
+// 🔥 UPPDATERAD: CLEAR DEALS DATABASE OCH CACHE SAMTIDIGT
 router.delete('/deals/database', async (req, res) => {
   try {
+    // 1. Rensa deals database (deals.json)
     await database.clearDeals();
+    console.log('✅ Cleared deals.json');
+    
+    // 2. Rensa deals cache (deals-cache.json)
+    await dealsCache.saveCache([]);
+    console.log('✅ Cleared deals-cache.json');
+    
     res.json({ 
       success: true, 
-      message: 'Cleared deals database (deals.json)'
+      message: 'Cleared both deals database (deals.json) and deals cache (deals-cache.json)'
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
