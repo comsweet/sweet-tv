@@ -2,6 +2,7 @@ const adversusAPI = require('./adversusAPI');
 const database = require('./database');
 const soundSettings = require('./soundSettings');
 const soundLibrary = require('./soundLibrary');
+const leaderboardCache = require('./leaderboardCache'); // 🔥 IMPORT CACHE!
 
 class PollingService {
   constructor(io) {
@@ -181,6 +182,10 @@ class PollingService {
     const savedDeal = await database.addDeal(deal);
     
     if (savedDeal) {
+      // 🔥 CRITICAL FIX: INVALIDATE LEADERBOARD CACHE!
+      console.log('🗑️  Invalidating all leaderboard caches after new deal');
+      leaderboardCache.clear();
+      
       // Log om det kom från pending queue
       if (fromPending) {
         console.log(`🎉 PENDING DEAL PROCESSED: Lead ${lead.id} finally has commission!`);
