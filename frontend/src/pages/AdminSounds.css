@@ -1,10 +1,12 @@
+/* ==================== ADMIN SOUNDS - KOMPLETT CSS ==================== */
+
 .admin-sounds {
   display: flex;
   flex-direction: column;
   gap: 2rem;
 }
 
-/* Upload Section */
+/* ==================== UPLOAD SECTION ==================== */
 .sounds-upload-section {
   background: white;
   padding: 2rem;
@@ -44,7 +46,7 @@
   transform: translateY(0);
 }
 
-/* Settings Section */
+/* ==================== SETTINGS SECTION ==================== */
 .sounds-settings-section {
   background: white;
   padding: 2rem;
@@ -85,51 +87,142 @@
   border-color: #667eea;
 }
 
-/* 🔥 NY: Cleanup Section */
+/* ==================== CLEANUP SECTION ==================== */
 .sounds-cleanup-section {
-  background: #fff3cd;
-  border: 2px solid #ffc107;
+  background: #fff;
   border-radius: 12px;
   padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .sounds-cleanup-section h3 {
-  margin: 0 0 0.5rem 0;
-  color: #856404;
+  margin: 0 0 1rem 0;
   font-size: 1.3rem;
+  color: #2c3e50;
+}
+
+.cleanup-box {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.cleanup-box.force-cleanup {
+  background: #fff3cd;
+  border: 2px solid #ff6b6b;
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.15);
+}
+
+.cleanup-box h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #333;
 }
 
 .cleanup-hint {
-  color: #856404;
-  margin: 0.5rem 0 1rem 0;
-  font-size: 0.95rem;
+  color: #666;
+  font-size: 0.9rem;
   line-height: 1.5;
+  margin: 0.5rem 0 1rem 0;
+}
+
+.cleanup-hint strong {
+  color: #333;
+  font-weight: 600;
+}
+
+/* Cleanup Button Styles */
+.btn-danger {
+  background: #ff6b6b;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #ee5a52;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.btn-danger:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-danger:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .btn-warning {
-  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
-  color: white;
+  background: #ffc107;
+  color: #000;
   border: none;
-  padding: 0.8rem 1.5rem;
+  padding: 0.75rem 1.5rem;
   border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  font-family: inherit;
 }
 
 .btn-warning:hover:not(:disabled) {
+  background: #ffb300;
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+.btn-warning:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn-warning:disabled {
-  opacity: 0.6;
+  background: #ccc;
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
-/* Library Section */
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #5a6268;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-secondary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ==================== LIBRARY SECTION ==================== */
 .sounds-library-section {
   background: white;
   padding: 2rem;
@@ -154,12 +247,13 @@
   gap: 1.5rem;
 }
 
-/* Sound Card */
+/* ==================== SOUND CARD ==================== */
 .sound-card {
   border: 2px solid #e1e8ed;
   border-radius: 12px;
   padding: 1.5rem;
   transition: all 0.3s ease;
+  background: white;
 }
 
 .sound-card:hover {
@@ -189,6 +283,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .sound-badge {
@@ -225,7 +320,7 @@
   transition: all 0.3s ease;
 }
 
-.btn-icon:hover {
+.btn-icon:hover:not(:disabled) {
   background: #f8f9fa;
   transform: scale(1.1);
 }
@@ -236,7 +331,7 @@
   border-color: #667eea;
 }
 
-.btn-icon.danger:hover {
+.btn-icon.danger:hover:not(:disabled) {
   background: #e74c3c;
   color: white;
   border-color: #e74c3c;
@@ -252,7 +347,7 @@
   background: white;
 }
 
-/* Linked Agents */
+/* ==================== LINKED AGENTS ==================== */
 .sound-card-body {
   margin-top: 1rem;
 }
@@ -282,6 +377,12 @@
   border-radius: 20px;
   font-size: 0.9rem;
   color: #2c3e50;
+  transition: all 0.2s ease;
+}
+
+.linked-agent-chip:hover {
+  background: #e9ecef;
+  border-color: #dee2e6;
 }
 
 .linked-agent-chip span {
@@ -309,6 +410,7 @@
   color: white;
 }
 
+/* ==================== ADD AGENT ==================== */
 .add-agent-section {
   margin-top: 1rem;
 }
@@ -335,10 +437,35 @@
   border-color: #667eea;
 }
 
-/* Responsive */
+/* ==================== LOADING STATE ==================== */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  font-size: 1.2rem;
+  color: #7f8c8d;
+}
+
+/* ==================== RESPONSIVE ==================== */
 @media (max-width: 768px) {
+  .admin-sounds {
+    gap: 1.5rem;
+  }
+
+  .sounds-upload-section,
+  .sounds-settings-section,
+  .sounds-cleanup-section,
+  .sounds-library-section {
+    padding: 1.5rem;
+  }
+
   .setting-row {
     grid-template-columns: 1fr;
+  }
+
+  .sound-card {
+    padding: 1rem;
   }
 
   .sound-card-header {
@@ -347,113 +474,56 @@
     gap: 1rem;
   }
 
-  .sounds-cleanup-section {
-  background: #fff;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.cleanup-box {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-.cleanup-box.force-cleanup {
-  background: #fff3cd;
-  border: 2px solid #ff6b6b;
-}
-
-.cleanup-box h4 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.1rem;
-}
-
-.cleanup-hint {
-  color: #666;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  margin: 0.5rem 0 1rem 0;
-}
-
-.btn-danger {
-  background: #ff6b6b;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: all 0.2s;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: #ee5a52;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
-}
-
-.btn-danger:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.btn-warning {
-  background: #ffc107;
-  color: #000;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: all 0.2s;
-}
-
-.btn-warning:hover:not(:disabled) {
-  background: #ffb300;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
-}
-
-.btn-warning:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #5a6268;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
-}
-
-.btn-secondary:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-
-
-
   .sound-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .cleanup-box {
+    padding: 1rem;
+  }
+
+  .btn-danger,
+  .btn-warning,
+  .btn-secondary {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.95rem;
+  }
+
+  .linked-agents-list {
+    gap: 0.4rem;
+  }
+
+  .linked-agent-chip {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sounds-upload-section,
+  .sounds-settings-section,
+  .sounds-cleanup-section,
+  .sounds-library-section {
+    padding: 1rem;
+  }
+
+  .upload-button {
+    padding: 0.8rem 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  .sound-card-header {
+    padding-bottom: 0.75rem;
+  }
+
+  .sound-info h4 {
+    font-size: 1rem;
+  }
+
+  .btn-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
   }
 }
