@@ -212,7 +212,6 @@ const AdminSounds = () => {
   };
 
   // 🧪 TEST FUNKTION
-  // 🔥 FIX: Använd absolut URL med API_BASE_URL
   const handleTestRouting = async () => {
     if (!confirm('DETTA ÄR EN TEST - Klicka OK för att testa routing')) {
       return;
@@ -223,7 +222,6 @@ const AdminSounds = () => {
       console.log('🧪 Calling TEST API...');
       console.log('🔗 API Base URL:', API_BASE_URL);
       
-      // 🔥 FIX: Använd absolut URL istället för relativ
       const testUrl = `${API_BASE_URL}/sounds/test-simple`;
       console.log('🎯 Test URL:', testUrl);
       
@@ -259,8 +257,7 @@ const AdminSounds = () => {
     }
   };
 
-  // 🧹 CLEANUP FUNKTION
-  // 🔥 FIX: Använd absolut URL med API_BASE_URL
+  // 🧹 CLEANUP FUNKTION (gammal version - rensar bara agents.json)
   const handleCleanupOrphanedReferences = async () => {
     if (!confirm('Detta kommer att rensa gamla ljudkopplingar i agents.json som inte längre är aktiva. Fortsätt?')) {
       return;
@@ -270,7 +267,6 @@ const AdminSounds = () => {
     try {
       console.log('🧹 Starting cleanup...');
       
-      // 🔥 FIX: Använd absolut URL istället för relativ
       const cleanupUrl = `${API_BASE_URL}/sounds/cleanup`;
       console.log('🎯 Cleanup URL:', cleanupUrl);
       
@@ -291,13 +287,63 @@ const AdminSounds = () => {
       
       if (response.ok && data.success) {
         alert(`✅ CLEANUP KLAR!\n\n${data.message}\n\nKontrollerade: ${data.checkedCount} agenter\nRensade: ${data.cleanedCount} gamla kopplingar`);
-        fetchData(); // Uppdatera vyn
+        fetchData();
       } else {
         throw new Error(data.error || 'Cleanup failed');
       }
     } catch (error) {
       console.error('❌ Error during cleanup:', error);
       alert(`CLEANUP MISSLYCKADES: ${error.message}\n\nKolla browser console och server logs.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 🔥 NYA: FORCE CLEANUP - Synkroniserar soundLibrary.json och agents.json
+  const handleForceCleanup = async () => {
+    if (!confirm('⚠️ FORCE CLEANUP\n\nDetta kommer att:\n1. Rensa alla ogiltiga länkar i soundLibrary.json\n2. Rensa alla orphaned customSounds i agents.json\n\nÄr du säker?')) {
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log('🧹 Starting FORCE cleanup...');
+      
+      const cleanupUrl = `${API_BASE_URL}/sounds/force-cleanup`;
+      console.log('🎯 Force Cleanup URL:', cleanupUrl);
+      
+      const response = await fetch(cleanupUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const contentType = response.headers.get('content-type');
+      
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText} - Not JSON!`);
+      }
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        alert(
+          `✅ FORCE CLEANUP KLAR!\n\n` +
+          `Ljud rensade: ${data.soundsCleaned}\n` +
+          `Ogiltiga länkar borttagna: ${data.totalRemovedLinks}\n` +
+          `Agenter rensade: ${data.agentsCleaned}\n\n` +
+          `Totalt kontrollerade:\n` +
+          `- ${data.details.soundsChecked} ljud\n` +
+          `- ${data.details.agentsChecked} agenter`
+        );
+        fetchData();
+      } else {
+        throw new Error(data.error || 'Force cleanup failed');
+      }
+    } catch (error) {
+      console.error('❌ Error during force cleanup:', error);
+      alert(`FORCE CLEANUP MISSLYCKADES: ${error.message}\n\nKolla browser console och server logs.`);
     } finally {
       setIsLoading(false);
     }
@@ -380,32 +426,61 @@ const AdminSounds = () => {
         </div>
       </div>
 
-      {/* 🧪 TEST & CLEANUP SEKTION */}
+      {/* 🔥 UPPDATERAD: CLEANUP SEKTION MED FORCE CLEANUP */}
       <div className="sounds-cleanup-section">
-        <h3>🧪 TEST ROUTING</h3>
-        <p className="cleanup-hint">
-          Klicka här för att testa om routing fungerar. Detta gör ingen cleanup ännu.
-        </p>
-        <button 
-          onClick={handleTestRouting}
-          className="btn-warning"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Testar...' : '🧪 Testa routing'}
-        </button>
-
-        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #ddd' }}>
-          <h3>🧹 RENSA GAMLA LJUDKOPPLINGAR</h3>
+        <h3>🧹 RENSA LJUDKOPPLINGAR</h3>
+        
+        {/* FORCE CLEANUP - NY! */}
+        <div className="cleanup-box force-cleanup">
+          <h4>🔥 FORCE CLEANUP (Rekommenderad)</h4>
           <p className="cleanup-hint">
-            När test-funktionen ovan fungerar, använd denna för att rensa gamla ljudkopplingar i agents.json.
+            <strong>Synkroniserar soundLibrary.json och agents.json</strong><br/>
+            • Tar bort ogiltiga länkar från ljudfiler<br/>
+            • Rensar orphaned customSounds från agenter<br/>
+            • Fixar alla inkonsistenser mellan filerna
           </p>
           <button 
-            onClick={handleCleanupOrphanedReferences}
+            onClick={handleForceCleanup}
             className="btn-danger"
             disabled={isLoading}
+            style={{ fontWeight: 'bold' }}
           >
-            {isLoading ? 'Rensar...' : '🧹 Kör cleanup'}
+            {isLoading ? 'Rensar...' : '🔥 Kör FORCE CLEANUP'}
           </button>
+        </div>
+        
+        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #ddd' }}>
+          {/* VANLIG CLEANUP - GAMMAL */}
+          <div className="cleanup-box">
+            <h4>🧹 Vanlig Cleanup</h4>
+            <p className="cleanup-hint">
+              Rensar endast agents.json (gamla funktionen)
+            </p>
+            <button 
+              onClick={handleCleanupOrphanedReferences}
+              className="btn-warning"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Rensar...' : '🧹 Kör vanlig cleanup'}
+            </button>
+          </div>
+        </div>
+        
+        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #ddd' }}>
+          {/* TEST ROUTING */}
+          <div className="cleanup-box">
+            <h4>🧪 Test Routing</h4>
+            <p className="cleanup-hint">
+              Testa om routing fungerar (gör ingen cleanup)
+            </p>
+            <button 
+              onClick={handleTestRouting}
+              className="btn-secondary"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Testar...' : '🧪 Testa routing'}
+            </button>
+          </div>
         </div>
       </div>
 
