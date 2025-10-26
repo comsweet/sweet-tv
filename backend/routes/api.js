@@ -71,19 +71,40 @@ router.delete('/agents/:userId', async (req, res) => {
   }
 });
 
-// PROFILE IMAGE UPLOAD (Cloudinary!)
+// PROFILE IMAGE UPLOAD (Cloudinary!) - FIXED VERSION
 router.post('/agents/:userId/profile-image', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
-    // Cloudinary returnerar URL i req.file.path
     const imageUrl = req.file.path;
     console.log(`📸 Uploaded image to Cloudinary: ${imageUrl}`);
     
-    // Hämta befintlig agent för att få gamla bilden
-    const existingAgent = await database.getAgent(req.params.userId);
+    // Hämta befintlig agent
+    let existingAgent = await database.getAgent(req.params.userId);
+    
+    // 🔥 FIX: Om agent inte finns, skapa den FÖRST!
+    if (!existingAgent) {
+      console.log(`⚠️  Agent ${req.params.userId} not in database - creating...`);
+      
+      // Hämta från Adversus
+      const usersRes = await adversusAPI.getUsers();
+      const adversusUser = usersRes.users?.find(u => String(u.id) === String(req.params.userId));
+      
+      if (adversusUser) {
+        existingAgent = await database.addAgent({
+          userId: req.params.userId,
+          name: adversusUser.name || `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim(),
+          email: adversusUser.email || '',
+          profileImage: null // Kommer uppdateras nedan
+        });
+        console.log(`✅ Created agent ${req.params.userId} in database`);
+      } else {
+        return res.status(404).json({ error: 'User not found in Adversus' });
+      }
+    }
+    
     const oldImageUrl = existingAgent?.profileImage;
     
     // Uppdatera agent med ny bild
@@ -91,10 +112,15 @@ router.post('/agents/:userId/profile-image', upload.single('image'), async (req,
       profileImage: imageUrl
     });
     
-    // OPTIONAL: Radera gammal bild från Cloudinary (om vi vill spara storage)
+    if (!agent) {
+      return res.status(500).json({ error: 'Could not update agent with profile image' });
+    }
+    
+    console.log(`✅ Updated agent ${req.params.userId} with profileImage`);
+    
+    // OPTIONAL: Radera gammal bild från Cloudinary
     if (oldImageUrl && oldImageUrl.includes('cloudinary')) {
       try {
-        // Extrahera public_id från URL
         const urlParts = oldImageUrl.split('/');
         const filename = urlParts[urlParts.length - 1];
         const publicId = `sweet-tv-profiles/${filename.split('.')[0]}`;
@@ -103,7 +129,6 @@ router.post('/agents/:userId/profile-image', upload.single('image'), async (req,
         console.log(`🗑️  Deleted old image from Cloudinary: ${publicId}`);
       } catch (deleteError) {
         console.error('⚠️  Could not delete old image:', deleteError.message);
-        // Continue anyway - not critical
       }
     }
     
@@ -760,20 +785,6 @@ router.get('/sounds/agent/:userId', async (req, res) => {
   try {
     const sound = await soundLibrary.getSoundForAgent(req.params.userId);
     res.json(sound || null);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-javascript// 🔍 DEBUG ENDPOINT - Se innehållet i agents.json
-router.get('/debug/agents-raw', async (req, res) => {
-  try {
-    const fs = require('fs').promises;
-    const path = require('path');
-    const filePath = path.join('/var/data', 'agents.json');
-    const data = await fs.readFile(filePath, 'utf8');
-    res.setHeader('Content-Type', 'application/json');
-    res.send(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
