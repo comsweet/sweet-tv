@@ -74,7 +74,7 @@ const Display = () => {
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
   const refreshIntervalRef = useRef(null);
 
-  // 🔥 NY: Fetch leaderboards med silent mode
+  // 🔥 FIXED: Fetch leaderboards med silent mode
   const fetchLeaderboards = async (silent = false) => {
     try {
       if (!silent) {
@@ -150,7 +150,7 @@ const Display = () => {
     // Initial fetch
     fetchLeaderboards();
     
-    // 🔥 NY: AUTOMATIC REFRESH var 2:e minut (background update)
+    // 🔥 AUTOMATIC REFRESH var 2:e minut (background update)
     refreshIntervalRef.current = setInterval(() => {
       console.log('🔄 Auto-refresh: Updating leaderboard data...');
       fetchLeaderboards(true); // silent = true (no loading screen)
@@ -162,10 +162,10 @@ const Display = () => {
       console.log('🎉 New deal received:', notification);
       setCurrentNotification(notification);
       
-      // 🔥 NY: IMMEDIATE BACKGROUND UPDATE
+      // 🔥 FIXED: IMMEDIATE BACKGROUND UPDATE efter notification
       setTimeout(() => {
         console.log('🔄 Deal received: Refreshing leaderboard data...');
-        fetchLeaderboards(true); // Silent refresh
+        fetchLeaderboards(true); // Silent refresh - FIXED function name!
       }, 5000);
     };
 
