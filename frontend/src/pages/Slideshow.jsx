@@ -1,12 +1,11 @@
 // frontend/src/pages/Slideshow.jsx
-// 🔄 UPPDATERA DENNA FIL - Ersätt hela innehållet
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
-import { getSlideshow, getLeaderboardStats2, getLeaderboard } from '../services/api';
-import DealNotification from '../components/DealNotification.jsx';
-import DualLeaderboardSlide from '../components/DualLeaderboardSlide.jsx'; // ✨ NY IMPORT
+import { getSlideshow, getLeaderboardStats2 } from '../services/api';
+import DealNotification from '../components/DealNotification';
+import DualLeaderboardSlide from '../components/DualLeaderboardSlide'; // ✨ KRITISK IMPORT
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -119,6 +118,8 @@ const Slideshow = () => {
       const slideshowData = slideshowResponse.data;
       setSlideshow(slideshowData);
       
+      console.log('📺 Slideshow data:', slideshowData);
+      
       // ✨ NYTT: Hantera både single och dual mode
       if (slideshowData.type === 'dual' && slideshowData.dualSlides) {
         // Dual mode
@@ -134,6 +135,7 @@ const Slideshow = () => {
           try {
             if (!silent) {
               console.log(`📈 Loading dual slide ${i + 1}/${slideshowData.dualSlides.length}`);
+              console.log(`  Left: ${dualSlide.left}, Right: ${dualSlide.right}`);
             }
             
             // Hämta båda leaderboards parallellt
