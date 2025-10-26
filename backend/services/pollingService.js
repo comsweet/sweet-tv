@@ -175,8 +175,8 @@ class PollingService {
       status: lead.status
     };
     
-    // BERÄKNA DAGENS TOTAL INNAN denna deal
-    const previousTotal = await database.getTodayTotalForAgent(deal.userId);
+    // 🔥 UPPDATERAD: Använd dealsCache istället för database för korrekt dailyTotal!
+    const previousTotal = await dealsCache.getTodayTotalForAgent(deal.userId);
     const newTotal = previousTotal + commissionValue;
     
     // Spara dealen
