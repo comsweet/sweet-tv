@@ -1,92 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import confetti from 'canvas-confetti';
 import socketService from '../services/socket';
 import { getSlideshow, getLeaderboardStats2 } from '../services/api';
+import DealNotification from '../components/DealNotification';
+import '../components/DealNotification.css';
 import './Slideshow.css';
-
-const DealNotification = ({ notification, onComplete }) => {
-  const cleanupTimerRef = useRef(null);
-  const confettiFrameRef = useRef(null);
-
-  useEffect(() => {
-    console.log('🎉 Notification mounted:', notification.agent.name);
-    
-    const confettiDuration = 3000;
-    const confettiEnd = Date.now() + confettiDuration;
-    const colors = ['#bb0000', '#ffffff', '#00bb00'];
-
-    const runConfetti = () => {
-      confetti({
-        particleCount: 3,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: colors
-      });
-      confetti({
-        particleCount: 3,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: colors
-      });
-
-      if (Date.now() < confettiEnd) {
-        confettiFrameRef.current = requestAnimationFrame(runConfetti);
-      }
-    };
-    
-    runConfetti();
-
-    // GUARANTEE cleanup after 5 seconds
-    cleanupTimerRef.current = setTimeout(() => {
-      console.log('🧹 Cleaning up notification (5s timeout)');
-      if (confettiFrameRef.current) {
-        cancelAnimationFrame(confettiFrameRef.current);
-      }
-      onComplete();
-    }, 5000);
-
-    return () => {
-      console.log('🧹 Component unmounting');
-      if (cleanupTimerRef.current) {
-        clearTimeout(cleanupTimerRef.current);
-      }
-      if (confettiFrameRef.current) {
-        cancelAnimationFrame(confettiFrameRef.current);
-      }
-    };
-  }, []); // ← EMPTY! Only run once on mount!
-
-  const { agent, commission } = notification;
-
-  return (
-    <div className="deal-notification">
-      <div className="notification-content">
-        {agent.profileImage && (
-          <img 
-            src={agent.profileImage} 
-            alt={agent.name}
-            className="notification-avatar"
-          />
-        )}
-        {!agent.profileImage && (
-          <div className="notification-avatar-placeholder">
-            {agent.name?.charAt(0) || '?'}
-          </div>
-        )}
-        <div className="notification-text">
-          <h2 className="notification-name">{agent.name}</h2>
-          <p className="notification-commission">
-            +{parseFloat(commission).toLocaleString('sv-SE')} THB
-          </p>
-          <p className="notification-message">🎉 Ny affär registrerad!</p>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
   const getTimePeriodLabel = (period) => {
