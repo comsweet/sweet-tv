@@ -174,9 +174,9 @@ const Admin = () => {
     setIsLoading(false);
   };
 
-  // 🔥 RENSA DEALS DATABASE FUNKTION
+  // 🔥 UPPDATERAD: RENSA DEALS DATABASE + CACHE FUNKTION
   const handleClearDealsDatabase = async () => {
-    if (!confirm('⚠️ VARNING: Detta raderar alla deals från databasen!\n\nDetta påverkar "dagens totaler" för notifikationer.\nLeaderboards påverkas EJ (de använder deals-cache).\n\nFortsätt?')) {
+    if (!confirm('⚠️ VARNING: Detta raderar alla deals från BÅDE databasen OCH cachen!\n\n• Rensar deals.json (dagens totaler för notifikationer)\n• Rensar deals-cache.json (leaderboard data)\n\nBåda filerna synkas med varandra.\n\nFortsätt?')) {
       return;
     }
 
@@ -185,7 +185,7 @@ const Admin = () => {
       
       if (response.data.success) {
         alert('✅ ' + response.data.message);
-        console.log('✅ Cleared deals database');
+        console.log('✅ Cleared both deals database and cache');
         
         // Refresh om vi är på stats
         if (activeTab === 'stats') {
@@ -193,7 +193,7 @@ const Admin = () => {
         }
       }
     } catch (error) {
-      console.error('❌ Error clearing deals database:', error);
+      console.error('❌ Error clearing deals:', error);
       alert('❌ Fel: ' + (error.response?.data?.error || error.message));
     }
   };
