@@ -216,6 +216,8 @@ const AdminSounds = () => {
     
     setIsLoading(true);
     try {
+      console.log('🧹 Calling cleanup API...');
+      
       const response = await fetch('/api/sounds/cleanup', {
         method: 'POST',
         headers: {
@@ -223,19 +225,29 @@ const AdminSounds = () => {
         }
       });
       
-      const data = await response.json();
+      console.log('📡 Response status:', response.status);
       
-      if (response.ok) {
-        alert(`✅ ${data.message}`);
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('📦 Response data:', data);
+      
+      if (response.ok && data.success) {
+        alert(`✅ ${data.message}\n\nKontrollerade: ${data.checkedCount} agenter\nRensade: ${data.cleanedCount} kopplingar`);
         fetchData();
       } else {
         throw new Error(data.error || 'Cleanup failed');
       }
     } catch (error) {
-      console.error('Error during cleanup:', error);
-      alert('Fel vid rensning: ' + error.message);
+      console.error('❌ Error during cleanup:', error);
+      alert(`Fel vid rensning: ${error.message}\n\nKolla server logs för mer info.`);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const getSoundName = (url) => {
