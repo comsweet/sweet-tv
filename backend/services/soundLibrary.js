@@ -9,6 +9,8 @@ const path = require('path');
  * - Link/unlink agents to sounds
  * - Delete sounds
  * - Get sound info
+ * 
+ * 🔥 FIXED: Normaliserar userId till number för att matcha database.js
  */
 class SoundLibraryService {
   constructor() {
@@ -101,10 +103,15 @@ class SoundLibraryService {
         throw new Error('Sound not found');
       }
       
-      if (!sound.linkedAgents.includes(userId)) {
-        sound.linkedAgents.push(userId);
+      // 🔥 FIX: Normalize userId to number för consistency med database.js
+      const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+      
+      if (!sound.linkedAgents.includes(userIdNum)) {
+        sound.linkedAgents.push(userIdNum);
         await fs.writeFile(this.libraryFile, JSON.stringify({ sounds }, null, 2));
-        console.log(`🔗 Linked agent ${userId} to sound ${soundId}`);
+        console.log(`🔗 Linked agent ${userIdNum} to sound ${soundId}`);
+      } else {
+        console.log(`ℹ️  Agent ${userIdNum} already linked to sound ${soundId}`);
       }
       
       return sound;
@@ -123,9 +130,17 @@ class SoundLibraryService {
         throw new Error('Sound not found');
       }
       
-      sound.linkedAgents = sound.linkedAgents.filter(id => id !== userId);
+      // 🔥 FIX: Normalize userId to number för consistency med database.js
+      const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+      
+      sound.linkedAgents = sound.linkedAgents.filter(id => {
+        // Normalize both sides for comparison
+        const normalizedId = typeof id === 'string' ? parseInt(id, 10) : id;
+        return normalizedId !== userIdNum;
+      });
+      
       await fs.writeFile(this.libraryFile, JSON.stringify({ sounds }, null, 2));
-      console.log(`🔓 Unlinked agent ${userId} from sound ${soundId}`);
+      console.log(`🔓 Unlinked agent ${userIdNum} from sound ${soundId}`);
       
       return sound;
     } catch (error) {
@@ -135,8 +150,17 @@ class SoundLibraryService {
   }
 
   async getSoundForAgent(userId) {
+    // 🔥 FIX: Normalize userId to number för consistency med database.js
+    const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+    
     const sounds = await this.getSounds();
-    return sounds.find(s => s.linkedAgents.includes(userId));
+    return sounds.find(s => {
+      // Check if any linked agent matches (handling both string and number formats)
+      return s.linkedAgents.some(linkedId => {
+        const normalizedLinkedId = typeof linkedId === 'string' ? parseInt(linkedId, 10) : linkedId;
+        return normalizedLinkedId === userIdNum;
+      });
+    });
   }
 
   async updateSound(id, updates) {
