@@ -19,6 +19,10 @@ import {
 import AdminSounds from './AdminSounds';
 import './Admin.css';
 
+// Import axios directly for sync call with custom timeout
+import axios from 'axios';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const Admin = () => {
   const [activeTab, setActiveTab] = useState('agents');
   const [agents, setAgents] = useState([]);
@@ -28,6 +32,8 @@ const Admin = () => {
   const [leaderboards, setLeaderboards] = useState([]);
   const [slideshows, setSlideshows] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState('');
   
   // Statistik
   const [startDate, setStartDate] = useState(
@@ -109,7 +115,6 @@ const Admin = () => {
         setSlideshows(slideshowsRes.data);
         setLeaderboards(leaderboardsRes.data);
       }
-      // activeTab === 'sounds' hanteras av AdminSounds själv
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('Fel vid hämtning: ' + error.message);
@@ -167,26 +172,81 @@ const Admin = () => {
     setIsLoading(false);
   };
 
-  const handleForceSyncDeals = async () => {
-    if (!confirm('Detta synkar alla deals från Adversus (kan ta några minuter). Fortsätt?')) return;
-    
+  // 🔥 NYA FUNKTIONER FÖR DEALS SYNC
+  const handleSyncDeals = async () => {
+    if (!confirm('Detta synkar alla deals från Adversus (kan ta flera minuter). Fortsätt?')) {
+      return;
+    }
+
     try {
-      setIsLoading(true);
-      const response = await fetch('/api/deals/sync', { method: 'POST' });
-      const data = await response.json();
-      alert(`✅ Synkade ${data.deals} deals från Adversus!\n\nLeaderboards uppdateras automatiskt.`);
+      setIsSyncing(true);
+      setSyncProgress('🔄 Startar synkning...');
       
-      // Refresh current tab data
-      if (activeTab === 'stats' || activeTab === 'leaderboards') {
-        setTimeout(() => {
-          fetchData();
-        }, 1000);
+      // Custom axios call med 5 minuters timeout
+      const response = await axios.post(
+        `${API_BASE_URL}/deals/sync`,
+        {},
+        { 
+          timeout: 300000, // 5 minuter
+          onUploadProgress: () => {
+            setSyncProgress('🔄 Synkar deals från Adversus...');
+          }
+        }
+      );
+      
+      setSyncProgress('✅ Synkning klar!');
+      console.log('✅ Sync response:', response.data);
+      alert(`Synkning klar! ${response.data.deals} deals synkade.`);
+      
+      // Refresh data om vi är på stats-tab
+      if (activeTab === 'stats') {
+        fetchData();
       }
     } catch (error) {
-      console.error('Error syncing deals:', error);
-      alert('Fel vid synkroniering: ' + error.message);
+      console.error('❌ Sync error:', error);
+      setSyncProgress('❌ Synkning misslyckades');
+      
+      if (error.code === 'ECONNABORTED') {
+        alert('Timeout: Synkningen tog för lång tid. Försök igen eller kontakta support.');
+      } else {
+        alert('Fel vid synkning: ' + (error.response?.data?.error || error.message));
+      }
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncProgress(''), 3000);
     }
-    setIsLoading(false);
+  };
+
+  const handleForceRefresh = async () => {
+    if (!confirm('Detta tvingar en fullständig uppdatering (sync + cache clear). Fortsätt?')) {
+      return;
+    }
+
+    try {
+      setIsSyncing(true);
+      setSyncProgress('🔄 Synkar deals...');
+      
+      // 1. Sync deals
+      await axios.post(`${API_BASE_URL}/deals/sync`, {}, { timeout: 300000 });
+      
+      setSyncProgress('🗑️ Rensar cache...');
+      
+      // 2. Clear cache
+      await axios.post(`${API_BASE_URL}/leaderboards/cache/invalidate`, {});
+      
+      setSyncProgress('✅ Uppdatering klar!');
+      alert('Fullständig uppdatering klar!');
+      
+      // 3. Refresh current view
+      await fetchData();
+    } catch (error) {
+      console.error('❌ Refresh error:', error);
+      setSyncProgress('❌ Uppdatering misslyckades');
+      alert('Fel: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncProgress(''), 3000);
+    }
   };
 
   // Leaderboard functions
@@ -381,7 +441,7 @@ const Admin = () => {
 
   const getSlideshowUrl = (slideshowId) => {
     const baseUrl = window.location.origin + window.location.pathname;
-    return `${baseUrl}#/?slideshow=${slideshowId}`;
+    return `${baseUrl}#/slideshow/${slideshowId}`;
   };
 
   const copyToClipboard = (text) => {
@@ -403,12 +463,30 @@ const Admin = () => {
     <div className="admin-container">
       <header className="admin-header">
         <h1>⚙️ Sweet TV Admin</h1>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <button onClick={handleForceSyncDeals} className="btn-primary" disabled={isLoading}>
-            🔄 Synka Deals Cache
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          {syncProgress && (
+            <span style={{ color: '#667eea', fontWeight: '500' }}>
+              {syncProgress}
+            </span>
+          )}
+          <button 
+            onClick={handleSyncDeals} 
+            className="btn-primary" 
+            disabled={isSyncing}
+            style={{ opacity: isSyncing ? 0.6 : 1 }}
+          >
+            {isSyncing ? '⏳ Synkar...' : '🔄 Synka Deals Cache'}
           </button>
-          <button onClick={handleManualPoll} className="btn-primary" disabled={isLoading}>
-            🔍 Kolla efter nya affärer
+          <button 
+            onClick={handleForceRefresh} 
+            className="btn-primary" 
+            disabled={isSyncing}
+            style={{ opacity: isSyncing ? 0.6 : 1 }}
+          >
+            {isSyncing ? '⏳ Uppdaterar...' : '⚡ Force Refresh'}
+          </button>
+          <button onClick={handleManualPoll} className="btn-secondary" disabled={isLoading}>
+            🔄 Kolla nya affärer
           </button>
         </div>
       </header>
@@ -498,7 +576,8 @@ const Admin = () => {
           </div>
         )}
 
-        {/* User Groups Tab */}
+        {/* Rest of tabs remain the same... */}
+        {/* Groups Tab */}
         {activeTab === 'groups' && !isLoading && (
           <div className="groups-section">
             <div className="section-header">
@@ -507,15 +586,95 @@ const Admin = () => {
             <div className="groups-list">
               {userGroups.map((group, index) => (
                 <div key={index} className="group-list-item">
-                  <h3>{group.name || 'Unnamed Group'}</h3>
-                  <p>ID: {group.id}</p>
+                  <div>
+                    <h3>{group.name || 'Unnamed Group'}</h3>
+                    <p>ID: {group.id}</p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Leaderboards Tab */}
+        {/* ... Keep all other tabs exactly as they were ... */}
+        
+        {activeTab === 'sounds' && (
+          <AdminSounds />
+        )}
+
+        {activeTab === 'stats' && !isLoading && (
+          <div className="stats-section">
+            <div className="stats-header">
+              <h2>Statistik</h2>
+              <div className="date-picker">
+                <label>
+                  Från:
+                  <input 
+                    type="date" 
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Till:
+                  <input 
+                    type="date" 
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </label>
+                <button onClick={fetchData} className="btn-primary">
+                  Ladda statistik
+                </button>
+              </div>
+            </div>
+            
+            {stats.length === 0 ? (
+              <div className="no-data">Inga affärer för vald period</div>
+            ) : (
+              <div className="stats-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Placering</th>
+                      <th>Agent</th>
+                      <th>Antal affärer</th>
+                      <th>Total provision</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.map((stat, index) => (
+                      <tr key={stat.userId}>
+                        <td>
+                          {index === 0 && '🥇'}
+                          {index === 1 && '🥈'}
+                          {index === 2 && '🥉'}
+                          {index > 2 && `#${index + 1}`}
+                        </td>
+                        <td>
+                          <div className="stat-agent">
+                            {stat.agent.profileImage ? (
+                              <img src={stat.agent.profileImage} alt={stat.agent.name} />
+                            ) : (
+                              <div className="stat-avatar-placeholder">
+                                {stat.agent.name?.charAt(0) || '?'}
+                              </div>
+                            )}
+                            <span>{stat.agent.name}</span>
+                          </div>
+                        </td>
+                        <td>{stat.dealCount}</td>
+                        <td>{stat.totalCommission.toLocaleString('sv-SE')} THB</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Leaderboards Tab - keeping existing implementation */}
         {activeTab === 'leaderboards' && !isLoading && (
           <div className="leaderboards-section">
             <div className="section-header">
@@ -573,7 +732,7 @@ const Admin = () => {
           </div>
         )}
 
-        {/* Slideshows Tab */}
+        {/* Slideshows Tab - keeping existing implementation */}
         {activeTab === 'slideshows' && !isLoading && (
           <div className="slideshows-section">
             <div className="section-header">
@@ -646,87 +805,9 @@ const Admin = () => {
             </div>
           </div>
         )}
-
-        {/* Sounds Tab */}
-        {activeTab === 'sounds' && (
-          <AdminSounds />
-        )}
-
-        {/* Stats Tab */}
-        {activeTab === 'stats' && !isLoading && (
-          <div className="stats-section">
-            <div className="stats-header">
-              <h2>Statistik</h2>
-              <div className="date-picker">
-                <label>
-                  Från:
-                  <input 
-                    type="date" 
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </label>
-                <label>
-                  Till:
-                  <input 
-                    type="date" 
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </label>
-                <button onClick={fetchData} className="btn-primary">
-                  Ladda statistik
-                </button>
-              </div>
-            </div>
-            
-            {stats.length === 0 ? (
-              <div className="no-data">Inga affärer för vald period</div>
-            ) : (
-              <div className="stats-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Placering</th>
-                      <th>Agent</th>
-                      <th>Antal affärer</th>
-                      <th>Total provision</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.map((stat, index) => (
-                      <tr key={stat.userId}>
-                        <td>
-                          {index === 0 && '🥇'}
-                          {index === 1 && '🥈'}
-                          {index === 2 && '🥉'}
-                          {index > 2 && `#${index + 1}`}
-                        </td>
-                        <td>
-                          <div className="stat-agent">
-                            {stat.agent.profileImage ? (
-                              <img src={stat.agent.profileImage} alt={stat.agent.name} />
-                            ) : (
-                              <div className="stat-avatar-placeholder">
-                                {stat.agent.name?.charAt(0) || '?'}
-                              </div>
-                            )}
-                            <span>{stat.agent.name}</span>
-                          </div>
-                        </td>
-                        <td>{stat.dealCount}</td>
-                        <td>{stat.totalCommission.toLocaleString('sv-SE')} THB</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Leaderboard Modal */}
+      {/* Modals remain exactly the same */}
       {showLeaderboardModal && (
         <div className="modal-overlay" onClick={() => setShowLeaderboardModal(false)}>
           <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
@@ -815,7 +896,7 @@ const Admin = () => {
         </div>
       )}
 
-      {/* Slideshow Modal */}
+      {/* Slideshow Modal - keeping existing implementation */}
       {showSlideshowModal && (
         <div className="modal-overlay" onClick={() => setShowSlideshowModal(false)}>
           <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
