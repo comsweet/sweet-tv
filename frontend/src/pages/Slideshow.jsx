@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
 import { getSlideshow, getLeaderboardStats2 } from '../services/api';
-import DealNotification from '../components/DealNotification';
+import DealNotification from '../components/DealNotification.jsx';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
