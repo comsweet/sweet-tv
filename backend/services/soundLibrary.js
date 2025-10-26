@@ -4,13 +4,8 @@ const path = require('path');
 /**
  * SOUND LIBRARY SERVICE
  * 
- * Manages all uploaded sounds and their agent linkages:
- * - Upload new sounds
- * - Link/unlink agents to sounds
- * - Delete sounds
- * - Get sound info
- * 
- * 🔥 FIXED: Normaliserar userId till number för att matcha database.js
+ * Manages all uploaded sounds and their agent linkages.
+ * 🔥 FIXED: När en agent kopplas bort från ett ljud, rensas automatiskt även agents.json
  */
 class SoundLibraryService {
   constructor() {
@@ -103,7 +98,7 @@ class SoundLibraryService {
         throw new Error('Sound not found');
       }
       
-      // 🔥 FIX: Normalize userId to number för consistency med database.js
+      // Normalize userId to number
       const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
       
       if (!sound.linkedAgents.includes(userIdNum)) {
@@ -130,17 +125,47 @@ class SoundLibraryService {
         throw new Error('Sound not found');
       }
       
-      // 🔥 FIX: Normalize userId to number för consistency med database.js
+      // Normalize userId to number
       const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
       
+      // Ta bort från ljudets linkedAgents array
       sound.linkedAgents = sound.linkedAgents.filter(id => {
-        // Normalize both sides for comparison
         const normalizedId = typeof id === 'string' ? parseInt(id, 10) : id;
         return normalizedId !== userIdNum;
       });
       
       await fs.writeFile(this.libraryFile, JSON.stringify({ sounds }, null, 2));
       console.log(`🔓 Unlinked agent ${userIdNum} from sound ${soundId}`);
+      
+      // 🔥 FIX: Rensa också agents.json om agenten inte har några andra ljudkopplingar
+      try {
+        const database = require('./database');
+        
+        // Kolla om agenten har andra aktiva ljudkopplingar
+        const hasOtherSoundLinks = sounds.some(s => 
+          s.id !== soundId && s.linkedAgents.some(linkedId => {
+            const normalizedLinkedId = typeof linkedId === 'string' ? parseInt(linkedId, 10) : linkedId;
+            return normalizedLinkedId === userIdNum;
+          })
+        );
+        
+        // Om INGA andra kopplingar finns, rensa customSound från agents.json
+        if (!hasOtherSoundLinks) {
+          const agent = await database.getAgent(userIdNum);
+          if (agent) {
+            await database.updateAgent(userIdNum, {
+              customSound: null,
+              preferCustomSound: false
+            });
+            console.log(`🧹 Cleaned up agent ${userIdNum} sound preferences (no other links)`);
+          }
+        } else {
+          console.log(`ℹ️  Agent ${userIdNum} still has other sound links`);
+        }
+      } catch (dbError) {
+        console.warn(`⚠️  Could not clean up agent data:`, dbError.message);
+        // Fortsätt ändå - ljudkopplingen är borttagen från soundLibrary.json
+      }
       
       return sound;
     } catch (error) {
@@ -150,12 +175,10 @@ class SoundLibraryService {
   }
 
   async getSoundForAgent(userId) {
-    // 🔥 FIX: Normalize userId to number för consistency med database.js
     const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
     
     const sounds = await this.getSounds();
     return sounds.find(s => {
-      // Check if any linked agent matches (handling both string and number formats)
       return s.linkedAgents.some(linkedId => {
         const normalizedLinkedId = typeof linkedId === 'string' ? parseInt(linkedId, 10) : linkedId;
         return normalizedLinkedId === userIdNum;
