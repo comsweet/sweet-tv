@@ -60,8 +60,10 @@ const Admin = () => {
   const [editingSlideshow, setEditingSlideshow] = useState(null);
   const [slideshowForm, setSlideshowForm] = useState({
     name: '',
+    type: 'single',
     leaderboards: [],
     duration: 30,
+    dualSlides: [],
     active: true
   });
 
@@ -366,8 +368,10 @@ const Admin = () => {
     setEditingSlideshow(null);
     setSlideshowForm({
       name: '',
+      type: 'single',
       leaderboards: [],
       duration: 30,
+      dualSlides: [],
       active: true
     });
     setShowSlideshowModal(true);
@@ -377,8 +381,10 @@ const Admin = () => {
     setEditingSlideshow(slideshow);
     setSlideshowForm({
       name: slideshow.name,
+      type: slideshow.type || 'single',
       leaderboards: slideshow.leaderboards || [],
       duration: slideshow.duration || 30,
+      dualSlides: slideshow.dualSlides || [],
       active: slideshow.active
     });
     setShowSlideshowModal(true);
@@ -391,9 +397,23 @@ const Admin = () => {
         return;
       }
 
-      if (slideshowForm.leaderboards.length === 0) {
-        alert('Välj minst en leaderboard!');
-        return;
+      // Validering baserat på typ
+      if (slideshowForm.type === 'single') {
+        if (slideshowForm.leaderboards.length === 0) {
+          alert('Välj minst en leaderboard!');
+          return;
+        }
+      } else if (slideshowForm.type === 'dual') {
+        if (slideshowForm.dualSlides.length === 0) {
+          alert('Lägg till minst en dual slide!');
+          return;
+        }
+        // Validera att varje dual slide har båda leaderboards
+        const incompleteSlide = slideshowForm.dualSlides.find(slide => !slide.left || !slide.right);
+        if (incompleteSlide) {
+          alert('Alla dual slides måste ha både vänster och höger leaderboard!');
+          return;
+        }
       }
 
       if (editingSlideshow) {
@@ -461,6 +481,41 @@ const Admin = () => {
         leaderboards: newLeaderboards
       });
     }
+  };
+
+  // Dual slide functions
+  const handleAddDualSlide = () => {
+    setSlideshowForm({
+      ...slideshowForm,
+      dualSlides: [
+        ...slideshowForm.dualSlides,
+        {
+          left: '',
+          right: '',
+          duration: 30
+        }
+      ]
+    });
+  };
+
+  const handleRemoveDualSlide = (index) => {
+    const newDualSlides = slideshowForm.dualSlides.filter((_, i) => i !== index);
+    setSlideshowForm({
+      ...slideshowForm,
+      dualSlides: newDualSlides
+    });
+  };
+
+  const handleUpdateDualSlide = (index, field, value) => {
+    const newDualSlides = [...slideshowForm.dualSlides];
+    newDualSlides[index] = {
+      ...newDualSlides[index],
+      [field]: value
+    };
+    setSlideshowForm({
+      ...slideshowForm,
+      dualSlides: newDualSlides
+    });
   };
 
   const getSlideshowUrl = (slideshowId) => {
@@ -929,9 +984,10 @@ const Admin = () => {
       {/* Slideshow Modal - keeping existing implementation */}
       {showSlideshowModal && (
         <div className="modal-overlay" onClick={() => setShowSlideshowModal(false)}>
-          <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal-xl" onClick={(e) => e.stopPropagation()}>
             <h2>{editingSlideshow ? 'Redigera Slideshow' : 'Skapa Slideshow'}</h2>
             
+            {/* Slideshow namn */}
             <div className="form-group">
               <label>Namn:</label>
               <input
@@ -942,66 +998,223 @@ const Admin = () => {
               />
             </div>
 
+            {/* Slide Type Selector */}
             <div className="form-group">
-              <label>Duration per slide (sekunder):</label>
-              <input
-                type="number"
-                min="5"
-                max="300"
-                value={slideshowForm.duration}
-                onChange={(e) => setSlideshowForm({ ...slideshowForm, duration: parseInt(e.target.value) })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Välj leaderboards att visa:</label>
-              <div className="checkbox-group">
-                {leaderboards.map(lb => (
-                  <label key={lb.id} className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={slideshowForm.leaderboards.includes(lb.id)}
-                      onChange={() => handleLeaderboardToggle(lb.id)}
-                    />
-                    <span>{lb.name}</span>
-                  </label>
-                ))}
+              <label>Slideshow-typ:</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="type"
+                    value="single"
+                    checked={slideshowForm.type === 'single'}
+                    onChange={(e) => setSlideshowForm({ ...slideshowForm, type: e.target.value })}
+                  />
+                  <span>Single (en leaderboard i taget)</span>
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="type"
+                    value="dual"
+                    checked={slideshowForm.type === 'dual'}
+                    onChange={(e) => setSlideshowForm({ ...slideshowForm, type: e.target.value })}
+                  />
+                  <span>Dual (två leaderboards sida vid sida) ✨</span>
+                </label>
               </div>
             </div>
 
-            {slideshowForm.leaderboards.length > 0 && (
-              <div className="form-group">
-                <label>Ordning (dra för att ändra):</label>
-                <div className="leaderboard-order-list">
-                  {slideshowForm.leaderboards.map((lbId, index) => {
-                    const lb = leaderboards.find(l => l.id === lbId);
-                    return (
-                      <div key={lbId} className="order-item">
-                        <span className="order-number">{index + 1}.</span>
-                        <span className="order-name">{lb?.name || 'Unknown'}</span>
-                        <div className="order-controls">
-                          <button 
-                            onClick={() => handleReorderLeaderboard(index, 'up')}
-                            disabled={index === 0}
-                            className="btn-icon"
-                          >
-                            ▲
-                          </button>
-                          <button 
-                            onClick={() => handleReorderLeaderboard(index, 'down')}
-                            disabled={index === slideshowForm.leaderboards.length - 1}
-                            className="btn-icon"
-                          >
-                            ▼
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+            {/* SINGLE MODE */}
+            {slideshowForm.type === 'single' && (
+              <>
+                <div className="form-group">
+                  <label>Duration per slide (sekunder):</label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="300"
+                    value={slideshowForm.duration}
+                    onChange={(e) => setSlideshowForm({ ...slideshowForm, duration: parseInt(e.target.value) })}
+                  />
                 </div>
-              </div>
+
+                <div className="form-group">
+                  <label>Välj leaderboards att visa:</label>
+                  <div className="checkbox-group">
+                    {leaderboards.map(lb => (
+                      <label key={lb.id} className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={slideshowForm.leaderboards.includes(lb.id)}
+                          onChange={() => handleLeaderboardToggle(lb.id)}
+                        />
+                        <span>{lb.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {slideshowForm.leaderboards.length > 0 && (
+                  <div className="form-group">
+                    <label>Ordning (dra för att ändra):</label>
+                    <div className="leaderboard-order-list">
+                      {slideshowForm.leaderboards.map((lbId, index) => {
+                        const lb = leaderboards.find(l => l.id === lbId);
+                        return (
+                          <div key={lbId} className="order-item">
+                            <span className="order-number">{index + 1}.</span>
+                            <span className="order-name">{lb?.name || 'Unknown'}</span>
+                            <div className="order-controls">
+                              <button 
+                                onClick={() => handleReorderLeaderboard(index, 'up')}
+                                disabled={index === 0}
+                                className="btn-icon"
+                              >
+                                ▲
+                              </button>
+                              <button 
+                                onClick={() => handleReorderLeaderboard(index, 'down')}
+                                disabled={index === slideshowForm.leaderboards.length - 1}
+                                className="btn-icon"
+                              >
+                                ▼
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
+            {/* DUAL MODE */}
+            {slideshowForm.type === 'dual' && (
+              <>
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <label>Dual Slides:</label>
+                    <button 
+                      onClick={handleAddDualSlide}
+                      className="btn-secondary"
+                      style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+                    >
+                      ➕ Lägg till slide
+                    </button>
+                  </div>
+
+                  {slideshowForm.dualSlides.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', background: '#f8f9fa', borderRadius: '8px' }}>
+                      <p style={{ color: '#7f8c8d' }}>Inga dual slides än. Klicka "Lägg till slide" för att skapa!</p>
+                    </div>
+                  ) : (
+                    <div className="dual-slides-list">
+                      {slideshowForm.dualSlides.map((slide, index) => {
+                        const leftLb = leaderboards.find(lb => lb.id === slide.left);
+                        const rightLb = leaderboards.find(lb => lb.id === slide.right);
+                        
+                        return (
+                          <div key={index} className="dual-slide-config">
+                            <div className="dual-slide-header">
+                              <h4>Slide {index + 1}</h4>
+                              <button 
+                                onClick={() => handleRemoveDualSlide(index)}
+                                className="btn-danger"
+                                style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}
+                              >
+                                🗑️
+                              </button>
+                            </div>
+
+                            <div className="dual-slide-selectors">
+                              {/* Left Leaderboard */}
+                              <div className="dual-selector">
+                                <label>Vänster leaderboard:</label>
+                                <select
+                                  value={slide.left || ''}
+                                  onChange={(e) => handleUpdateDualSlide(index, 'left', e.target.value)}
+                                >
+                                  <option value="">Välj leaderboard...</option>
+                                  {leaderboards
+                                    .filter(lb => lb.id !== slide.right)
+                                    .map(lb => (
+                                      <option key={lb.id} value={lb.id}>
+                                        {lb.name}
+                                      </option>
+                                    ))
+                                  }
+                                </select>
+                                {leftLb && (
+                                  <div className="lb-info">
+                                    <span className="info-badge">
+                                      {leftLb.userGroups?.length === 0 ? 'Alla agenter' : `${leftLb.userGroups.length} grupper`}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="dual-arrow">⇄</div>
+
+                              {/* Right Leaderboard */}
+                              <div className="dual-selector">
+                                <label>Höger leaderboard:</label>
+                                <select
+                                  value={slide.right || ''}
+                                  onChange={(e) => handleUpdateDualSlide(index, 'right', e.target.value)}
+                                >
+                                  <option value="">Välj leaderboard...</option>
+                                  {leaderboards
+                                    .filter(lb => lb.id !== slide.left)
+                                    .map(lb => (
+                                      <option key={lb.id} value={lb.id}>
+                                        {lb.name}
+                                      </option>
+                                    ))
+                                  }
+                                </select>
+                                {rightLb && (
+                                  <div className="lb-info">
+                                    <span className="info-badge">
+                                      {rightLb.userGroups?.length === 0 ? 'Alla agenter' : `${rightLb.userGroups.length} grupper`}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Duration for this dual slide */}
+                            <div className="dual-duration">
+                              <label>Visningstid (sekunder):</label>
+                              <input
+                                type="number"
+                                min="10"
+                                max="300"
+                                value={slide.duration}
+                                onChange={(e) => handleUpdateDualSlide(index, 'duration', parseInt(e.target.value))}
+                              />
+                            </div>
+
+                            {/* Auto-scroll info */}
+                            {(slide.left || slide.right) && (
+                              <div className="dual-slide-info">
+                                <span className="info-label">ℹ️ Auto-scroll:</span>
+                                <span className="info-text">
+                                  Aktiveras automatiskt om någon leaderboard har fler än 18 agenter
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Active checkbox */}
             <div className="form-group">
               <label className="checkbox-label">
                 <input
@@ -1013,6 +1226,7 @@ const Admin = () => {
               </label>
             </div>
 
+            {/* Actions */}
             <div className="modal-actions">
               <button onClick={() => setShowSlideshowModal(false)} className="btn-secondary">
                 Avbryt
