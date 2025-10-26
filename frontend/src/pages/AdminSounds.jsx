@@ -8,7 +8,8 @@ import {
   updateSound,
   linkAgentToSound,
   unlinkAgentFromSound,
-  getAgents
+  getAgents,
+  getAdversusUsers  // 🔥 NYTT: Lägg till denna import
 } from '../services/api';
 import './AdminSounds.css';
 
@@ -29,18 +30,34 @@ const AdminSounds = () => {
     fetchData();
   }, []);
 
+  // 🔥 UPPDATERAD: Hämta agenter från både Adversus OCH lokala databasen
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [soundsRes, settingsRes, agentsRes] = await Promise.all([
+      const [soundsRes, settingsRes, adversusRes, localAgentsRes] = await Promise.all([
         getSounds(),
         getSoundSettings(),
-        getAgents()
+        getAdversusUsers(),      // 🔥 NYTT: Hämta alla agenter från Adversus
+        getAgents()              // Hämta lokala agenter (för profilbilder etc)
       ]);
+      
+      const adversusUsersList = adversusRes.data.users || [];
+      const localAgents = localAgentsRes.data;
+      
+      // 🔥 NYTT: Kombinera Adversus-data med lokal data (samma logik som på Agents-tabben)
+      const combinedAgents = adversusUsersList.map(user => {
+        const localAgent = localAgents.find(a => String(a.userId) === String(user.id));
+        return {
+          userId: user.id,
+          name: user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim() || `User ${user.id}`,
+          email: user.email || '',
+          profileImage: localAgent?.profileImage || null
+        };
+      });
       
       setSounds(soundsRes.data);
       setSettings(settingsRes.data);
-      setAgents(agentsRes.data);
+      setAgents(combinedAgents);  // 🔥 Använd kombinerad lista istället
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('Fel vid hämtning: ' + error.message);
@@ -65,7 +82,7 @@ const AdminSounds = () => {
       return;
     }
 
-    // 🔥 UPDATED: Validera duration (10 sekunder) - använd HTML5 Audio API
+    // Validera duration (10 sekunder)
     const audio = new Audio();
     const reader = new FileReader();
 
@@ -218,7 +235,6 @@ const AdminSounds = () => {
       {/* Upload Section */}
       <div className="sounds-upload-section">
         <h3>📤 Ladda upp nytt ljud</h3>
-        {/* 🔥 UPDATED: Text ändrad till 10 sekunder */}
         <p className="upload-hint">Max 10 sekunder, MP3/WAV/OGG, max 2MB</p>
         <label className="upload-button">
           {isUploading ? '⏳ Laddar upp...' : '📁 Välj ljudfil'}
