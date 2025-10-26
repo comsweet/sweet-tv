@@ -165,4 +165,11 @@ class DatabaseService {
   }
 }
 
+// 🔥 CLEAR ALL DEALS (för testing/reset)
+async clearDeals() {
+  await fs.writeFile(this.dealsFile, JSON.stringify({ deals: [] }, null, 2));
+  console.log('🗑️  Cleared all deals from database');
+  return true;
+}
+
 module.exports = new DatabaseService();
