@@ -230,14 +230,17 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
     // Auto-scroll settings
     const rowHeight = 52;
+    const marginPerRow = 6.4; // 0.4rem ≈ 6.4px
+    const effectiveRowHeight = rowHeight + marginPerRow; // Total space per row including margin
     const visibleRows = 15; // Minskad från 18 eftersom topp 3 är frozen
     const needsScroll = scrollableStats.length > visibleRows;
     
     // 🔥 FIX: Scrolla hela vägen så sista användaren garanterat syns!
-    // Beräkna total höjd av innehåll och container, lägg till extra rowHeight för säkerhet
-    const containerHeight = visibleRows * rowHeight;
-    const totalContentHeight = scrollableStats.length * rowHeight;
-    const maxScroll = needsScroll ? Math.max(0, totalContentHeight - containerHeight + rowHeight) : 0;
+    // Räkna med både row height OCH margin, plus extra säkerhetsbuffert
+    const containerHeight = visibleRows * effectiveRowHeight;
+    const totalContentHeight = scrollableStats.length * effectiveRowHeight;
+    const safetyBuffer = effectiveRowHeight * 2; // Extra buffert för att garantera sista raden syns
+    const maxScroll = needsScroll ? Math.max(0, totalContentHeight - containerHeight + safetyBuffer) : 0;
 
     // 🔥 Använd rätt scroll position beroende på side
     const scrollPosition = side === 'left' ? leftScrollPosition : rightScrollPosition;
