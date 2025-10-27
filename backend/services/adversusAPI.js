@@ -242,21 +242,33 @@ class AdversusAPI {
     return response;
   }
 
-async getSMS(params = {}) {
-  const defaultParams = {
-    page: 1,
-    pageSize: 1000,
-    includeMeta: true,
-    ...params
-  };
-  
-  console.log('📱 Fetching SMS from Adversus...');
-  console.log('   Filters:', params.filters);
-  
-  const response = await this.request('/sms', defaultParams);
-  console.log(`   ✅ Got ${response.sms?.length || 0} SMS\n`);
-  
-  return response;
+  async getUserGroups() {
+    console.log('👥 Fetching user groups...');
+    const response = await this.request('/userGroups');
+    console.log(`   ✅ Got ${response.userGroups?.length || 0} groups\n`);
+    
+    return response;
+  }
+
+  // 📱 SMS METHOD - FIXAT: Nu inuti klassen!
+  async getSMS(params = {}) {
+    const defaultParams = {
+      page: 1,
+      pageSize: 1000,
+      includeMeta: true,
+      ...params
+    };
+    
+    console.log('📱 Fetching SMS from Adversus...');
+    if (params.filters) {
+      console.log('   Filters:', params.filters);
+    }
+    
+    const response = await this.request('/sms', defaultParams);
+    console.log(`   ✅ Got ${response.sms?.length || 0} SMS\n`);
+    
+    return response;
+  }
 }
 
 module.exports = new AdversusAPI();
