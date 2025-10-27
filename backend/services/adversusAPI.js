@@ -250,24 +250,37 @@ class AdversusAPI {
     return response;
   }
 
-  // 📱 SMS METHOD - FIXAT: Nu inuti klassen!
-  async getSMS(params = {}) {
-    const defaultParams = {
-      page: 1,
-      pageSize: 1000,
-      includeMeta: true,
-      ...params
-    };
-    
-    console.log('📱 Fetching SMS from Adversus...');
-    if (params.filters) {
-      console.log('   Filters:', params.filters);
+  // 📱 SMS METHOD - FIXAT: Rätt namn getSms (liten 's')!
+  async getSms({ page = 1, pageSize = 1000, filters = [], includeMeta = false }) {
+    try {
+      const params = {
+        page: page,
+        pageSize: pageSize,
+        includeMeta: includeMeta
+      };
+      
+      // Lägg till filters om de finns
+      if (filters && filters.length > 0) {
+        params.filters = JSON.stringify({ $and: filters });
+      }
+      
+      console.log(`📱 Fetching SMS (page ${page}, pageSize ${pageSize})...`);
+      if (filters.length > 0) {
+        console.log('   Filters:', filters);
+      }
+      
+      const response = await this.request('/sms', params);
+      
+      console.log(`   ✅ Got ${response.data?.length || response.length || 0} SMS\n`);
+      
+      return {
+        data: response.data || response,
+        meta: includeMeta ? response.meta : null
+      };
+    } catch (error) {
+      console.error('❌ Error fetching SMS from Adversus:', error.message);
+      throw error;
     }
-    
-    const response = await this.request('/sms', defaultParams);
-    console.log(`   ✅ Got ${response.sms?.length || 0} SMS\n`);
-    
-    return response;
   }
 }
 
