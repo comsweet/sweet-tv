@@ -186,12 +186,15 @@ class SmsCache {
         // FULL SYNC: Hämta ALLA SMS i rolling window
         console.log('🔄 Full sync - fetching ALL SMS...');
         
-        const filters = [
-          { 'sent': { $gte: startDate.toISOString() } },
-          { 'sent': { $lte: endDate.toISOString() } },
-          { 'status': 'delivered' },
-          { 'type': 'outbound' }
-        ];
+        // ✅ FIXAT: Rätt filter-format (utan $and wrapper)
+        const filters = {
+          "sent": { 
+            "$gt": startDate.toISOString(),
+            "$lt": endDate.toISOString()
+          },
+          "status": { "$eq": "delivered" },
+          "type": { "$eq": "outbound" }
+        };
         
         allSms = await this._paginatedFetch(adversusAPI, filters);
         
@@ -202,12 +205,15 @@ class SmsCache {
         
         const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000);
         
-        const filters = [
-          { 'sent': { $gte: threeMinAgo.toISOString() } },
-          { 'sent': { $lte: endDate.toISOString() } },
-          { 'status': 'delivered' },
-          { 'type': 'outbound' }
-        ];
+        // ✅ FIXAT: Rätt filter-format (utan $and wrapper)
+        const filters = {
+          "sent": { 
+            "$gt": threeMinAgo.toISOString(),
+            "$lt": endDate.toISOString()
+          },
+          "status": { "$eq": "delivered" },
+          "type": { "$eq": "outbound" }
+        };
         
         const newSms = await this._paginatedFetch(adversusAPI, filters);
         
@@ -251,17 +257,20 @@ class SmsCache {
     
     while (hasMore) {
       try {
+        console.log(`📱 Fetching SMS (page ${page}, pageSize 1000)...`);
+        console.log('   Filters:', JSON.stringify(filters, null, 2));
+        
         const response = await adversusAPI.getSms({
           page: page,
           pageSize: 1000,
-          filters: filters,
+          filters: filters, // ✅ FIXAT: Skicka objekt direkt
           includeMeta: true
         });
         
         const sms = response.data || [];
         allSms = allSms.concat(sms);
         
-        console.log(`   📄 Page ${page}: fetched ${sms.length} SMS (total: ${allSms.length})`);
+        console.log(`   ✅ Got ${sms.length} SMS (total: ${allSms.length})`);
         
         // Kolla om det finns fler sidor
         if (response.meta && response.meta.pagination) {
@@ -281,6 +290,8 @@ class SmsCache {
         throw error;
       }
     }
+    
+    console.log(`   ✅ Fetched ${allSms.length} total SMS\n`);
     
     return allSms;
   }
