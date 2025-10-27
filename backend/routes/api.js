@@ -599,9 +599,12 @@ router.post('/deals/sync', async (req, res) => {
   try {
     console.log('🔄 Manual deals sync triggered from admin');
     const deals = await dealsCache.forceSync(adversusAPI);
+    
+    leaderboardCache.clear();
+    
     res.json({ 
       success: true, 
-      message: `Synced ${deals.length} deals`,
+      message: `Synced ${deals.length} deals and cleared cache`,
       deals: deals.length
     });
   } catch (error) {
