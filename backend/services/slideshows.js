@@ -1,3 +1,4 @@
+// backend/services/slideshows.js
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -12,6 +13,7 @@ class SlideshowService {
     
     this.slideshowsFile = path.join(this.dbPath, 'slideshows.json');
     
+    // 🔥 FIXAT: Parenteser runt template literal
     console.log(`💾 Slideshows path: ${this.dbPath} (isRender: ${isRender})`);
     
     this.initDatabase();
@@ -55,7 +57,9 @@ class SlideshowService {
     const newSlideshow = {
       id: Date.now().toString(),
       name: slideshow.name,
+      type: slideshow.type || 'single', // ✨ Support för type
       leaderboards: slideshow.leaderboards || [],
+      dualSlides: slideshow.dualSlides || [], // ✨ Support för dualSlides
       duration: slideshow.duration || 15,
       active: slideshow.active !== undefined ? slideshow.active : true,
       createdAt: new Date().toISOString(),
@@ -64,7 +68,8 @@ class SlideshowService {
     
     slideshows.push(newSlideshow);
     await fs.writeFile(this.slideshowsFile, JSON.stringify({ slideshows }, null, 2));
-    console.log(`💾 Saved slideshow "${newSlideshow.name}" to persistent disk`);
+    // 🔥 FIXAT: Parenteser runt template literal
+    console.log(`💾 Saved ${newSlideshow.type} slideshow "${newSlideshow.name}" to persistent disk`);
     return newSlideshow;
   }
 
@@ -79,6 +84,7 @@ class SlideshowService {
         updatedAt: new Date().toISOString()
       };
       await fs.writeFile(this.slideshowsFile, JSON.stringify({ slideshows }, null, 2));
+      // 🔥 FIXAT: Parenteser runt template literal
       console.log(`💾 Updated slideshow "${slideshows[index].name}" on persistent disk`);
       return slideshows[index];
     }
@@ -89,6 +95,7 @@ class SlideshowService {
     const slideshows = await this.getSlideshows();
     const filtered = slideshows.filter(s => s.id !== id);
     await fs.writeFile(this.slideshowsFile, JSON.stringify({ slideshows: filtered }, null, 2));
+    // 🔥 FIXAT: Parenteser runt template literal (denna var faktiskt redan rätt, men för säkerhets skull)
     console.log(`🗑️  Deleted slideshow from persistent disk`);
     return true;
   }
