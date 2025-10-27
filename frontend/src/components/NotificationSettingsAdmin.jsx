@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import './NotificationSettingsAdmin.css';
 
+// 🔥 FIX: Använd samma API base URL som resten av appen
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 /**
  * ADMIN PANEL - NOTIFICATION SETTINGS
  * 
@@ -26,7 +29,8 @@ const NotificationSettingsAdmin = () => {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/notification-settings');
+      // 🔥 FIX: Använd API_BASE_URL istället för relativ path
+      const response = await fetch(`${API_BASE_URL}/notification-settings`);
       const data = await response.json();
       
       if (data.success) {
@@ -50,7 +54,8 @@ const NotificationSettingsAdmin = () => {
   const handleModeChange = async (newMode) => {
     try {
       setSaving(true);
-      const response = await fetch('/api/notification-settings', {
+      // 🔥 FIX: Använd API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/notification-settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -98,7 +103,8 @@ const NotificationSettingsAdmin = () => {
         }
       }
       
-      const response = await fetch('/api/notification-settings', {
+      // 🔥 FIX: Använd API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/notification-settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSettings)
@@ -171,8 +177,8 @@ const NotificationSettingsAdmin = () => {
               disabled={saving}
             />
             <div className="mode-info">
-              <strong>Blacklist (Rekommenderas)</strong>
-              <span>Visa alla UTOM blockerade groups</span>
+              <strong>🚫 Blacklist Mode</strong>
+              <span>Alla groups aktiva UTOM blockerade</span>
             </div>
           </label>
 
@@ -186,59 +192,57 @@ const NotificationSettingsAdmin = () => {
               disabled={saving}
             />
             <div className="mode-info">
-              <strong>Whitelist</strong>
-              <span>Visa ENDAST valda groups</span>
+              <strong>✅ Whitelist Mode</strong>
+              <span>Endast valda groups aktiva</span>
             </div>
           </label>
         </div>
       </div>
 
-      {/* Groups List */}
+      {/* Campaigns/Groups List */}
       <div className="campaigns-list">
-        <h3>
-          {settings.mode === 'whitelist' 
-            ? 'Välj groups att VISA' 
-            : 'Välj groups att BLOCKERA'}
-        </h3>
+        <h3>User Groups</h3>
         
-        {availableGroups.length === 0 && (
-          <p className="no-campaigns">Inga groups hittade</p>
-        )}
-
-        <div className="campaigns-grid">
-          {availableGroups.map(group => {
-            const isActive = isGroupActive(group.id);
-            
-            return (
-              <label 
-                key={group.id}
-                className={`campaign-item ${isActive ? 'active' : 'inactive'}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={
-                    settings.mode === 'whitelist'
-                      ? settings.enabledGroups.includes(group.id)
-                      : !settings.disabledGroups.includes(group.id)
-                  }
-                  onChange={() => handleToggleGroup(group.id)}
-                  disabled={saving}
-                />
-                <div className="campaign-info">
-                  <div className="campaign-header">
-                    <strong>{group.name}</strong>
-                    <span className={`status-badge ${isActive ? 'active' : 'blocked'}`}>
-                      {isActive ? '✓ Aktiv' : '✕ Blockerad'}
+        {availableGroups.length === 0 ? (
+          <div className="no-campaigns">
+            <p>Inga user groups hittades</p>
+          </div>
+        ) : (
+          <div className="campaigns-grid">
+            {availableGroups.map(group => {
+              const isActive = isGroupActive(group.id);
+              
+              return (
+                <label 
+                  key={group.id} 
+                  className={`campaign-item ${isActive ? 'active' : 'inactive'}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={
+                      settings.mode === 'whitelist'
+                        ? settings.enabledGroups.includes(group.id)
+                        : !settings.disabledGroups.includes(group.id)
+                    }
+                    onChange={() => handleToggleGroup(group.id)}
+                    disabled={saving}
+                  />
+                  <div className="campaign-info">
+                    <div className="campaign-header">
+                      <strong>{group.name}</strong>
+                      <span className={`status-badge ${isActive ? 'active' : 'blocked'}`}>
+                        {isActive ? '✓ Aktiv' : '✕ Blockerad'}
+                      </span>
+                    </div>
+                    <span className="campaign-stats">
+                      {group.agentCount} agenter
                     </span>
                   </div>
-                  <span className="campaign-stats">
-                    {group.agentCount} agenter
-                  </span>
-                </div>
-              </label>
-            );
-          })}
-        </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Summary */}
