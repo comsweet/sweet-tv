@@ -1,6 +1,6 @@
 // KOMPLETT INLINE CSS VERSION - frontend/src/components/DualLeaderboardSlide.jsx
 // INGA EXTERNA CSS FILER BEHÖVS!
-// Fixar: Separat scroll, Dart emoji, Frozen topp 3, OCH SCROLLA HELA VÄGEN!
+// Fixar: Separat scroll, Dart emoji, Frozen topp 3, SMS kolumn, OCH SCROLLA HELA VÄGEN!
 
 import { useState, useEffect } from 'react';
 
@@ -81,7 +81,7 @@ const styles = {
   },
   item: {
     display: 'grid',
-    gridTemplateColumns: '50px 40px 1fr 100px 130px',
+    gridTemplateColumns: '50px 40px 1fr 90px 100px 130px', // 📱 UPPDATERAD: Lagt till SMS-kolumn
     alignItems: 'center',
     gap: '0.6rem',
     padding: '0.4rem 0.8rem',
@@ -154,6 +154,32 @@ const styles = {
     fontWeight: 600,
     color: '#2c3e50'
   },
+  // 📱 NYTT: SMS COLUMN STYLES
+  sms: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.1rem',
+    fontSize: '0.9rem'
+  },
+  smsPercentage: {
+    fontWeight: 'bold',
+    fontSize: '1.05rem'
+  },
+  smsPercentageLow: {
+    color: '#e74c3c'
+  },
+  smsPercentageMedium: {
+    color: '#e67e22'
+  },
+  smsPercentageHigh: {
+    color: '#27ae60'
+  },
+  smsCount: {
+    fontSize: '0.75rem',
+    color: '#95a5a6'
+  },
   commission: {
     fontSize: '0.95rem',
     fontWeight: 'bold',
@@ -208,6 +234,14 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     if (!commission || commission === 0) return styles.commissionZero;
     if (commission < 3400) return styles.commissionLow;
     return styles.commissionHigh;
+  };
+
+  // 📱 NYTT: SMS Percentage Style
+  const getSmsPercentageStyle = (percentage) => {
+    if (!percentage || percentage === 0) return styles.smsPercentageLow;
+    if (percentage < 50) return styles.smsPercentageLow;
+    if (percentage < 80) return styles.smsPercentageMedium;
+    return styles.smsPercentageHigh;
   };
 
   // Reset scroll when slide becomes inactive
@@ -271,6 +305,11 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       const isFirstPlace = index === 0 && !isZeroDeals;
       const commission = item.totalCommission || 0;
 
+      // 📱 SMS DATA
+      const smsPercentage = item.smsPercentage || 0;
+      const uniqueSmsCount = item.uniqueSmsCount || 0;
+      const totalSmsCount = item.totalSmsCount || 0;
+
       const itemStyle = {
         ...styles.item,
         height: `${rowHeight}px`,
@@ -312,6 +351,16 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           <div style={styles.deals}>
             <span>🎯</span>
             <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
+          </div>
+
+          {/* 📱 SMS COLUMN - NYTT! */}
+          <div style={styles.sms}>
+            <div style={{ ...styles.smsPercentage, ...getSmsPercentageStyle(smsPercentage) }}>
+              📱 {smsPercentage.toFixed(2)}%
+            </div>
+            <div style={styles.smsCount}>
+              {uniqueSmsCount}/{totalSmsCount}
+            </div>
           </div>
 
           {/* Commission */}
