@@ -3,7 +3,7 @@ const database = require('./database');
 const soundSettings = require('./soundSettings');
 const soundLibrary = require('./soundLibrary');
 const leaderboardCache = require('./leaderboardCache');
-const dealsCache = require('./dealsCache'); // 🔥 IMPORT PERSISTENT DEALS CACHE!
+const dealsCache = require('./dealsCache');
 
 class PollingService {
   constructor(io) {
@@ -12,7 +12,7 @@ class PollingService {
     this.lastCheckTime = new Date(Date.now() - 60000); // Börja 1 minut bakåt
     this.isPolling = false;
     
-    // 🔥 NY: Pending deals queue för deals som väntar på commission
+    // Pending deals queue för deals som väntar på commission
     this.pendingDeals = new Map(); // { leadId: { lead, attempts, firstSeen } }
     this.maxRetries = 10; // Max 10 försök = ~2.5 minuter (15s * 10)
     this.retryDelay = 15000; // Samma som pollInterval
@@ -151,9 +151,8 @@ class PollingService {
     const commission = commissionField?.value || '0';
     const commissionValue = parseFloat(commission);
     
-    // 🔥 NY LOGIK: Om ingen commission, lägg i pending queue
+    // Om ingen commission, lägg i pending queue
     if (commissionValue === 0 || !commissionField?.value) {
-      // Kolla om redan i pending
       if (!this.pendingDeals.has(lead.id)) {
         console.log(`⏳ Lead ${lead.id} has no commission yet - adding to pending queue`);
         this.pendingDeals.set(lead.id, {
@@ -162,7 +161,7 @@ class PollingService {
           firstSeen: Date.now()
         });
       }
-      return; // Vänta tills nästa polling cycle
+      return;
     }
 
     const deal = {
@@ -175,36 +174,17 @@ class PollingService {
       status: lead.status
     };
     
-    // 🔥 UPPDATERAD: Använd dealsCache istället för database för korrekt dailyTotal!
+    // 🔥 ANVÄND BARA CACHE - INTE DATABASE!
     const previousTotal = await dealsCache.getTodayTotalForAgent(deal.userId);
     const newTotal = previousTotal + commissionValue;
     
-    // Spara dealen
-    const savedDeal = await database.addDeal(deal);
+    // 🔥 SPARA BARA TILL CACHE
+    const savedDeal = await dealsCache.addDeal(deal);
     
     if (savedDeal) {
-      // 🔥 CRITICAL FIX: INVALIDATE LEADERBOARD CACHE!
+      // Invalidera leaderboard cache
       console.log('🗑️  Invalidating all leaderboard caches after new deal');
       leaderboardCache.clear();
-      
-      // 🔥 NEW FIX: ADD TO PERSISTENT DEALS CACHE!
-      try {
-        const allDeals = await dealsCache.getCache();
-        allDeals.push({
-          leadId: deal.leadId,
-          userId: deal.userId,
-          campaignId: deal.campaignId,
-          commission: parseFloat(deal.commission),
-          multiDeals: deal.multiDeals,
-          orderDate: deal.orderDate,
-          status: deal.status,
-          syncedAt: new Date().toISOString()
-        });
-        await dealsCache.saveCache(allDeals);
-        console.log('💾 Added new deal to persistent deals cache');
-      } catch (cacheError) {
-        console.error('⚠️  Could not add deal to persistent cache:', cacheError.message);
-      }
       
       // Log om det kom från pending queue
       if (fromPending) {
@@ -221,61 +201,53 @@ class PollingService {
           const adversusUser = userResponse.users?.[0];
           
           if (adversusUser) {
-            agent = {
-              userId: deal.userId,
+            const agentData = {
+              userId: adversusUser.id,
               name: adversusUser.name || 
                     `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
-                    null,
-              email: adversusUser.email || '',
-              profileImage: null,
-              customSound: null,
-              preferCustomSound: false
+                    `Agent ${adversusUser.id}`,
+              email: adversusUser.email || ''
             };
             
-            // Spara agent för framtida lookups
-            if (agent.name) {
-              await database.addAgent(agent);
-            }
+            agent = await database.addAgent(agentData);
+            console.log(`✅ Auto-created agent: ${agent.name}`);
           }
         } catch (error) {
-          console.error(`⚠️  Could not fetch user ${deal.userId}:`, error.message);
+          console.error(`⚠️  Could not fetch user ${deal.userId} from Adversus:`, error.message);
         }
       }
       
-      // Skicka notifikation ENDAST om vi har en giltig agent
-      if (agent && agent.name && agent.name !== 'Agent null') {
+      // Skicka notification
+      if (agent) {
+        // Hämta sound settings
+        const settings = await soundSettings.getSettings();
+        const dailyBudget = settings.dailyBudget || 50000;
         
-      // 🎵 SOUND SELECTION LOGIC - UPPDATERAD
-      const settings = await soundSettings.getSettings();
-      const dailyBudget = settings.dailyBudget || 3600;
-      
-      let soundType = 'default';
-      let soundUrl = settings.defaultSound;
-      
-      // Kolla om agenten har nått milestone denna dealen
-      const reachedBudget = newTotal >= dailyBudget && previousTotal < dailyBudget;
-      
-      if (newTotal < dailyBudget) {
-        // ⭐ UNDER DAGSBUDGET: Alltid standard pling ljud
-        soundType = 'default';
-        soundUrl = settings.defaultSound;
-        console.log(`🔔 Playing default sound for ${agent.name} (${newTotal} THB < ${dailyBudget} THB)`);
-      } else {
-        // ⭐ PÅ/ÖVER DAGSBUDGET: Personligt ljud eller milestone ljud
-        const agentSound = await soundLibrary.getSoundForAgent(deal.userId);
+        // Avgör vilket ljud som ska spelas
+        let soundType = 'default';
+        let soundUrl = settings.defaultSound;
+        let reachedBudget = false;
         
-        if (agentSound) {
-          // 1. Agent har personligt ljud → spela det
-          soundType = 'agent';
-          soundUrl = agentSound.url;
-          console.log(`💰 Playing custom sound for ${agent.name} (${newTotal} THB)`);
-        } else {
-          // 2. Agent har INGET personligt ljud → spela dagsbudget ljud
-          soundType = 'milestone';
-          soundUrl = settings.milestoneSound || settings.defaultSound;
-          console.log(`🏆 Playing milestone sound for ${agent.name} (${newTotal} THB >= ${dailyBudget} THB)`);
+        // Kolla om agent når dagsbudget
+        if (newTotal >= dailyBudget && previousTotal < dailyBudget) {
+          reachedBudget = true;
+          
+          // 1. Kolla om agent har personligt ljud
+          const agentSound = agent.customSound ? await soundLibrary.getSound(agent.customSound) : null;
+          
+          if (agentSound && agent.preferCustomSound) {
+            // Agent har personligt ljud → spela det
+            soundType = 'agent';
+            soundUrl = agentSound.url;
+            console.log(`💰 Playing custom sound for ${agent.name} (${newTotal} THB)`);
+          } else {
+            // Agent har INGET personligt ljud → spela dagsbudget ljud
+            soundType = 'milestone';
+            soundUrl = settings.milestoneSound || settings.defaultSound;
+            console.log(`🏆 Playing milestone sound for ${agent.name} (${newTotal} THB >= ${dailyBudget} THB)`);
+          }
         }
-      }
+        
         const notification = {
           deal: savedDeal,
           agent: agent,
@@ -316,7 +288,7 @@ class PollingService {
     return await this.poll();
   }
 
-  // 🔥 NY: Get pending deals status (för debugging)
+  // Get pending deals status (för debugging)
   getPendingStatus() {
     const pending = [];
     for (const [leadId, data] of this.pendingDeals.entries()) {
