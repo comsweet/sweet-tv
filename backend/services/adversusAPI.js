@@ -61,6 +61,15 @@ class AdversusAPI {
         throw new Error('RATE_LIMIT_EXCEEDED');
       }
       
+      if (error.response?.status === 400) {
+        console.error('❌ 400 Bad Request from Adversus API');
+        console.error('   Endpoint:', endpoint);
+        console.error('   Params:', JSON.stringify(params, null, 2));
+        if (error.response?.data) {
+          console.error('   Response:', JSON.stringify(error.response.data, null, 2));
+        }
+      }
+      
       console.error('❌ API Error:', error.message);
       throw error;
     } finally {
@@ -105,20 +114,8 @@ class AdversusAPI {
   }
 
   async getLeadsInDateRange(startDate, endDate) {
-    // FIXAD VERSION: Tar bort dubbel buffer FÖRE, behåller buffer EFTER
-    // 
-    // Rolling window HAR redan buffer före (7 dagar innan månadsskifte)
-    // → Vi behöver INTE lägga till extra buffer före här!
-    // 
-    // Buffer EFTER behövs för "week" leaderboards över månadsskifte
-    // → När Nov 1 faller på fredag vill vi fånga hela veckan (Oct 28 - Nov 3)
-    
     const bufferDays = 7;
-    
-    // ✅ INGEN buffer före - använd startDate direkt från rolling window
     const bufferStart = startDate;
-    
-    // ✅ BEHÅLL buffer efter för "week" leaderboards över månadsskifte
     const bufferEnd = new Date(endDate);
     bufferEnd.setDate(bufferEnd.getDate() + bufferDays);
 
@@ -178,7 +175,6 @@ class AdversusAPI {
           break;
         }
 
-        // Safety: Max 10 pages
         if (currentPage >= 10) {
           console.log('   ⚠️  Stopped at 10 pages (rate limit protection)');
           break;
@@ -198,7 +194,6 @@ class AdversusAPI {
 
     console.log(`   ✅ Fetched ${allLeads.length} total leads\n`);
 
-    // Filter på Order date
     const filteredLeads = allLeads.filter(lead => {
       const orderDate = this.getOrderDate(lead);
       if (!orderDate) return false;
@@ -250,7 +245,10 @@ class AdversusAPI {
     return response;
   }
 
-  // 📱 SMS METHOD - FIXAT: Tar emot filter-objekt direkt (inte array)!
+  // 📱 SMS METHOD - FINAL VERSION
+  // ✅ Läser från response.sms (inte response.data)
+  // ✅ Valid filter properties: type, timestamp, sender, receiver, userId, leadId, campaignId
+  // ❌ INTE STÖDS: status (måste filtreras i backend)
   async getSms({ page = 1, pageSize = 1000, filters = {}, includeMeta = false }) {
     try {
       const params = {
@@ -259,22 +257,24 @@ class AdversusAPI {
         includeMeta: includeMeta
       };
       
-      // ✅ FIXAT: Lägg till filters om de finns (som objekt, inte array)
       if (filters && Object.keys(filters).length > 0) {
         params.filters = JSON.stringify(filters);
-      }
-      
-      console.log(`📱 Fetching SMS (page ${page}, pageSize ${pageSize})...`);
-      if (Object.keys(filters).length > 0) {
+        console.log(`📱 Fetching SMS (page ${page}, pageSize ${pageSize}) with filters...`);
         console.log('   Filters:', JSON.stringify(filters, null, 2));
+      } else {
+        console.log(`📱 Fetching SMS (page ${page}, pageSize ${pageSize}) without filters...`);
       }
       
       const response = await this.request('/sms', params);
       
-      console.log(`   ✅ Got ${response.data?.length || response.length || 0} SMS`);
+      // ✅ FIXAT: Läs från response.sms (inte response.data)
+      const smsArray = response.sms || response.data || [];
+      
+      const smsCount = smsArray.length;
+      console.log(`   ✅ Got ${smsCount} SMS`);
       
       return {
-        data: response.data || response,
+        data: smsArray,
         meta: includeMeta ? response.meta : null
       };
     } catch (error) {
