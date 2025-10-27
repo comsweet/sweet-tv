@@ -231,28 +231,56 @@ class PollingService {
             };
             
             agent = await database.addAgent(agentData);
-            console.log(`✅ Auto-created agent: ${agent.name}`);
+            console.log(`✅ Auto-created agent: ${agent.name} (group: ${agent.groupId})`);
           }
         } catch (error) {
           console.error(`⚠️  Could not fetch user ${deal.userId} from Adversus:`, error.message);
+        }
+      } else if (!agent.groupId) {
+        // 🔥 FIX: Om agent finns men saknar groupId, uppdatera från Adversus
+        try {
+          console.log(`⚠️  Agent ${agent.name} missing groupId, fetching from Adversus...`);
+          const userResponse = await adversusAPI.getUser(deal.userId);
+          const adversusUser = userResponse.users?.[0];
+          
+          if (adversusUser && adversusUser.group?.id) {
+            const groupId = parseInt(adversusUser.group.id);
+            const groupName = adversusUser.group.name || null;
+            
+            await database.updateAgent(deal.userId, {
+              groupId: groupId,
+              groupName: groupName
+            });
+            
+            // Uppdatera lokala agent-objektet
+            agent.groupId = groupId;
+            agent.groupName = groupName;
+            
+            console.log(`✅ Updated agent ${agent.name} with groupId: ${groupId} (${groupName})`);
+          }
+        } catch (error) {
+          console.error(`⚠️  Could not update groupId for agent ${deal.userId}:`, error.message);
         }
       }
       
       // Skicka notification
       if (agent) {
         const settings = await soundSettings.getSettings();
-        const dailyBudget = settings.dailyBudget || 50000;
+        const dailyBudget = settings.dailyBudget || 3600; // 🔥 FIX: Default till 3600 THB
         
         let soundType = 'default';
         let soundUrl = settings.defaultSound;
         let reachedBudget = false;
         
-        // Kolla om dagsbudget nådd
+        // 🔥 FIX: Markera om detta är FÖRSTA gången budgeten nås
+        if (previousTotal < dailyBudget && newTotal >= dailyBudget) {
+          reachedBudget = true;
+          console.log(`🎉 Agent ${agent.name} REACHED daily budget for first time! (${newTotal} THB >= ${dailyBudget} THB)`);
+        }
+        
+        // 🔥 NY LOGIK: Kolla om agenten är ÖVER budgeten (oavsett om det är första gången)
         if (newTotal >= dailyBudget) {
-          if (previousTotal < dailyBudget) {
-            reachedBudget = true;
-            console.log(`🎉 Agent ${agent.name} REACHED daily budget! (${newTotal} THB >= ${dailyBudget} THB)`);
-          }
+          console.log(`💰 Agent ${agent.name} is at/over budget (${newTotal} THB >= ${dailyBudget} THB)`);
           
           // Försök hitta custom sound
           let agentSound = null;
@@ -261,16 +289,21 @@ class PollingService {
             agentSound = allSounds.find(s => s.url === agent.customSound);
           }
           
-          // Välj ljud baserat på settings
-          if (reachedBudget && settings.milestoneSound) {
-            soundType = 'milestone';
-            soundUrl = settings.milestoneSound;
-            console.log(`🏆 Playing milestone sound for ${agent.name}`);
-          } else if (agentSound && agent.preferCustomSound) {
+          // 🔥 NY LJUDLOGIK:
+          // 1. HAR personligt ljud OCH preferCustomSound → Spela personligt ljud
+          // 2. HAR INTE personligt ljud → Spela milestone ljud
+          if (agentSound && agent.preferCustomSound) {
             soundType = 'agent';
             soundUrl = agentSound.url;
-            console.log(`🎵 Playing custom sound for ${agent.name}: ${agentSound.name}`);
+            console.log(`🎵 Playing CUSTOM sound for ${agent.name}: ${agentSound.name}`);
+          } else if (settings.milestoneSound) {
+            soundType = 'milestone';
+            soundUrl = settings.milestoneSound;
+            console.log(`🏆 Playing MILESTONE sound for ${agent.name} (no custom sound or not preferred)`);
           }
+        } else {
+          // Under budgeten → standard ljud
+          console.log(`📊 Agent ${agent.name} is under budget (${newTotal} THB < ${dailyBudget} THB) - playing default sound`);
         }
         
         const notification = {
@@ -292,6 +325,12 @@ class PollingService {
         // Filtrera baserat på group settings
         const shouldNotify = await notificationSettings.shouldNotify(agent);
         
+        // 🔥 FIX: Extra logging för debugging
+        console.log(`🔍 Notification check for ${agent.name}:`, {
+          groupId: agent.groupId,
+          shouldNotify: shouldNotify
+        });
+        
         if (shouldNotify) {
           this.io.emit('new_deal', notification);
           console.log(`🎉 New deal notification sent for ${agent.name} (sound: ${soundType}, group: ${agent.groupId})`);
@@ -300,6 +339,8 @@ class PollingService {
           this.notifiedLeads.add(lead.id);
         } else {
           console.log(`🚫 Notification blocked for ${agent.name} (group ${agent.groupId} is filtered out)`);
+          // 🔥 NY: Markera som notified även om blockerad (för att inte försöka igen)
+          this.notifiedLeads.add(lead.id);
         }
       } else {
         console.log(`⚠️  Skipping notification - no valid agent for userId ${deal.userId}`);
