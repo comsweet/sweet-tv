@@ -4,6 +4,7 @@ const path = require('path');
 /**
  * PERSISTENT SMS CACHE
  * 
+ * FIXAD VERSION: Använder "timestamp" fält (inte "sent")
  * Spårar UNIKA SMS per agent (samma nummer = 1 SMS)
  * Filters: delivered + outbound
  * Rolling window: Nuvarande månad + 7 dagar innan
@@ -117,7 +118,7 @@ class SmsCache {
   async _saveCache(sms) {
     try {
       await fs.writeFile(this.cacheFile, JSON.stringify({ sms }, null, 2));
-      console.log(`📱 Saved ${sms.length} SMS to cache`);
+      console.log(`💾 Saved ${sms.length} SMS to cache`);
     } catch (error) {
       console.error('Error saving SMS cache:', error);
       throw error;
@@ -186,9 +187,9 @@ class SmsCache {
         // FULL SYNC: Hämta ALLA SMS i rolling window
         console.log('🔄 Full sync - fetching ALL SMS...');
         
-        // ✅ FIXAT: Rätt filter-format (utan $and wrapper)
+        // ✅ FIXAT: Använd "timestamp" fält (inte "sent")!
         const filters = {
-          "sent": { 
+          "timestamp": { 
             "$gt": startDate.toISOString(),
             "$lt": endDate.toISOString()
           },
@@ -205,9 +206,9 @@ class SmsCache {
         
         const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000);
         
-        // ✅ FIXAT: Rätt filter-format (utan $and wrapper)
+        // ✅ FIXAT: Använd "timestamp" fält (inte "sent")!
         const filters = {
-          "sent": { 
+          "timestamp": { 
             "$gt": threeMinAgo.toISOString(),
             "$lt": endDate.toISOString()
           },
@@ -228,12 +229,12 @@ class SmsCache {
       
       // Rensa gamla SMS (utanför rolling window)
       const validSms = allSms.filter(sms => {
-        const smsDate = new Date(sms.sent);
+        const smsDate = new Date(sms.timestamp || sms.sent); // Fallback till "sent" om "timestamp" saknas
         return smsDate >= startDate && smsDate <= endDate;
       });
       
       if (validSms.length < allSms.length) {
-        console.log(`🗑️ Removed ${allSms.length - validSms.length} old SMS outside rolling window`);
+        console.log(`🗑️  Removed ${allSms.length - validSms.length} old SMS outside rolling window`);
       }
       
       // Spara
@@ -263,7 +264,7 @@ class SmsCache {
         const response = await adversusAPI.getSms({
           page: page,
           pageSize: 1000,
-          filters: filters, // ✅ FIXAT: Skicka objekt direkt
+          filters: filters, // ✅ FIXAT: Använder "timestamp" fält
           includeMeta: true
         });
         
@@ -282,7 +283,7 @@ class SmsCache {
         
         // Safety: Max 50 pages (50,000 SMS)
         if (page > 50) {
-          console.log('⚠️ Reached max page limit (50)');
+          console.log('⚠️  Reached max page limit (50)');
           break;
         }
       } catch (error) {
@@ -301,7 +302,7 @@ class SmsCache {
     const lastSync = await this.getLastSync();
     
     if (!lastSync) {
-      console.log('⚠️ No SMS sync found - doing full sync');
+      console.log('⚠️  No SMS sync found - doing full sync');
       return await this.syncSms(adversusAPI, true);
     }
     
@@ -335,7 +336,7 @@ class SmsCache {
     
     // Filtrera på datum
     const smsInRange = allSms.filter(sms => {
-      const smsDate = new Date(sms.sent);
+      const smsDate = new Date(sms.timestamp || sms.sent); // Fallback till "sent" om "timestamp" saknas
       return smsDate >= startDate && smsDate <= endDate;
     });
     
@@ -344,7 +345,7 @@ class SmsCache {
     
     smsInRange.forEach(sms => {
       const userId = String(sms.userId);
-      const phoneNumber = sms.number;
+      const phoneNumber = sms.receiver || sms.number; // "receiver" enligt API-doc
       
       if (!agentStats[userId]) {
         agentStats[userId] = {
@@ -377,7 +378,7 @@ class SmsCache {
     const { startDate, endDate } = this.getRollingWindow();
     
     // Räkna unique SMS
-    const uniquePhoneNumbers = new Set(sms.map(s => s.number)).size;
+    const uniquePhoneNumbers = new Set(sms.map(s => s.receiver || s.number)).size;
     const uniqueAgents = new Set(sms.map(s => s.userId)).size;
     
     return {
