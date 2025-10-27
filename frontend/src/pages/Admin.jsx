@@ -43,6 +43,8 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState('');
+  const [isSyncingGroups, setIsSyncingGroups] = useState(false);
+  const [syncGroupsMessage, setSyncGroupsMessage] = useState(null);
   
   // Statistik
   const [startDate, setStartDate] = useState(
@@ -548,6 +550,42 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
       dualSlides: newDualSlides
     });
   };
+  
+  const handleSyncGroups = async () => {
+  if (!confirm('Detta synkar alla user groups från Adversus. Fortsätt?')) {
+    return;
+  }
+  try {
+    setIsSyncingGroups(true);
+    setSyncGroupsMessage(null);
+
+    const response = await axios.post(`${API_BASE_URL}/agents/sync-groups`);
+    
+    if (response.data.success) {
+      setSyncGroupsMessage({
+        type: 'success',
+        text: `✅ ${response.data.message} (Uppdaterade: ${response.data.updated}, Skapade: ${response.data.created})`
+      });
+      
+      // Refresh agents list
+      fetchData();
+      
+      // Clear message after 5 seconds
+      setTimeout(() => setSyncGroupsMessage(null), 5000);
+    }
+  } catch (error) {
+    console.error('Error syncing groups:', error);
+    setSyncGroupsMessage({
+      type: 'error',
+      text: `❌ Fel vid synkning: ${error.response?.data?.error || error.message}`
+    });
+    
+    // Clear message after 5 seconds
+    setTimeout(() => setSyncGroupsMessage(null), 5000);
+  } finally {
+    setIsSyncingGroups(false);
+  }
+};
 
   const handleUpdateDualSlide = (index, field, value) => {
     const newDualSlides = [...slideshowForm.dualSlides];
@@ -621,6 +659,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
       </div>
     );
   }
+  
 
   // 🎯 SHOW ADMIN PANEL IF AUTHENTICATED
   return (
