@@ -31,7 +31,44 @@ router.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// AGENTS
+// ==================== AUTHENTICATION ====================
+
+// Admin login
+router.post('/auth/admin-login', (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    if (!process.env.ADMIN_PASSWORD) {
+      return res.status(500).json({ 
+        success: false,
+        error: 'Admin password not configured on server' 
+      });
+    }
+    
+    if (password === process.env.ADMIN_PASSWORD) {
+      console.log('✅ Admin login successful');
+      res.json({ 
+        success: true,
+        message: 'Authentication successful' 
+      });
+    } else {
+      console.log('❌ Admin login failed - invalid password');
+      res.status(401).json({ 
+        success: false,
+        error: 'Invalid password' 
+      });
+    }
+  } catch (error) {
+    console.error('Error during admin login:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+// ==================== AGENTS ====================
+
 router.get('/agents', async (req, res) => {
   try {
     const agents = await database.getAgents();
@@ -247,7 +284,7 @@ router.get('/stats/leaderboard', async (req, res) => {
     
     res.json(leaderboard);
   } catch (error) {
-    console.error('❌ Error fetching leaderboard:', error.message);
+    console.error('Error fetching stats:', error);
     res.status(500).json({ error: error.message });
   }
 });
