@@ -236,8 +236,28 @@ class PollingService {
             console.log(`🎉 Agent ${agent.name} REACHED daily budget! (${newTotal} THB >= ${dailyBudget} THB)`);
           }
           
-          // Kolla om agent har personligt ljud
-          const agentSound = agent.customSound ? await soundLibrary.getSound(agent.customSound) : null;
+          // 🐛 DEBUG: Kolla agent's sound settings
+          console.log(`🐛 DEBUG Agent sound settings:`, {
+            agentName: agent.name,
+            customSound: agent.customSound,
+            preferCustomSound: agent.preferCustomSound
+          });
+          
+          // 🔥 FIXED: Hitta ljudet med URL, inte ID
+          // agent.customSound innehåller URL:en till ljudet
+          let agentSound = null;
+          if (agent.customSound) {
+            const allSounds = await soundLibrary.getSounds();
+            agentSound = allSounds.find(s => s.url === agent.customSound);
+          }
+          
+          // 🐛 DEBUG: Kolla om ljudet hittades
+          console.log(`🐛 DEBUG Sound lookup result:`, {
+            soundUrl: agent.customSound,
+            soundFound: !!agentSound,
+            soundId: agentSound?.id,
+            soundName: agentSound?.name
+          });
           
           if (agentSound && agent.preferCustomSound) {
             // HAR personligt ljud → Spela personligt ljud för ALLA deals över budget
@@ -248,6 +268,16 @@ class PollingService {
             // HAR INTE personligt ljud → Spela milestone ljud för ALLA deals över budget
             soundType = 'milestone';
             soundUrl = settings.milestoneSound || settings.defaultSound;
+            
+            // 🐛 DEBUG: Varför spelas inte personligt ljud?
+            if (!agentSound && agent.customSound) {
+              console.log(`⚠️  Custom sound URL not found in library: ${agent.customSound}`);
+            } else if (!agent.customSound) {
+              console.log(`⚠️  Agent ${agent.name} has no customSound set`);
+            } else if (!agent.preferCustomSound) {
+              console.log(`⚠️  Agent ${agent.name} has customSound but preferCustomSound is FALSE`);
+            }
+            
             console.log(`🏆 Playing milestone sound for ${agent.name} (${newTotal} THB >= ${dailyBudget} THB)`);
           }
         }
