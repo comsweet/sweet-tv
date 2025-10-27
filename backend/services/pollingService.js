@@ -228,20 +228,24 @@ class PollingService {
         let soundUrl = settings.defaultSound;
         let reachedBudget = false;
         
-        // Kolla om agent når dagsbudget
-        if (newTotal >= dailyBudget && previousTotal < dailyBudget) {
-          reachedBudget = true;
+        // 🔥 FIXED: Kolla om agenten HAR nått dagsbudget
+        if (newTotal >= dailyBudget) {
+          // Markera om detta är FÖRSTA gången budgeten nås
+          if (previousTotal < dailyBudget) {
+            reachedBudget = true;
+            console.log(`🎉 Agent ${agent.name} REACHED daily budget! (${newTotal} THB >= ${dailyBudget} THB)`);
+          }
           
-          // 1. Kolla om agent har personligt ljud
+          // Kolla om agent har personligt ljud
           const agentSound = agent.customSound ? await soundLibrary.getSound(agent.customSound) : null;
           
           if (agentSound && agent.preferCustomSound) {
-            // Agent har personligt ljud → spela det
+            // HAR personligt ljud → Spela personligt ljud för ALLA deals över budget
             soundType = 'agent';
             soundUrl = agentSound.url;
-            console.log(`💰 Playing custom sound for ${agent.name} (${newTotal} THB)`);
+            console.log(`💰 Playing custom sound for ${agent.name} (${newTotal} THB, over budget)`);
           } else {
-            // Agent har INGET personligt ljud → spela dagsbudget ljud
+            // HAR INTE personligt ljud → Spela milestone ljud för ALLA deals över budget
             soundType = 'milestone';
             soundUrl = settings.milestoneSound || settings.defaultSound;
             console.log(`🏆 Playing milestone sound for ${agent.name} (${newTotal} THB >= ${dailyBudget} THB)`);
