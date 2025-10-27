@@ -181,7 +181,7 @@ class NotificationSettings {
 
   // Hämta alla unika groups från agents (för UI)
   async getAvailableGroups(database) {
-    const agents = await database.getAllAgents();
+    const agents = await database.getAgents(); // 🔥 FIX: ÄNDRAT FRÅN getAllAgents() TILL getAgents()
     const groups = new Map();
     
     agents.forEach(agent => {
