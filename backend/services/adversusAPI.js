@@ -250,8 +250,8 @@ class AdversusAPI {
     return response;
   }
 
-  // 📱 SMS METHOD - FIXAT: Rätt namn getSms (liten 's')!
-  async getSms({ page = 1, pageSize = 1000, filters = [], includeMeta = false }) {
+  // 📱 SMS METHOD - FIXAT: Tar emot filter-objekt direkt (inte array)!
+  async getSms({ page = 1, pageSize = 1000, filters = {}, includeMeta = false }) {
     try {
       const params = {
         page: page,
@@ -259,19 +259,19 @@ class AdversusAPI {
         includeMeta: includeMeta
       };
       
-      // Lägg till filters om de finns
-      if (filters && filters.length > 0) {
-        params.filters = JSON.stringify({ $and: filters });
+      // ✅ FIXAT: Lägg till filters om de finns (som objekt, inte array)
+      if (filters && Object.keys(filters).length > 0) {
+        params.filters = JSON.stringify(filters);
       }
       
       console.log(`📱 Fetching SMS (page ${page}, pageSize ${pageSize})...`);
-      if (filters.length > 0) {
-        console.log('   Filters:', filters);
+      if (Object.keys(filters).length > 0) {
+        console.log('   Filters:', JSON.stringify(filters, null, 2));
       }
       
       const response = await this.request('/sms', params);
       
-      console.log(`   ✅ Got ${response.data?.length || response.length || 0} SMS\n`);
+      console.log(`   ✅ Got ${response.data?.length || response.length || 0} SMS`);
       
       return {
         data: response.data || response,
