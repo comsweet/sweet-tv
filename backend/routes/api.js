@@ -1109,7 +1109,7 @@ router.post('/sounds/force-cleanup', async (req, res) => {
 router.get('/notification-settings', async (req, res) => {
   try {
     const settings = await notificationSettings.getSettings();
-    const availableGroups = await notificationSettings.getAvailableGroups(database);
+    const availableGroups = await notificationSettings.getAvailableGroups(adversusAPI); // ✅ ÄNDRAT!
     
     res.json({
       success: true,
