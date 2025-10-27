@@ -15,12 +15,21 @@ const path = require('path');
  * - Drastiskt färre API calls
  * - Snabbare leaderboards
  * - "Denna vecka" fungerar alltid (även över månadsskifte)
+ * 
+ * 🔥 CONCURRENT SAFETY:
+ * - Queue-baserad write hantering
+ * - Förhindrar race conditions när flera agenter lägger deals samtidigt
  */
 class DealsCache {
   constructor() {
     this.dbPath = path.join(__dirname, '../data');
     this.cacheFile = path.join(this.dbPath, 'deals-cache.json');
     this.lastSyncFile = path.join(this.dbPath, 'last-sync.json');
+    
+    // 🔥 Queue för att hantera concurrent writes
+    this.writeQueue = [];
+    this.isProcessing = false;
+    
     this.initCache();
   }
 
@@ -48,6 +57,40 @@ class DealsCache {
     }
   }
 
+  // 🔥 NY: Process write queue (en operation i taget)
+  async processWriteQueue() {
+    if (this.isProcessing || this.writeQueue.length === 0) {
+      return;
+    }
+
+    this.isProcessing = true;
+
+    while (this.writeQueue.length > 0) {
+      const operation = this.writeQueue.shift();
+      try {
+        await operation.execute();
+        operation.resolve();
+      } catch (error) {
+        console.error('❌ Queue operation failed:', error);
+        operation.reject(error);
+      }
+    }
+
+    this.isProcessing = false;
+  }
+
+  // 🔥 NY: Queue a write operation
+  async queueWrite(executeFn) {
+    return new Promise((resolve, reject) => {
+      this.writeQueue.push({
+        execute: executeFn,
+        resolve,
+        reject
+      });
+      this.processWriteQueue();
+    });
+  }
+
   // Beräkna rolling window dates
   getRollingWindow() {
     const now = new Date();
@@ -64,7 +107,7 @@ class DealsCache {
     return { startDate, endDate };
   }
 
-  // Läs cache
+  // Läs cache (read operations är säkra utan queue)
   async getCache() {
     try {
       const data = await fs.readFile(this.cacheFile, 'utf8');
@@ -75,14 +118,22 @@ class DealsCache {
     }
   }
 
-  // Skriv cache
-  async saveCache(deals) {
+  // Skriv cache (private - använd bara via queue!)
+  async _saveCache(deals) {
     try {
       await fs.writeFile(this.cacheFile, JSON.stringify({ deals }, null, 2));
       console.log(`💾 Saved ${deals.length} deals to cache`);
     } catch (error) {
       console.error('Error saving cache:', error);
+      throw error;
     }
+  }
+
+  // Public save method (uses queue)
+  async saveCache(deals) {
+    return this.queueWrite(async () => {
+      await this._saveCache(deals);
+    });
   }
 
   // Läs last sync time
@@ -106,32 +157,35 @@ class DealsCache {
     }
   }
 
-  // 🔥 NY METOD: Lägg till en enskild deal (för polling)
+  // 🔥 UPPDATERAD: Queue-safe add deal
   async addDeal(deal) {
-    const allDeals = await this.getCache();
-    
-    // Undvik dubbletter
-    const exists = allDeals.find(d => d.leadId === deal.leadId);
-    if (exists) {
-      console.log('Deal already in cache, skipping:', deal.leadId);
-      return null;
-    }
-    
-    const newDeal = {
-      leadId: deal.leadId,
-      userId: deal.userId,
-      campaignId: deal.campaignId,
-      commission: parseFloat(deal.commission),
-      multiDeals: deal.multiDeals || '0',
-      orderDate: deal.orderDate,
-      status: deal.status,
-      syncedAt: new Date().toISOString()
-    };
-    
-    allDeals.push(newDeal);
-    await this.saveCache(allDeals);
-    console.log(`💾 Added deal ${newDeal.leadId} to cache`);
-    return newDeal;
+    return this.queueWrite(async () => {
+      // Read fresh data inside queue operation
+      const allDeals = await this.getCache();
+      
+      // Undvik dubbletter
+      const exists = allDeals.find(d => d.leadId === deal.leadId);
+      if (exists) {
+        console.log('Deal already in cache, skipping:', deal.leadId);
+        return null;
+      }
+      
+      const newDeal = {
+        leadId: deal.leadId,
+        userId: deal.userId,
+        campaignId: deal.campaignId,
+        commission: parseFloat(deal.commission),
+        multiDeals: deal.multiDeals || '0',
+        orderDate: deal.orderDate,
+        status: deal.status,
+        syncedAt: new Date().toISOString()
+      };
+      
+      allDeals.push(newDeal);
+      await this._saveCache(allDeals); // Direct write (already in queue)
+      console.log(`💾 Added deal ${newDeal.leadId} to cache`);
+      return newDeal;
+    });
   }
 
   // Sync deals från Adversus
@@ -174,7 +228,7 @@ class DealsCache {
       const dealsWithCommission = deals.filter(deal => deal.commission > 0);
       
       // 🔥 SPARA ALLA DEALS (INTE BARA MED COMMISSION) - för debugging
-      await this.saveCache(deals); // Changed from dealsWithCommission
+      await this.saveCache(deals); // Uses queue
       await this.updateLastSync();
       
       console.log(`💾 Cached ${deals.length} deals total`);
@@ -238,19 +292,21 @@ class DealsCache {
 
   // Clean old deals (utanför rolling window)
   async cleanOldDeals() {
-    const { startDate } = this.getRollingWindow();
-    const allDeals = await this.getCache();
-    
-    const validDeals = allDeals.filter(deal => {
-      const dealDate = new Date(deal.orderDate);
-      return dealDate >= startDate;
+    return this.queueWrite(async () => {
+      const { startDate } = this.getRollingWindow();
+      const allDeals = await this.getCache();
+      
+      const validDeals = allDeals.filter(deal => {
+        const dealDate = new Date(deal.orderDate);
+        return dealDate >= startDate;
+      });
+      
+      if (validDeals.length < allDeals.length) {
+        const removed = allDeals.length - validDeals.length;
+        await this._saveCache(validDeals); // Direct write (already in queue)
+        console.log(`🗑️  Cleaned ${removed} old deals outside rolling window`);
+      }
     });
-    
-    if (validDeals.length < allDeals.length) {
-      const removed = allDeals.length - validDeals.length;
-      await this.saveCache(validDeals);
-      console.log(`🗑️  Cleaned ${removed} old deals outside rolling window`);
-    }
   }
 
   // Stats
@@ -267,7 +323,8 @@ class DealsCache {
         end: endDate.toISOString()
       },
       totalCommission: deals.reduce((sum, d) => sum + d.commission, 0),
-      uniqueAgents: new Set(deals.map(d => d.userId)).size
+      uniqueAgents: new Set(deals.map(d => d.userId)).size,
+      queueLength: this.writeQueue.length // 🔥 NY: Visa queue status
     };
   }
 
