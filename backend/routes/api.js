@@ -1372,4 +1372,63 @@ router.post('/agents/sync-groups', async (req, res) => {
   }
 });
 
+/ ==================== SMS CACHE ENDPOINTS ====================
+
+// SMS Stats
+router.get('/sms/stats', async (req, res) => {
+  try {
+    const stats = await smsCache.getStats();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// SMS Sync (incremental)
+router.post('/sms/sync', async (req, res) => {
+  try {
+    console.log('📱 SMS sync triggered');
+    const sms = await smsCache.syncSms(adversusAPI, false);
+    
+    res.json({ 
+      success: true, 
+      message: `Synced ${sms.length} SMS`,
+      sms: sms.length
+    });
+  } catch (error) {
+    console.error('❌ SMS sync error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// SMS Force Full Sync
+router.post('/sms/sync/full', async (req, res) => {
+  try {
+    console.log('📱 SMS FULL sync triggered from admin');
+    const sms = await smsCache.forceSync(adversusAPI);
+    
+    res.json({ 
+      success: true, 
+      message: `Full sync: ${sms.length} SMS`,
+      sms: sms.length
+    });
+  } catch (error) {
+    console.error('❌ SMS full sync error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clear SMS Cache
+router.post('/sms/cache/clear', async (req, res) => {
+  try {
+    await smsCache.clearCache();
+    res.json({ 
+      success: true, 
+      message: 'SMS cache cleared'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
