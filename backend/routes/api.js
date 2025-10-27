@@ -197,7 +197,7 @@ router.get('/adversus/user-groups', async (req, res) => {
   }
 });
 
-// STATS (MED PERSISTENT CACHE!)
+// 📱 STATS (MED PERSISTENT CACHE + SMS!)
 router.get('/stats/leaderboard', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -213,9 +213,15 @@ router.get('/stats/leaderboard', async (req, res) => {
     
     // AUTO-SYNC DEALS CACHE (syncar var 6:e timme)
     await dealsCache.autoSync(adversusAPI);
+
+    // 📱 AUTO-SYNC SMS CACHE
+    await smsCache.autoSync(adversusAPI);
     
     // HÄMTA FRÅN CACHE ISTÄLLET FÖR ADVERSUS!
     const cachedDeals = await dealsCache.getDealsInRange(start, end);
+
+    // 📱 HÄMTA SMS STATS
+    const smsStats = await smsCache.getUniqueSmsPerAgent(start, end);
     
     // Konvertera till leads-format för kompatibilitet
     const leads = cachedDeals.map(deal => ({
@@ -249,7 +255,11 @@ router.get('/stats/leaderboard', async (req, res) => {
         stats[userId] = {
           userId: userId,
           totalCommission: 0,
-          dealCount: 0
+          dealCount: 0,
+          multiDealsTotal: 0,        // 📱 NYTT!
+          uniqueSmsCount: 0,         // 📱 NYTT!
+          totalSmsCount: 0,          // 📱 NYTT!
+          smsPercentage: 0           // 📱 NYTT!
         };
       }
       
@@ -258,6 +268,29 @@ router.get('/stats/leaderboard', async (req, res) => {
       
       stats[userId].totalCommission += commission;
       stats[userId].dealCount += 1;
+
+      // 📱 RÄKNA MULTIDEALS
+      const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
+      const multiDeals = parseFloat(multiDealsField?.value || 0);
+      stats[userId].multiDealsTotal += multiDeals;
+    });
+
+    // 📱 LÄGG TILL SMS-DATA TILL VARJE AGENT
+    Object.keys(stats).forEach(userId => {
+      const userSmsStats = smsStats[userId];
+      
+      if (userSmsStats) {
+        stats[userId].uniqueSmsCount = userSmsStats.uniqueSmsCount;
+        stats[userId].totalSmsCount = userSmsStats.totalSms;
+        
+        // Räkna ut SMS procent (uniqueSmsCount / multiDealsTotal * 100)
+        if (stats[userId].multiDealsTotal > 0) {
+          const percentage = (userSmsStats.uniqueSmsCount / stats[userId].multiDealsTotal) * 100;
+          stats[userId].smsPercentage = Math.round(percentage * 100) / 100; // 2 decimaler
+        } else {
+          stats[userId].smsPercentage = 0;
+        }
+      }
     });
     
     const leaderboard = Object.values(stats).map(stat => {
@@ -283,6 +316,7 @@ router.get('/stats/leaderboard', async (req, res) => {
     }).sort((a, b) => b.totalCommission - a.totalCommission);
     
     console.log(`📈 Leaderboard with ${leaderboard.length} agents`);
+    console.log(`📱 SMS stats processed for ${Object.keys(smsStats).length} agents`);
     
     res.json(leaderboard);
   } catch (error) {
@@ -413,7 +447,7 @@ router.delete('/slideshows/:id', async (req, res) => {
   }
 });
 
-// 🔥 FIXED: LEADERBOARD DATA WITH PERSISTENT DEALS CACHE - VISA ALLA AGENTER INKL DE MED 0 DEALS!
+// 📱 LEADERBOARD DATA WITH PERSISTENT DEALS CACHE + SMS!
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -439,9 +473,15 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     
     // AUTO-SYNC PERSISTENT DEALS CACHE (var 6:e timme)
     await dealsCache.autoSync(adversusAPI);
+
+    // 📱 AUTO-SYNC SMS CACHE
+    await smsCache.autoSync(adversusAPI);
     
     // HÄMTA FRÅN PERSISTENT CACHE
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
+
+    // 📱 HÄMTA SMS STATS
+    const smsStats = await smsCache.getUniqueSmsPerAgent(startDate, endDate);
     
     // Konvertera till leads-format
     const leads = cachedDeals.map(deal => ({
@@ -513,7 +553,11 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         stats[userId] = {
           userId: userId,
           totalCommission: 0,
-          dealCount: 0
+          dealCount: 0,
+          multiDealsTotal: 0,        // 📱 NYTT!
+          uniqueSmsCount: 0,         // 📱 NYTT!
+          totalSmsCount: 0,          // 📱 NYTT!
+          smsPercentage: 0           // 📱 NYTT!
         };
       }
       console.log(`   📊 Initialized stats for ${Object.keys(stats).length} users in groups (including those with 0 deals)`);
@@ -533,7 +577,11 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         stats[userId] = {
           userId: userId,
           totalCommission: 0,
-          dealCount: 0
+          dealCount: 0,
+          multiDealsTotal: 0,        // 📱 NYTT!
+          uniqueSmsCount: 0,         // 📱 NYTT!
+          totalSmsCount: 0,          // 📱 NYTT!
+          smsPercentage: 0           // 📱 NYTT!
         };
       }
       
@@ -542,6 +590,29 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       
       stats[userId].totalCommission += commission;
       stats[userId].dealCount += 1;
+
+      // 📱 RÄKNA MULTIDEALS
+      const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
+      const multiDeals = parseFloat(multiDealsField?.value || 0);
+      stats[userId].multiDealsTotal += multiDeals;
+    });
+
+    // 📱 LÄGG TILL SMS-DATA TILL VARJE AGENT
+    Object.keys(stats).forEach(userId => {
+      const userSmsStats = smsStats[userId];
+      
+      if (userSmsStats) {
+        stats[userId].uniqueSmsCount = userSmsStats.uniqueSmsCount;
+        stats[userId].totalSmsCount = userSmsStats.totalSms;
+        
+        // Räkna ut SMS procent
+        if (stats[userId].multiDealsTotal > 0) {
+          const percentage = (userSmsStats.uniqueSmsCount / stats[userId].multiDealsTotal) * 100;
+          stats[userId].smsPercentage = Math.round(percentage * 100) / 100; // 2 decimaler
+        } else {
+          stats[userId].smsPercentage = 0;
+        }
+      }
     });
     
     const leaderboardStats = Object.values(stats).map(stat => {
@@ -584,6 +655,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     );
     
     console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents (including ${leaderboardStats.filter(s => s.dealCount === 0).length} with 0 deals)`);
+    console.log(`📱 SMS stats processed for ${Object.keys(smsStats).length} agents`);
     
     res.json(responseData);
   } catch (error) {
@@ -1155,7 +1227,7 @@ router.post('/sounds/force-cleanup', async (req, res) => {
 router.get('/notification-settings', async (req, res) => {
   try {
     const settings = await notificationSettings.getSettings();
-    const availableGroups = await notificationSettings.getAvailableGroups(adversusAPI); // ✅ ÄNDRAT!
+    const availableGroups = await notificationSettings.getAvailableGroups(adversusAPI);
     
     res.json({
       success: true,
@@ -1225,9 +1297,7 @@ router.post('/notification-settings/mode', async (req, res) => {
   }
 });
 
-// 🔥 NY: SYNKA GROUPS FRÅN ADVERSUS
-// Lägg till detta i backend/routes/api.js efter andra agent-endpoints
-
+// SYNKA GROUPS FRÅN ADVERSUS
 router.post('/agents/sync-groups', async (req, res) => {
   try {
     console.log('🔄 Syncing groups from Adversus...');
