@@ -207,7 +207,9 @@ class PollingService {
               name: adversusUser.name || 
                     `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
                     `Agent ${adversusUser.id}`,
-              email: adversusUser.email || ''
+              email: adversusUser.email || '',
+              groupId: adversusUser.group?.id ? parseInt(adversusUser.group.id) : null, // 🔥 LÄGG TILL
+              groupName: adversusUser.group?.name || null // 🔥 LÄGG TILL
             };
             
             agent = await database.addAgent(agentData);
