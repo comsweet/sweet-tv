@@ -2,24 +2,20 @@ const fs = require('fs').promises;
 const path = require('path');
 
 /**
- * SMART SMS CACHE - INCREMENTAL UPDATES (RENDER PERSISTENT DISK)
+ * PERSISTENT SMS CACHE
+ * 
+ * Spårar UNIKA SMS per agent (samma nummer = 1 SMS)
+ * Filters: delivered + outbound
+ * Rolling window: Nuvarande månad + 7 dagar innan
  */
 class SmsCache {
   constructor() {
-    const isRender = process.env.RENDER === 'true';
-    
-    this.dbPath = isRender 
-      ? '/var/data'
-      : path.join(__dirname, '../data');
-    
+    this.dbPath = path.join(__dirname, '../data');
     this.cacheFile = path.join(this.dbPath, 'sms-cache.json');
     this.lastSyncFile = path.join(this.dbPath, 'sms-last-sync.json');
+    this.lastFullSyncFile = path.join(this.dbPath, 'sms-last-full-sync.json');
     
-    console.log(`📱 SMS Cache path: ${this.dbPath} (isRender: ${isRender})`);
-    
-    this.incrementalInterval = 3 * 60 * 1000;
-    this.fullSyncInterval = 24 * 60 * 60 * 1000;
-    
+    // Queue för concurrent writes
     this.writeQueue = [];
     this.isProcessing = false;
     
@@ -30,33 +26,38 @@ class SmsCache {
     try {
       await fs.mkdir(this.dbPath, { recursive: true });
 
+      // Skapa cache file
       try {
         await fs.access(this.cacheFile);
-        console.log('✅ sms-cache.json exists');
       } catch {
         await fs.writeFile(this.cacheFile, JSON.stringify({ sms: [] }, null, 2));
-        console.log('📝 Created sms-cache.json');
+      }
+
+      // Skapa last sync files
+      try {
+        await fs.access(this.lastSyncFile);
+      } catch {
+        await fs.writeFile(this.lastSyncFile, JSON.stringify({ lastSync: null }, null, 2));
       }
 
       try {
-        await fs.access(this.lastSyncFile);
-        console.log('✅ sms-last-sync.json exists');
+        await fs.access(this.lastFullSyncFile);
       } catch {
-        await fs.writeFile(this.lastSyncFile, JSON.stringify({ 
-          lastSync: null,
-          lastFullSync: null 
-        }, null, 2));
-        console.log('📝 Created sms-last-sync.json');
+        await fs.writeFile(this.lastFullSyncFile, JSON.stringify({ lastFullSync: null }, null, 2));
       }
 
-      console.log('💾 SMS cache initialized on persistent disk');
+      console.log('📱 SMS cache initialized');
     } catch (error) {
       console.error('Error initializing SMS cache:', error);
     }
   }
 
+  // Process write queue
   async processWriteQueue() {
-    if (this.isProcessing || this.writeQueue.length === 0) return;
+    if (this.isProcessing || this.writeQueue.length === 0) {
+      return;
+    }
+
     this.isProcessing = true;
 
     while (this.writeQueue.length > 0) {
@@ -65,7 +66,7 @@ class SmsCache {
         await operation.execute();
         operation.resolve();
       } catch (error) {
-        console.error('❌ Queue operation failed:', error);
+        console.error('❌ SMS Queue operation failed:', error);
         operation.reject(error);
       }
     }
@@ -73,6 +74,7 @@ class SmsCache {
     this.isProcessing = false;
   }
 
+  // Queue a write operation
   async queueWrite(executeFn) {
     return new Promise((resolve, reject) => {
       this.writeQueue.push({
@@ -84,19 +86,23 @@ class SmsCache {
     });
   }
 
+  // Beräkna rolling window dates (samma som deals)
   getRollingWindow() {
     const now = new Date();
     
+    // Start: 7 dagar innan månadsskifte
     const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     startDate.setDate(startDate.getDate() - 7);
     startDate.setHours(0, 0, 0, 0);
     
+    // End: Sista dagen nuvarande månad
     const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     endDate.setHours(23, 59, 59, 999);
     
     return { startDate, endDate };
   }
 
+  // Läs cache
   async getCache() {
     try {
       const data = await fs.readFile(this.cacheFile, 'utf8');
@@ -107,278 +113,267 @@ class SmsCache {
     }
   }
 
+  // Skriv cache (private)
   async _saveCache(sms) {
     try {
       await fs.writeFile(this.cacheFile, JSON.stringify({ sms }, null, 2));
+      console.log(`📱 Saved ${sms.length} SMS to cache`);
     } catch (error) {
       console.error('Error saving SMS cache:', error);
       throw error;
     }
   }
 
+  // Public save (uses queue)
   async saveCache(sms) {
     return this.queueWrite(async () => {
       await this._saveCache(sms);
     });
   }
 
-  async getSyncInfo() {
+  // Läs last sync times
+  async getLastSync() {
     try {
       const data = await fs.readFile(this.lastSyncFile, 'utf8');
-      return JSON.parse(data);
+      return JSON.parse(data).lastSync;
     } catch (error) {
-      return { lastSync: null, lastFullSync: null };
+      return null;
     }
   }
 
-  async updateSyncInfo(isFullSync = false) {
+  async getLastFullSync() {
     try {
-      const syncInfo = await this.getSyncInfo();
-      const now = new Date().toISOString();
-      
-      syncInfo.lastSync = now;
-      if (isFullSync) {
-        syncInfo.lastFullSync = now;
-      }
-      
-      await fs.writeFile(this.lastSyncFile, JSON.stringify(syncInfo, null, 2));
+      const data = await fs.readFile(this.lastFullSyncFile, 'utf8');
+      return JSON.parse(data).lastFullSync;
     } catch (error) {
-      console.error('Error updating sync info:', error);
+      return null;
     }
   }
 
-  async fullSync(adversusAPI) {
-    console.log('📱 FULL SYNC - Fetching all SMS from rolling window...');
+  // Uppdatera last sync times
+  async updateLastSync() {
+    try {
+      await fs.writeFile(this.lastSyncFile, JSON.stringify({ 
+        lastSync: new Date().toISOString() 
+      }, null, 2));
+    } catch (error) {
+      console.error('Error updating SMS last sync:', error);
+    }
+  }
+
+  async updateLastFullSync() {
+    try {
+      await fs.writeFile(this.lastFullSyncFile, JSON.stringify({ 
+        lastFullSync: new Date().toISOString() 
+      }, null, 2));
+    } catch (error) {
+      console.error('Error updating SMS last full sync:', error);
+    }
+  }
+
+  // Sync SMS från Adversus
+  async syncSms(adversusAPI, forceFullSync = false) {
+    console.log('📱 Syncing SMS from Adversus...');
     
     const { startDate, endDate } = this.getRollingWindow();
     console.log(`📅 Rolling window: ${startDate.toISOString()} → ${endDate.toISOString()}`);
     
     try {
       let allSms = [];
-      let currentPage = 1;
-      let hasMorePages = true;
+      const existingSms = await this.getCache();
       
-      const filters = {
-        lastModifiedTime: { $gte: startDate.toISOString() },
-        status: { $eq: 'delivered' },
-        type: { $eq: 'outbound' }
-      };
-      
-      while (hasMorePages) {
-        console.log(`   📄 Page ${currentPage}...`);
+      if (forceFullSync || existingSms.length === 0) {
+        // FULL SYNC: Hämta ALLA SMS i rolling window
+        console.log('🔄 Full sync - fetching ALL SMS...');
         
-        const result = await adversusAPI.getSMS({
-          filters: JSON.stringify(filters),
-          page: currentPage,
-          pageSize: 1000,
-          includeMeta: true,
-          sortProperty: 'lastModifiedTime',
-          sortDirection: 'DESC'
-        });
+        const filters = [
+          { 'sent': { $gte: startDate.toISOString() } },
+          { 'sent': { $lte: endDate.toISOString() } },
+          { 'status': 'delivered' },
+          { 'type': 'outbound' }
+        ];
         
-        const pageSms = result.sms || [];
-        allSms = allSms.concat(pageSms);
+        allSms = await this._paginatedFetch(adversusAPI, filters);
         
-        console.log(`   ✅ Page ${currentPage}: ${pageSms.length} SMS`);
+        await this.updateLastFullSync();
+      } else {
+        // INCREMENTAL SYNC: Hämta bara nya SMS (sista 3 minuter)
+        console.log('⚡ Incremental sync - fetching SMS from last 3 minutes...');
         
-        const meta = result.meta?.pagination;
-        if (meta && currentPage < meta.pageCount) {
-          currentPage++;
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        } else {
-          hasMorePages = false;
-        }
+        const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000);
+        
+        const filters = [
+          { 'sent': { $gte: threeMinAgo.toISOString() } },
+          { 'sent': { $lte: endDate.toISOString() } },
+          { 'status': 'delivered' },
+          { 'type': 'outbound' }
+        ];
+        
+        const newSms = await this._paginatedFetch(adversusAPI, filters);
+        
+        // Merge med existing (undvik dubbletter)
+        const existingIds = new Set(existingSms.map(s => s.id));
+        const uniqueNewSms = newSms.filter(s => !existingIds.has(s.id));
+        
+        allSms = [...existingSms, ...uniqueNewSms];
+        
+        console.log(`✅ Added ${uniqueNewSms.length} new SMS (${existingSms.length} existing)`);
       }
       
-      console.log(`✅ FULL SYNC: ${allSms.length} SMS from ${currentPage} pages`);
-      
-      await this.saveCache(allSms);
-      await this.updateSyncInfo(true);
-      
-      console.log(`💾 Saved to persistent disk: ${this.cacheFile}`);
-      
-      return allSms;
-    } catch (error) {
-      console.error('❌ Error in full sync:', error.message);
-      throw error;
-    }
-  }
-
-  async incrementalSync(adversusAPI) {
-    console.log('🚀 INCREMENTAL SYNC - Fetching new SMS...');
-    
-    const syncInfo = await this.getSyncInfo();
-    const lastSyncTime = syncInfo.lastSync ? new Date(syncInfo.lastSync) : new Date(Date.now() - 5 * 60 * 1000);
-    const safeLastSync = new Date(lastSyncTime.getTime() - 30000);
-    
-    console.log(`   ⏰ Fetching SMS since ${safeLastSync.toISOString()}`);
-    
-    try {
-      const filters = {
-        lastModifiedTime: { $gte: safeLastSync.toISOString() },
-        status: { $eq: 'delivered' },
-        type: { $eq: 'outbound' }
-      };
-      
-      const result = await adversusAPI.getSMS({
-        filters: JSON.stringify(filters),
-        page: 1,
-        pageSize: 1000,
-        sortProperty: 'lastModifiedTime',
-        sortDirection: 'DESC'
+      // Rensa gamla SMS (utanför rolling window)
+      const validSms = allSms.filter(sms => {
+        const smsDate = new Date(sms.sent);
+        return smsDate >= startDate && smsDate <= endDate;
       });
       
-      const newSms = result.sms || [];
-      
-      if (newSms.length === 0) {
-        console.log('   ℹ️  No new SMS');
-        await this.updateSyncInfo(false);
-        return [];
+      if (validSms.length < allSms.length) {
+        console.log(`🗑️ Removed ${allSms.length - validSms.length} old SMS outside rolling window`);
       }
       
-      console.log(`   ✅ Found ${newSms.length} new SMS`);
+      // Spara
+      await this.saveCache(validSms);
+      await this.updateLastSync();
       
-      const existingSms = await this.getCache();
-      const existingIds = new Set(existingSms.map(s => s.id));
-      const uniqueNewSms = newSms.filter(sms => !existingIds.has(sms.id));
+      console.log(`📱 SMS Cache updated: ${validSms.length} total SMS`);
       
-      if (uniqueNewSms.length > 0) {
-        const updatedSms = [...uniqueNewSms, ...existingSms];
-        
-        const { startDate } = this.getRollingWindow();
-        const validSms = updatedSms.filter(sms => {
-          const smsDate = new Date(sms.lastModifiedTime);
-          return smsDate >= startDate;
-        });
-        
-        console.log(`   💾 Added ${uniqueNewSms.length} new SMS (${validSms.length} total in cache)`);
-        
-        await this.saveCache(validSms);
-      } else {
-        console.log('   ℹ️  All SMS already in cache');
-      }
-      
-      await this.updateSyncInfo(false);
-      
-      return uniqueNewSms;
+      return validSms;
     } catch (error) {
-      console.error('❌ Error in incremental sync:', error.message);
+      console.error('❌ Error syncing SMS:', error.message);
       throw error;
     }
   }
 
+  // Paginerad fetch (Adversus har 1000 per sida max)
+  async _paginatedFetch(adversusAPI, filters) {
+    let allSms = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      try {
+        const response = await adversusAPI.getSms({
+          page: page,
+          pageSize: 1000,
+          filters: filters,
+          includeMeta: true
+        });
+        
+        const sms = response.data || [];
+        allSms = allSms.concat(sms);
+        
+        console.log(`   📄 Page ${page}: fetched ${sms.length} SMS (total: ${allSms.length})`);
+        
+        // Kolla om det finns fler sidor
+        if (response.meta && response.meta.pagination) {
+          hasMore = response.meta.pagination.page < response.meta.pagination.pageCount;
+          page++;
+        } else {
+          hasMore = false;
+        }
+        
+        // Safety: Max 50 pages (50,000 SMS)
+        if (page > 50) {
+          console.log('⚠️ Reached max page limit (50)');
+          break;
+        }
+      } catch (error) {
+        console.error(`❌ Error fetching page ${page}:`, error.message);
+        throw error;
+      }
+    }
+    
+    return allSms;
+  }
+
+  // Auto-sync (incremental var 3:e minut)
   async autoSync(adversusAPI) {
-    const syncInfo = await this.getSyncInfo();
-    const now = Date.now();
+    const lastSync = await this.getLastSync();
     
-    if (!syncInfo.lastFullSync) {
-      console.log('📱 No full sync found - doing full sync');
-      return await this.fullSync(adversusAPI);
+    if (!lastSync) {
+      console.log('⚠️ No SMS sync found - doing full sync');
+      return await this.syncSms(adversusAPI, true);
     }
     
-    const lastFullSyncTime = new Date(syncInfo.lastFullSync).getTime();
-    const hoursSinceFullSync = (now - lastFullSyncTime) / (1000 * 60 * 60);
-    
-    if (hoursSinceFullSync > 24) {
-      console.log(`📱 Last full sync was ${Math.round(hoursSinceFullSync)}h ago - doing full sync`);
-      return await this.fullSync(adversusAPI);
-    }
-    
-    if (!syncInfo.lastSync) {
-      return await this.incrementalSync(adversusAPI);
-    }
-    
-    const lastSyncTime = new Date(syncInfo.lastSync).getTime();
-    const minutesSinceSync = (now - lastSyncTime) / (1000 * 60);
+    const lastSyncDate = new Date(lastSync);
+    const minutesSinceSync = (Date.now() - lastSyncDate.getTime()) / (1000 * 60);
     
     if (minutesSinceSync > 3) {
-      console.log(`🚀 Last sync was ${Math.round(minutesSinceSync)} min ago - doing incremental sync`);
-      return await this.incrementalSync(adversusAPI);
+      console.log(`⏰ Last SMS sync was ${Math.round(minutesSinceSync)} min ago - syncing`);
+      return await this.syncSms(adversusAPI, false);
     }
     
-    console.log(`✅ Cache is fresh (${Math.round(minutesSinceSync)} min old)`);
+    console.log(`✅ Using cached SMS (last sync ${Math.round(minutesSinceSync)} min ago)`);
     return await this.getCache();
   }
 
-  async getSmsInRange(startDate, endDate) {
+  // Force sync (från admin)
+  async forceSync(adversusAPI) {
+    console.log('🔄 FORCE SMS SYNC initiated from admin');
+    return await this.syncSms(adversusAPI, true);
+  }
+
+  // Clear cache
+  async clearCache() {
+    await this.saveCache([]);
+    console.log('🧹 SMS cache cleared');
+  }
+
+  // 📊 HUVUDFUNKTION: Räkna UNIKA SMS per agent
+  async getUniqueSmsPerAgent(startDate, endDate) {
     const allSms = await this.getCache();
     
-    return allSms.filter(sms => {
-      const smsDate = new Date(sms.lastModifiedTime);
+    // Filtrera på datum
+    const smsInRange = allSms.filter(sms => {
+      const smsDate = new Date(sms.sent);
       return smsDate >= startDate && smsDate <= endDate;
     });
-  }
-
-  // 🔥 FIXED: Return empty object instead of crashing when no SMS
-  async getUniqueSmsPerAgent(startDate, endDate) {
-    try {
-      const allSms = await this.getSmsInRange(startDate, endDate);
+    
+    // Gruppera per agent
+    const agentStats = {};
+    
+    smsInRange.forEach(sms => {
+      const userId = String(sms.userId);
+      const phoneNumber = sms.number;
       
-      // 🔥 FIX: Return empty object if no SMS
-      if (!allSms || allSms.length === 0) {
-        console.log('   ℹ️  No SMS in date range - returning empty stats');
-        return {};
+      if (!agentStats[userId]) {
+        agentStats[userId] = {
+          uniquePhoneNumbers: new Set(),
+          totalSms: 0
+        };
       }
       
-      const agentStats = {};
-      
-      allSms.forEach(sms => {
-        if (!sms.userId) return;
-        
-        const receiver = sms.receivers && sms.receivers.length > 0 
-          ? sms.receivers[0].receiver 
-          : null;
-        
-        if (!receiver) return;
-        
-        const smsDate = new Date(sms.lastModifiedTime);
-        const dateKey = smsDate.toISOString().split('T')[0];
-        
-        const uniqueKey = `${sms.userId}-${receiver}-${dateKey}`;
-        
-        if (!agentStats[sms.userId]) {
-          agentStats[sms.userId] = {
-            userId: sms.userId,
-            uniqueSms: new Set(),
-            totalSms: 0
-          };
-        }
-        
-        agentStats[sms.userId].uniqueSms.add(uniqueKey);
-        agentStats[sms.userId].totalSms += 1;
-      });
-      
-      Object.values(agentStats).forEach(stats => {
-        stats.uniqueSmsCount = stats.uniqueSms.size;
-        delete stats.uniqueSms;
-      });
-      
-      return agentStats;
-    } catch (error) {
-      console.error('❌ Error in getUniqueSmsPerAgent:', error);
-      return {}; // 🔥 Return empty object on error
-    }
+      agentStats[userId].uniquePhoneNumbers.add(phoneNumber);
+      agentStats[userId].totalSms++;
+    });
+    
+    // Konvertera till objekt
+    const result = {};
+    Object.keys(agentStats).forEach(userId => {
+      result[userId] = {
+        uniqueSmsCount: agentStats[userId].uniquePhoneNumbers.size,
+        totalSms: agentStats[userId].totalSms
+      };
+    });
+    
+    return result;
   }
 
-  async forceFullSync(adversusAPI) {
-    console.log('🔄 FORCE FULL SYNC initiated');
-    return await this.fullSync(adversusAPI);
-  }
-
+  // Stats
   async getStats() {
     const sms = await this.getCache();
-    const syncInfo = await this.getSyncInfo();
+    const lastSync = await this.getLastSync();
+    const lastFullSync = await this.getLastFullSync();
     const { startDate, endDate } = this.getRollingWindow();
     
+    // Räkna unique SMS
+    const uniquePhoneNumbers = new Set(sms.map(s => s.number)).size;
     const uniqueAgents = new Set(sms.map(s => s.userId)).size;
-    const uniqueStats = await this.getUniqueSmsPerAgent(startDate, endDate);
-    const totalUniqueSms = Object.values(uniqueStats).reduce((sum, s) => sum + s.uniqueSmsCount, 0);
     
     return {
       totalSms: sms.length,
-      totalUniqueSms: totalUniqueSms,
-      lastSync: syncInfo.lastSync,
-      lastFullSync: syncInfo.lastFullSync,
+      totalUniqueSms: uniquePhoneNumbers,
+      lastSync: lastSync,
+      lastFullSync: lastFullSync,
       storagePath: this.dbPath,
       rollingWindow: {
         start: startDate.toISOString(),
