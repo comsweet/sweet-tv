@@ -17,6 +17,7 @@ import {
   deleteSlideshow
 } from '../services/api';
 import AdminSounds from './AdminSounds';
+import NotificationSettingsAdmin from '../components/NotificationSettingsAdmin';
 import './Admin.css';
 
 // Import axios directly for sync call with custom timeout
@@ -695,6 +696,12 @@ const Admin = () => {
           🔊 Ljud
         </button>
         <button 
+          className={activeTab === 'notifications' ? 'active' : ''}
+          onClick={() => setActiveTab('notifications')}
+        >
+          🔔 Notifikationer
+        </button>
+        <button 
           className={activeTab === 'stats' ? 'active' : ''}
           onClick={() => setActiveTab('stats')}
         >
@@ -772,6 +779,10 @@ const Admin = () => {
         
         {activeTab === 'sounds' && (
           <AdminSounds />
+        )}
+
+        {activeTab === 'notifications' && (
+          <NotificationSettingsAdmin />
         )}
 
         {activeTab === 'stats' && !isLoading && (
