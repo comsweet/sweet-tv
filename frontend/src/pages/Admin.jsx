@@ -721,8 +721,24 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
           <div className="agents-section">
             <div className="section-header">
               <h2>Agenter från Adversus ({agents.length})</h2>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button 
+                  onClick={handleSyncGroups} 
+                  className="btn-primary"
+                  disabled={isSyncingGroups}
+                >
+                  {isSyncingGroups ? '⏳ Synkar...' : '🔄 Synka Groups'}
+                </button>
+              </div>
             </div>
-
+        
+            {/* Success/Error message */}
+            {syncGroupsMessage && (
+              <div className={`sync-message ${syncGroupsMessage.type}`}>
+                {syncGroupsMessage.text}
+              </div>
+            )}
+        
             <div className="agents-list">
               {agents.map(agent => (
                 <div key={agent.userId} className="agent-list-item">
@@ -739,6 +755,13 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                     <div className="agent-list-meta">
                       <span>🆔 {agent.userId}</span>
                       {agent.email && <span>📧 {agent.email}</span>}
+                      {/* 🔥 NY: Visa group info */}
+                      {agent.groupId && (
+                        <span>👥 {agent.groupName || `Group ${agent.groupId}`}</span>
+                      )}
+                      {!agent.groupId && (
+                        <span style={{ color: '#e74c3c' }}>⚠️ No group</span>
+                      )}
                     </div>
                   </div>
                   
