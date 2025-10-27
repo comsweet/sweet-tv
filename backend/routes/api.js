@@ -1179,4 +1179,81 @@ router.post('/notification-settings/mode', async (req, res) => {
   }
 });
 
+// 🔥 NY: SYNKA GROUPS FRÅN ADVERSUS
+// Lägg till detta i backend/routes/api.js efter andra agent-endpoints
+
+router.post('/agents/sync-groups', async (req, res) => {
+  try {
+    console.log('🔄 Syncing groups from Adversus...');
+    
+    // Hämta alla users från Adversus
+    const usersResult = await adversusAPI.getUsers();
+    const adversusUsers = usersResult.users || [];
+    
+    console.log(`📋 Got ${adversusUsers.length} users from Adversus`);
+    
+    // Hämta alla lokala agents
+    const localAgents = await database.getAgents();
+    
+    let updatedCount = 0;
+    let skippedCount = 0;
+    let createdCount = 0;
+    
+    // Uppdatera varje agent med groupId och groupName
+    for (const adversusUser of adversusUsers) {
+      const userId = adversusUser.id;
+      const groupId = adversusUser.group?.id ? parseInt(adversusUser.group.id) : null;
+      const groupName = adversusUser.group?.name || null;
+      
+      // Hitta lokal agent
+      const localAgent = localAgents.find(a => String(a.userId) === String(userId));
+      
+      if (localAgent) {
+        // Uppdatera befintlig agent
+        if (localAgent.groupId !== groupId || localAgent.groupName !== groupName) {
+          await database.updateAgent(userId, {
+            groupId: groupId,
+            groupName: groupName
+          });
+          updatedCount++;
+          console.log(`✅ Updated ${adversusUser.name}: group ${groupId} (${groupName})`);
+        } else {
+          skippedCount++;
+        }
+      } else {
+        // Skapa ny agent
+        await database.addAgent({
+          userId: userId,
+          name: adversusUser.name || 
+                `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
+                `User ${userId}`,
+          email: adversusUser.email || '',
+          groupId: groupId,
+          groupName: groupName
+        });
+        createdCount++;
+        console.log(`➕ Created ${adversusUser.name}: group ${groupId} (${groupName})`);
+      }
+    }
+    
+    console.log(`✅ Sync complete!`);
+    console.log(`   - Updated: ${updatedCount}`);
+    console.log(`   - Created: ${createdCount}`);
+    console.log(`   - Skipped (no change): ${skippedCount}`);
+    
+    res.json({
+      success: true,
+      message: `Synced groups for ${adversusUsers.length} users`,
+      updated: updatedCount,
+      created: createdCount,
+      skipped: skippedCount,
+      total: adversusUsers.length
+    });
+    
+  } catch (error) {
+    console.error('❌ Error syncing groups:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
