@@ -1372,7 +1372,7 @@ router.post('/agents/sync-groups', async (req, res) => {
   }
 });
 
-/ ==================== SMS CACHE ENDPOINTS ====================
+// ==================== SMS CACHE ENDPOINTS ====================
 
 // SMS Stats
 router.get('/sms/stats', async (req, res) => {
