@@ -29,6 +29,7 @@ export const getLeaderboardStats = (startDate, endDate) =>
   api.get('/stats/leaderboard', { params: { startDate, endDate } });
 
 // Adversus
+export const syncGroupsFromAdversus = () => api.post('/agents/sync-groups');
 export const getAdversusUserGroups = () => api.get('/adversus/user-groups');
 export const getAdversusUsers = () => api.get('/adversus/users');
 
