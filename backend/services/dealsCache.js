@@ -164,13 +164,22 @@ class DealsCache {
           status: lead.status,
           syncedAt: new Date().toISOString()
         };
-      }).filter(deal => deal.commission > 0); // Bara deals med commission
+      }); // 🔥 DEBUG: Removed filter to see all deals
       
-      // Spara till cache
-      await this.saveCache(deals);
+      console.log('🐛 DEBUG: Deals before filter:');
+      deals.forEach(deal => {
+        console.log(`  Lead ${deal.leadId}: commission=${deal.commission}, orderDate=${deal.orderDate}`);
+      });
+      
+      const dealsWithCommission = deals.filter(deal => deal.commission > 0);
+      
+      // 🔥 SPARA ALLA DEALS (INTE BARA MED COMMISSION) - för debugging
+      await this.saveCache(deals); // Changed from dealsWithCommission
       await this.updateLastSync();
       
-      console.log(`💾 Cached ${deals.length} deals (filtered ${leads.length - deals.length} without commission)`);
+      console.log(`💾 Cached ${deals.length} deals total`);
+      console.log(`   - ${dealsWithCommission.length} deals WITH commission`);
+      console.log(`   - ${deals.length - dealsWithCommission.length} deals WITHOUT commission`);
       
       return deals;
     } catch (error) {
