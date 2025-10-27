@@ -242,18 +242,21 @@ class AdversusAPI {
     return response;
   }
 
-  async getUserGroups(params = {}) {
-    const defaultParams = {
-      page: 1,
-      pageSize: 1000,
-      includeMeta: true,
-      ...params
-    };
-    
-    const response = await this.request('/groups', defaultParams);
-    
-    return response;
-  }
+async getSMS(params = {}) {
+  const defaultParams = {
+    page: 1,
+    pageSize: 1000,
+    includeMeta: true,
+    ...params
+  };
+  
+  console.log('📱 Fetching SMS from Adversus...');
+  console.log('   Filters:', params.filters);
+  
+  const response = await this.request('/sms', defaultParams);
+  console.log(`   ✅ Got ${response.sms?.length || 0} SMS\n`);
+  
+  return response;
 }
 
 module.exports = new AdversusAPI();
