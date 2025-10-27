@@ -285,11 +285,25 @@ class SmsCache {
         console.log(`   ✅ Got ${sms.length} SMS (total: ${allSms.length})`);
         
         // Kolla om det finns fler sidor
-        if (response.meta && response.meta.pagination) {
-          hasMore = response.meta.pagination.page < response.meta.pagination.pageCount;
-          page++;
+        if (response.meta) {
+          // Adversus returnerar meta direkt (inte meta.pagination)
+          const currentPage = response.meta.page || page;
+          const totalPages = response.meta.pageCount || 1;
+          
+          console.log(`   📄 Page ${currentPage}/${totalPages}`);
+          
+          hasMore = currentPage < totalPages;
+          
+          if (hasMore) {
+            page++;
+          }
         } else {
-          hasMore = false;
+          // Om ingen meta finns, fortsätt om vi fick exakt 1000 (full page)
+          hasMore = sms.length >= 1000;
+          if (hasMore) {
+            page++;
+            console.log(`   ⚠️  No meta - assuming more pages exist (got ${sms.length} SMS)`);
+          }
         }
         
         // Safety: Max 50 pages (50,000 SMS)
