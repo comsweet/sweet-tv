@@ -179,25 +179,48 @@ class NotificationSettings {
     return await this.updateSettings({ mode });
   }
 
-  // Hämta alla unika groups från agents (för UI)
-  async getAvailableGroups(database) {
-    const agents = await database.getAgents(); // 🔥 FIX: ÄNDRAT FRÅN getAllAgents() TILL getAgents()
-    const groups = new Map();
-    
-    agents.forEach(agent => {
-      if (agent.groupId && !groups.has(agent.groupId)) {
-        groups.set(agent.groupId, {
-          id: agent.groupId,
-          name: agent.groupName || `Group ${agent.groupId}`,
-          agentCount: 0
-        });
-      }
-      if (agent.groupId) {
-        groups.get(agent.groupId).agentCount++;
-      }
-    });
-    
-    return Array.from(groups.values()).sort((a, b) => b.agentCount - a.agentCount);
+  // 🔥 FIX: Hämta alla unika groups DIREKT från Adversus API
+  async getAvailableGroups(adversusAPI) {
+    try {
+      console.log('🔍 Fetching available groups from Adversus...');
+      
+      // Hämta alla users från Adversus
+      const usersResult = await adversusAPI.getUsers();
+      const users = usersResult.users || [];
+      
+      console.log(`   📋 Got ${users.length} users from Adversus`);
+      
+      // Samla alla unika groups
+      const groupsMap = new Map();
+      
+      users.forEach(user => {
+        // Kolla om user har en primary group
+        if (user.group && user.group.id) {
+          const groupId = parseInt(user.group.id);
+          const groupName = user.group.name || `Group ${groupId}`;
+          
+          if (!groupsMap.has(groupId)) {
+            groupsMap.set(groupId, {
+              id: groupId,
+              name: groupName,
+              agentCount: 0
+            });
+          }
+          
+          // Räkna antal agenter i denna group
+          groupsMap.get(groupId).agentCount++;
+        }
+      });
+      
+      const groups = Array.from(groupsMap.values()).sort((a, b) => b.agentCount - a.agentCount);
+      
+      console.log(`   ✅ Found ${groups.length} unique groups`);
+      
+      return groups;
+    } catch (error) {
+      console.error('Error fetching available groups:', error);
+      return [];
+    }
   }
 }
 
