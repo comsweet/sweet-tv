@@ -143,8 +143,29 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         setAgents(combinedAgents);
         setAdversusUsers(adversusUsersList);
       } else if (activeTab === 'groups') {
-        const groupsRes = await getAdversusUserGroups();
-        setUserGroups(groupsRes.data.groups || []);
+        // 🔥 FIX: Hämta users och bygg groups från dem istället för getUserGroups
+        const usersRes = await getAdversusUsers();
+        const users = usersRes.data.users || [];
+        
+        const groupsMap = new Map();
+        users.forEach(user => {
+          if (user.group && user.group.id) {
+            const groupId = parseInt(user.group.id);
+            const groupName = user.group.name || `Group ${groupId}`;
+            
+            if (!groupsMap.has(groupId)) {
+              groupsMap.set(groupId, {
+                id: groupId,
+                name: groupName,
+                agentCount: 0
+              });
+            }
+            groupsMap.get(groupId).agentCount++;
+          }
+        });
+        
+        const groups = Array.from(groupsMap.values()).sort((a, b) => b.agentCount - a.agentCount);
+        setUserGroups(groups);
       } else if (activeTab === 'stats') {
         const statsRes = await getLeaderboardStats(
           new Date(startDate).toISOString(),
@@ -152,12 +173,33 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         );
         setStats(statsRes.data);
       } else if (activeTab === 'leaderboards') {
-        const [leaderboardsRes, groupsRes] = await Promise.all([
+        // 🔥 FIX: Hämta users och bygg groups från dem istället för getUserGroups
+        const [leaderboardsRes, usersRes] = await Promise.all([
           getLeaderboards(),
-          getAdversusUserGroups()
+          getAdversusUsers()
         ]);
         setLeaderboards(leaderboardsRes.data);
-        setUserGroups(groupsRes.data.groups || []);
+        
+        const users = usersRes.data.users || [];
+        const groupsMap = new Map();
+        users.forEach(user => {
+          if (user.group && user.group.id) {
+            const groupId = parseInt(user.group.id);
+            const groupName = user.group.name || `Group ${groupId}`;
+            
+            if (!groupsMap.has(groupId)) {
+              groupsMap.set(groupId, {
+                id: groupId,
+                name: groupName,
+                agentCount: 0
+              });
+            }
+            groupsMap.get(groupId).agentCount++;
+          }
+        });
+        
+        const groups = Array.from(groupsMap.values()).sort((a, b) => b.agentCount - a.agentCount);
+        setUserGroups(groups);
       } else if (activeTab === 'slideshows') {
         const [slideshowsRes, leaderboardsRes] = await Promise.all([
           getSlideshows(),
@@ -844,6 +886,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                   <div>
                     <h3>{group.name || 'Unnamed Group'}</h3>
                     <p>ID: {group.id}</p>
+                    <p>Antal agenter: {group.agentCount}</p>
                   </div>
                 </div>
               ))}
