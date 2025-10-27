@@ -1075,11 +1075,13 @@
   }
 }
 
+/* Sync message styling */
 .sync-message {
-  padding: 1rem;
+  padding: 1rem 1.5rem;
   border-radius: 8px;
   margin-bottom: 1rem;
   font-weight: 500;
+  animation: slideDown 0.3s ease-out;
 }
 
 .sync-message.success {
@@ -1092,4 +1094,31 @@
   background: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Update agent-list-meta to wrap better */
+.agent-list-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #7f8c8d;
+  flex-wrap: wrap; /* Allow wrapping for group info */
+}
+
+.agent-list-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
 }
