@@ -9,6 +9,7 @@ const leaderboardCache = require('../services/leaderboardCache');
 const soundSettings = require('../services/soundSettings');
 const soundLibrary = require('../services/soundLibrary');
 const { cloudinary, imageStorage, soundStorage } = require('../config/cloudinary');
+const notificationSettings = require('../services/notificationSettings');
 const multer = require('multer');
 const path = require('path');
 
@@ -1099,6 +1100,82 @@ router.post('/sounds/force-cleanup', async (req, res) => {
       error: error.message,
       details: error.stack 
     });
+  }
+});
+
+// ==================== NOTIFICATION SETTINGS ====================
+
+// Get notification settings
+router.get('/notification-settings', async (req, res) => {
+  try {
+    const settings = await notificationSettings.getSettings();
+    const availableGroups = await notificationSettings.getAvailableGroups(database);
+    
+    res.json({
+      success: true,
+      settings,
+      availableGroups
+    });
+  } catch (error) {
+    console.error('Error getting notification settings:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update notification settings
+router.post('/notification-settings', async (req, res) => {
+  try {
+    const { mode, enabledGroups, disabledGroups } = req.body;
+    
+    const updatedSettings = await notificationSettings.updateSettings({
+      mode,
+      enabledGroups,
+      disabledGroups
+    });
+    
+    res.json({
+      success: true,
+      settings: updatedSettings
+    });
+  } catch (error) {
+    console.error('Error updating notification settings:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Block/unblock specific group
+router.post('/notification-settings/toggle-group', async (req, res) => {
+  try {
+    const { groupId, block } = req.body;
+    
+    const settings = block 
+      ? await notificationSettings.blockGroup(groupId)
+      : await notificationSettings.unblockGroup(groupId);
+    
+    res.json({
+      success: true,
+      settings
+    });
+  } catch (error) {
+    console.error('Error toggling group:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Set mode (whitelist/blacklist)
+router.post('/notification-settings/mode', async (req, res) => {
+  try {
+    const { mode } = req.body;
+    
+    const settings = await notificationSettings.setMode(mode);
+    
+    res.json({
+      success: true,
+      settings
+    });
+  } catch (error) {
+    console.error('Error setting mode:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
