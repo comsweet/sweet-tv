@@ -26,7 +26,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 const Admin = () => {
   // 🔐 AUTHENTICATION STATE
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+const [isAuthenticated, setIsAuthenticated] = useState(() => {
+  return localStorage.getItem('sweetTvAdminAuth') === 'true';
+});
   const [password, setPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -76,33 +78,35 @@ const Admin = () => {
 
   // 🔐 AUTHENTICATION FUNCTIONS
   const handleLogin = async (e) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    setLoginError('');
+  e.preventDefault();
+  setIsLoggingIn(true);
+  setLoginError('');
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/auth/admin-login`, {
-        password: password
-      });
+  try {
+    const response = await axios.post(`${API_BASE_URL}/auth/admin-login`, {
+      password: password
+    });
 
-      if (response.data.success) {
-        console.log('✅ Login successful');
-        setIsAuthenticated(true);
-        setPassword(''); // Clear password
-      }
-    } catch (error) {
-      console.error('❌ Login failed:', error);
-      setLoginError(error.response?.data?.error || 'Inloggning misslyckades');
-    } finally {
-      setIsLoggingIn(false);
+    if (response.data.success) {
+      console.log('✅ Login successful');
+      setIsAuthenticated(true);
+      localStorage.setItem('sweetTvAdminAuth', 'true'); // 🔥 LÄGG TILL DENNA RAD
+      setPassword('');
     }
-  };
-
+  } catch (error) {
+    console.error('❌ Login failed:', error);
+    setLoginError(error.response?.data?.error || 'Inloggning misslyckades');
+  } finally {
+    setIsLoggingIn(false);
+  }
+};
+  
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setPassword('');
-    setActiveTab('agents');
-  };
+  setIsAuthenticated(false);
+  localStorage.removeItem('sweetTvAdminAuth'); // 🔥 LÄGG TILL DENNA RAD
+  setPassword('');
+  setActiveTab('agents');
+};
 
   useEffect(() => {
     if (isAuthenticated) {
