@@ -3,30 +3,22 @@ const path = require('path');
 
 /**
  * SMART SMS CACHE - INCREMENTAL UPDATES (RENDER PERSISTENT DISK)
- * 
- * ✅ Använder /var/data på Render (persistent disk)
- * ✅ Använder ../data lokalt
- * ✅ Incremental updates var 3:e minut
- * ✅ Full sync 1 gång per dag
- * ✅ Perfekt för 25k SMS/månad
  */
 class SmsCache {
   constructor() {
-    // 🔥 PERSISTENT DISK på Render!
     const isRender = process.env.RENDER === 'true';
     
     this.dbPath = isRender 
-      ? '/var/data'  // Render persistent disk
-      : path.join(__dirname, '../data'); // Local development
+      ? '/var/data'
+      : path.join(__dirname, '../data');
     
     this.cacheFile = path.join(this.dbPath, 'sms-cache.json');
     this.lastSyncFile = path.join(this.dbPath, 'sms-last-sync.json');
     
     console.log(`📱 SMS Cache path: ${this.dbPath} (isRender: ${isRender})`);
     
-    // Sync intervals
-    this.incrementalInterval = 3 * 60 * 1000; // 3 minuter
-    this.fullSyncInterval = 24 * 60 * 60 * 1000; // 24 timmar
+    this.incrementalInterval = 3 * 60 * 1000;
+    this.fullSyncInterval = 24 * 60 * 60 * 1000;
     
     this.writeQueue = [];
     this.isProcessing = false;
@@ -64,10 +56,7 @@ class SmsCache {
   }
 
   async processWriteQueue() {
-    if (this.isProcessing || this.writeQueue.length === 0) {
-      return;
-    }
-
+    if (this.isProcessing || this.writeQueue.length === 0) return;
     this.isProcessing = true;
 
     while (this.writeQueue.length > 0) {
@@ -158,7 +147,6 @@ class SmsCache {
     }
   }
 
-  // FULL SYNC - Hämta ALLA SMS från rolling window
   async fullSync(adversusAPI) {
     console.log('📱 FULL SYNC - Fetching all SMS from rolling window...');
     
@@ -216,13 +204,11 @@ class SmsCache {
     }
   }
 
-  // INCREMENTAL SYNC - Bara nya SMS sedan senaste sync
   async incrementalSync(adversusAPI) {
     console.log('🚀 INCREMENTAL SYNC - Fetching new SMS...');
     
     const syncInfo = await this.getSyncInfo();
     const lastSyncTime = syncInfo.lastSync ? new Date(syncInfo.lastSync) : new Date(Date.now() - 5 * 60 * 1000);
-    
     const safeLastSync = new Date(lastSyncTime.getTime() - 30000);
     
     console.log(`   ⏰ Fetching SMS since ${safeLastSync.toISOString()}`);
@@ -281,7 +267,6 @@ class SmsCache {
     }
   }
 
-  // AUTO SYNC - Väljer rätt strategi
   async autoSync(adversusAPI) {
     const syncInfo = await this.getSyncInfo();
     const now = Date.now();
@@ -324,43 +309,55 @@ class SmsCache {
     });
   }
 
+  // 🔥 FIXED: Return empty object instead of crashing when no SMS
   async getUniqueSmsPerAgent(startDate, endDate) {
-    const allSms = await this.getSmsInRange(startDate, endDate);
-    
-    const agentStats = {};
-    
-    allSms.forEach(sms => {
-      if (!sms.userId) return;
+    try {
+      const allSms = await this.getSmsInRange(startDate, endDate);
       
-      const receiver = sms.receivers && sms.receivers.length > 0 
-        ? sms.receivers[0].receiver 
-        : null;
-      
-      if (!receiver) return;
-      
-      const smsDate = new Date(sms.lastModifiedTime);
-      const dateKey = smsDate.toISOString().split('T')[0];
-      
-      const uniqueKey = `${sms.userId}-${receiver}-${dateKey}`;
-      
-      if (!agentStats[sms.userId]) {
-        agentStats[sms.userId] = {
-          userId: sms.userId,
-          uniqueSms: new Set(),
-          totalSms: 0
-        };
+      // 🔥 FIX: Return empty object if no SMS
+      if (!allSms || allSms.length === 0) {
+        console.log('   ℹ️  No SMS in date range - returning empty stats');
+        return {};
       }
       
-      agentStats[sms.userId].uniqueSms.add(uniqueKey);
-      agentStats[sms.userId].totalSms += 1;
-    });
-    
-    Object.values(agentStats).forEach(stats => {
-      stats.uniqueSmsCount = stats.uniqueSms.size;
-      delete stats.uniqueSms;
-    });
-    
-    return agentStats;
+      const agentStats = {};
+      
+      allSms.forEach(sms => {
+        if (!sms.userId) return;
+        
+        const receiver = sms.receivers && sms.receivers.length > 0 
+          ? sms.receivers[0].receiver 
+          : null;
+        
+        if (!receiver) return;
+        
+        const smsDate = new Date(sms.lastModifiedTime);
+        const dateKey = smsDate.toISOString().split('T')[0];
+        
+        const uniqueKey = `${sms.userId}-${receiver}-${dateKey}`;
+        
+        if (!agentStats[sms.userId]) {
+          agentStats[sms.userId] = {
+            userId: sms.userId,
+            uniqueSms: new Set(),
+            totalSms: 0
+          };
+        }
+        
+        agentStats[sms.userId].uniqueSms.add(uniqueKey);
+        agentStats[sms.userId].totalSms += 1;
+      });
+      
+      Object.values(agentStats).forEach(stats => {
+        stats.uniqueSmsCount = stats.uniqueSms.size;
+        delete stats.uniqueSms;
+      });
+      
+      return agentStats;
+    } catch (error) {
+      console.error('❌ Error in getUniqueSmsPerAgent:', error);
+      return {}; // 🔥 Return empty object on error
+    }
   }
 
   async forceFullSync(adversusAPI) {
@@ -382,7 +379,7 @@ class SmsCache {
       totalUniqueSms: totalUniqueSms,
       lastSync: syncInfo.lastSync,
       lastFullSync: syncInfo.lastFullSync,
-      storagePath: this.dbPath, // 🔥 NY: Visa var filerna sparas
+      storagePath: this.dbPath,
       rollingWindow: {
         start: startDate.toISOString(),
         end: endDate.toISOString()
