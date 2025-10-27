@@ -19,8 +19,17 @@ const path = require('path');
  */
 class NotificationSettings {
   constructor() {
-    this.dbPath = path.join(__dirname, '../data');
+    // 🔥 FIX: Använd samma logik som soundSettings.js för Render persistent disk
+    const isRender = process.env.RENDER === 'true';
+    
+    this.dbPath = isRender 
+      ? '/var/data'
+      : path.join(__dirname, '../data');
+    
     this.settingsFile = path.join(this.dbPath, 'notification-settings.json');
+    
+    console.log(`🔔 Notification settings path: ${this.dbPath}`);
+    
     this.defaultSettings = {
       mode: 'blacklist', // "whitelist" eller "blacklist"
       enabledGroups: [], // Lista av group IDs (används i whitelist mode)
