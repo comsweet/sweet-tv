@@ -306,9 +306,10 @@ class SmsCache {
           }
         }
         
-        // Safety: Max 50 pages (50,000 SMS)
-        if (page > 50) {
-          console.log('⚠️  Reached max page limit (50)');
+        // Safety: Max 100 pages (100,000 SMS) - future-proof för tillväxt
+        if (page > 100) {
+          console.log('⚠️  Reached max page limit (100 pages = 100,000 SMS)');
+          console.log('   If you need more, increase the limit in smsCache.js');
           break;
         }
       } catch (error) {
