@@ -18,6 +18,7 @@ import {
 } from '../services/api';
 import AdminSounds from './AdminSounds';
 import NotificationSettingsAdmin from '../components/NotificationSettingsAdmin';
+import SmsAdminPanel from '../components/SmsAdminPanel';
 import './Admin.css';
 
 // Import axios directly for sync call with custom timeout
@@ -753,6 +754,12 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         >
           📊 Statistik
         </button>
+        <button 
+          className={activeTab === 'sms' ? 'active' : ''}
+          onClick={() => setActiveTab('sms')}
+        >
+          📱 SMS
+        </button>
       </div>
 
       <div className="admin-content">
@@ -852,6 +859,10 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
 
         {activeTab === 'notifications' && (
           <NotificationSettingsAdmin />
+        )}
+
+        {activeTab === 'sms' && (
+          <SmsAdminPanel />
         )}
 
         {activeTab === 'stats' && !isLoading && (
