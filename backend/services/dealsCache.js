@@ -22,9 +22,17 @@ const path = require('path');
  */
 class DealsCache {
   constructor() {
-    this.dbPath = path.join(__dirname, '../data');
+    // 🔥 PERSISTENT DISK på Render!
+    const isRender = process.env.RENDER === 'true';
+    
+    this.dbPath = isRender 
+      ? '/var/data'  // Render persistent disk
+      : path.join(__dirname, '../data'); // Local development
+    
     this.cacheFile = path.join(this.dbPath, 'deals-cache.json');
     this.lastSyncFile = path.join(this.dbPath, 'last-sync.json');
+    
+    console.log(`💾 Deals Cache path: ${this.dbPath} (isRender: ${isRender})`);
     
     // 🔥 Queue för att hantera concurrent writes
     this.writeQueue = [];
@@ -38,25 +46,28 @@ class DealsCache {
       await fs.mkdir(this.dbPath, { recursive: true });
 
       // Skapa cache file
-      try {
-        await fs.access(this.cacheFile);
-      } catch {
-        await fs.writeFile(this.cacheFile, JSON.stringify({ deals: [] }, null, 2));
-      }
-
-      // Skapa last sync file
-      try {
-        await fs.access(this.lastSyncFile);
-      } catch {
-        await fs.writeFile(this.lastSyncFile, JSON.stringify({ lastSync: null }, null, 2));
-      }
-
-      console.log('💾 Deals cache initialized');
-    } catch (error) {
-      console.error('Error initializing deals cache:', error);
+    try {
+      await fs.access(this.cacheFile);
+      console.log('✅ deals-cache.json exists');  // ✅ Lägg till denna
+    } catch {
+      await fs.writeFile(this.cacheFile, JSON.stringify({ deals: [] }, null, 2));
+      console.log('📝 Created deals-cache.json');  // ✅ Lägg till denna
     }
-  }
 
+    // Skapa last sync file
+    try {
+      await fs.access(this.lastSyncFile);
+      console.log('✅ last-sync.json exists');  // ✅ Lägg till denna
+    } catch {
+      await fs.writeFile(this.lastSyncFile, JSON.stringify({ lastSync: null }, null, 2));
+      console.log('📝 Created last-sync.json');  // ✅ Lägg till denna
+    }
+
+    console.log('💾 Deals cache initialized on persistent disk');  // ✅ Ändra detta
+  } catch (error) {
+    console.error('Error initializing deals cache:', error);
+  }
+}
   // 🔥 NY: Process write queue (en operation i taget)
   async processWriteQueue() {
     if (this.isProcessing || this.writeQueue.length === 0) {
