@@ -132,7 +132,10 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
             userId: user.id,
             name: user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim() || `User ${user.id}`,
             email: user.email || '',
-            profileImage: localAgent?.profileImage || null
+            profileImage: localAgent?.profileImage || null,
+            // 🔥 NY: Inkludera groupId och groupName
+            groupId: localAgent?.groupId || (user.group?.id ? parseInt(user.group.id) : null),
+            groupName: localAgent?.groupName || user.group?.name || null
           };
         });
         
