@@ -712,6 +712,51 @@ router.put('/sounds/settings', async (req, res) => {
   }
 });
 
+// ==================== SMS CACHE MANAGEMENT ====================
+
+// Manual SMS sync
+router.post('/sms/sync', async (req, res) => {
+  try {
+    console.log('📱 Manual SMS sync triggered from admin');
+    const sms = await smsCache.forceFullSync(adversusAPI);
+    
+    leaderboardCache.clear();
+    
+    res.json({ 
+      success: true, 
+      message: `Synced ${sms.length} SMS and cleared cache`,
+      sms: sms.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get SMS stats
+router.get('/sms/stats', async (req, res) => {
+  try {
+    const stats = await smsCache.getStats();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clear SMS database
+router.delete('/sms/database', async (req, res) => {
+  try {
+    await smsCache.saveCache([]);
+    console.log('✅ Cleared sms-cache.json');
+    
+    res.json({ 
+      success: true, 
+      message: 'Cleared SMS cache (sms-cache.json)'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET all sounds
 router.get('/sounds', async (req, res) => {
   try {
