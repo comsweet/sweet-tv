@@ -4,19 +4,31 @@ const soundSettings = require('./soundSettings');
 const soundLibrary = require('./soundLibrary');
 const leaderboardCache = require('./leaderboardCache');
 const dealsCache = require('./dealsCache');
-const notificationSettings = require('./notificationSettings'); // 🔥 NY
+const notificationSettings = require('./notificationSettings');
 
 class PollingService {
   constructor(io) {
     this.io = io;
     this.pollInterval = parseInt(process.env.POLL_INTERVAL) || 15000;
-    this.lastCheckTime = new Date(Date.now() - 60000); // Börja 1 minut bakåt
+    this.lastCheckTime = new Date(Date.now() - 60000);
     this.isPolling = false;
     
-    // Pending deals queue för deals som väntar på commission
-    this.pendingDeals = new Map(); // { leadId: { lead, attempts, firstSeen } }
-    this.maxRetries = 10; // Max 10 försök = ~2.5 minuter (15s * 10)
-    this.retryDelay = 15000; // Samma som pollInterval
+    // Pending deals queue
+    this.pendingDeals = new Map();
+    this.maxRetries = 10;
+    this.retryDelay = 15000;
+    
+    // 🔥 NY: Track vilka deals vi redan skickat notifikationer för
+    this.notifiedLeads = new Set();
+    
+    // 🔥 NY: Rensa notifiedLeads varje timme
+    setInterval(() => {
+      const oneHourAgo = Date.now() - (60 * 60 * 1000);
+      // Ta bort gamla entries (vi lagrar timestamp i Set)
+      // För enkelhetens skull, rensa hela Set varje timme
+      console.log(`🧹 Clearing notifiedLeads cache (${this.notifiedLeads.size} entries)`);
+      this.notifiedLeads.clear();
+    }, 60 * 60 * 1000); // En timme
   }
 
   start() {
@@ -40,7 +52,7 @@ class PollingService {
     try {
       console.log('🔍 Polling for new deals...');
       
-      // 1️⃣ KOLLA PENDING DEALS FÖRST (deals som väntar på commission)
+      // 1️⃣ KOLLA PENDING DEALS FÖRST
       await this.checkPendingDeals();
       
       // 2️⃣ HÄMTA NYA SUCCESS LEADS
@@ -55,13 +67,11 @@ class PollingService {
         }
       }
       
-      // 3️⃣ RENSA GAMLA PENDING DEALS (> 5 minuter gamla)
+      // 3️⃣ RENSA GAMLA PENDING DEALS
       this.cleanupOldPendingDeals();
       
-      // Uppdatera last check time
       this.lastCheckTime = new Date();
       
-      // Log pending deals status
       if (this.pendingDeals.size > 0) {
         console.log(`⏳ ${this.pendingDeals.size} deals waiting for commission`);
       }
@@ -88,7 +98,6 @@ class PollingService {
     for (const [leadId, pendingData] of this.pendingDeals.entries()) {
       const { lead, attempts, firstSeen } = pendingData;
       
-      // Hämta uppdaterad lead info från Adversus
       try {
         const response = await adversusAPI.request(`/leads/${leadId}`);
         const updatedLead = response.leads?.[0];
@@ -99,7 +108,6 @@ class PollingService {
           continue;
         }
         
-        // Kolla om commission nu är ifylld
         const commissionField = updatedLead.resultData?.find(f => f.id === 70163);
         const commissionValue = parseFloat(commissionField?.value || 0);
         
@@ -108,13 +116,11 @@ class PollingService {
           toProcess.push(updatedLead);
           toRemove.push(leadId);
         } else {
-          // Fortfarande ingen commission
           if (attempts >= this.maxRetries) {
             const ageMinutes = Math.round((Date.now() - firstSeen) / 60000);
             console.log(`⏭️  Lead ${leadId} still no commission after ${attempts} attempts (${ageMinutes} min) - giving up`);
             toRemove.push(leadId);
           } else {
-            // Öka attempt counter
             this.pendingDeals.set(leadId, {
               ...pendingData,
               attempts: attempts + 1
@@ -125,77 +131,89 @@ class PollingService {
       } catch (error) {
         console.error(`❌ Error checking pending lead ${leadId}:`, error.message);
         
-        // Om för många attempts, ta bort
         if (attempts >= this.maxRetries) {
           toRemove.push(leadId);
         }
       }
     }
     
-    // Process leads som nu har commission
     for (const lead of toProcess) {
-      await this.processDeal(lead, true); // true = från pending queue
+      await this.processDeal(lead, true);
     }
     
-    // Ta bort processed/failed leads
     for (const leadId of toRemove) {
       this.pendingDeals.delete(leadId);
     }
   }
 
   async processDeal(lead, fromPending = false) {
-    // Hitta commission från resultData (id 70163)
-    const commissionField = lead.resultData?.find(f => f.id === 70163);
-    const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
-    const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
+    try {
+      // Hitta commission
+      const commissionField = lead.resultData?.find(f => f.id === 70163);
+      const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
+      const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
 
-    const commission = commissionField?.value || '0';
-    const commissionValue = parseFloat(commission);
-    
-    // Om ingen commission, lägg i pending queue
-    if (commissionValue === 0 || !commissionField?.value) {
-      if (!this.pendingDeals.has(lead.id)) {
-        console.log(`⏳ Lead ${lead.id} has no commission yet - adding to pending queue`);
-        this.pendingDeals.set(lead.id, {
-          lead: lead,
-          attempts: 1,
-          firstSeen: Date.now()
-        });
-      }
-      return;
-    }
-
-    const deal = {
-      leadId: lead.id,
-      userId: lead.lastContactedBy,
-      campaignId: lead.campaignId,
-      commission: commission,
-      multiDeals: multiDealsField?.value || '0',
-      orderDate: orderDateField?.value || lead.lastUpdatedTime,
-      status: lead.status
-    };
-    
-    // 🔥 ANVÄND BARA CACHE - INTE DATABASE!
-    const previousTotal = await dealsCache.getTodayTotalForAgent(deal.userId);
-    const newTotal = previousTotal + commissionValue;
-    
-    // 🔥 SPARA BARA TILL CACHE
-    const savedDeal = await dealsCache.addDeal(deal);
-    
-    if (savedDeal) {
-      // Invalidera leaderboard cache
-      console.log('🗑️  Invalidating all leaderboard caches after new deal');
-      leaderboardCache.clear();
+      const commission = commissionField?.value || '0';
+      const commissionValue = parseFloat(commission);
       
-      // Log om det kom från pending queue
-      if (fromPending) {
-        console.log(`🎉 PENDING DEAL PROCESSED: Lead ${lead.id} finally has commission!`);
+      // Om ingen commission, lägg i pending queue
+      if (commissionValue === 0 || !commissionField?.value) {
+        if (!this.pendingDeals.has(lead.id)) {
+          console.log(`⏳ Lead ${lead.id} has no commission yet - adding to pending queue`);
+          this.pendingDeals.set(lead.id, {
+            lead: lead,
+            attempts: 1,
+            firstSeen: Date.now()
+          });
+        }
+        return;
+      }
+
+      const deal = {
+        leadId: lead.id,
+        userId: lead.lastContactedBy,
+        campaignId: lead.campaignId,
+        commission: commission,
+        multiDeals: multiDealsField?.value || '0',
+        orderDate: orderDateField?.value || lead.lastUpdatedTime,
+        status: lead.status
+      };
+      
+      // 🔥 FIX: Kolla om vi redan skickat notification för denna lead
+      const alreadyNotified = this.notifiedLeads.has(lead.id);
+      
+      if (alreadyNotified) {
+        console.log(`⏭️  Lead ${lead.id} already notified, skipping notification`);
+        return;
       }
       
+      // Hämta dagens total INNAN vi lägger till
+      const previousTotal = await dealsCache.getTodayTotalForAgent(deal.userId);
+      const newTotal = previousTotal + commissionValue;
+      
+      // Försök spara till cache (kan returnera null om redan finns)
+      const savedDeal = await dealsCache.addDeal(deal);
+      
+      // 🔥 FIX: Skicka notification ÄVEN om dealen redan fanns i cache
+      // (men bara om vi inte redan skickat notification för den)
+      
+      if (savedDeal) {
+        // Ny deal i cache - invalidera cache och logga
+        console.log('🗑️  Invalidating all leaderboard caches after new deal');
+        leaderboardCache.clear();
+        
+        if (fromPending) {
+          console.log(`🎉 PENDING DEAL PROCESSED: Lead ${lead.id} finally has commission!`);
+        }
+      } else {
+        console.log(`ℹ️  Lead ${lead.id} already in cache, but will send notification anyway`);
+      }
+      
+      // 🔥 NY LOGIK: Skicka notification OAVSETT om savedDeal är null
       // Hämta agent-info
       let agent = await database.getAgent(deal.userId);
       
-      // Om agent inte finns lokalt, försök hämta från Adversus
+      // Om agent inte finns lokalt, hämta från Adversus
       if (!agent) {
         try {
           const userResponse = await adversusAPI.getUser(deal.userId);
@@ -208,8 +226,8 @@ class PollingService {
                     `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
                     `Agent ${adversusUser.id}`,
               email: adversusUser.email || '',
-              groupId: adversusUser.group?.id ? parseInt(adversusUser.group.id) : null, // 🔥 LÄGG TILL
-              groupName: adversusUser.group?.name || null // 🔥 LÄGG TILL
+              groupId: adversusUser.group?.id ? parseInt(adversusUser.group.id) : null,
+              groupName: adversusUser.group?.name || null
             };
             
             agent = await database.addAgent(agentData);
@@ -222,71 +240,46 @@ class PollingService {
       
       // Skicka notification
       if (agent) {
-        // Hämta sound settings
         const settings = await soundSettings.getSettings();
         const dailyBudget = settings.dailyBudget || 50000;
         
-        // Avgör vilket ljud som ska spelas
         let soundType = 'default';
         let soundUrl = settings.defaultSound;
         let reachedBudget = false;
         
-        // 🔥 FIXED: Kolla om agenten HAR nått dagsbudget
+        // Kolla om dagsbudget nådd
         if (newTotal >= dailyBudget) {
-          // Markera om detta är FÖRSTA gången budgeten nås
           if (previousTotal < dailyBudget) {
             reachedBudget = true;
             console.log(`🎉 Agent ${agent.name} REACHED daily budget! (${newTotal} THB >= ${dailyBudget} THB)`);
           }
           
-          // 🐛 DEBUG: Kolla agent's sound settings
-          console.log(`🐛 DEBUG Agent sound settings:`, {
-            agentName: agent.name,
-            customSound: agent.customSound,
-            preferCustomSound: agent.preferCustomSound
-          });
-          
-          // 🔥 FIXED: Hitta ljudet med URL, inte ID
-          // agent.customSound innehåller URL:en till ljudet
+          // Försök hitta custom sound
           let agentSound = null;
           if (agent.customSound) {
             const allSounds = await soundLibrary.getSounds();
             agentSound = allSounds.find(s => s.url === agent.customSound);
           }
           
-          // 🐛 DEBUG: Kolla om ljudet hittades
-          console.log(`🐛 DEBUG Sound lookup result:`, {
-            soundUrl: agent.customSound,
-            soundFound: !!agentSound,
-            soundId: agentSound?.id,
-            soundName: agentSound?.name
-          });
-          
-          if (agentSound && agent.preferCustomSound) {
-            // HAR personligt ljud → Spela personligt ljud för ALLA deals över budget
+          // Välj ljud baserat på settings
+          if (reachedBudget && settings.milestoneSound) {
+            soundType = 'milestone';
+            soundUrl = settings.milestoneSound;
+            console.log(`🏆 Playing milestone sound for ${agent.name}`);
+          } else if (agentSound && agent.preferCustomSound) {
             soundType = 'agent';
             soundUrl = agentSound.url;
-            console.log(`💰 Playing custom sound for ${agent.name} (${newTotal} THB, over budget)`);
-          } else {
-            // HAR INTE personligt ljud → Spela milestone ljud för ALLA deals över budget
-            soundType = 'milestone';
-            soundUrl = settings.milestoneSound || settings.defaultSound;
-            
-            // 🐛 DEBUG: Varför spelas inte personligt ljud?
-            if (!agentSound && agent.customSound) {
-              console.log(`⚠️  Custom sound URL not found in library: ${agent.customSound}`);
-            } else if (!agent.customSound) {
-              console.log(`⚠️  Agent ${agent.name} has no customSound set`);
-            } else if (!agent.preferCustomSound) {
-              console.log(`⚠️  Agent ${agent.name} has customSound but preferCustomSound is FALSE`);
-            }
-            
-            console.log(`🏆 Playing milestone sound for ${agent.name} (${newTotal} THB >= ${dailyBudget} THB)`);
+            console.log(`🎵 Playing custom sound for ${agent.name}: ${agentSound.name}`);
           }
         }
         
         const notification = {
-          deal: savedDeal,
+          deal: savedDeal || {
+            leadId: deal.leadId,
+            userId: deal.userId,
+            commission: commissionValue,
+            orderDate: deal.orderDate
+          },
           agent: agent,
           commission: deal.commission,
           soundType: soundType,
@@ -296,18 +289,25 @@ class PollingService {
           timestamp: new Date().toISOString()
         };
         
-        // 🔥 FILTRERA BASERAT PÅ GROUP SETTINGS
+        // Filtrera baserat på group settings
         const shouldNotify = await notificationSettings.shouldNotify(agent);
         
         if (shouldNotify) {
           this.io.emit('new_deal', notification);
           console.log(`🎉 New deal notification sent for ${agent.name} (sound: ${soundType}, group: ${agent.groupId})`);
+          
+          // 🔥 NY: Markera som notified
+          this.notifiedLeads.add(lead.id);
         } else {
           console.log(`🚫 Notification blocked for ${agent.name} (group ${agent.groupId} is filtered out)`);
         }
       } else {
         console.log(`⚠️  Skipping notification - no valid agent for userId ${deal.userId}`);
       }
+      
+    } catch (error) {
+      console.error(`❌ Error processing deal ${lead.id}:`, error.message);
+      console.error('Stack trace:', error.stack);
     }
   }
 
@@ -332,7 +332,6 @@ class PollingService {
     return await this.poll();
   }
 
-  // Get pending deals status (för debugging)
   getPendingStatus() {
     const pending = [];
     for (const [leadId, data] of this.pendingDeals.entries()) {
