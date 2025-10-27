@@ -9,10 +9,14 @@ import confetti from 'canvas-confetti';
  * - agent: Agent's custom sound
  * - default: Standard pling
  * 
- * 🔥 UPDATED: 
- * - Popup visas i 10 sekunder (matchar max ljudlängd)
- * - Mörk backdrop bakom popupen för bättre fokus
- * - Konfetti varar hela 10 sekunder (matchar popup-duration)
+ * 🔥 CONCURRENT SAFETY:
+ * - Varje notification är en separat component instance
+ * - Har sina egna timers och cleanup
+ * - Parent component hanterar queue (visa en i taget)
+ * 
+ * Popup visas i 10 sekunder (matchar max ljudlängd)
+ * Mörk backdrop bakom popupen för bättre fokus
+ * Konfetti varar hela 10 sekunder (matchar popup-duration)
  */
 const DealNotification = ({ notification, onComplete }) => {
   const cleanupTimerRef = useRef(null);
@@ -101,7 +105,7 @@ const DealNotification = ({ notification, onComplete }) => {
 
   return (
     <>
-      {/* 🔥 NEW: Mörk backdrop bakom popupen */}
+      {/* 🔥 Mörk backdrop bakom popupen */}
       <div className="notification-backdrop"></div>
       
       <div className="deal-notification">
