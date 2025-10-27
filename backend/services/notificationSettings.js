@@ -8,18 +8,10 @@ const path = require('path');
  * 
  * Settings sparas i: data/notification-settings.json
  * 
- * Exempel settings:
- * {
- *   "enabledGroups": [1318, 14918],  // Endast dessa groups
- *   "disabledGroups": [9999],        // Blocka dessa groups
- *   "mode": "whitelist"              // "whitelist" eller "blacklist"
- * }
- * 
  * Group ID kommer från Adversus user.group.id (EJ user.memberOf!)
  */
 class NotificationSettings {
   constructor() {
-    // 🔥 FIX: Använd samma logik som soundSettings.js för Render persistent disk
     const isRender = process.env.RENDER === 'true';
     
     this.dbPath = isRender 
@@ -31,9 +23,9 @@ class NotificationSettings {
     console.log(`🔔 Notification settings path: ${this.dbPath}`);
     
     this.defaultSettings = {
-      mode: 'blacklist', // "whitelist" eller "blacklist"
-      enabledGroups: [], // Lista av group IDs (används i whitelist mode)
-      disabledGroups: [], // Lista av group IDs (används i blacklist mode)
+      mode: 'blacklist',
+      enabledGroups: [],
+      disabledGroups: [],
       lastUpdated: null
     };
     this.initSettings();
@@ -47,7 +39,6 @@ class NotificationSettings {
         await fs.access(this.settingsFile);
         console.log('✅ Notification settings file exists');
       } catch {
-        // Skapa default settings
         await fs.writeFile(
           this.settingsFile, 
           JSON.stringify(this.defaultSettings, null, 2)
@@ -59,7 +50,6 @@ class NotificationSettings {
     }
   }
 
-  // Läs settings
   async getSettings() {
     try {
       const data = await fs.readFile(this.settingsFile, 'utf8');
@@ -70,7 +60,6 @@ class NotificationSettings {
     }
   }
 
-  // Uppdatera settings
   async updateSettings(newSettings) {
     try {
       const currentSettings = await this.getSettings();
@@ -93,16 +82,22 @@ class NotificationSettings {
     }
   }
 
-  // 🔥 Huvudfunktion: Kolla om en deal ska trigga notification
-  // Input: agent object med groupId (från Adversus user.group.id)
+  // 🔥 FIXAD: Huvudfunktion för att kolla om en deal ska trigga notification
   async shouldNotify(agent) {
     const settings = await this.getSettings();
     const groupId = agent.groupId;
 
-    // Om ingen group ID finns, låt alltid igenom (för säkerhets skull)
-    if (!groupId) {
-      console.log('⚠️  Agent has no groupId, allowing notification');
-      return true;
+    // 🔥 FIX: Om ingen groupId finns, hantera baserat på mode
+    if (!groupId || groupId === null) {
+      if (settings.mode === 'whitelist') {
+        // Whitelist: Om ingen groupId, blockera (inte i listan)
+        console.log(`🚫 Agent ${agent.name} has no groupId - BLOCKED in whitelist mode`);
+        return false;
+      } else {
+        // Blacklist: Om ingen groupId, blockera (kan vara admin eller special user)
+        console.log(`🚫 Agent ${agent.name} has no groupId - BLOCKED in blacklist mode (safety)`);
+        return false;
+      }
     }
 
     if (settings.mode === 'whitelist') {
@@ -110,6 +105,8 @@ class NotificationSettings {
       const allowed = settings.enabledGroups.includes(groupId);
       if (!allowed) {
         console.log(`🚫 Group ${groupId} (${agent.name}) not in whitelist, blocking notification`);
+      } else {
+        console.log(`✅ Group ${groupId} (${agent.name}) is whitelisted, allowing notification`);
       }
       return allowed;
     } else {
@@ -117,12 +114,13 @@ class NotificationSettings {
       const blocked = settings.disabledGroups.includes(groupId);
       if (blocked) {
         console.log(`🚫 Group ${groupId} (${agent.name}) is blacklisted, blocking notification`);
+      } else {
+        console.log(`✅ Group ${groupId} (${agent.name}) not blacklisted, allowing notification`);
       }
       return !blocked;
     }
   }
 
-  // Lägg till group i blacklist
   async blockGroup(groupId) {
     const settings = await this.getSettings();
     
@@ -135,7 +133,6 @@ class NotificationSettings {
     return settings;
   }
 
-  // Ta bort group från blacklist
   async unblockGroup(groupId) {
     const settings = await this.getSettings();
     settings.disabledGroups = settings.disabledGroups.filter(
@@ -146,7 +143,6 @@ class NotificationSettings {
     return settings;
   }
 
-  // Lägg till group i whitelist
   async enableGroup(groupId) {
     const settings = await this.getSettings();
     
@@ -159,7 +155,6 @@ class NotificationSettings {
     return settings;
   }
 
-  // Ta bort group från whitelist
   async disableGroup(groupId) {
     const settings = await this.getSettings();
     settings.enabledGroups = settings.enabledGroups.filter(
@@ -170,7 +165,6 @@ class NotificationSettings {
     return settings;
   }
 
-  // Byt mode (whitelist <-> blacklist)
   async setMode(mode) {
     if (!['whitelist', 'blacklist'].includes(mode)) {
       throw new Error('Mode must be "whitelist" or "blacklist"');
@@ -179,22 +173,18 @@ class NotificationSettings {
     return await this.updateSettings({ mode });
   }
 
-  // 🔥 FIX: Hämta alla unika groups DIREKT från Adversus API
   async getAvailableGroups(adversusAPI) {
     try {
       console.log('🔍 Fetching available groups from Adversus...');
       
-      // Hämta alla users från Adversus
       const usersResult = await adversusAPI.getUsers();
       const users = usersResult.users || [];
       
       console.log(`   📋 Got ${users.length} users from Adversus`);
       
-      // Samla alla unika groups
       const groupsMap = new Map();
       
       users.forEach(user => {
-        // Kolla om user har en primary group
         if (user.group && user.group.id) {
           const groupId = parseInt(user.group.id);
           const groupName = user.group.name || `Group ${groupId}`;
@@ -207,7 +197,6 @@ class NotificationSettings {
             });
           }
           
-          // Räkna antal agenter i denna group
           groupsMap.get(groupId).agentCount++;
         }
       });
