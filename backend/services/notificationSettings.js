@@ -22,9 +22,8 @@ class NotificationSettings {
     // 🔥 FIX: Använd samma logik som soundSettings.js för Render persistent disk
     const isRender = process.env.RENDER === 'true';
     
-    const isRender = process.env.RENDER === 'true';
     this.dbPath = isRender 
-      ? '/var/data'              // ← Render persistent disk
+      ? '/var/data'
       : path.join(__dirname, '../data');
     
     this.settingsFile = path.join(this.dbPath, 'notification-settings.json');
