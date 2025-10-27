@@ -5,6 +5,7 @@ const database = require('../services/database');
 const leaderboardService = require('../services/leaderboards');
 const slideshowService = require('../services/slideshows');
 const dealsCache = require('../services/dealsCache');
+const smsCache = require('../services/smsCache');
 const leaderboardCache = require('../services/leaderboardCache');
 const soundSettings = require('../services/soundSettings');
 const soundLibrary = require('../services/soundLibrary');
