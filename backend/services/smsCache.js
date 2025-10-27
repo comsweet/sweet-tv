@@ -2,12 +2,17 @@ const fs = require('fs').promises;
 const path = require('path');
 
 /**
- * PERSISTENT SMS CACHE
+ * PERSISTENT SMS CACHE - FINAL VERSION
  * 
- * FIXAD VERSION: Använder "timestamp" fält (inte "sent")
- * Spårar UNIKA SMS per agent (samma nummer = 1 SMS)
- * Filters: delivered + outbound
- * Rolling window: Nuvarande månad + 7 dagar innan
+ * ✅ Använder "timestamp" fält
+ * ✅ Läser från response.sms (inte response.data)
+ * ✅ Filtrerar på type via API
+ * ✅ Filtrerar på status i BACKEND (stöds inte av API)
+ * 
+ * Valid API filter properties enligt Swagger:
+ * 'type', 'timestamp', 'sender', 'receiver', 'userId', 'leadId', 'campaignId'
+ * 
+ * INTE STÖDS: 'status' (måste filtreras i backend)
  */
 class SmsCache {
   constructor() {
@@ -184,20 +189,25 @@ class SmsCache {
       const existingSms = await this.getCache();
       
       if (forceFullSync || existingSms.length === 0) {
-        // FULL SYNC: Hämta ALLA SMS i rolling window
-        console.log('🔄 Full sync - fetching ALL SMS...');
+        // FULL SYNC: Hämta ALLA outbound SMS i rolling window
+        console.log('🔄 Full sync - fetching outbound SMS...');
         
-        // ✅ FIXAT: Använd "timestamp" fält (inte "sent")!
+        // ✅ FIXAT: Filtrera bara på type och timestamp (status stöds inte)
         const filters = {
           "timestamp": { 
             "$gt": startDate.toISOString(),
             "$lt": endDate.toISOString()
           },
-          "status": { "$eq": "delivered" },
           "type": { "$eq": "outbound" }
+          // NOTERA: status filtreras i backend (stöds inte av API)
         };
         
         allSms = await this._paginatedFetch(adversusAPI, filters);
+        
+        // ✅ Filtrera på status i BACKEND
+        console.log(`🔍 Filtering ${allSms.length} SMS on status="delivered" in backend...`);
+        allSms = allSms.filter(sms => sms.status === 'delivered');
+        console.log(`✅ ${allSms.length} SMS with status="delivered"`);
         
         await this.updateLastFullSync();
       } else {
@@ -206,17 +216,18 @@ class SmsCache {
         
         const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000);
         
-        // ✅ FIXAT: Använd "timestamp" fält (inte "sent")!
         const filters = {
           "timestamp": { 
             "$gt": threeMinAgo.toISOString(),
             "$lt": endDate.toISOString()
           },
-          "status": { "$eq": "delivered" },
           "type": { "$eq": "outbound" }
         };
         
-        const newSms = await this._paginatedFetch(adversusAPI, filters);
+        let newSms = await this._paginatedFetch(adversusAPI, filters);
+        
+        // Filtrera på status i backend
+        newSms = newSms.filter(sms => sms.status === 'delivered');
         
         // Merge med existing (undvik dubbletter)
         const existingIds = new Set(existingSms.map(s => s.id));
@@ -229,7 +240,7 @@ class SmsCache {
       
       // Rensa gamla SMS (utanför rolling window)
       const validSms = allSms.filter(sms => {
-        const smsDate = new Date(sms.timestamp || sms.sent); // Fallback till "sent" om "timestamp" saknas
+        const smsDate = new Date(sms.timestamp);
         return smsDate >= startDate && smsDate <= endDate;
       });
       
@@ -241,7 +252,7 @@ class SmsCache {
       await this.saveCache(validSms);
       await this.updateLastSync();
       
-      console.log(`📱 SMS Cache updated: ${validSms.length} total SMS`);
+      console.log(`📱 SMS Cache updated: ${validSms.length} total SMS (outbound + delivered)\n`);
       
       return validSms;
     } catch (error) {
@@ -264,7 +275,7 @@ class SmsCache {
         const response = await adversusAPI.getSms({
           page: page,
           pageSize: 1000,
-          filters: filters, // ✅ FIXAT: Använder "timestamp" fält
+          filters: filters,
           includeMeta: true
         });
         
@@ -336,7 +347,7 @@ class SmsCache {
     
     // Filtrera på datum
     const smsInRange = allSms.filter(sms => {
-      const smsDate = new Date(sms.timestamp || sms.sent); // Fallback till "sent" om "timestamp" saknas
+      const smsDate = new Date(sms.timestamp);
       return smsDate >= startDate && smsDate <= endDate;
     });
     
@@ -345,7 +356,7 @@ class SmsCache {
     
     smsInRange.forEach(sms => {
       const userId = String(sms.userId);
-      const phoneNumber = sms.receiver || sms.number; // "receiver" enligt API-doc
+      const phoneNumber = sms.receiver;
       
       if (!agentStats[userId]) {
         agentStats[userId] = {
@@ -378,7 +389,7 @@ class SmsCache {
     const { startDate, endDate } = this.getRollingWindow();
     
     // Räkna unique SMS
-    const uniquePhoneNumbers = new Set(sms.map(s => s.receiver || s.number)).size;
+    const uniquePhoneNumbers = new Set(sms.map(s => s.receiver)).size;
     const uniqueAgents = new Set(sms.map(s => s.userId)).size;
     
     return {
