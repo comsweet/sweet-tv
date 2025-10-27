@@ -106,6 +106,34 @@ class DealsCache {
     }
   }
 
+  // 🔥 NY METOD: Lägg till en enskild deal (för polling)
+  async addDeal(deal) {
+    const allDeals = await this.getCache();
+    
+    // Undvik dubbletter
+    const exists = allDeals.find(d => d.leadId === deal.leadId);
+    if (exists) {
+      console.log('Deal already in cache, skipping:', deal.leadId);
+      return null;
+    }
+    
+    const newDeal = {
+      leadId: deal.leadId,
+      userId: deal.userId,
+      campaignId: deal.campaignId,
+      commission: parseFloat(deal.commission),
+      multiDeals: deal.multiDeals || '0',
+      orderDate: deal.orderDate,
+      status: deal.status,
+      syncedAt: new Date().toISOString()
+    };
+    
+    allDeals.push(newDeal);
+    await this.saveCache(allDeals);
+    console.log(`💾 Added deal ${newDeal.leadId} to cache`);
+    return newDeal;
+  }
+
   // Sync deals från Adversus
   async syncDeals(adversusAPI) {
     console.log('🔄 Syncing deals from Adversus...');
@@ -234,7 +262,7 @@ class DealsCache {
     };
   }
 
-  // 🔥 NY FUNKTION: Get today's total commission for agent (FROM CACHE!)
+  // Get today's total commission for agent (FROM CACHE!)
   async getTodayTotalForAgent(userId) {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
@@ -251,6 +279,21 @@ class DealsCache {
     const total = todayDeals.reduce((sum, deal) => sum + parseFloat(deal.commission || 0), 0);
     console.log(`📊 Today's total for agent ${userId}: ${total} THB (from ${todayDeals.length} deals in cache)`);
     return total;
+  }
+
+  // Get today's deals for agent (FROM CACHE!)
+  async getTodayDealsForAgent(userId) {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    
+    const allDeals = await this.getCache();
+    return allDeals.filter(deal => {
+      const dealDate = new Date(deal.orderDate);
+      return dealDate >= startOfDay && 
+             dealDate <= endOfDay && 
+             String(deal.userId) === String(userId);
+    });
   }
 }
 
