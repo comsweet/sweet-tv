@@ -4,6 +4,7 @@ const soundSettings = require('./soundSettings');
 const soundLibrary = require('./soundLibrary');
 const leaderboardCache = require('./leaderboardCache');
 const dealsCache = require('./dealsCache');
+const notificationSettings = require('./notificationSettings'); // 🔥 NY
 
 class PollingService {
   constructor(io) {
@@ -293,8 +294,15 @@ class PollingService {
           timestamp: new Date().toISOString()
         };
         
-        this.io.emit('new_deal', notification);
-        console.log(`🎉 New deal notification sent for ${agent.name} (sound: ${soundType})`);
+        // 🔥 FILTRERA BASERAT PÅ GROUP SETTINGS
+        const shouldNotify = await notificationSettings.shouldNotify(agent);
+        
+        if (shouldNotify) {
+          this.io.emit('new_deal', notification);
+          console.log(`🎉 New deal notification sent for ${agent.name} (sound: ${soundType}, group: ${agent.groupId})`);
+        } else {
+          console.log(`🚫 Notification blocked for ${agent.name} (group ${agent.groupId} is filtered out)`);
+        }
       } else {
         console.log(`⚠️  Skipping notification - no valid agent for userId ${deal.userId}`);
       }
