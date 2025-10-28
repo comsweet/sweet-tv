@@ -5,6 +5,7 @@ import {
   uploadProfileImage,
   getAdversusUsers,
   getAdversusUserGroups,
+  getAvailableGroups,
   getLeaderboardStats,
   triggerManualPoll,
   getLeaderboards,
@@ -142,7 +143,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         setAgents(combinedAgents);
         setAdversusUsers(adversusUsersList);
       } else if (activeTab === 'groups') {
-        const groupsRes = await getAdversusUserGroups();
+        const groupsRes = await getAvailableGroups();
         setUserGroups(groupsRes.data.groups || []);
       } else if (activeTab === 'stats') {
         const statsRes = await getLeaderboardStats(
@@ -153,7 +154,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
       } else if (activeTab === 'leaderboards') {
         const [leaderboardsRes, groupsRes] = await Promise.all([
           getLeaderboards(),
-          getAdversusUserGroups()
+          getAvailableGroups()
         ]);
         setLeaderboards(leaderboardsRes.data);
         setUserGroups(groupsRes.data.groups || []);
