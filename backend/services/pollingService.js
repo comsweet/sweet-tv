@@ -1,5 +1,5 @@
 // backend/services/pollingService.js
-// ✅ KOMPLETT FIX: Dependencies + Ljudlogik + Korrekt notification
+// ✅ KOMPLETT FIX: Dependencies + Ljudlogik + Korrekt notification + SMS sync vid varje deal
 
 const adversusAPI = require('./adversusAPI');
 const database = require('./database');
@@ -84,7 +84,7 @@ class PollingService {
         }
       }
       
-      // 3. Auto-sync SMS cache if needed
+      // 3. Auto-sync SMS cache if needed (every 2 minutes)
       await this.smsCache.autoSync(this.adversusAPI);
       
       // 4. Cleanup old pending deals
@@ -319,6 +319,12 @@ class PollingService {
       
       console.log(`  ✅ Deal processed and notification sent!`);
       console.log(`     Sound: ${soundType}, Total: ${newTotal} THB`);
+      
+      // 🔥 NEW: Immediately sync SMS cache after deal is processed
+      // This ensures SMS stats are updated right away for the leaderboards
+      console.log('  📱 Syncing SMS cache after new deal...');
+      await this.smsCache.forceSync(this.adversusAPI);
+      console.log('  ✅ SMS cache synced!');
       
     } catch (error) {
       console.error(`  ❌ Error processing deal:`, error);
