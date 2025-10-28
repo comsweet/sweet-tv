@@ -143,7 +143,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         setAgents(combinedAgents);
         setAdversusUsers(adversusUsersList);
       } else if (activeTab === 'groups') {
-        const groupsRes = await getAdversusUserGroups();
+        const groupsRes = await getActualUserGroups();
         setUserGroups(groupsRes.data.groups || []);
       } else if (activeTab === 'stats') {
         const statsRes = await getLeaderboardStats(
