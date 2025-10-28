@@ -827,24 +827,40 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
 
         {/* Rest of tabs remain the same... */}
         {/* Groups Tab */}
-        {activeTab === 'groups' && !isLoading && (
-          <div className="groups-section">
-            <div className="section-header">
-              <h2>User Groups från Adversus ({userGroups.length})</h2>
+      {activeTab === 'groups' && !isLoading && (
+        <div className="groups-section">
+          <div className="section-header">
+            <h2>User Groups från Adversus ({userGroups.length})</h2>
+            <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+              Visar groups baserat på user.group.id (EJ memberOf/Teams)
+            </p>
+          </div>
+          
+          {userGroups.length === 0 ? (
+            <div className="empty-state">
+              <p>Inga user groups hittades</p>
             </div>
-            <div className="groups-list">
-              {userGroups.map((group, index) => (
-                <div key={index} className="group-list-item">
-                  <div>
-                    <h3>{group.name || 'Unnamed Group'}</h3>
-                    <p>ID: {group.id}</p>
+          ) : (
+            <div className="groups-grid">
+              {userGroups.map(group => (
+                <div key={group.id} className="group-card">
+                  <div className="group-header">
+                    <h3>{group.name}</h3>
+                    <span className="group-id">ID: {group.id}</span>
+                  </div>
+                  <div className="group-stats">
+                    <div className="stat-item">
+                      <span className="stat-icon">👥</span>
+                      <span className="stat-value">{group.agentCount}</span>
+                      <span className="stat-label">agenter</span>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
+          )}
+        </div>
+      )}
         {/* ... Keep all other tabs exactly as they were ... */}
         
         {activeTab === 'sounds' && (
