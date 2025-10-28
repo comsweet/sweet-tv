@@ -1,8 +1,8 @@
-// 🔥 TV SCROLL FIX V9 - GLOBAL CSS som aldrig tas bort
-// PROBLEM V8: useEffect cleanup körs för ofta, tar bort CSS i loop
-// LÖSNING: Skapa CSS vid första mount, ta ENDAST bort vid component unmount
+// 🔥 ALTERNATIV 1: WEB ANIMATIONS API
+// Modern JavaScript API istället för CSS keyframes
+// Bättre browser-support på moderna TVs
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 
 const styles = {
   slide: {
@@ -283,8 +283,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
   const LeaderboardColumn = ({ leaderboard, stats, side }) => {
     if (!leaderboard || !Array.isArray(stats)) return null;
 
-    const styleElementRef = useRef(null);
-    const isInitializedRef = useRef(false);
+    const scrollContentRef = useRef(null);
+    const animationRef = useRef(null);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
@@ -302,68 +302,74 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const totalContentHeight = scrollableStats.length * effectiveRowHeight;
     const scrollDistance = Math.max(0, totalContentHeight - containerHeight);
 
-    // 🔥 Beräkna animation data med useMemo (stabilt mellan renders)
-    const animationData = useMemo(() => {
-      if (!needsScroll || scrollDistance <= 0) {
-        return null;
-      }
-
-      const scrollSpeed = 30;
-      const scrollDuration = scrollDistance / scrollSpeed;
-      const pauseDuration = 2;
-      const totalCycleDuration = scrollDuration + pauseDuration;
-      const animationName = `scroll-${side}-${Date.now()}`;
-      const scrollPercent = (scrollDuration / totalCycleDuration * 100).toFixed(1);
-
-      return {
-        animationName,
-        totalCycleDuration,
-        scrollPercent,
-        scrollDistance
-      };
-    }, [needsScroll, scrollDistance, side]);
-
-    // 🔥 INJECT CSS VID MOUNT, TA BORT VID UNMOUNT
+    // 🔥 WEB ANIMATIONS API - Modern och bättre TV-support!
     useEffect(() => {
-      // Om redan initialiserad eller ingen scroll behövs
-      if (isInitializedRef.current || !animationData) {
+      const element = scrollContentRef.current;
+      
+      if (!element || !needsScroll || scrollDistance <= 0) {
+        console.log(`[${side}] ⏸️  No animation needed`);
         return;
       }
 
-      console.log(`[${side}] 🎨 INJECTING CSS (mount only)`);
-      console.log(`[${side}] - scrollDistance: ${animationData.scrollDistance}px`);
-      console.log(`[${side}] - animation: ${animationData.animationName}`);
+      console.log(`[${side}] 🎬 Creating Web Animation`);
+      console.log(`[${side}] - scrollDistance: ${scrollDistance}px`);
 
-      const styleEl = document.createElement('style');
-      styleEl.textContent = `
-        @keyframes ${animationData.animationName} {
-          0% {
-            transform: translateY(0);
-          }
-          ${animationData.scrollPercent}% {
-            transform: translateY(-${animationData.scrollDistance}px);
-          }
-          ${animationData.scrollPercent}%, 100% {
-            transform: translateY(-${animationData.scrollDistance}px);
-          }
+      // Beräkna timing
+      const scrollSpeed = 30; // pixels per second
+      const scrollDuration = scrollDistance / scrollSpeed;
+      const pauseDuration = 2;
+      const totalDuration = scrollDuration + pauseDuration;
+
+      console.log(`[${side}] - duration: ${totalDuration.toFixed(1)}s`);
+
+      // ✅ SKAPA ANIMATION MED WEB ANIMATIONS API
+      try {
+        const animation = element.animate([
+          { transform: 'translateY(0)' },
+          { transform: 'translateY(0)', offset: scrollDuration / totalDuration },
+          { transform: `translateY(-${scrollDistance}px)`, offset: scrollDuration / totalDuration },
+          { transform: `translateY(-${scrollDistance}px)` }
+        ], {
+          duration: totalDuration * 1000, // milliseconds
+          iterations: Infinity,
+          easing: 'linear'
+        });
+
+        animationRef.current = animation;
+        console.log(`[${side}] ✅ Animation created successfully`);
+
+        // ✅ Pausa direkt om inte aktiv
+        if (!isActive) {
+          animation.pause();
+          console.log(`[${side}] ⏸️  Animation paused (not active)`);
         }
-      `;
-      document.head.appendChild(styleEl);
-      styleElementRef.current = styleEl;
-      isInitializedRef.current = true;
 
-      console.log(`[${side}] ✅ CSS injected successfully`);
+      } catch (error) {
+        console.error(`[${side}] ❌ Failed to create animation:`, error);
+      }
 
-      // 🔥 CLEANUP ENDAST VID UNMOUNT (hela komponenten tas bort)
+      // Cleanup
       return () => {
-        console.log(`[${side}] 🧹 Component unmounting - removing CSS`);
-        if (styleElementRef.current) {
-          styleElementRef.current.remove();
-          styleElementRef.current = null;
+        console.log(`[${side}] 🧹 Cleaning up animation`);
+        if (animationRef.current) {
+          animationRef.current.cancel();
+          animationRef.current = null;
         }
-        isInitializedRef.current = false;
       };
-    }, []); // ✅ EMPTY DEPS = körs endast vid mount/unmount!
+    }, [needsScroll, scrollDistance, side]);
+
+    // 🔥 Kontrollera play/pause baserat på isActive
+    useEffect(() => {
+      if (!animationRef.current) return;
+
+      if (isActive) {
+        console.log(`[${side}] ▶️  Playing animation`);
+        animationRef.current.play();
+      } else {
+        console.log(`[${side}] ⏸️  Pausing animation`);
+        animationRef.current.pause();
+      }
+    }, [isActive, side]);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -432,19 +438,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    // 🔥 Beräkna animation style
-    const getAnimationStyle = () => {
-      if (!animationData) {
-        return {};
-      }
-
-      return {
-        animation: `${animationData.animationName} ${animationData.totalCycleDuration}s linear infinite`,
-        animationPlayState: isActive ? 'running' : 'paused',
-        willChange: 'transform'
-      };
-    };
-
     return (
       <div style={styles.column}>
         <div style={styles.header}>
@@ -464,7 +457,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         {scrollableStats.length > 0 && (
           <>
             <div style={{ ...styles.scrollContainer, height: `${containerHeight}px` }}>
-              <div style={{ ...styles.scrollContent, ...getAnimationStyle() }}>
+              <div ref={scrollContentRef} style={styles.scrollContent}>
                 {scrollableStats.map((item, index) => renderItem(item, index + frozenCount, false))}
               </div>
             </div>
@@ -472,7 +465,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             {needsScroll && (
               <div style={styles.scrollIndicator}>
                 <span style={styles.scrollIndicatorText}>
-                  {isActive ? '▶️ Scrollar...' : '⏸️ Pausad'}
+                  {isActive ? '▶️ Scrollar... (Web Animations API)' : '⏸️ Pausad'}
                 </span>
               </div>
             )}
