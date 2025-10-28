@@ -1069,7 +1069,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                   </div>
                   
                   <div className="slideshow-card-body">
-                    <<div className="slideshow-info">
+                    <div className="slideshow-info">
                       <span className="info-label">Antal leaderboards:</span>
                       <span className="info-value">
                         {slideshow.type === 'dual' 
