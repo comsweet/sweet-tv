@@ -615,11 +615,11 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         };
         
         try {
-          smsData = await smsCache.getSMSStatsForAgent(
+          smsData = smsCache.getSMSSuccessRate(
             stat.userId,
             startDate.toISOString(),
             endDate.toISOString(),
-            dealsCache
+            stat.dealCount  // ✅ Använd dealCount som redan finns!
           );
           
           // 🐛 DEBUG: Logga SMS data för första 3 användare
@@ -641,7 +641,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
           totalCommission: stat.totalCommission,
           uniqueSMS: smsData.uniqueSMS,           // 📱 NY!
           smsSuccessRate: smsData.successRate,    // 📱 NY!
-          totalDeals: smsData.totalDeals,         // 📱 NY!
           agent: {
             id: stat.userId,
             userId: stat.userId,
