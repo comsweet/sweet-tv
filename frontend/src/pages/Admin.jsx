@@ -93,7 +93,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (response.data.success) {
       console.log('✅ Login successful');
       setIsAuthenticated(true);
-      localStorage.setItem('sweetTvAdminAuth', 'true'); // 🔥 LÄGG TILL DENNA RAD
+      localStorage.setItem('sweetTvAdminAuth', 'true');
       setPassword('');
     }
   } catch (error) {
@@ -106,7 +106,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
   
   const handleLogout = () => {
   setIsAuthenticated(false);
-  localStorage.removeItem('sweetTvAdminAuth'); // 🔥 LÄGG TILL DENNA RAD
+  localStorage.removeItem('sweetTvAdminAuth');
   setPassword('');
   setActiveTab('agents');
 };
@@ -146,12 +146,45 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         const groupsRes = await getAvailableGroups();
         setUserGroups(groupsRes.data.groups || []);
       } else if (activeTab === 'stats') {
-        const statsRes = await getLeaderboardStats(
-          new Date(startDate).toISOString(),
-          new Date(endDate + 'T23:59:59').toISOString()
-        );
+  try {
+    console.log('📊 Fetching stats...', { startDate, endDate });
+    
+    const statsRes = await getLeaderboardStats(
+      new Date(startDate).toISOString(),
+      new Date(endDate + 'T23:59:59').toISOString()
+    );
+    
+    console.log('📊 Stats response:', statsRes);
+    
+    // 🔥 SÄKERHETSKOLL: Kolla att vi har rätt data
+    if (statsRes && statsRes.data) {
+      if (Array.isArray(statsRes.data)) {
+        console.log('✅ Got array directly:', statsRes.data.length, 'items');
         setStats(statsRes.data);
-      } else if (activeTab === 'leaderboards') {
+      } else if (statsRes.data.stats && Array.isArray(statsRes.data.stats)) {
+        console.log('✅ Got stats property:', statsRes.data.stats.length, 'items');
+        setStats(statsRes.data.stats);
+      } else {
+        console.error('❌ Unexpected stats format:', statsRes.data);
+        setStats([]);
+        alert('Oväntat format på statistikdata');
+      }
+    } else {
+      console.error('❌ No data in response:', statsRes);
+      setStats([]);
+      alert('Ingen data returnerades');
+    }
+  } catch (error) {
+    console.error('❌ Error fetching stats:', error);
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    setStats([]);
+    alert('Fel vid hämtning av statistik: ' + error.message);
+  }
+} else if (activeTab === 'leaderboards') {
         const [leaderboardsRes, groupsRes] = await Promise.all([
           getLeaderboards(),
           getAvailableGroups()
@@ -358,29 +391,34 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         return;
       }
 
+      const data = {
+        ...leaderboardForm,
+        userGroups: leaderboardForm.userGroups.length > 0 ? leaderboardForm.userGroups : []
+      };
+
       if (editingLeaderboard) {
-        await updateLeaderboard(editingLeaderboard.id, leaderboardForm);
+        await updateLeaderboard(editingLeaderboard.id, data);
       } else {
-        await createLeaderboard(leaderboardForm);
+        await createLeaderboard(data);
       }
-      
+
       setShowLeaderboardModal(false);
       fetchData();
     } catch (error) {
       console.error('Error saving leaderboard:', error);
-      alert('Fel vid sparande: ' + error.message);
+      alert('Fel: ' + error.message);
     }
   };
 
   const handleDeleteLeaderboard = async (id) => {
-    if (!confirm('Är du säker på att du vill ta bort denna leaderboard?')) return;
-    
+    if (!confirm('Säker på att du vill radera denna leaderboard?')) return;
+
     try {
       await deleteLeaderboard(id);
       fetchData();
     } catch (error) {
       console.error('Error deleting leaderboard:', error);
-      alert('Fel vid borttagning: ' + error.message);
+      alert('Fel: ' + error.message);
     }
   };
 
@@ -392,24 +430,18 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
       });
       fetchData();
     } catch (error) {
-      console.error('Error toggling active:', error);
+      console.error('Error toggling leaderboard:', error);
       alert('Fel: ' + error.message);
     }
   };
 
   const handleGroupToggle = (groupId) => {
-    const currentGroups = leaderboardForm.userGroups;
-    if (currentGroups.includes(groupId)) {
-      setLeaderboardForm({
-        ...leaderboardForm,
-        userGroups: currentGroups.filter(id => id !== groupId)
-      });
-    } else {
-      setLeaderboardForm({
-        ...leaderboardForm,
-        userGroups: [...currentGroups, groupId]
-      });
-    }
+    setLeaderboardForm(prev => ({
+      ...prev,
+      userGroups: prev.userGroups.includes(groupId)
+        ? prev.userGroups.filter(id => id !== groupId)
+        : [...prev.userGroups, groupId]
+    }));
   };
 
   // Slideshow functions
@@ -430,9 +462,9 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
     setEditingSlideshow(slideshow);
     setSlideshowForm({
       name: slideshow.name,
-      type: slideshow.type || 'single',
+      type: slideshow.type,
       leaderboards: slideshow.leaderboards || [],
-      duration: slideshow.duration || 30,
+      duration: slideshow.duration,
       dualSlides: slideshow.dualSlides || [],
       active: slideshow.active
     });
@@ -446,20 +478,21 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         return;
       }
 
-      // Validering baserat på typ
-      if (slideshowForm.type === 'single') {
-        if (slideshowForm.leaderboards.length === 0) {
-          alert('Välj minst en leaderboard!');
-          return;
-        }
-      } else if (slideshowForm.type === 'dual') {
-        if (slideshowForm.dualSlides.length === 0) {
-          alert('Lägg till minst en dual slide!');
-          return;
-        }
-        // Validera att varje dual slide har båda leaderboards
-        const incompleteSlide = slideshowForm.dualSlides.find(slide => !slide.left || !slide.right);
-        if (incompleteSlide) {
+      if (slideshowForm.type === 'single' && slideshowForm.leaderboards.length === 0) {
+        alert('Välj minst en leaderboard!');
+        return;
+      }
+
+      if (slideshowForm.type === 'dual' && slideshowForm.dualSlides.length === 0) {
+        alert('Lägg till minst en dual slide!');
+        return;
+      }
+
+      if (slideshowForm.type === 'dual') {
+        const invalidSlides = slideshowForm.dualSlides.filter(
+          slide => !slide.left || !slide.right
+        );
+        if (invalidSlides.length > 0) {
           alert('Alla dual slides måste ha både vänster och höger leaderboard!');
           return;
         }
@@ -470,24 +503,24 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
       } else {
         await createSlideshow(slideshowForm);
       }
-      
+
       setShowSlideshowModal(false);
       fetchData();
     } catch (error) {
       console.error('Error saving slideshow:', error);
-      alert('Fel vid sparande: ' + error.message);
+      alert('Fel: ' + error.message);
     }
   };
 
   const handleDeleteSlideshow = async (id) => {
-    if (!confirm('Är du säker på att du vill ta bort denna slideshow?')) return;
-    
+    if (!confirm('Säker på att du vill radera denna slideshow?')) return;
+
     try {
       await deleteSlideshow(id);
       fetchData();
     } catch (error) {
       console.error('Error deleting slideshow:', error);
-      alert('Fel vid borttagning: ' + error.message);
+      alert('Fel: ' + error.message);
     }
   };
 
@@ -499,171 +532,124 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
       });
       fetchData();
     } catch (error) {
-      console.error('Error toggling active:', error);
+      console.error('Error toggling slideshow:', error);
       alert('Fel: ' + error.message);
     }
   };
 
-  const handleLeaderboardToggle = (leaderboardId) => {
-    const currentLeaderboards = slideshowForm.leaderboards;
-    if (currentLeaderboards.includes(leaderboardId)) {
-      setSlideshowForm({
-        ...slideshowForm,
-        leaderboards: currentLeaderboards.filter(id => id !== leaderboardId)
-      });
-    } else {
-      setSlideshowForm({
-        ...slideshowForm,
-        leaderboards: [...currentLeaderboards, leaderboardId]
-      });
-    }
+  const handleLeaderboardToggle = (lbId) => {
+    setSlideshowForm(prev => ({
+      ...prev,
+      leaderboards: prev.leaderboards.includes(lbId)
+        ? prev.leaderboards.filter(id => id !== lbId)
+        : [...prev.leaderboards, lbId]
+    }));
   };
 
   const handleReorderLeaderboard = (index, direction) => {
     const newLeaderboards = [...slideshowForm.leaderboards];
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
     
-    if (newIndex >= 0 && newIndex < newLeaderboards.length) {
-      [newLeaderboards[index], newLeaderboards[newIndex]] = [newLeaderboards[newIndex], newLeaderboards[index]];
-      setSlideshowForm({
-        ...slideshowForm,
-        leaderboards: newLeaderboards
-      });
-    }
+    if (targetIndex < 0 || targetIndex >= newLeaderboards.length) return;
+    
+    [newLeaderboards[index], newLeaderboards[targetIndex]] = 
+    [newLeaderboards[targetIndex], newLeaderboards[index]];
+    
+    setSlideshowForm(prev => ({ ...prev, leaderboards: newLeaderboards }));
   };
 
-  // Dual slide functions
   const handleAddDualSlide = () => {
-    setSlideshowForm({
-      ...slideshowForm,
+    setSlideshowForm(prev => ({
+      ...prev,
       dualSlides: [
-        ...slideshowForm.dualSlides,
-        {
-          left: '',
-          right: '',
-          duration: 30
-        }
+        ...prev.dualSlides,
+        { left: null, right: null, duration: 30 }
       ]
-    });
+    }));
   };
 
   const handleRemoveDualSlide = (index) => {
-    const newDualSlides = slideshowForm.dualSlides.filter((_, i) => i !== index);
-    setSlideshowForm({
-      ...slideshowForm,
-      dualSlides: newDualSlides
-    });
+    setSlideshowForm(prev => ({
+      ...prev,
+      dualSlides: prev.dualSlides.filter((_, i) => i !== index)
+    }));
   };
-  
-  const handleSyncGroups = async () => {
-  if (!confirm('Detta synkar alla user groups från Adversus. Fortsätt?')) {
-    return;
-  }
-  try {
-    setIsSyncingGroups(true);
-    setSyncGroupsMessage(null);
-
-    const response = await axios.post(`${API_BASE_URL}/agents/sync-groups`);
-    
-    if (response.data.success) {
-      setSyncGroupsMessage({
-        type: 'success',
-        text: `✅ ${response.data.message} (Uppdaterade: ${response.data.updated}, Skapade: ${response.data.created})`
-      });
-      
-      // Refresh agents list
-      fetchData();
-      
-      // Clear message after 5 seconds
-      setTimeout(() => setSyncGroupsMessage(null), 5000);
-    }
-  } catch (error) {
-    console.error('Error syncing groups:', error);
-    setSyncGroupsMessage({
-      type: 'error',
-      text: `❌ Fel vid synkning: ${error.response?.data?.error || error.message}`
-    });
-    
-    // Clear message after 5 seconds
-    setTimeout(() => setSyncGroupsMessage(null), 5000);
-  } finally {
-    setIsSyncingGroups(false);
-  }
-};
 
   const handleUpdateDualSlide = (index, field, value) => {
-    const newDualSlides = [...slideshowForm.dualSlides];
-    newDualSlides[index] = {
-      ...newDualSlides[index],
-      [field]: value
-    };
-    setSlideshowForm({
-      ...slideshowForm,
-      dualSlides: newDualSlides
-    });
+    setSlideshowForm(prev => ({
+      ...prev,
+      dualSlides: prev.dualSlides.map((slide, i) => 
+        i === index ? { ...slide, [field]: value } : slide
+      )
+    }));
   };
 
-  const getSlideshowUrl = (slideshowId) => {
-    const baseUrl = window.location.origin + window.location.pathname;
-    return `${baseUrl}#/slideshow/${slideshowId}`;
+  const handleSyncGroups = async () => {
+    if (!confirm('Detta synkar user groups från Adversus. Fortsätt?')) {
+      return;
+    }
+
+    try {
+      setIsSyncingGroups(true);
+      setSyncGroupsMessage(null);
+
+      const response = await axios.post(`${API_BASE_URL}/agents/sync-groups`, {}, {
+        timeout: 60000
+      });
+
+      if (response.data.success) {
+        setSyncGroupsMessage({
+          type: 'success',
+          text: `✅ ${response.data.message}`
+        });
+        
+        // Refresh agents data
+        await fetchData();
+      }
+    } catch (error) {
+      console.error('❌ Sync groups error:', error);
+      setSyncGroupsMessage({
+        type: 'error',
+        text: `❌ Fel: ${error.response?.data?.error || error.message}`
+      });
+    } finally {
+      setIsSyncingGroups(false);
+      setTimeout(() => setSyncGroupsMessage(null), 5000);
+    }
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    alert('URL kopierad till urklipp!');
-  };
-
-  const getTimePeriodLabel = (period) => {
-    const labels = {
-      day: 'Idag',
-      week: 'Denna vecka',
-      month: 'Denna månad',
-      custom: 'Anpassat'
-    };
-    return labels[period] || period;
-  };
-
-  // 🔐 SHOW LOGIN FORM IF NOT AUTHENTICATED
+  // 🔐 IF NOT AUTHENTICATED - SHOW LOGIN FORM
   if (!isAuthenticated) {
     return (
-      <div className="admin-login">
-        <form className="login-form" onSubmit={handleLogin}>
+      <div className="admin-container">
+        <div className="login-form">
           <h1>🔐 Admin Login</h1>
-          <p className="login-subtitle">Sweet TV Admin Panel</p>
-          
-          <input
-            type="password"
-            className="login-input"
-            placeholder="Ange lösenord"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={isLoggingIn}
-            autoFocus
-          />
-          
-          {loginError && (
-            <div style={{ 
-              color: '#e74c3c', 
-              marginBottom: '1rem', 
-              fontSize: '0.9rem',
-              fontWeight: '500' 
-            }}>
-              ❌ {loginError}
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label>Lösenord:</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Ange admin-lösenord"
+                disabled={isLoggingIn}
+              />
             </div>
-          )}
-          
-          <button 
-            type="submit" 
-            className="btn-login"
-            disabled={isLoggingIn || !password}
-          >
-            {isLoggingIn ? '⏳ Loggar in...' : '🚀 Logga in'}
-          </button>
-        </form>
+            {loginError && (
+              <div className="error-message">{loginError}</div>
+            )}
+            <button 
+              type="submit" 
+              className="btn-primary" 
+              disabled={isLoggingIn}
+            >
+              {isLoggingIn ? '⏳ Loggar in...' : 'Logga in'}
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
-  
 
   // 🎯 SHOW ADMIN PANEL IF AUTHENTICATED
   return (
@@ -825,7 +811,6 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
           </div>
         )}
 
-        {/* Rest of tabs remain the same... */}
         {/* Groups Tab */}
       {activeTab === 'groups' && !isLoading && (
         <div className="groups-section">
@@ -861,7 +846,6 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
           )}
         </div>
       )}
-        {/* ... Keep all other tabs exactly as they were ... */}
         
         {activeTab === 'sounds' && (
           <AdminSounds />
@@ -871,6 +855,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
           <NotificationSettingsAdmin />
         )}
 
+        {/* 🔥 FIXED STATS SECTION - MED SÄKERHETSKOLLAR */}
         {activeTab === 'stats' && !isLoading && (
           <div className="stats-section">
             <div className="stats-header">
@@ -898,7 +883,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
               </div>
             </div>
             
-            {stats.length === 0 ? (
+            {!stats || stats.length === 0 ? (
               <div className="no-data">Inga affärer för vald period</div>
             ) : (
               <div className="stats-table">
@@ -912,30 +897,41 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.map((stat, index) => (
-                      <tr key={stat.userId}>
-                        <td>
-                          {index === 0 && '🥇'}
-                          {index === 1 && '🥈'}
-                          {index === 2 && '🥉'}
-                          {index > 2 && `#${index + 1}`}
-                        </td>
-                        <td>
-                          <div className="stat-agent">
-                            {stat.agent.profileImage ? (
-                              <img src={stat.agent.profileImage} alt={stat.agent.name} />
-                            ) : (
-                              <div className="stat-avatar-placeholder">
-                                {stat.agent.name?.charAt(0) || '?'}
-                              </div>
-                            )}
-                            <span>{stat.agent.name}</span>
-                          </div>
-                        </td>
-                        <td>{stat.dealCount}</td>
-                        <td>{stat.totalCommission.toLocaleString('sv-SE')} THB</td>
-                      </tr>
-                    ))}
+                    {stats.map((stat, index) => {
+                      // 🔥 SÄKERHETSKOLL: Skydda mot undefined agent
+                      if (!stat || !stat.agent) {
+                        console.error('⚠️ Invalid stat object:', stat);
+                        return null;
+                      }
+                      
+                      return (
+                        <tr key={stat.userId || index}>
+                          <td>
+                            {index === 0 && '🥇'}
+                            {index === 1 && '🥈'}
+                            {index === 2 && '🥉'}
+                            {index > 2 && `#${index + 1}`}
+                          </td>
+                          <td>
+                            <div className="stat-agent">
+                              {stat.agent.profileImage ? (
+                                <img 
+                                  src={stat.agent.profileImage} 
+                                  alt={stat.agent.name || 'Agent'} 
+                                />
+                              ) : (
+                                <div className="stat-avatar-placeholder">
+                                  {stat.agent.name?.charAt(0) || '?'}
+                                </div>
+                              )}
+                              <span>{stat.agent.name || `Agent ${stat.userId}`}</span>
+                            </div>
+                          </td>
+                          <td>{stat.dealCount || 0}</td>
+                          <td>{(stat.totalCommission || 0).toLocaleString('sv-SE')} THB</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -943,7 +939,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
           </div>
         )}
 
-        {/* Leaderboards Tab - keeping existing implementation */}
+        {/* Leaderboards Tab */}
         {activeTab === 'leaderboards' && !isLoading && (
           <div className="leaderboards-section">
             <div className="section-header">
@@ -968,25 +964,43 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                         <span className="toggle-slider"></span>
                       </label>
                       <span className={lb.active ? 'status-active' : 'status-inactive'}>
-                        {lb.active ? '✓ Aktiv' : '○ Inaktiv'}
+                        {lb.active ? 'Aktiv' : 'Inaktiv'}
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="leaderboard-card-body">
                     <div className="leaderboard-info">
-                      <span className="info-label">Tidsperiod:</span>
-                      <span className="info-value">{getTimePeriodLabel(lb.timePeriod)}</span>
+                      <span className="info-label">Period:</span>
+                      <span className="info-value">
+                        {lb.timePeriod === 'day' && 'Dag'}
+                        {lb.timePeriod === 'week' && 'Vecka'}
+                        {lb.timePeriod === 'month' && 'Månad'}
+                        {lb.timePeriod === 'custom' && 'Anpassad'}
+                      </span>
                     </div>
-                    
+
                     <div className="leaderboard-info">
                       <span className="info-label">User Groups:</span>
                       <span className="info-value">
-                        {lb.userGroups.length === 0 ? 'Alla' : `${lb.userGroups.length} valda`}
+                        {lb.userGroups?.length === 0 ? 'Alla agenter' : `${lb.userGroups.length} grupper`}
                       </span>
                     </div>
+
+                    {lb.timePeriod === 'custom' && (
+                      <>
+                        <div className="leaderboard-info">
+                          <span className="info-label">Start:</span>
+                          <span className="info-value">{lb.customStartDate}</span>
+                        </div>
+                        <div className="leaderboard-info">
+                          <span className="info-label">Slut:</span>
+                          <span className="info-value">{lb.customEndDate}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  
+
                   <div className="leaderboard-card-footer">
                     <button onClick={() => handleEditLeaderboard(lb)} className="btn-secondary">
                       ✏️ Redigera
@@ -1001,7 +1015,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
           </div>
         )}
 
-        {/* Slideshows Tab - keeping existing implementation */}
+        {/* Slideshows Tab */}
         {activeTab === 'slideshows' && !isLoading && (
           <div className="slideshows-section">
             <div className="section-header">
@@ -1012,60 +1026,67 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
             </div>
 
             <div className="slideshows-list">
-              {slideshows.map(slideshow => (
-                <div key={slideshow.id} className="slideshow-card">
+              {slideshows.map(ss => (
+                <div key={ss.id} className="slideshow-card">
                   <div className="slideshow-card-header">
-                    <h3>{slideshow.name}</h3>
+                    <h3>{ss.name}</h3>
                     <div className="slideshow-status">
                       <label className="toggle-switch">
                         <input 
                           type="checkbox" 
-                          checked={slideshow.active}
-                          onChange={() => handleToggleSlideshowActive(slideshow)}
+                          checked={ss.active}
+                          onChange={() => handleToggleSlideshowActive(ss)}
                         />
                         <span className="toggle-slider"></span>
                       </label>
-                      <span className={slideshow.active ? 'status-active' : 'status-inactive'}>
-                        {slideshow.active ? '✓ Aktiv' : '○ Inaktiv'}
+                      <span className={ss.active ? 'status-active' : 'status-inactive'}>
+                        {ss.active ? 'Aktiv' : 'Inaktiv'}
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="slideshow-card-body">
                     <div className="slideshow-info">
-                      <span className="info-label">Antal leaderboards:</span>
-                      <span className="info-value">{slideshow.leaderboards.length}</span>
-                    </div>
-                    
-                    <div className="slideshow-info">
-                      <span className="info-label">Duration per slide:</span>
-                      <span className="info-value">{slideshow.duration} sekunder</span>
+                      <span className="info-label">Typ:</span>
+                      <span className="info-value">
+                        {ss.type === 'single' ? 'Single (En leaderboard åt gången)' : 'Dual (Två leaderboards samtidigt)'}
+                      </span>
                     </div>
 
-                    <div className="slideshow-url">
-                      <span className="info-label">TV URL:</span>
-                      <div className="url-copy-box">
-                        <input 
-                          type="text" 
-                          value={getSlideshowUrl(slideshow.id)} 
-                          readOnly 
-                          className="url-input"
-                        />
-                        <button 
-                          onClick={() => copyToClipboard(getSlideshowUrl(slideshow.id))}
-                          className="btn-copy"
-                        >
-                          📋 Kopiera
-                        </button>
-                      </div>
-                    </div>
+                    {ss.type === 'single' && (
+                      <>
+                        <div className="slideshow-info">
+                          <span className="info-label">Leaderboards:</span>
+                          <span className="info-value">{ss.leaderboards?.length || 0}</span>
+                        </div>
+                        <div className="slideshow-info">
+                          <span className="info-label">Varaktighet:</span>
+                          <span className="info-value">{ss.duration}s per leaderboard</span>
+                        </div>
+                      </>
+                    )}
+
+                    {ss.type === 'dual' && (
+                      <>
+                        <div className="slideshow-info">
+                          <span className="info-label">Dual Slides:</span>
+                          <span className="info-value">{ss.dualSlides?.length || 0}</span>
+                        </div>
+                        <div className="slideshow-info">
+                          <span className="info-label">Total tid:</span>
+                          <span className="info-value">
+                            {ss.dualSlides?.reduce((sum, slide) => sum + (slide.duration || 30), 0)}s
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  
+
                   <div className="slideshow-card-footer">
-                    <button onClick={() => handleEditSlideshow(slideshow)} className="btn-secondary">
+                    <button onClick={() => handleEditSlideshow(ss)} className="btn-secondary">
                       ✏️ Redigera
                     </button>
-                    <button onClick={() => handleDeleteSlideshow(slideshow.id)} className="btn-danger">
+                    <button onClick={() => handleDeleteSlideshow(ss.id)} className="btn-danger">
                       🗑️ Ta bort
                     </button>
                   </div>
@@ -1076,11 +1097,11 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         )}
       </div>
 
-      {/* Modals remain exactly the same */}
+      {/* Leaderboard Modal */}
       {showLeaderboardModal && (
         <div className="modal-overlay" onClick={() => setShowLeaderboardModal(false)}>
-          <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingLeaderboard ? 'Redigera Leaderboard' : 'Skapa Leaderboard'}</h2>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingLeaderboard ? 'Redigera' : 'Skapa'} Leaderboard</h2>
             
             <div className="form-group">
               <label>Namn:</label>
@@ -1088,7 +1109,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                 type="text"
                 value={leaderboardForm.name}
                 onChange={(e) => setLeaderboardForm({ ...leaderboardForm, name: e.target.value })}
-                placeholder="t.ex. Bangkok Team - Dagens Sälj"
+                placeholder="T.ex. 'Dagens säljare'"
               />
             </div>
 
@@ -1098,17 +1119,17 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                 value={leaderboardForm.timePeriod}
                 onChange={(e) => setLeaderboardForm({ ...leaderboardForm, timePeriod: e.target.value })}
               >
-                <option value="day">Idag</option>
-                <option value="week">Denna vecka</option>
-                <option value="month">Denna månad</option>
-                <option value="custom">Anpassat datum</option>
+                <option value="day">Dag</option>
+                <option value="week">Vecka</option>
+                <option value="month">Månad</option>
+                <option value="custom">Anpassad</option>
               </select>
             </div>
 
             {leaderboardForm.timePeriod === 'custom' && (
               <div className="form-row">
                 <div className="form-group">
-                  <label>Från datum:</label>
+                  <label>Startdatum:</label>
                   <input
                     type="date"
                     value={leaderboardForm.customStartDate}
@@ -1116,7 +1137,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Till datum:</label>
+                  <label>Slutdatum:</label>
                   <input
                     type="date"
                     value={leaderboardForm.customEndDate}
@@ -1127,7 +1148,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
             )}
 
             <div className="form-group">
-              <label>User Groups (lämna tomt för alla):</label>
+              <label>User Groups (tomt = alla agenter):</label>
               <div className="checkbox-group">
                 {userGroups.map(group => (
                   <label key={group.id} className="checkbox-label">
@@ -1136,7 +1157,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                       checked={leaderboardForm.userGroups.includes(group.id)}
                       onChange={() => handleGroupToggle(group.id)}
                     />
-                    <span>{group.name}</span>
+                    <span>{group.name} ({group.agentCount} agenter)</span>
                   </label>
                 ))}
               </div>
@@ -1149,7 +1170,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                   checked={leaderboardForm.active}
                   onChange={(e) => setLeaderboardForm({ ...leaderboardForm, active: e.target.checked })}
                 />
-                <span>Aktiv (visas på TV)</span>
+                <span>Aktiv</span>
               </label>
             </div>
 
@@ -1165,58 +1186,48 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         </div>
       )}
 
-      {/* Slideshow Modal - keeping existing implementation */}
+      {/* Slideshow Modal */}
       {showSlideshowModal && (
         <div className="modal-overlay" onClick={() => setShowSlideshowModal(false)}>
-          <div className="modal modal-xl" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingSlideshow ? 'Redigera Slideshow' : 'Skapa Slideshow'}</h2>
+          <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingSlideshow ? 'Redigera' : 'Skapa'} Slideshow</h2>
             
-            {/* Slideshow namn */}
+            {/* Name */}
             <div className="form-group">
               <label>Namn:</label>
               <input
                 type="text"
                 value={slideshowForm.name}
                 onChange={(e) => setSlideshowForm({ ...slideshowForm, name: e.target.value })}
-                placeholder="t.ex. Bangkok Office TV"
+                placeholder="T.ex. 'Daglig Leaderboard'"
               />
             </div>
 
-            {/* Slide Type Selector */}
+            {/* Type Selection */}
             <div className="form-group">
-              <label>Slideshow-typ:</label>
-              <div className="radio-group">
-                <label className="radio-label">
-                  <input
-                    type="radio"
-                    name="type"
-                    value="single"
-                    checked={slideshowForm.type === 'single'}
-                    onChange={(e) => setSlideshowForm({ ...slideshowForm, type: e.target.value })}
-                  />
-                  <span>Single (en leaderboard i taget)</span>
-                </label>
-                <label className="radio-label">
-                  <input
-                    type="radio"
-                    name="type"
-                    value="dual"
-                    checked={slideshowForm.type === 'dual'}
-                    onChange={(e) => setSlideshowForm({ ...slideshowForm, type: e.target.value })}
-                  />
-                  <span>Dual (två leaderboards sida vid sida) ✨</span>
-                </label>
-              </div>
+              <label>Typ:</label>
+              <select
+                value={slideshowForm.type}
+                onChange={(e) => setSlideshowForm({ 
+                  ...slideshowForm, 
+                  type: e.target.value,
+                  leaderboards: [],
+                  dualSlides: []
+                })}
+              >
+                <option value="single">Single (En leaderboard åt gången)</option>
+                <option value="dual">Dual (Två leaderboards sida vid sida)</option>
+              </select>
             </div>
 
             {/* SINGLE MODE */}
             {slideshowForm.type === 'single' && (
               <>
                 <div className="form-group">
-                  <label>Duration per slide (sekunder):</label>
+                  <label>Duration per leaderboard (sekunder):</label>
                   <input
                     type="number"
-                    min="5"
+                    min="10"
                     max="300"
                     value={slideshowForm.duration}
                     onChange={(e) => setSlideshowForm({ ...slideshowForm, duration: parseInt(e.target.value) })}
@@ -1224,7 +1235,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                 </div>
 
                 <div className="form-group">
-                  <label>Välj leaderboards att visa:</label>
+                  <label>Välj Leaderboards:</label>
                   <div className="checkbox-group">
                     {leaderboards.map(lb => (
                       <label key={lb.id} className="checkbox-label">
