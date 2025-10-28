@@ -1199,3 +1199,48 @@
   font-size: 0.9rem;
   color: #666;
 }
+
+/* ==================== SLIDESHOW URL DISPLAY ==================== */
+
+.slideshow-url-info {
+  background: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  border: 1px solid #e1e8ed;
+}
+
+.slideshow-url {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: #667eea;
+  word-break: break-all;
+  user-select: all;
+  cursor: text;
+  display: block;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.slideshow-url:hover {
+  background: #fff;
+}
+
+/* Slideshow card footer - 3 knappar i rad */
+.slideshow-card-footer {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 0.5rem;
+}
+
+/* Responsive för mobil */
+@media (max-width: 768px) {
+  .slideshow-card-footer {
+    grid-template-columns: 1fr;
+  }
+  
+  .slideshow-url {
+    font-size: 0.75rem;
+  }
+}
