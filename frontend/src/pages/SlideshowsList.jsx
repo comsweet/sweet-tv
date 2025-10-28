@@ -19,10 +19,13 @@ const SlideshowsList = () => {
   const loadSlideshows = async () => {
     try {
       setIsLoading(true);
-      const data = await getSlideshows();
+      const response = await getSlideshows();
+      // 🔥 FIX: API returnerar { data: [...] }
+      const allSlideshows = response.data || [];
       // Visa bara aktiva slideshows
-      const activeSlideshows = data.filter(ss => ss.active);
+      const activeSlideshows = allSlideshows.filter(ss => ss.active);
       setSlideshows(activeSlideshows);
+      console.log('✅ Loaded slideshows:', activeSlideshows);
     } catch (error) {
       console.error('Error loading slideshows:', error);
     } finally {
