@@ -1,7 +1,6 @@
-// 🔥 TV SCROLL FIX - frontend/src/components/DualLeaderboardSlide.jsx
-// FIXAR: Autoscroll fungerar inte på TV (men fungerar på MacBook Chrome)
-// ORSAK: useEffect closure problem + saknade dependencies
-// LÖSNING: Fixade dependencies + useRef för stabil referens
+// 🔥 TV SCROLL FIX V2 - NATIVE SCROLL för LG TV kompatibilitet
+// PROBLEM: State-driven CSS transitions fungerar inte på WebOS browser
+// LÖSNING: Native scroll med scrollTop + requestAnimationFrame
 
 import { useState, useEffect, useRef } from 'react';
 
@@ -74,11 +73,12 @@ const styles = {
   },
   scrollContainer: {
     position: 'relative',
-    overflow: 'hidden',
-    flex: 1
+    overflow: 'auto', // ✨ Native scroll
+    flex: 1,
+    scrollBehavior: 'auto' // ✨ Ingen smooth scroll CSS
   },
   items: {
-    willChange: 'transform'
+    // ✨ Ingen transform längre, native scroll
   },
   item: {
     display: 'flex',
@@ -112,7 +112,7 @@ const styles = {
     minWidth: 0
   },
   rank: {
-    fontSize: '1.5rem', // ✨ Större medaljer
+    fontSize: '1.5rem',
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#2c3e50',
@@ -241,9 +241,6 @@ const styles = {
 };
 
 const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, rightStats, isActive }) => {
-  const [leftScrollPosition, setLeftScrollPosition] = useState(0);
-  const [rightScrollPosition, setRightScrollPosition] = useState(0);
-
   if (!leftLeaderboard || !rightLeaderboard || !Array.isArray(leftStats) || !Array.isArray(rightStats)) {
     console.error('❌ DualLeaderboardSlide: Missing required data');
     return null;
@@ -285,15 +282,16 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     }
   };
 
-  useEffect(() => {
-    if (!isActive) {
-      setLeftScrollPosition(0);
-      setRightScrollPosition(0);
-    }
-  }, [isActive]);
-
   const LeaderboardColumn = ({ leaderboard, stats, side }) => {
     if (!leaderboard || !Array.isArray(stats)) return null;
+
+    const scrollContainerRef = useRef(null);
+    const animationFrameRef = useRef(null);
+    const scrollStateRef = useRef({
+      currentScroll: 0,
+      isScrolling: false,
+      isPaused: false
+    });
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
@@ -306,75 +304,81 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const effectiveRowHeight = rowHeight + marginPerRow;
     const visibleRows = 14;
     const needsScroll = scrollableStats.length > visibleRows;
-    
-    const containerHeight = visibleRows * effectiveRowHeight;
-    const totalContentHeight = scrollableStats.length * effectiveRowHeight;
-    const safetyBuffer = effectiveRowHeight * 2;
-    const maxScroll = needsScroll ? Math.max(0, totalContentHeight - containerHeight + safetyBuffer) : 0;
 
-    const scrollPosition = side === 'left' ? leftScrollPosition : rightScrollPosition;
-    const setScrollPosition = side === 'left' ? setLeftScrollPosition : setRightScrollPosition;
-
-    // 🔥 FIXAD USEEFFECT - Fungerar på TV!
-    const intervalRef = useRef(null);
-    const timeoutRef = useRef(null);
-
+    // 🔥 NATIVE SCROLL med requestAnimationFrame - FUNGERAR PÅ TV!
     useEffect(() => {
-      // Cleanup gamla timers
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-
-      if (!isActive || !needsScroll) {
-        console.log(`[${side}] ⏸️  Scroll paused: isActive=${isActive}, needsScroll=${needsScroll}`);
+      const container = scrollContainerRef.current;
+      if (!container || !isActive || !needsScroll) {
+        console.log(`[${side}] ⏸️  Scroll disabled: isActive=${isActive}, needsScroll=${needsScroll}`);
+        if (container) {
+          container.scrollTop = 0; // Reset scroll när inaktiv
+        }
         return;
       }
 
-      console.log(`[${side}] ▶️  Starting scroll: maxScroll=${maxScroll.toFixed(0)}px, rows=${scrollableStats.length}`);
+      console.log(`[${side}] ▶️  Starting NATIVE scroll, rows=${scrollableStats.length}`);
 
-      const scrollSpeed = 25; // pixels per second
-      const updateInterval = 30; // ms
-      const pixelsPerUpdate = (scrollSpeed / 1000) * updateInterval;
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      const scrollSpeed = 20; // pixels per second
+      let lastTimestamp = null;
+      let pauseUntil = null;
 
-      intervalRef.current = setInterval(() => {
-        setScrollPosition(prev => {
-          const newPosition = prev + pixelsPerUpdate;
-          
-          if (newPosition >= maxScroll) {
-            console.log(`[${side}] 🔚 Reached bottom (${newPosition.toFixed(0)}px >= ${maxScroll.toFixed(0)}px)`);
-            
-            // Pausa 2 sekunder innan reset
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
-            timeoutRef.current = setTimeout(() => {
-              console.log(`[${side}] 🔄 Resetting to top`);
-              setScrollPosition(0);
-            }, 2000);
-            
-            return maxScroll;
-          }
-          
-          return newPosition;
-        });
-      }, updateInterval);
-
-      // Cleanup function
-      return () => {
-        console.log(`[${side}] 🧹 Cleaning up scroll interval`);
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
+      const animate = (timestamp) => {
+        // Första frame
+        if (!lastTimestamp) {
+          lastTimestamp = timestamp;
         }
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
+
+        const deltaTime = timestamp - lastTimestamp;
+        lastTimestamp = timestamp;
+
+        // Om vi pausar efter att ha nått botten
+        if (pauseUntil) {
+          if (timestamp < pauseUntil) {
+            animationFrameRef.current = requestAnimationFrame(animate);
+            return;
+          } else {
+            // Pausa klar, resetta
+            console.log(`[${side}] 🔄 Resetting to top`);
+            container.scrollTop = 0;
+            pauseUntil = null;
+            animationFrameRef.current = requestAnimationFrame(animate);
+            return;
+          }
+        }
+
+        // Beräkna hur mycket vi ska scrolla
+        const scrollAmount = (scrollSpeed * deltaTime) / 1000;
+        const newScrollTop = container.scrollTop + scrollAmount;
+
+        // Kolla om vi nått botten
+        if (newScrollTop >= maxScroll) {
+          console.log(`[${side}] 🔚 Reached bottom, pausing 2s`);
+          container.scrollTop = maxScroll;
+          pauseUntil = timestamp + 2000; // Pausa i 2 sekunder
+        } else {
+          container.scrollTop = newScrollTop;
+        }
+
+        // Fortsätt animera
+        animationFrameRef.current = requestAnimationFrame(animate);
+      };
+
+      // Starta animation
+      animationFrameRef.current = requestAnimationFrame(animate);
+
+      // Cleanup
+      return () => {
+        console.log(`[${side}] 🧹 Cleaning up native scroll`);
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+        if (container) {
+          container.scrollTop = 0;
         }
       };
-    }, [isActive, needsScroll, maxScroll, side, scrollableStats.length]); // ✨ ALLA dependencies!
+    }, [isActive, needsScroll, side, scrollableStats.length]);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -461,14 +465,17 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
         {scrollableStats.length > 0 && (
           <>
-            <div style={{ ...styles.scrollContainer, height: `${visibleRows * rowHeight}px` }}>
-              <div
-                style={{
-                  ...styles.items,
-                  transform: `translateY(-${scrollPosition}px)`,
-                  transition: 'transform 0.1s linear'
-                }}
-              >
+            <div 
+              ref={scrollContainerRef}
+              style={{
+                ...styles.scrollContainer,
+                height: `${visibleRows * effectiveRowHeight}px`,
+                // ✨ Dölj scrollbar för clean look
+                scrollbarWidth: 'none', // Firefox
+                msOverflowStyle: 'none', // IE/Edge
+              }}
+            >
+              <div style={styles.items}>
                 {scrollableStats.map((item, index) => renderItem(item, index + frozenCount, false))}
               </div>
             </div>
