@@ -16,10 +16,18 @@ const path = require('path');
  */
 class SmsCache {
   constructor() {
-    this.dbPath = path.join(__dirname, '../data');
+    // 🔥 PERSISTENT DISK på Render!
+    const isRender = process.env.RENDER === 'true';
+    
+    this.dbPath = isRender 
+      ? '/var/data'  // Render persistent disk
+      : path.join(__dirname, '../data'); // Local development
+    
     this.cacheFile = path.join(this.dbPath, 'sms-cache.json');
     this.lastSyncFile = path.join(this.dbPath, 'sms-last-sync.json');
     this.lastFullSyncFile = path.join(this.dbPath, 'sms-last-full-sync.json');
+    
+    console.log(`📱 SMS Cache path: ${this.dbPath} (isRender: ${isRender})`);
     
     // Queue för concurrent writes
     this.writeQueue = [];
