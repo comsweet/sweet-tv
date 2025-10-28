@@ -1,4 +1,4 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - MOVED TO PARENT LEVEL
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - FULLY FIXED WITH SMOOTH ANIMATION
 // Top 3 frozen, resten wipes horizontally mellan grupper
 
 import { useState, useEffect, useRef } from 'react';
@@ -79,15 +79,28 @@ const styles = {
     top: 0,
     left: 0,
     width: '100%',
-    transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s ease',
+    height: '100%',
+    transition: 'transform 1s cubic-bezier(0.4, 0, 0.2, 1), opacity 1s ease',
+  },
+  wipeContentCurrent: {
+    transform: 'translateX(0)',
+    opacity: 1,
+    zIndex: 2
   },
   wipeContentExiting: {
     transform: 'translateX(-100%)',
-    opacity: 0
+    opacity: 0,
+    zIndex: 1
   },
-  wipeContentActive: {
+  wipeContentNext: {
+    transform: 'translateX(100%)',
+    opacity: 0,
+    zIndex: 1
+  },
+  wipeContentEntering: {
     transform: 'translateX(0)',
-    opacity: 1
+    opacity: 1,
+    zIndex: 2
   },
   item: {
     display: 'flex',
@@ -249,14 +262,14 @@ const styles = {
   }
 };
 
-// 🔥 Flytta wipe-state till top level
+// 🔥 Wipe animation hook med smooth transitions
 const useWipeAnimation = (isActive, totalPages, side) => {
   const [currentPage, setCurrentPage] = useState(0);
+  const [nextPage, setNextPage] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const timerRef = useRef(null);
 
   useEffect(() => {
-    // Clear any existing timer
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -264,33 +277,39 @@ const useWipeAnimation = (isActive, totalPages, side) => {
 
     if (!isActive || totalPages <= 1) {
       setCurrentPage(0);
+      setNextPage(1);
       setIsTransitioning(false);
       return;
     }
 
-    // 🔥 RECURSIVE TIMEOUT istället för setInterval
     const scheduleNextWipe = () => {
       timerRef.current = setTimeout(() => {
-        console.log(`[${side}] 🔥 Wipe triggered!`);
-        setIsTransitioning(true);
-
-        setTimeout(() => {
-          setCurrentPage(prev => {
-            const next = (prev + 1) % totalPages;
-            console.log(`[${side}] ➡️ Page ${next + 1}/${totalPages}`);
-            return next;
-          });
-          setIsTransitioning(false);
+        console.log(`[${side}] 🔥 Starting wipe transition`);
+        
+        // Förbered nästa sida
+        const nextPageNum = (currentPage + 1) % totalPages;
+        setNextPage(nextPageNum);
+        
+        // Vänta en frame för att CSS ska appliceras
+        requestAnimationFrame(() => {
+          setIsTransitioning(true);
           
-          // Schedule nästa wipe
-          if (isActive) {
-            scheduleNextWipe();
-          }
-        }, 800);
-      }, 5000);
+          // Efter animation (1s), uppdatera current page
+          setTimeout(() => {
+            setCurrentPage(nextPageNum);
+            setIsTransitioning(false);
+            console.log(`[${side}] ➡️ Completed wipe to page ${nextPageNum + 1}/${totalPages}`);
+            
+            // Schedule nästa wipe
+            if (isActive) {
+              scheduleNextWipe();
+            }
+          }, 1000); // CSS transition duration
+        });
+      }, 10000); // 🔥 10 sekunder mellan wipes
     };
 
-    console.log(`[${side}] 🎬 Starting wipe cycle`);
+    console.log(`[${side}] 🎬 Starting wipe cycle with ${totalPages} pages`);
     scheduleNextWipe();
 
     return () => {
@@ -300,9 +319,9 @@ const useWipeAnimation = (isActive, totalPages, side) => {
         timerRef.current = null;
       }
     };
-  }, [isActive, totalPages, side]);
+  }, [isActive, totalPages, side, currentPage]);
 
-  return { currentPage, isTransitioning };
+  return { currentPage, nextPage, isTransitioning };
 };
 
 const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, rightStats, isActive }) => {
@@ -347,7 +366,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     }
   };
 
-  const LeaderboardColumn = ({ leaderboard, stats, side, currentPage, isTransitioning }) => {
+  const LeaderboardColumn = ({ leaderboard, stats, side, currentPage, nextPage, isTransitioning }) => {
     if (!leaderboard || !Array.isArray(stats)) return null;
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
@@ -356,7 +375,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const topStats = stats.slice(0, frozenCount);
     const scrollableStats = stats.slice(frozenCount);
 
-    const itemsPerPage = 14;
+    const itemsPerPage = 10; // 🔥 MINSKA från 14 till 10 för bättre spacing
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
 
@@ -427,21 +446,31 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    const startIndex = currentPage * itemsPerPage;
-    const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
-    const currentPageItems = scrollableStats.slice(startIndex, endIndex);
+    // 🔥 Rendera items för båda sidor
+    const renderPageItems = (pageNum) => {
+      const startIndex = pageNum * itemsPerPage;
+      const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
+      const pageItems = scrollableStats.slice(startIndex, endIndex);
+      
+      return pageItems.map((item, index) => 
+        renderItem(item, startIndex + index + frozenCount, false)
+      );
+    };
 
-    const getWipeStyle = () => {
+    // 🔥 Beräkna styles för current och next content
+    const getCurrentStyle = () => {
       if (isTransitioning) {
-        return {
-          ...styles.wipeContent,
-          ...styles.wipeContentExiting
-        };
+        return { ...styles.wipeContent, ...styles.wipeContentExiting };
       } else {
-        return {
-          ...styles.wipeContent,
-          ...styles.wipeContentActive
-        };
+        return { ...styles.wipeContent, ...styles.wipeContentCurrent };
+      }
+    };
+
+    const getNextStyle = () => {
+      if (isTransitioning) {
+        return { ...styles.wipeContent, ...styles.wipeContentEntering };
+      } else {
+        return { ...styles.wipeContent, ...styles.wipeContentNext };
       }
     };
 
@@ -464,11 +493,17 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         {scrollableStats.length > 0 && (
           <>
             <div style={styles.wipeContainer}>
-              <div style={getWipeStyle()}>
-                {currentPageItems.map((item, index) => 
-                  renderItem(item, startIndex + index + frozenCount, false)
-                )}
+              {/* Current page */}
+              <div style={getCurrentStyle()}>
+                {renderPageItems(currentPage)}
               </div>
+              
+              {/* Next page (för smooth transition) */}
+              {needsWipe && (
+                <div style={getNextStyle()}>
+                  {renderPageItems(nextPage)}
+                </div>
+              )}
             </div>
 
             {needsWipe && (
@@ -488,7 +523,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
   const frozenCount = 3;
   const leftScrollable = leftStats.slice(frozenCount);
   const rightScrollable = rightStats.slice(frozenCount);
-  const itemsPerPage = 14;
+  const itemsPerPage = 10;
   const leftTotalPages = Math.ceil(leftScrollable.length / itemsPerPage);
   const rightTotalPages = Math.ceil(rightScrollable.length / itemsPerPage);
 
@@ -509,6 +544,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           stats={leftStats} 
           side="left"
           currentPage={leftWipe.currentPage}
+          nextPage={leftWipe.nextPage}
           isTransitioning={leftWipe.isTransitioning}
         />
         <LeaderboardColumn 
@@ -516,6 +552,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           stats={rightStats} 
           side="right"
           currentPage={rightWipe.currentPage}
+          nextPage={rightWipe.nextPage}
           isTransitioning={rightWipe.isTransitioning}
         />
       </div>
