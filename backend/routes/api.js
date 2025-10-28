@@ -212,6 +212,9 @@ router.get('/stats/leaderboard', async (req, res) => {
     
     // AUTO-SYNC DEALS CACHE (syncar var 6:e timme)
     await dealsCache.autoSync(adversusAPI);
+
+    // 📱 AUTO-SYNC SMS CACHE (var 6:e timme)
+    await smsCache.autoSync(adversusAPI);
     
     // HÄMTA FRÅN CACHE ISTÄLLET FÖR ADVERSUS!
     const cachedDeals = await dealsCache.getDealsInRange(start, end);
@@ -581,27 +584,70 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
           stats[userId].dealCount += multiDealsValue;  // ✅ ANVÄND multiDealsValue
         });
     
-    const leaderboardStats = Object.values(stats).map(stat => {
-      const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
-      const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
-      
-      let agentName = `Agent ${stat.userId}`;
-      if (adversusUser) {
-        agentName = adversusUser.name || 
-                   `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
-                   `Agent ${stat.userId}`;
-      }
-      
-      return {
-        ...stat,
-        agent: {
-          userId: stat.userId,
-          name: agentName,
-          email: adversusUser?.email || '',
-          profileImage: localAgent?.profileImage || null
+    // 📱 ============= LÄGG TILL SMS DATA =============
+    console.log('📱 Fetching SMS stats for all users...');
+    
+    // Hämta SMS stats för alla users ASYNC
+    const leaderboardStats = await Promise.all(
+      Object.values(stats).map(async (stat) => {
+        const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
+        const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
+        
+        let agentName = `Agent ${stat.userId}`;
+        if (adversusUser) {
+          agentName = adversusUser.name || 
+                     `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
+                     `Agent ${stat.userId}`;
         }
-      };
-    }).sort((a, b) => b.totalCommission - a.totalCommission);
+        
+        // 📱 HÄMTA SMS STATS för denna user
+        let smsData = {
+          uniqueSMS: 0,
+          successRate: 0,
+          totalDeals: stat.dealCount
+        };
+        
+        try {
+          smsData = await smsCache.getSMSStatsForAgent(
+            stat.userId,
+            startDate.toISOString(),
+            endDate.toISOString(),
+            dealsCache
+          );
+          
+          // 🐛 DEBUG: Logga SMS data för första 3 användare
+          if (Object.keys(stats).length <= 3) {
+            console.log(`   📊 User ${stat.userId} (${agentName}):`, {
+              uniqueSMS: smsData.uniqueSMS,
+              totalDeals: smsData.totalDeals,
+              successRate: smsData.successRate
+            });
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to get SMS stats for user ${stat.userId}:`, error.message);
+    }
+    
+    // ✅ RETURNERA KOMPLETT OBJEKT MED SMS-DATA
+    return {
+      userId: stat.userId,
+      dealCount: stat.dealCount,
+      totalCommission: stat.totalCommission,
+      uniqueSMS: smsData.uniqueSMS,           // 📱 NY!
+      smsSuccessRate: smsData.successRate,    // 📱 NY!
+      totalDeals: smsData.totalDeals,         // 📱 NY!
+      agent: {
+        id: stat.userId,
+        userId: stat.userId,
+        name: agentName,
+        email: adversusUser?.email || '',
+        profileImage: localAgent?.profileImage || null
+      }
+    };
+  })
+);
+
+// Sortera efter commission
+leaderboardStats.sort((a, b) => b.totalCommission - a.totalCommission);
     
     const responseData = {
       leaderboard: leaderboard,
