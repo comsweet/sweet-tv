@@ -1,8 +1,8 @@
-// 🔥 ALTERNATIV 1: WEB ANIMATIONS API
-// Modern JavaScript API istället för CSS keyframes
-// Bättre browser-support på moderna TVs
+// 🔥 ALTERNATIV 5: FADE PAGINATION med frozen top 3
+// Top 3 stannar alltid synliga
+// Resten visas i grupper om 14, fade in/out mellan grupper
 
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const styles = {
   slide: {
@@ -70,13 +70,17 @@ const styles = {
     borderRadius: '10px',
     padding: '0.5rem'
   },
-  scrollContainer: {
+  paginatedSection: {
     position: 'relative',
-    overflow: 'hidden',
-    flex: 1
+    flex: 1,
+    overflow: 'hidden'
   },
-  scrollContent: {
-    willChange: 'transform'
+  paginatedContent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    transition: 'opacity 0.8s ease-in-out',
   },
   item: {
     display: 'flex',
@@ -223,7 +227,7 @@ const styles = {
   commissionHigh: {
     color: '#27ae60'
   },
-  scrollIndicator: {
+  pageIndicator: {
     textAlign: 'center',
     padding: '0.5rem',
     background: 'rgba(102, 126, 234, 0.1)',
@@ -231,7 +235,7 @@ const styles = {
     marginTop: '0.5rem',
     flexShrink: 0
   },
-  scrollIndicatorText: {
+  pageIndicatorText: {
     fontSize: '0.85rem',
     color: '#667eea',
     fontWeight: 500
@@ -283,8 +287,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
   const LeaderboardColumn = ({ leaderboard, stats, side }) => {
     if (!leaderboard || !Array.isArray(stats)) return null;
 
-    const scrollContentRef = useRef(null);
-    const animationRef = useRef(null);
+    const [currentPage, setCurrentPage] = useState(0);
+    const intervalRef = useRef(null);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
@@ -292,84 +296,42 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const topStats = stats.slice(0, frozenCount);
     const scrollableStats = stats.slice(frozenCount);
 
-    const rowHeight = 58;
-    const marginPerRow = 8;
-    const effectiveRowHeight = rowHeight + marginPerRow;
-    const visibleRows = 14;
-    const needsScroll = scrollableStats.length > visibleRows;
+    const itemsPerPage = 14;
+    const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
+    const needsPagination = scrollableStats.length > itemsPerPage;
 
-    const containerHeight = visibleRows * effectiveRowHeight;
-    const totalContentHeight = scrollableStats.length * effectiveRowHeight;
-    const scrollDistance = Math.max(0, totalContentHeight - containerHeight);
-
-    // 🔥 WEB ANIMATIONS API - Modern och bättre TV-support!
+    // 🔥 PAGINATION LOGIC - Fade mellan grupper
     useEffect(() => {
-      const element = scrollContentRef.current;
-      
-      if (!element || !needsScroll || scrollDistance <= 0) {
-        console.log(`[${side}] ⏸️  No animation needed`);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+
+      if (!isActive || !needsPagination) {
+        console.log(`[${side}] ⏸️  Pagination stopped`);
+        setCurrentPage(0);
         return;
       }
 
-      console.log(`[${side}] 🎬 Creating Web Animation`);
-      console.log(`[${side}] - scrollDistance: ${scrollDistance}px`);
+      console.log(`[${side}] ▶️  Starting pagination: ${totalPages} pages, ${scrollableStats.length} items`);
 
-      // Beräkna timing
-      const scrollSpeed = 30; // pixels per second
-      const scrollDuration = scrollDistance / scrollSpeed;
-      const pauseDuration = 2;
-      const totalDuration = scrollDuration + pauseDuration;
-
-      console.log(`[${side}] - duration: ${totalDuration.toFixed(1)}s`);
-
-      // ✅ SKAPA ANIMATION MED WEB ANIMATIONS API
-      try {
-        const animation = element.animate([
-          { transform: 'translateY(0)' },
-          { transform: 'translateY(0)', offset: scrollDuration / totalDuration },
-          { transform: `translateY(-${scrollDistance}px)`, offset: scrollDuration / totalDuration },
-          { transform: `translateY(-${scrollDistance}px)` }
-        ], {
-          duration: totalDuration * 1000, // milliseconds
-          iterations: Infinity,
-          easing: 'linear'
+      // Byt sida var 5:e sekund
+      intervalRef.current = setInterval(() => {
+        setCurrentPage(prev => {
+          const next = (prev + 1) % totalPages;
+          console.log(`[${side}] 📄 Page ${prev + 1} → ${next + 1}`);
+          return next;
         });
+      }, 5000);
 
-        animationRef.current = animation;
-        console.log(`[${side}] ✅ Animation created successfully`);
-
-        // ✅ Pausa direkt om inte aktiv
-        if (!isActive) {
-          animation.pause();
-          console.log(`[${side}] ⏸️  Animation paused (not active)`);
-        }
-
-      } catch (error) {
-        console.error(`[${side}] ❌ Failed to create animation:`, error);
-      }
-
-      // Cleanup
       return () => {
-        console.log(`[${side}] 🧹 Cleaning up animation`);
-        if (animationRef.current) {
-          animationRef.current.cancel();
-          animationRef.current = null;
+        console.log(`[${side}] 🧹 Cleanup pagination`);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
         }
       };
-    }, [needsScroll, scrollDistance, side]);
-
-    // 🔥 Kontrollera play/pause baserat på isActive
-    useEffect(() => {
-      if (!animationRef.current) return;
-
-      if (isActive) {
-        console.log(`[${side}] ▶️  Playing animation`);
-        animationRef.current.play();
-      } else {
-        console.log(`[${side}] ⏸️  Pausing animation`);
-        animationRef.current.pause();
-      }
-    }, [isActive, side]);
+    }, [isActive, needsPagination, totalPages, side, scrollableStats.length]);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -385,7 +347,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
       const itemStyle = {
         ...styles.item,
-        height: `${rowHeight}px`,
+        height: '58px',
         ...(isFirstPlace ? styles.itemFirstPlace : {}),
         ...(isFrozen ? styles.itemFrozen : {})
       };
@@ -438,6 +400,11 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
+    // Beräkna vilka items som ska visas på current page
+    const startIndex = currentPage * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
+    const currentPageItems = scrollableStats.slice(startIndex, endIndex);
+
     return (
       <div style={styles.column}>
         <div style={styles.header}>
@@ -448,24 +415,33 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           </p>
         </div>
 
+        {/* Top 3 - ALLTID SYNLIGA */}
         {topStats.length > 0 && (
           <div style={styles.frozenSection}>
             {topStats.map((item, index) => renderItem(item, index, true))}
           </div>
         )}
 
+        {/* Resten - FADE PAGINATION */}
         {scrollableStats.length > 0 && (
           <>
-            <div style={{ ...styles.scrollContainer, height: `${containerHeight}px` }}>
-              <div ref={scrollContentRef} style={styles.scrollContent}>
-                {scrollableStats.map((item, index) => renderItem(item, index + frozenCount, false))}
+            <div style={styles.paginatedSection}>
+              <div 
+                style={{
+                  ...styles.paginatedContent,
+                  opacity: 1
+                }}
+              >
+                {currentPageItems.map((item, index) => 
+                  renderItem(item, startIndex + index + frozenCount, false)
+                )}
               </div>
             </div>
 
-            {needsScroll && (
-              <div style={styles.scrollIndicator}>
-                <span style={styles.scrollIndicatorText}>
-                  {isActive ? '▶️ Scrollar... (Web Animations API)' : '⏸️ Pausad'}
+            {needsPagination && (
+              <div style={styles.pageIndicator}>
+                <span style={styles.pageIndicatorText}>
+                  {isActive ? `📄 Sida ${currentPage + 1} av ${totalPages}` : '⏸️ Pausad'}
                 </span>
               </div>
             )}
