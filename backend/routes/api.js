@@ -283,10 +283,10 @@ router.get('/stats/leaderboard', async (req, res) => {
         stats[userId].uniqueSmsCount = userSmsStats.uniqueSmsCount;
         stats[userId].totalSmsCount = userSmsStats.totalSms;
         
-        // Räkna ut SMS procent (uniqueSmsCount / multiDealsTotal * 100)
-        if (stats[userId].multiDealsTotal > 0) {
-          const percentage = (userSmsStats.uniqueSmsCount / stats[userId].multiDealsTotal) * 100;
-          stats[userId].smsPercentage = Math.round(percentage * 100) / 100; // 2 decimaler
+        // Räkna ut SMS procent (Unique SMS / Antal affärer)
+        if (stats[userId].dealCount > 0) {
+          const percentage = (userSmsStats.uniqueSmsCount / stats[userId].dealCount) * 100;
+          stats[userId].smsPercentage = Math.round(percentage * 100) / 100;
         } else {
           stats[userId].smsPercentage = 0;
         }
@@ -606,8 +606,8 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         stats[userId].totalSmsCount = userSmsStats.totalSms;
         
         // Räkna ut SMS procent
-        if (stats[userId].multiDealsTotal > 0) {
-          const percentage = (userSmsStats.uniqueSmsCount / stats[userId].multiDealsTotal) * 100;
+        if (stats[userId].dealCount > 0) {
+          const percentage = (userSmsStats.uniqueSmsCount / stats[userId].dealCount) * 100;
           stats[userId].smsPercentage = Math.round(percentage * 100) / 100; // 2 decimaler
         } else {
           stats[userId].smsPercentage = 0;
