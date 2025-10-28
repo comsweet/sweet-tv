@@ -1,8 +1,7 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - FULLY FIXED
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - COMPLETELY REWRITTEN
 // Top 3 frozen, resten wipes horizontally mellan grupper
-// Gammal grupp glider ut åt vänster, ny grupp glider in från höger
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const styles = {
   slide: {
@@ -84,10 +83,6 @@ const styles = {
   },
   wipeContentExiting: {
     transform: 'translateX(-100%)',
-    opacity: 0
-  },
-  wipeContentEntering: {
-    transform: 'translateX(100%)',
     opacity: 0
   },
   wipeContentActive: {
@@ -302,6 +297,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const [currentPage, setCurrentPage] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const intervalRef = useRef(null);
+    const isActiveRef = useRef(isActive);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
@@ -310,56 +306,63 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const scrollableStats = stats.slice(frozenCount);
 
     const itemsPerPage = 14;
-    
-    // 🔥 MEMOIZE dessa värden så de inte ändras varje render
-    const totalPages = useMemo(() => {
-      return Math.ceil(scrollableStats.length / itemsPerPage);
-    }, [scrollableStats.length, itemsPerPage]);
-    
-    const needsWipe = useMemo(() => {
-      return scrollableStats.length > itemsPerPage;
-    }, [scrollableStats.length, itemsPerPage]);
+    const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
+    const needsWipe = scrollableStats.length > itemsPerPage;
 
-    // 🔥 WIPE TRANSITION LOGIC - FULLY FIXED
+    // 🔥 Update ref when isActive changes
     useEffect(() => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      isActiveRef.current = isActive;
+    }, [isActive]);
 
-      if (!isActive || !needsWipe) {
-        console.log(`[${side}] ⏸️  Wipe stopped (isActive: ${isActive}, needsWipe: ${needsWipe})`);
-        setCurrentPage(0);
-        setIsTransitioning(false);
+    // 🔥 SIMPLE WIPE LOGIC - Kör endast när komponenten mountas
+    useEffect(() => {
+      console.log(`[${side}] 🎬 Component mounted, needs wipe: ${needsWipe}`);
+      
+      if (!needsWipe) {
+        console.log(`[${side}] ⏭️ No wipe needed (only ${scrollableStats.length} items)`);
         return;
       }
 
-      console.log(`[${side}] 🎬 Starting wipe transitions: ${totalPages} pages`);
+      // Start interval direkt
+      const startInterval = () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+        }
 
-      // Byt sida var 5:e sekund med wipe
-      intervalRef.current = setInterval(() => {
-        console.log(`[${side}] 🔥 Wipe triggered!`);
-        setIsTransitioning(true);
-        
-        // Efter 800ms (wipe duration), uppdatera page
-        setTimeout(() => {
-          setCurrentPage(prev => {
-            const next = (prev + 1) % totalPages;
-            console.log(`[${side}] ➡️  Wipe to page ${next + 1}/${totalPages}`);
-            return next;
-          });
-          setIsTransitioning(false);
-        }, 800);
-      }, 5000);
+        intervalRef.current = setInterval(() => {
+          // Kolla ref istället för dependency
+          if (!isActiveRef.current) {
+            console.log(`[${side}] ⏸️ Skipping wipe (not active)`);
+            return;
+          }
 
+          console.log(`[${side}] 🔥 Wipe triggered!`);
+          setIsTransitioning(true);
+
+          setTimeout(() => {
+            setCurrentPage(prev => {
+              const next = (prev + 1) % totalPages;
+              console.log(`[${side}] ➡️ Wipe to page ${next + 1}/${totalPages}`);
+              return next;
+            });
+            setIsTransitioning(false);
+          }, 800);
+        }, 5000);
+
+        console.log(`[${side}] ✅ Interval started`);
+      };
+
+      startInterval();
+
+      // Cleanup
       return () => {
-        console.log(`[${side}] 🧹 Cleanup wipe`);
+        console.log(`[${side}] 🧹 Cleanup - clearing interval`);
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
       };
-    }, [isActive, needsWipe, totalPages, side]); // ← Nu är dessa memoized
+    }, []); // ← TOM DEPENDENCY ARRAY - kör bara vid mount/unmount
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -428,12 +431,10 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    // Beräkna current & next page items
     const startIndex = currentPage * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
     const currentPageItems = scrollableStats.slice(startIndex, endIndex);
 
-    // 🔥 Beräkna wipe style
     const getWipeStyle = () => {
       if (isTransitioning) {
         return {
@@ -458,14 +459,12 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           </p>
         </div>
 
-        {/* Top 3 - FROZEN */}
         {topStats.length > 0 && (
           <div style={styles.frozenSection}>
             {topStats.map((item, index) => renderItem(item, index, true))}
           </div>
         )}
 
-        {/* Resten - WIPE TRANSITION */}
         {scrollableStats.length > 0 && (
           <>
             <div style={styles.wipeContainer}>
