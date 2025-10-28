@@ -604,141 +604,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-    
-    console.log(`✅ Loaded ${leads.length} deals from persistent cache`);
-    
-    // Hämta alla users EN gång (istället för att göra separata requests!)
-    const usersResult = await adversusAPI.getUsers();
-    const adversusUsers = usersResult.users || [];
-    
-    let filteredUserIds = null;
-    
-    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
-      console.log(`🔍 Filtering by user groups:`, leaderboard.userGroups);
-      
-      try {
-        const targetGroupIds = leaderboard.userGroups.map(id => parseInt(id));
-        filteredUserIds = new Set();
-        
-        // 🔥 FIXED: Hämta ALLA users från de valda grupperna (inte bara de med deals!)
-        console.log(`   📋 Finding ALL users in ${targetGroupIds.length} target groups...`);
-        
-        // Loop genom ALLA adversus users och kolla vilka som tillhör grupperna
-        for (const adversusUser of adversusUsers) {
-          if (adversusUser.group && adversusUser.group.id) {
-            const userGroupId = parseInt(adversusUser.group.id);
-            
-            // Kolla om user's primary group matchar någon av target groups
-            if (targetGroupIds.includes(userGroupId)) {
-              filteredUserIds.add(adversusUser.id);
-              console.log(`   ✅ User ${adversusUser.id} (${adversusUser.name}) matched (group: ${userGroupId})`);
-            }
-          }
-        }
-        
-        console.log(`   📊 Filter result: ${filteredUserIds.size} users in selected groups`);
-        
-        // Om inga users matchar, behåll tom Set (visar inga users)
-        if (filteredUserIds.size === 0) {
-          console.log(`   ⚠️  No users found in the selected groups`);
-        }
-      } catch (error) {
-        console.error(`❌ Error filtering user groups:`, error.message);
-        // Om något går fel, behåll tom Set för säkerhet
-        filteredUserIds = new Set();
-        console.log(`   ⚠️  Filtering failed - returning empty leaderboard for safety`);
-      }
-    }
-    
-    const localAgents = await database.getAgents();
-    
-    // 🔥 FIXED: Initialize stats for ALL filtered users (även de med 0 deals!)
-    const stats = {};
-    
-    if (filteredUserIds) {
-      // Om vi har filter, skapa entries för ALLA users i grupperna
-      for (const userId of filteredUserIds) {
-        stats[userId] = {
-          userId: userId,
-          totalCommission: 0,
-          dealCount: 0
-        };
-      }
-      console.log(`   📊 Initialized stats for ${Object.keys(stats).length} users in groups (including those with 0 deals)`);
-    }
-    
-    // Räkna deals för varje user
-    leads.forEach(lead => {
-      const userId = lead.lastContactedBy;
-      
-      if (!userId) return;
-      
-      // Använd filtreringen (om den finns)
-      if (filteredUserIds && !filteredUserIds.has(userId)) return;
-      
-      // Om ingen filter, skapa entry first time vi ser usern
-      if (!stats[userId]) {
-        stats[userId] = {
-          userId: userId,
-          totalCommission: 0,
-          dealCount: 0
-        };
-      }
-      
-      const commissionField = lead.resultData?.find(f => f.id === 70163);
-      const commission = parseFloat(commissionField?.value || 0);
-      
-      stats[userId].totalCommission += commission;
-      stats[userId].dealCount += 1;
-    });
-    
-    const leaderboardStats = Object.values(stats).map(stat => {
-      const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
-      const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
-      
-      let agentName = `Agent ${stat.userId}`;
-      if (adversusUser) {
-        agentName = adversusUser.name || 
-                   `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
-                   `Agent ${stat.userId}`;
-      }
-      
-      return {
-        ...stat,
-        agent: {
-          userId: stat.userId,
-          name: agentName,
-          email: adversusUser?.email || '',
-          profileImage: localAgent?.profileImage || null
-        }
-      };
-    }).sort((a, b) => b.totalCommission - a.totalCommission);
-    
-    const responseData = {
-      leaderboard: leaderboard,
-      stats: leaderboardStats,
-      dateRange: {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString()
-      }
-    };
-    
-    // CACHE IN MEMORY (5 min TTL)
-    leaderboardCache.set(
-      req.params.id,
-      startDate.toISOString(),
-      endDate.toISOString(),
-      responseData
-    );
-    
-    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents (including ${leaderboardStats.filter(s => s.dealCount === 0).length} with 0 deals)`);
-    
-    res.json(responseData);
-  } catch (error) {
-    console.error('❌ Error fetching leaderboard stats:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Manual poll trigger
 router.post('/poll/trigger', async (req, res) => {
@@ -845,6 +710,67 @@ router.delete('/deals/database', async (req, res) => {
       message: 'Cleared deals cache (deals-cache.json)'
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== SMS MANAGEMENT ====================
+
+// Hämta SMS-statistik
+router.get('/sms/stats', async (req, res) => {
+  try {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30); // Senaste 30 dagarna
+    
+    const smsResponse = await adversusAPI.getSMS(startDate, endDate);
+    const uniqueSMSCount = adversusAPI.calculateUniqueSMS(smsResponse.sms || []);
+    
+    const stats = {
+      totalSMS: smsResponse.sms.length,
+      uniqueUsers: Object.keys(uniqueSMSCount).length,
+      dateRange: {
+        start: startDate.toISOString(),
+        end: endDate.toISOString()
+      },
+      lastFetch: new Date().toISOString()
+    };
+    
+    console.log(`📱 SMS stats: ${stats.totalSMS} messages, ${stats.uniqueUsers} users`);
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching SMS stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Manuell SMS-synkning (rensar även cache)
+router.post('/sms/sync', async (req, res) => {
+  try {
+    console.log('🔄 Manual SMS sync triggered from admin');
+    
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 60); // 60 dagar för säkerhet
+    
+    const smsResponse = await adversusAPI.getSMS(startDate, endDate);
+    const uniqueSMSCount = adversusAPI.calculateUniqueSMS(smsResponse.sms || []);
+    
+    // Rensa leaderboard cache så nya SMS-data hämtas nästa gång
+    leaderboardCache.clear();
+    
+    console.log(`📱 Synced ${smsResponse.sms.length} SMS messages`);
+    console.log(`   👥 ${Object.keys(uniqueSMSCount).length} users with SMS data`);
+    
+    res.json({ 
+      success: true, 
+      message: `Synced ${smsResponse.sms.length} SMS messages and cleared cache`,
+      smsCount: smsResponse.sms.length,
+      uniqueUsers: Object.keys(uniqueSMSCount).length,
+      lastSync: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error syncing SMS:', error);
     res.status(500).json({ error: error.message });
   }
 });
