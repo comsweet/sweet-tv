@@ -293,6 +293,8 @@ class SMSCache {
   /**
    * Get SMS stats for an agent (unique SMS + success rate)
    * Success rate = (totalDeals / uniqueSMS) * 100
+   * 
+   * @deprecated Use getSMSSuccessRate instead for better performance
    */
   async getSMSStatsForAgent(userId, startDate, endDate, dealsCache) {
     await this._ensureInitialized(); // 🔥 Auto-init
@@ -335,6 +337,29 @@ class SMSCache {
       uniqueSMS,
       totalDeals,
       successRate: parseFloat(successRate.toFixed(2)) // Format: 33.33
+    };
+  }
+
+  /**
+   * ✅ NEW: Calculate SMS success rate using pre-calculated dealCount
+   * This is simpler and avoids fetching deals again from cache
+   * 
+   * @param {number|string} userId - User ID
+   * @param {Date|string} startDate - Start date
+   * @param {Date|string} endDate - End date
+   * @param {number} dealCount - Already calculated deal count (with multiDeals)
+   * @returns {Object} { uniqueSMS, successRate }
+   */
+  getSMSSuccessRate(userId, startDate, endDate, dealCount) {
+    const userIdNum = parseInt(userId);
+    const uniqueSMS = this.getUniqueSMSForAgent(userIdNum, startDate, endDate);
+    const successRate = uniqueSMS > 0 ? (dealCount / uniqueSMS * 100) : 0;
+    
+    console.log(`📊 SMS Success Rate for user ${userIdNum}: ${dealCount} deals / ${uniqueSMS} SMS = ${successRate.toFixed(2)}%`);
+
+    return {
+      uniqueSMS,
+      successRate: parseFloat(successRate.toFixed(2))
     };
   }
 
@@ -419,20 +444,6 @@ class SMSCache {
       return String(sms.userId) === String(userIdNum);
     });
   }
-}
-
-// Ny enkel funktion - lägg till efter getSMSStatsForAgent
-getSMSSuccessRate(userId, startDate, endDate, dealCount) {
-  const userIdNum = parseInt(userId);
-  const uniqueSMS = this.getUniqueSMSForAgent(userIdNum, startDate, endDate);
-  const successRate = uniqueSMS > 0 ? (dealCount / uniqueSMS * 100) : 0;
-  
-  console.log(`📊 SMS for user ${userIdNum}: ${dealCount} deals / ${uniqueSMS} SMS = ${successRate.toFixed(2)}%`);
-
-  return {
-    uniqueSMS,
-    successRate: parseFloat(successRate.toFixed(2))
-  };
 }
 
 module.exports = new SMSCache();
