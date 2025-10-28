@@ -5,6 +5,7 @@ import {
   uploadProfileImage,
   getAdversusUsers,
   getAdversusUserGroups,
+  getActualUserGroups,
   getLeaderboardStats,
   triggerManualPoll,
   getLeaderboards,
