@@ -4,9 +4,10 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-
 const apiRoutes = require('./routes/api');
 const PollingService = require('./services/pollingService');
+const dealsCache = require('./services/dealsCache'); // 📱 NY
+const smsCache = require('./services/smsCache');     // 📱 NY
 
 const app = express();
 const server = http.createServer(app);
@@ -36,16 +37,33 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start polling
-const pollingService = new PollingService(io);
-app.set('pollingService', pollingService);
-pollingService.start();
+// 📱 NY: Start server with async initialization
+async function startServer() {
+  try {
+    // Initialize caches before starting polling
+    console.log('💾 Initializing caches...');
+    await dealsCache.init();
+    await smsCache.init();
+    console.log('✅ Caches initialized\n');
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`\n🚀 Sweet TV Backend running on port ${PORT}`);
-  console.log(`📡 WebSocket ready`);
-  console.log(`🔄 Polling active\n`);
-});
+    // Start polling
+    const pollingService = new PollingService(io);
+    app.set('pollingService', pollingService);
+    pollingService.start();
+
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, () => {
+      console.log(`\n🚀 Sweet TV Backend running on port ${PORT}`);
+      console.log(`📡 WebSocket ready`);
+      console.log(`🔄 Polling active\n`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();
 
 module.exports = app;
