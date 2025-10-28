@@ -1,6 +1,6 @@
-// KOMPLETT INLINE CSS VERSION - frontend/src/components/DualLeaderboardSlide.jsx
+// KOMPLETT INLINE CSS VERSION MED SMS - frontend/src/components/DualLeaderboardSlide.jsx
 // INGA EXTERNA CSS FILER BEHÖVS!
-// Fixar: Separat scroll, Dart emoji, Frozen topp 3, OCH SCROLLA HELA VÄGEN!
+// Inkluderar: Separat scroll, Dart emoji, SMS-kolumn, Frozen topp 3
 
 import { useState, useEffect } from 'react';
 
@@ -81,10 +81,10 @@ const styles = {
   },
   item: {
     display: 'grid',
-    gridTemplateColumns: '50px 40px 1fr 100px 130px',
+    gridTemplateColumns: '50px 40px 1fr 90px 110px 130px', // 🔥 Lade till 110px för SMS
     alignItems: 'center',
-    gap: '0.6rem',
-    padding: '0.4rem 0.8rem',
+    gap: '0.5rem',
+    padding: '0.4rem 0.6rem',
     marginBottom: '0.4rem',
     background: 'rgba(255, 255, 255, 0.95)',
     borderRadius: '10px',
@@ -135,7 +135,7 @@ const styles = {
   },
   name: {
     margin: 0,
-    fontSize: '0.95rem',
+    fontSize: '0.9rem',
     fontWeight: 600,
     color: '#2c3e50',
     whiteSpace: 'nowrap',
@@ -150,12 +150,49 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: '0.3rem',
-    fontSize: '1rem',
+    fontSize: '0.95rem',
     fontWeight: 600,
     color: '#2c3e50'
   },
+  // 📱 SMS STYLES
+  sms: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.1rem',
+    padding: '0.2rem 0.4rem',
+    borderRadius: '6px',
+    background: 'rgba(102, 126, 234, 0.05)'
+  },
+  smsRate: {
+    fontSize: '0.9rem',
+    fontWeight: 700,
+    lineHeight: 1
+  },
+  smsCount: {
+    fontSize: '0.65rem',
+    color: '#95a5a6',
+    fontWeight: 500
+  },
+  smsZero: {
+    color: '#e74c3c',
+    background: 'rgba(231, 76, 60, 0.08)'
+  },
+  smsLow: {
+    color: '#e74c3c',
+    background: 'rgba(231, 76, 60, 0.1)'
+  },
+  smsMedium: {
+    color: '#e67e22',
+    background: 'rgba(230, 126, 34, 0.1)'
+  },
+  smsHigh: {
+    color: '#27ae60',
+    background: 'rgba(39, 174, 96, 0.1)'
+  },
   commission: {
-    fontSize: '0.95rem',
+    fontSize: '0.9rem',
     fontWeight: 'bold',
     textAlign: 'right',
     whiteSpace: 'nowrap'
@@ -204,7 +241,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     return labels[period] || period;
   };
 
-  // 🔥 UPPDATERAD: Olika färglogik beroende på tidsperiod
+  // 🔥 Commission färglogik beroende på tidsperiod
   const getCommissionStyle = (commission, timePeriod) => {
     if (!commission || commission === 0) return styles.commissionZero;
     
@@ -223,6 +260,14 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     // Default fallback för andra perioder
     if (commission < 50000) return styles.commissionLow;
     return styles.commissionHigh;
+  };
+
+  // 📱 SMS Success Rate färglogik - UPPDATERAD!
+  const getSMSStyle = (rate) => {
+    if (rate === 0) return styles.smsZero;
+    if (rate < 60) return styles.smsLow;    // Under 60% = röd
+    if (rate < 75) return styles.smsMedium; // 60-74.99% = orange
+    return styles.smsHigh;                   // 75%+ = grön
   };
 
   // Reset scroll when slide becomes inactive
@@ -245,19 +290,16 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
     // Auto-scroll settings
     const rowHeight = 52;
-    const marginPerRow = 6.4; // 0.4rem ≈ 6.4px
-    const effectiveRowHeight = rowHeight + marginPerRow; // Total space per row including margin
-    const visibleRows = 15; // Minskad från 18 eftersom topp 3 är frozen
+    const marginPerRow = 6.4;
+    const effectiveRowHeight = rowHeight + marginPerRow;
+    const visibleRows = 15;
     const needsScroll = scrollableStats.length > visibleRows;
     
-    // 🔥 FIX: Scrolla hela vägen så sista användaren garanterat syns!
-    // Räkna med både row height OCH margin, plus extra säkerhetsbuffert
     const containerHeight = visibleRows * effectiveRowHeight;
     const totalContentHeight = scrollableStats.length * effectiveRowHeight;
-    const safetyBuffer = effectiveRowHeight * 2; // Extra buffert för att garantera sista raden syns
+    const safetyBuffer = effectiveRowHeight * 2;
     const maxScroll = needsScroll ? Math.max(0, totalContentHeight - containerHeight + safetyBuffer) : 0;
 
-    // 🔥 Använd rätt scroll position beroende på side
     const scrollPosition = side === 'left' ? leftScrollPosition : rightScrollPosition;
     const setScrollPosition = side === 'left' ? setLeftScrollPosition : setRightScrollPosition;
 
@@ -285,6 +327,10 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       const isZeroDeals = !item.dealCount || item.dealCount === 0;
       const isFirstPlace = index === 0 && !isZeroDeals;
       const commission = item.totalCommission || 0;
+      
+      // 📱 SMS data
+      const smsRate = item.smsSuccessRate || 0;
+      const smsCount = item.uniqueSMS || 0;
 
       const itemStyle = {
         ...styles.item,
@@ -329,7 +375,15 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
           </div>
 
-          {/* Commission - 🔥 UPPDATERAD: Skicka med timePeriod */}
+          {/* 📱 SMS Success Rate - NY KOLUMN! */}
+          <div style={{ ...styles.sms, ...getSMSStyle(smsRate) }}>
+            <span style={styles.smsRate}>
+              {smsRate > 0 ? smsRate.toFixed(2) : '0.00'}%
+            </span>
+            <span style={styles.smsCount}>({smsCount} SMS)</span>
+          </div>
+
+          {/* Commission */}
           <div style={{ ...styles.commission, ...getCommissionStyle(commission, leaderboard.timePeriod) }}>
             {commission.toLocaleString('sv-SE')} THB
           </div>
