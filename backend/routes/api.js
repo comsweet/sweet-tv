@@ -197,39 +197,73 @@ router.get('/adversus/user-groups', async (req, res) => {
   }
 });
 
-// STATS (MED PERSISTENT CACHE!)
+// STATS (MED PERSISTENT CACHE! och sms cache)
 router.get('/stats/leaderboard', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
     if (!startDate || !endDate) {
-      return res.status(400).json({ error: 'startDate and endDate required' });
+      return res.status(400).json({ error: 'startDate and endDate are required' });
     }
-    
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    console.log(`📊 Fetching stats from ${start.toISOString()} to ${end.toISOString()}`);
-    
-    // AUTO-SYNC DEALS CACHE (syncar var 6:e timme)
+
+    // Auto-sync both caches if needed
     await dealsCache.autoSync(adversusAPI);
-    
-    // HÄMTA FRÅN CACHE ISTÄLLET FÖR ADVERSUS!
-    const cachedDeals = await dealsCache.getDealsInRange(start, end);
-    
-    // Konvertera till leads-format för kompatibilitet
-    const leads = cachedDeals.map(deal => ({
-      id: deal.leadId,
-      lastContactedBy: deal.userId,
-      campaignId: deal.campaignId,
-      status: deal.status,
-      lastUpdatedTime: deal.orderDate,
-      resultData: [
-        { id: 70163, value: String(deal.commission) },
-        { label: 'MultiDeals', value: deal.multiDeals },
-        { label: 'Order date', value: deal.orderDate }
-      ]
+    await smsCache.autoSync(adversusAPI);
+
+    const agents = await database.getAgents();
+    const deals = await dealsCache.getDealsInRange(startDate, endDate);
+
+    const stats = await Promise.all(agents.map(async agent => {
+      // Get deals for this agent
+      const agentDeals = deals.filter(deal => deal.userId === agent.userId);
+      
+      // Calculate total deals (including multiDeals)
+      const dealCount = agentDeals.reduce((sum, deal) => {
+        const multiDeals = parseInt(deal.multiDeals) || 1;
+        return sum + multiDeals;
+      }, 0);
+
+      // Calculate total commission
+      const totalCommission = agentDeals.reduce((sum, deal) => {
+        const multiDeals = parseInt(deal.multiDeals) || 1;
+        return sum + (deal.commission * multiDeals);
+      }, 0);
+
+      // Get SMS stats for this agent
+      const smsStats = await smsCache.getSMSStatsForAgent(
+        agent.userId,
+        startDate,
+        endDate,
+        dealsCache
+      );
+
+      return {
+        userId: agent.userId,
+        name: agent.name,
+        profileImage: agent.profileImage,
+        groupId: agent.groupId,
+        dealCount,
+        totalCommission,
+        uniqueSMS: smsStats.uniqueSMS,
+        smsSuccessRate: smsStats.successRate // Already formatted to 2 decimals
+      };
     }));
+
+    // Sort by deal count (descending)
+    stats.sort((a, b) => b.dealCount - a.dealCount);
+
+    // Add rankings
+    const rankedStats = stats.map((stat, index) => ({
+      ...stat,
+      rank: index + 1
+    }));
+
+    res.json(rankedStats);
+  } catch (error) {
+    console.error('Error getting leaderboard stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
     
     console.log(`✅ Loaded ${leads.length} deals from cache`);
     
