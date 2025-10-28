@@ -1,4 +1,4 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - FIXED
 // Top 3 frozen, resten wipes horizontally mellan grupper
 // Gammal grupp glider ut åt vänster, ny grupp glider in från höger
 
@@ -313,7 +313,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
 
-    // 🔥 WIPE TRANSITION LOGIC
+    // 🔥 WIPE TRANSITION LOGIC - FIXED
     useEffect(() => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -351,7 +351,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           intervalRef.current = null;
         }
       };
-    }, [isActive, needsWipe, totalPages, side, scrollableStats.length]);
+    }, [isActive, needsWipe, totalPages, side]); // ← FIXED: Removed scrollableStats.length
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
