@@ -255,12 +255,14 @@ router.get('/stats/leaderboard', async (req, res) => {
       const commissionField = lead.resultData?.find(f => f.id === 70163);
       const commission = parseFloat(commissionField?.value || 0);
       
-      stats[userId].totalCommission += commission;
-      const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
+      // 🔥 FIX: Använd multiDeals field ID 74126
+      const multiDealsField = lead.resultData?.find(f => f.id === 74126);
       const multiDealsValue = parseInt(multiDealsField?.value || '1');
-      stats[userId].dealCount += multiDealsValue;
+      
+      stats[userId].totalCommission += commission;
+      stats[userId].dealCount += multiDealsValue;  // ✅ ANVÄND multiDealsValue
     });
-    
+        
     const leaderboard = Object.values(stats).map(stat => {
       const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
       const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
@@ -520,32 +522,34 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       console.log(`   📊 Initialized stats for ${Object.keys(stats).length} users in groups (including those with 0 deals)`);
     }
     
-    // Räkna deals för varje user
-    leads.forEach(lead => {
-      const userId = lead.lastContactedBy;
-      
-      if (!userId) return;
-      
-      // Använd filtreringen (om den finns)
-      if (filteredUserIds && !filteredUserIds.has(userId)) return;
-      
-      // Om ingen filter, skapa entry first time vi ser usern
-      if (!stats[userId]) {
-        stats[userId] = {
-          userId: userId,
-          totalCommission: 0,
-          dealCount: 0
-        };
-      }
-      
-      const commissionField = lead.resultData?.find(f => f.id === 70163);
-      const commission = parseFloat(commissionField?.value || 0);
-      
-      stats[userId].totalCommission += commission;
-      const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
-      const multiDealsValue = parseInt(multiDealsField?.value || '1');
-      stats[userId].dealCount += multiDealsValue;
-    });
+        // Räkna deals för varje user
+        leads.forEach(lead => {
+          const userId = lead.lastContactedBy;
+          
+          if (!userId) return;
+          
+          // Använd filtreringen (om den finns)
+          if (filteredUserIds && !filteredUserIds.has(userId)) return;
+          
+          // Om ingen filter, skapa entry first time vi ser usern
+          if (!stats[userId]) {
+            stats[userId] = {
+              userId: userId,
+              totalCommission: 0,
+              dealCount: 0
+            };
+          }
+          
+          const commissionField = lead.resultData?.find(f => f.id === 70163);
+          const commission = parseFloat(commissionField?.value || 0);
+          
+          // 🔥 FIX: Använd multiDeals field ID 74126
+          const multiDealsField = lead.resultData?.find(f => f.id === 74126);
+          const multiDealsValue = parseInt(multiDealsField?.value || '1');
+          
+          stats[userId].totalCommission += commission;
+          stats[userId].dealCount += multiDealsValue;  // ✅ ANVÄND multiDealsValue
+        });
     
     const leaderboardStats = Object.values(stats).map(stat => {
       const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
