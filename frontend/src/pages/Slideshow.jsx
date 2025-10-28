@@ -5,7 +5,7 @@ import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
 import { getSlideshow, getLeaderboardStats2 } from '../services/api';
 import DealNotification from '../components/DealNotification';
-import DualLeaderboardSlide from '../components/DualLeaderboardSlide'; // ✨ KRITISK IMPORT
+import DualLeaderboardSlide from '../components/DualLeaderboardSlide';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -103,42 +103,38 @@ const Slideshow = () => {
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0); // ✨ NYTT: Force re-render
   const intervalRef = useRef(null);
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
 
-  // ✨ UPPDATERAD: Fetch slideshow med stöd för både single och dual mode
+  // ✨ UPPDATERAD: Fetch slideshow med bättre refresh och mindre logging
   const fetchSlideshowData = async (silent = false) => {
     try {
       if (!silent) {
         setIsLoading(true);
       }
       
+      // ✨ NYTT: Lägg till timestamp för att undvika caching
+      const timestamp = Date.now();
       const slideshowResponse = await getSlideshow(id);
       const slideshowData = slideshowResponse.data;
-      setSlideshow(slideshowData);
       
-      console.log('📺 Slideshow data:', slideshowData);
+      if (!silent) {
+        setSlideshow(slideshowData);
+        console.log(`📺 Loading ${slideshowData.type === 'dual' ? 'Dual' : 'Single'} Slideshow: "${slideshowData.name}"`);
+      }
       
-      // ✨ NYTT: Hantera både single och dual mode
+      // ✨ UPPDATERAD: Hantera både single och dual mode
       if (slideshowData.type === 'dual' && slideshowData.dualSlides) {
         // Dual mode
-        if (!silent) {
-          console.log(`📺 Dual Slideshow "${slideshowData.name}" with ${slideshowData.dualSlides.length} dual slides`);
-        }
-        
         const dualSlidesData = [];
         
         for (let i = 0; i < slideshowData.dualSlides.length; i++) {
           const dualSlide = slideshowData.dualSlides[i];
           
           try {
-            if (!silent) {
-              console.log(`📈 Loading dual slide ${i + 1}/${slideshowData.dualSlides.length}`);
-              console.log(`  Left: ${dualSlide.left}, Right: ${dualSlide.right}`);
-            }
-            
-            // Hämta båda leaderboards parallellt
+            // Hämta båda leaderboards parallellt med timestamp
             const [leftStatsRes, rightStatsRes] = await Promise.all([
               getLeaderboardStats2(dualSlide.left),
               getLeaderboardStats2(dualSlide.right)
@@ -150,23 +146,19 @@ const Slideshow = () => {
               leftLeaderboard: leftStatsRes.data.leaderboard,
               rightLeaderboard: rightStatsRes.data.leaderboard,
               leftStats: leftStatsRes.data.stats || [],
-              rightStats: rightStatsRes.data.stats || []
+              rightStats: rightStatsRes.data.stats || [],
+              timestamp // ✨ NYTT: Spara timestamp för debugging
             });
-            
-            if (!silent) {
-              console.log(`✅ Loaded dual slide (${leftStatsRes.data.stats?.length || 0} + ${rightStatsRes.data.stats?.length || 0} agents)`);
-            }
             
             // Delay mellan slides
             if (i < slideshowData.dualSlides.length - 1) {
-              if (!silent) console.log('⏳ Waiting 3s...');
               await new Promise(resolve => setTimeout(resolve, 3000));
             }
             
           } catch (error) {
-            console.error(`❌ Error loading dual slide:`, error);
+            console.error(`❌ Error loading dual slide ${i + 1}:`, error.message);
             if (error.response?.status === 429) {
-              console.log('⏰ Rate limit! Waiting 10s...');
+              console.log('⏰ Rate limit - waiting 10s...');
               await new Promise(resolve => setTimeout(resolve, 10000));
             }
           }
@@ -176,42 +168,30 @@ const Slideshow = () => {
         
       } else {
         // Single mode (original logic)
-        if (!silent) {
-          console.log(`📺 Single Slideshow "${slideshowData.name}" with ${slideshowData.leaderboards.length} leaderboards`);
-        }
-        
         const leaderboardsWithStats = [];
         
         for (let i = 0; i < slideshowData.leaderboards.length; i++) {
           const lbId = slideshowData.leaderboards[i];
           
           try {
-            if (!silent) {
-              console.log(`📈 Loading leaderboard ${i + 1}/${slideshowData.leaderboards.length}`);
-            }
-            
             const statsResponse = await getLeaderboardStats2(lbId);
             
             leaderboardsWithStats.push({
               type: 'single',
               leaderboard: statsResponse.data.leaderboard,
-              stats: statsResponse.data.stats || []
+              stats: statsResponse.data.stats || [],
+              timestamp // ✨ NYTT: Spara timestamp
             });
-            
-            if (!silent) {
-              console.log(`✅ Loaded (${statsResponse.data.stats?.length || 0} agents)`);
-            }
             
             // Delay mellan leaderboards
             if (i < slideshowData.leaderboards.length - 1) {
-              if (!silent) console.log('⏳ Waiting 3s...');
               await new Promise(resolve => setTimeout(resolve, 3000));
             }
             
           } catch (error) {
-            console.error(`❌ Error loading leaderboard ${lbId}:`, error);
+            console.error(`❌ Error loading leaderboard ${lbId}:`, error.message);
             if (error.response?.status === 429) {
-              console.log('⏰ Rate limit! Waiting 10s...');
+              console.log('⏰ Rate limit - waiting 10s...');
               await new Promise(resolve => setTimeout(resolve, 10000));
             }
           }
@@ -220,16 +200,19 @@ const Slideshow = () => {
         setLeaderboardsData(leaderboardsWithStats);
       }
       
+      // ✨ NYTT: Force re-render genom att öka refreshKey
+      setRefreshKey(prev => prev + 1);
+      
       if (!silent) {
-        console.log(`✅ Loaded slideshow successfully`);
+        console.log(`✅ Slideshow loaded successfully`);
       } else {
-        console.log(`🔄 Silent refresh complete`);
+        console.log(`🔄 Data refreshed at ${new Date().toLocaleTimeString('sv-SE')}`);
       }
       
       setIsLoading(false);
       
     } catch (error) {
-      console.error('Error fetching slideshow:', error);
+      console.error('❌ Error fetching slideshow:', error);
       setIsLoading(false);
     }
   };
@@ -237,15 +220,16 @@ const Slideshow = () => {
   useEffect(() => {
     fetchSlideshowData();
     
+    // ✨ UPPDATERAD: Auto-refresh med bättre logging
     refreshIntervalRef.current = setInterval(() => {
-      console.log('🔄 Auto-refresh: Updating leaderboard data...');
+      console.log('🔄 Auto-refresh triggered');
       fetchSlideshowData(true);
     }, 2 * 60 * 1000);
     
     socketService.connect();
 
     const handleNewDeal = (notification) => {
-      console.log('🎉 New deal:', notification);
+      console.log('🎉 New deal received:', notification.agent?.name || 'Unknown');
       
       if (notification.agent && 
           notification.agent.name && 
@@ -253,8 +237,9 @@ const Slideshow = () => {
         setCurrentNotification(notification);
       }
       
+      // ✨ UPPDATERAD: Refresh efter 5 sekunder
       setTimeout(() => {
-        console.log('🔄 Deal received: Refreshing leaderboard data...');
+        console.log('🔄 Refreshing after new deal...');
         fetchSlideshowData(true);
       }, 5000);
     };
@@ -297,7 +282,6 @@ const Slideshow = () => {
   }, [leaderboardsData, slideshow, currentIndex]);
 
   const handleNotificationComplete = () => {
-    console.log('✅ Notification complete - clearing state');
     setCurrentNotification(null);
   };
 
@@ -324,7 +308,7 @@ const Slideshow = () => {
   }
 
   return (
-    <div className="slideshow-container">
+    <div className="slideshow-container" key={refreshKey}>
       <div className="slideshow-progress-bar">
         <div 
           className="slideshow-progress-fill"
@@ -348,7 +332,7 @@ const Slideshow = () => {
         if (slideData.type === 'dual') {
           return (
             <DualLeaderboardSlide
-              key={index}
+              key={`${index}-${slideData.timestamp || refreshKey}`}
               leftLeaderboard={slideData.leftLeaderboard}
               rightLeaderboard={slideData.rightLeaderboard}
               leftStats={slideData.leftStats}
@@ -359,7 +343,7 @@ const Slideshow = () => {
         } else {
           return (
             <LeaderboardSlide
-              key={slideData.leaderboard.id}
+              key={`${slideData.leaderboard.id}-${slideData.timestamp || refreshKey}`}
               leaderboard={slideData.leaderboard}
               stats={slideData.stats}
               isActive={isActive}
