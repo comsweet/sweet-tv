@@ -1,8 +1,8 @@
-// 🔥 TV SCROLL FIX V7 - ALLTID SKAPA CSS, kontrollera play-state separat
-// PROBLEM V6: CSS skapas aldrig för slides med isActive=false
-// LÖSNING: Skapa CSS oavsett isActive, använd play-state för kontroll
+// 🔥 TV SCROLL FIX V8 - ENKEL CSS utan state loops
+// PROBLEM V7: setCssReady skapar infinite loop
+// LÖSNING: Använd ref istället för state, inject CSS direkt
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 const styles = {
   slide: {
@@ -284,8 +284,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     if (!leaderboard || !Array.isArray(stats)) return null;
 
     const styleElementRef = useRef(null);
-    const animationNameRef = useRef(`scroll-${side}-${Date.now()}`);
-    const [cssReady, setCssReady] = useState(false);
+    const animationNameRef = useRef(null);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
@@ -303,31 +302,31 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const totalContentHeight = scrollableStats.length * effectiveRowHeight;
     const scrollDistance = Math.max(0, totalContentHeight - containerHeight);
 
-    // 🔥 INJECT CSS ANIMATION OAVSETT isActive
+    // 🔥 INJECT CSS EN GÅNG med useRef - INGEN STATE!
     useEffect(() => {
-      console.log(`[${side}] 🎬 CSS Setup useEffect`);
-      console.log(`[${side}] - needsScroll: ${needsScroll}`);
-      console.log(`[${side}] - scrollDistance: ${scrollDistance}px`);
-
-      // ✅ KRITISK FIX: Skapa CSS oavsett isActive!
-      if (!needsScroll || scrollDistance <= 0) {
-        console.log(`[${side}] ⏸️  No scroll needed (not enough content)`);
-        setCssReady(false);
+      // Om CSS redan finns, returnera
+      if (styleElementRef.current) {
+        console.log(`[${side}] ✅ CSS already exists, skipping`);
         return;
       }
 
-      console.log(`[${side}] 🎨 Creating CSS Animation...`);
+      if (!needsScroll || scrollDistance <= 0) {
+        console.log(`[${side}] ⏸️  No scroll needed`);
+        return;
+      }
+
+      console.log(`[${side}] 🎨 Creating CSS Animation (one-time)`);
+      console.log(`[${side}] - scrollDistance: ${scrollDistance}px`);
 
       // Beräkna durations
-      const scrollSpeed = 30; // pixels per second
+      const scrollSpeed = 30;
       const scrollDuration = scrollDistance / scrollSpeed;
       const pauseDuration = 2;
       const totalCycleDuration = scrollDuration + pauseDuration;
 
-      console.log(`[${side}] - scrollDuration: ${scrollDuration.toFixed(1)}s`);
-      console.log(`[${side}] - totalCycleDuration: ${totalCycleDuration.toFixed(1)}s`);
+      const animationName = `scroll-${side}-${Date.now()}`;
+      animationNameRef.current = animationName;
 
-      const animationName = animationNameRef.current;
       const scrollPercent = (scrollDuration / totalCycleDuration * 100).toFixed(1);
 
       // Inject CSS
@@ -349,18 +348,17 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       styleElementRef.current = styleEl;
 
       console.log(`[${side}] ✅ CSS Animation created: ${animationName}`);
-      setCssReady(true);
 
       // Cleanup
       return () => {
-        console.log(`[${side}] 🧹 Removing CSS animation`);
+        console.log(`[${side}] 🧹 Removing CSS animation on unmount`);
         if (styleElementRef.current) {
           styleElementRef.current.remove();
           styleElementRef.current = null;
+          animationNameRef.current = null;
         }
-        setCssReady(false);
       };
-    }, [needsScroll, scrollDistance, side]); // ✅ Ingen isActive dependency här!
+    }, [needsScroll, scrollDistance, side]);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -429,10 +427,9 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    // 🔥 Beräkna animation style baserat på isActive OCH cssReady
+    // 🔥 Beräkna animation style - ENKEL!
     const getAnimationStyle = () => {
-      if (!cssReady) {
-        console.log(`[${side}] ⏳ CSS not ready yet, isActive=${isActive}`);
+      if (!animationNameRef.current || !needsScroll || scrollDistance <= 0) {
         return {};
       }
 
@@ -440,12 +437,9 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       const scrollDuration = scrollDistance / scrollSpeed;
       const totalCycleDuration = scrollDuration + 2;
 
-      const playState = isActive ? 'running' : 'paused';
-      console.log(`[${side}] 🎮 Animation state: ${playState} (isActive=${isActive})`);
-
       return {
         animation: `${animationNameRef.current} ${totalCycleDuration}s linear infinite`,
-        animationPlayState: playState, // ✅ Kontrollera här baserat på isActive
+        animationPlayState: isActive ? 'running' : 'paused',
         willChange: 'transform'
       };
     };
@@ -477,9 +471,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             {needsScroll && (
               <div style={styles.scrollIndicator}>
                 <span style={styles.scrollIndicatorText}>
-                  {!cssReady && '⏳ Laddar...'}
-                  {cssReady && isActive && '▶️ Scrollar...'}
-                  {cssReady && !isActive && '⏸️ Pausad'}
+                  {isActive ? '▶️ Scrollar...' : '⏸️ Pausad'}
                 </span>
               </div>
             )}
