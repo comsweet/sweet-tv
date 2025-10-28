@@ -1,5 +1,5 @@
 // backend/services/smsCache.js
-// 🔥 FIXED VERSION - Type-safe userId comparisons
+// 🔥 UPDATED VERSION - 2-minute sync interval + Type-safe userId comparisons
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -240,16 +240,16 @@ class SMSCache {
 
     const lastSyncTime = new Date(lastSync.timestamp);
     const now = new Date();
-    const hoursSinceSync = (now - lastSyncTime) / (1000 * 60 * 60);
+    const minutesSinceSync = (now - lastSyncTime) / (1000 * 60);
 
-    return hoursSinceSync >= 6; // Sync every 6 hours
+    return minutesSinceSync >= 2; // 🔥 UPDATED: Sync every 2 minutes (was 6 hours)
   }
 
   async autoSync(adversusAPI) {
     await this._ensureInitialized(); // 🔥 Auto-init
     
     if (await this.needsSync()) {
-      console.log('📱 Auto-syncing SMS...');
+      console.log('📱 Auto-syncing SMS (2 min passed)...');
       return await this.syncSMS(adversusAPI);
     }
     return this.cache;
