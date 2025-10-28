@@ -154,7 +154,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
       } else if (activeTab === 'leaderboards') {
         const [leaderboardsRes, groupsRes] = await Promise.all([
           getLeaderboards(),
-          getAdversusUserGroups()
+          getActualUserGroups()
         ]);
         setLeaderboards(leaderboardsRes.data);
         setUserGroups(groupsRes.data.groups || []);
