@@ -243,7 +243,19 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       return styles.commissionHigh;
     }
     
-    // För "Denna vecka" och "Denna månad": svart under 50000, grön från 50000
+    // För "Denna vecka": svart under 18000, grön från 18000
+    if (timePeriod === 'week') {
+      if (commission < 18000) return styles.commissionNeutral;
+      return styles.commissionHigh;
+    }
+    
+    // För "Denna månad": svart under 50000, grön från 50000
+    if (timePeriod === 'month') {
+      if (commission < 50000) return styles.commissionNeutral;
+      return styles.commissionHigh;
+    }
+    
+    // Fallback för custom eller andra perioder
     if (commission < 50000) return styles.commissionNeutral;
     return styles.commissionHigh;
   };
