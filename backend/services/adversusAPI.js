@@ -242,22 +242,32 @@ class AdversusAPI {
     return response;
   }
 
-  async getSMS(filters = {}, page = 1, pageSize = 1000) {
-    const params = {
-      filters: JSON.stringify(filters),
-      page,
-      pageSize,
-      includeMeta: true,
-      sortProperty: 'timestamp',
-      sortDirection: 'DESC'
-    };
+ async getSMS(filters = {}, page = 1, pageSize = 1000) {
+  const params = {
+    filters: JSON.stringify(filters),
+    page,
+    pageSize,
+    includeMeta: true, // 🔥 CRITICAL: This ensures meta is returned
+    sortProperty: 'timestamp',
+    sortDirection: 'DESC'
+  };
 
-    console.log(`📱 Fetching SMS page ${page}...`);
-    const response = await this.request('/sms', params);
-    console.log(`   ✅ Got ${response.sms?.length || 0} SMS\n`);
-
-    return response;
+  console.log(`📱 Fetching SMS page ${page} (pageSize: ${pageSize})...`);
+  
+  const response = await this.request('/sms', params);
+  
+  const smsCount = response.sms?.length || 0;
+  console.log(`   ✅ Got ${smsCount} SMS`);
+  
+  // 🔍 DEBUG: Log meta structure
+  if (response.meta) {
+    console.log(`   📊 Meta:`, JSON.stringify(response.meta.pagination || response.meta, null, 2));
+  } else {
+    console.log(`   ⚠️  No meta in response!`);
   }
+
+  return response;
+}
 
   async getUserGroups(params = {}) {
     const defaultParams = {
