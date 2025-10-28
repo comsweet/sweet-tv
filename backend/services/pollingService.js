@@ -4,6 +4,7 @@ const soundSettings = require('./soundSettings');
 const soundLibrary = require('./soundLibrary');
 const leaderboardCache = require('./leaderboardCache');
 const dealsCache = require('./dealsCache');
+const smsCache = require('./smsCache'); // 📱 NY: SMS Cache
 const notificationSettings = require('./notificationSettings');
 
 class PollingService {
@@ -31,8 +32,12 @@ class PollingService {
     }, 60 * 60 * 1000); // En timme
   }
 
-  start() {
+  async start() {
     console.log(`🔄 Starting polling (${this.pollInterval}ms interval)`);
+    
+    // 📱 NY: Initialize SMS cache
+    await smsCache.init();
+    
     this.isPolling = true;
     this.poll();
     this.intervalId = setInterval(() => this.poll(), this.pollInterval);
@@ -67,7 +72,10 @@ class PollingService {
         }
       }
       
-      // 3️⃣ RENSA GAMLA PENDING DEALS
+      // 3️⃣ 📱 NY: AUTO-SYNC SMS CACHE IF NEEDED
+      await smsCache.autoSync(adversusAPI);
+      
+      // 4️⃣ RENSA GAMLA PENDING DEALS
       this.cleanupOldPendingDeals();
       
       this.lastCheckTime = new Date();
