@@ -113,6 +113,21 @@ class AdversusAPI {
     return await this.request('/leads', params);
   }
 
+  // 🔥 NY METOD: Hämta en specifik lead by ID
+  async getLeadById(leadId) {
+    console.log(`🔍 Fetching lead ${leadId}...`);
+    
+    try {
+      const response = await this.request(`/leads/${leadId}`);
+      
+      // API returnerar lead direkt (inte i array)
+      return { leads: [response] };
+    } catch (error) {
+      console.error(`❌ Error fetching lead ${leadId}:`, error.message);
+      throw error;
+    }
+  }
+
   async getLeadsInDateRange(startDate, endDate) {
     const bufferDays = 7;
     const bufferStart = startDate;
