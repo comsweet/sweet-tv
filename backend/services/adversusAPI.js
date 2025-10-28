@@ -242,6 +242,23 @@ class AdversusAPI {
     return response;
   }
 
+  async getSMS(filters = {}, page = 1, pageSize = 1000) {
+    const params = {
+      filters: JSON.stringify(filters),
+      page,
+      pageSize,
+      includeMeta: true,
+      sortProperty: 'timestamp',
+      sortDirection: 'DESC'
+    };
+
+    console.log(`📱 Fetching SMS page ${page}...`);
+    const response = await this.request('/sms', params);
+    console.log(`   ✅ Got ${response.sms?.length || 0} SMS\n`);
+
+    return response;
+  }
+
   async getUserGroups(params = {}) {
     const defaultParams = {
       page: 1,
