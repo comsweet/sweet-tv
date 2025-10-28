@@ -1,12 +1,11 @@
-// UPPDATERAD DUAL LEADERBOARD - NY DESIGN MED SMS SUCCESS RATE
-// ✨ UPPDATERAD: Bredare kolumner för agentnamn + synligare SMS count
-// ✨ NY: Horisontell layout med SMS success rate i färgkodad box (liknar bild 2)
-// 📱 SMS: Visar success rate med uniqueSMS i parentes
-// 🎨 Färgkodning: ≥75% grön, 60-74.99% orange, <60% röd
+// 🔥 TV SCROLL FIX - frontend/src/components/DualLeaderboardSlide.jsx
+// FIXAR: Autoscroll fungerar inte på TV (men fungerar på MacBook Chrome)
+// ORSAK: useEffect closure problem + saknade dependencies
+// LÖSNING: Fixade dependencies + useRef för stabil referens
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-// 🎨 ALL CSS INLINE
+// 🎨 ALL CSS INLINE (samma som innan)
 const styles = {
   slide: {
     position: 'absolute',
@@ -81,7 +80,6 @@ const styles = {
   items: {
     willChange: 'transform'
   },
-  // 🆕 NY DESIGN: Horisontell layout med mer utrymme
   item: {
     display: 'flex',
     alignItems: 'center',
@@ -106,16 +104,15 @@ const styles = {
     zIndex: 10,
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
   },
-  // Vänster del: Rank + Avatar + Name (BREDARE för att visa hela namn)
   leftSection: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.8rem',
-    flex: '0 0 300px', // ✨ UPPDATERAT: Från 240px till 300px
+    flex: '0 0 300px',
     minWidth: 0
   },
   rank: {
-    fontSize: '1.1rem',
+    fontSize: '1.5rem', // ✨ Större medaljer
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#2c3e50',
@@ -146,7 +143,7 @@ const styles = {
   },
   name: {
     margin: 0,
-    fontSize: '1.05rem', // ✨ UPPDATERAT: Från 1rem till 1.05rem
+    fontSize: '1.05rem',
     fontWeight: 600,
     color: '#2c3e50',
     whiteSpace: 'nowrap',
@@ -158,7 +155,6 @@ const styles = {
   nameZero: {
     color: '#e74c3c'
   },
-  // Mitten: Deals
   dealsSection: {
     display: 'flex',
     alignItems: 'center',
@@ -166,10 +162,9 @@ const styles = {
     fontSize: '1.1rem',
     fontWeight: 600,
     color: '#2c3e50',
-    flex: '0 0 90px', // ✨ UPPDATERAT: Från 80px till 90px
+    flex: '0 0 90px',
     justifyContent: 'center'
   },
-  // 🆕 SMS Success Rate Box (som i bild 2)
   smsBox: {
     display: 'flex',
     flexDirection: 'column',
@@ -177,7 +172,7 @@ const styles = {
     justifyContent: 'center',
     padding: '0.4rem 0.8rem',
     borderRadius: '8px',
-    flex: '0 0 120px', // ✨ UPPDATERAT: Från 110px till 120px
+    flex: '0 0 120px',
     minHeight: '48px'
   },
   smsBoxGreen: {
@@ -208,13 +203,12 @@ const styles = {
     color: '#c0392b'
   },
   smsCount: {
-    fontSize: '0.8rem', // ✨ UPPDATERAT: Från 0.75rem till 0.8rem
-    color: '#2c3e50',  // ✨ UPPDATERAT: Från '#7f8c8d' (grå) till '#2c3e50' (svart)
-    fontWeight: 'bold', // ✨ NYTT: Bold för bättre synlighet
+    fontSize: '0.8rem',
+    color: '#2c3e50',
+    fontWeight: 'bold',
     margin: '0.1rem 0 0',
     lineHeight: 1
   },
-  // Höger: Commission
   commission: {
     fontSize: '1rem',
     fontWeight: 'bold',
@@ -265,7 +259,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     return labels[period] || period;
   };
 
-  // 🎨 Commission färglogik (samma som innan)
   const getCommissionStyle = (commission, timePeriod) => {
     if (!commission || commission === 0) {
       return styles.commissionZero;
@@ -282,7 +275,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     }
   };
 
-  // 🆕 SMS Success Rate färglogik
   const getSMSBoxStyle = (successRate) => {
     if (successRate >= 75) {
       return { box: styles.smsBoxGreen, text: styles.smsRateGreen };
@@ -323,22 +315,66 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const scrollPosition = side === 'left' ? leftScrollPosition : rightScrollPosition;
     const setScrollPosition = side === 'left' ? setLeftScrollPosition : setRightScrollPosition;
 
-    useEffect(() => {
-      if (!isActive || !needsScroll) return;
+    // 🔥 FIXAD USEEFFECT - Fungerar på TV!
+    const intervalRef = useRef(null);
+    const timeoutRef = useRef(null);
 
-      const interval = setInterval(() => {
+    useEffect(() => {
+      // Cleanup gamla timers
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+
+      if (!isActive || !needsScroll) {
+        console.log(`[${side}] ⏸️  Scroll paused: isActive=${isActive}, needsScroll=${needsScroll}`);
+        return;
+      }
+
+      console.log(`[${side}] ▶️  Starting scroll: maxScroll=${maxScroll.toFixed(0)}px, rows=${scrollableStats.length}`);
+
+      const scrollSpeed = 25; // pixels per second
+      const updateInterval = 30; // ms
+      const pixelsPerUpdate = (scrollSpeed / 1000) * updateInterval;
+
+      intervalRef.current = setInterval(() => {
         setScrollPosition(prev => {
-          const newPosition = prev + 1;
+          const newPosition = prev + pixelsPerUpdate;
+          
           if (newPosition >= maxScroll) {
-            setTimeout(() => setScrollPosition(0), 2000);
+            console.log(`[${side}] 🔚 Reached bottom (${newPosition.toFixed(0)}px >= ${maxScroll.toFixed(0)}px)`);
+            
+            // Pausa 2 sekunder innan reset
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            timeoutRef.current = setTimeout(() => {
+              console.log(`[${side}] 🔄 Resetting to top`);
+              setScrollPosition(0);
+            }, 2000);
+            
             return maxScroll;
           }
+          
           return newPosition;
         });
-      }, 30);
+      }, updateInterval);
 
-      return () => clearInterval(interval);
-    }, [isActive, needsScroll, maxScroll, setScrollPosition]);
+      // Cleanup function
+      return () => {
+        console.log(`[${side}] 🧹 Cleaning up scroll interval`);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+      };
+    }, [isActive, needsScroll, maxScroll, side, scrollableStats.length]); // ✨ ALLA dependencies!
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -347,7 +383,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       const isFirstPlace = index === 0 && !isZeroDeals;
       const commission = item.totalCommission || 0;
       
-      // 📱 SMS data - VIKTIGT: Använd rätt properties från backend
       const uniqueSMS = item.uniqueSMS || 0;
       const smsSuccessRate = item.smsSuccessRate || 0;
 
@@ -362,7 +397,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
       return (
         <div key={`${item.userId || index}-${item.agent.id || index}`} style={itemStyle}>
-          {/* Vänster: Rank + Avatar + Name */}
           <div style={styles.leftSection}>
             <div style={styles.rank}>
               {index === 0 && !isZeroDeals && '🥇'}
@@ -388,13 +422,11 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             </p>
           </div>
 
-          {/* Mitten: Deals */}
           <div style={styles.dealsSection}>
             <span>🎯</span>
             <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
           </div>
 
-          {/* 🆕 SMS Success Rate Box */}
           <div style={{ ...styles.smsBox, ...smsStyles.box }}>
             <div style={{ ...styles.smsRate, ...smsStyles.text }}>
               {smsSuccessRate.toFixed(2)}%
@@ -404,7 +436,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             </div>
           </div>
 
-          {/* Höger: Commission */}
           <div style={{ ...styles.commission, ...getCommissionStyle(commission, leaderboard.timePeriod) }}>
             {commission.toLocaleString('sv-SE')} THB
           </div>
