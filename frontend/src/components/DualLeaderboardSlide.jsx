@@ -204,9 +204,24 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     return labels[period] || period;
   };
 
-  const getCommissionStyle = (commission) => {
+  // 🔥 UPPDATERAD: Olika färglogik beroende på tidsperiod
+  const getCommissionStyle = (commission, timePeriod) => {
     if (!commission || commission === 0) return styles.commissionZero;
-    if (commission < 3400) return styles.commissionLow;
+    
+    // För "Idag" - använd 3400 THB som gräns
+    if (timePeriod === 'day') {
+      if (commission < 3400) return styles.commissionLow;
+      return styles.commissionHigh;
+    }
+    
+    // För "Denna vecka" och "Denna månad" - använd 50000 THB som gräns
+    if (timePeriod === 'week' || timePeriod === 'month') {
+      if (commission < 50000) return styles.commissionLow;
+      return styles.commissionHigh;
+    }
+    
+    // Default fallback för andra perioder
+    if (commission < 50000) return styles.commissionLow;
     return styles.commissionHigh;
   };
 
@@ -314,8 +329,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
           </div>
 
-          {/* Commission */}
-          <div style={{ ...styles.commission, ...getCommissionStyle(commission) }}>
+          {/* Commission - 🔥 UPPDATERAD: Skicka med timePeriod */}
+          <div style={{ ...styles.commission, ...getCommissionStyle(commission, leaderboard.timePeriod) }}>
             {commission.toLocaleString('sv-SE')} THB
           </div>
         </div>
