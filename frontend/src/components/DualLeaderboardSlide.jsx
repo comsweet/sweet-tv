@@ -1,6 +1,5 @@
-// 🔥 TV SCROLL FIX V3 - setInterval + Native Scroll för LG TV
-// PROBLEM V2: requestAnimationFrame fungerar inte på WebOS
-// LÖSNING: setInterval med längre intervall + native scrollTop
+// 🔥 TV SCROLL FIX V4 - ULTRA FÖRENKLAD för debugging
+// Inga fancy features, bara basic scroll som MÅSTE fungera
 
 import { useState, useEffect, useRef } from 'react';
 
@@ -75,9 +74,8 @@ const styles = {
     position: 'relative',
     overflow: 'auto',
     flex: 1,
-    scrollBehavior: 'auto'
+    WebkitOverflowScrolling: 'touch'
   },
-  items: {},
   item: {
     display: 'flex',
     alignItems: 'center',
@@ -285,7 +283,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
     const scrollContainerRef = useRef(null);
     const intervalRef = useRef(null);
-    const isPausedRef = useRef(false);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
@@ -299,67 +296,78 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const visibleRows = 14;
     const needsScroll = scrollableStats.length > visibleRows;
 
-    // 🔥 SETINTERVAL VERSION - Enklare och mer kompatibel med TV
+    // 🔥 ULTRA FÖRENKLAD SCROLL
     useEffect(() => {
+      console.log(`[${side}] 🎬 useEffect triggered`);
+      console.log(`[${side}] - isActive: ${isActive}`);
+      console.log(`[${side}] - needsScroll: ${needsScroll}`);
+      console.log(`[${side}] - scrollableStats.length: ${scrollableStats.length}`);
+
       const container = scrollContainerRef.current;
       
-      // Rensa gamla intervall
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-
-      if (!container || !isActive || !needsScroll) {
-        console.log(`[${side}] ⏸️  Scroll stopped: isActive=${isActive}, needsScroll=${needsScroll}`);
+      if (!container) {
+        console.log(`[${side}] ❌ No container ref`);
         return;
       }
 
-      const maxScroll = container.scrollHeight - container.clientHeight;
-      console.log(`[${side}] ▶️  Starting scroll: maxScroll=${maxScroll}px, rows=${scrollableStats.length}`);
+      console.log(`[${side}] ✅ Container exists`);
+      console.log(`[${side}] - scrollHeight: ${container.scrollHeight}`);
+      console.log(`[${side}] - clientHeight: ${container.clientHeight}`);
 
-      const scrollStep = 2; // pixels per step (ökat från 1 till 2)
-      const scrollInterval = 50; // ms mellan varje step (ökad från 30 till 50)
+      if (!isActive) {
+        console.log(`[${side}] ⏸️  Not active, resetting scroll`);
+        container.scrollTop = 0;
+        return;
+      }
+
+      if (!needsScroll) {
+        console.log(`[${side}] ⏸️  No scroll needed`);
+        return;
+      }
+
+      console.log(`[${side}] 🚀 STARTING SCROLL!`);
+
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      console.log(`[${side}] maxScroll: ${maxScroll}px`);
+
+      let currentPosition = 0;
 
       intervalRef.current = setInterval(() => {
-        if (!container) return;
-
-        // Om vi är i paus, hoppa över
-        if (isPausedRef.current) return;
-
-        const currentScroll = container.scrollTop;
-        const newScroll = currentScroll + scrollStep;
-
-        // Debug log varje sekund (20 iterations)
-        if (Math.floor(currentScroll / scrollStep) % 20 === 0) {
-          console.log(`[${side}] 📍 scrollTop=${currentScroll.toFixed(0)}/${maxScroll.toFixed(0)}`);
+        if (!container) {
+          console.log(`[${side}] ⚠️  Container lost in interval`);
+          return;
         }
 
-        if (newScroll >= maxScroll) {
-          console.log(`[${side}] 🔚 Reached bottom, pausing 2s`);
-          container.scrollTop = maxScroll;
-          isPausedRef.current = true;
+        currentPosition += 1;
+        container.scrollTop = currentPosition;
 
-          // Pausa i 2 sekunder, sedan reset
+        // Log varje 50 pixels
+        if (currentPosition % 50 === 0) {
+          console.log(`[${side}] 📍 Position: ${currentPosition}/${maxScroll}`);
+        }
+
+        if (currentPosition >= maxScroll) {
+          console.log(`[${side}] 🔚 Reached bottom, resetting in 2s`);
           setTimeout(() => {
             if (container) {
-              console.log(`[${side}] 🔄 Resetting to top`);
               container.scrollTop = 0;
-              isPausedRef.current = false;
+              currentPosition = 0;
+              console.log(`[${side}] 🔄 Reset complete`);
             }
           }, 2000);
-        } else {
-          container.scrollTop = newScroll;
         }
-      }, scrollInterval);
+      }, 30);
+
+      console.log(`[${side}] ✅ Interval started (ID: ${intervalRef.current})`);
 
       // Cleanup
       return () => {
-        console.log(`[${side}] 🧹 Cleaning up interval`);
+        console.log(`[${side}] 🧹 Cleanup called`);
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
+          console.log(`[${side}] ✅ Interval cleared`);
           intervalRef.current = null;
         }
-        isPausedRef.current = false;
       };
     }, [isActive, needsScroll, side, scrollableStats.length]);
 
@@ -452,26 +460,17 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
               ref={scrollContainerRef}
               style={{
                 ...styles.scrollContainer,
-                height: `${visibleRows * effectiveRowHeight}px`,
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
+                height: `${visibleRows * effectiveRowHeight}px`
               }}
             >
-              <style>
-                {`
-                  .scroll-container::-webkit-scrollbar {
-                    display: none;
-                  }
-                `}
-              </style>
-              <div className="scroll-container" style={styles.items}>
-                {scrollableStats.map((item, index) => renderItem(item, index + frozenCount, false))}
-              </div>
+              {scrollableStats.map((item, index) => renderItem(item, index + frozenCount, false))}
             </div>
 
             {needsScroll && (
               <div style={styles.scrollIndicator}>
-                <span style={styles.scrollIndicatorText}>Scrollar automatiskt...</span>
+                <span style={styles.scrollIndicatorText}>
+                  Scrollar automatiskt... (Debug: isActive={isActive.toString()})
+                </span>
               </div>
             )}
           </>
