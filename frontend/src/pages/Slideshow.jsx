@@ -230,24 +230,26 @@ const Slideshow = () => {
 
     const handleNewDeal = (notification) => {
       console.log('🎉 New deal received:', notification.agent?.name || 'Unknown');
+      console.log('📦 Full notification:', notification);
       
       if (notification.agent && 
           notification.agent.name && 
           notification.agent.name !== 'Agent null') {
         setCurrentNotification(notification);
+        
+        // ✅ Refresh efter 5 sekunder (efter ljud och konfetti är klart)
+        setTimeout(() => {
+          console.log('🔄 Refreshing leaderboard data after new deal...');
+          fetchSlideshowData(true);
+        }, 5000);
       }
-      
-      // ✨ UPPDATERAD: Refresh efter 5 sekunder
-      setTimeout(() => {
-        console.log('🔄 Refreshing after new deal...');
-        fetchSlideshowData(true);
-      }, 5000);
     };
 
-    socketService.onNewDeal(handleNewDeal);
+    // ✅ Lyssna på rätt event namn
+    socketService.on('new_deal', handleNewDeal);
 
     return () => {
-      socketService.offNewDeal(handleNewDeal);
+      socketService.off('new_deal', handleNewDeal);
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
       }
