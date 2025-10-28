@@ -1,15 +1,30 @@
+// backend/services/pollingService.js
+// ✅ FIXAD VERSION - Initialiserar alla dependencies i konstruktorn
+
 const adversusAPI = require('./adversusAPI');
 const database = require('./database');
 const soundSettings = require('./soundSettings');
 const soundLibrary = require('./soundLibrary');
 const leaderboardCache = require('./leaderboardCache');
 const dealsCache = require('./dealsCache');
-const smsCache = require('./smsCache'); // 📱 NY: SMS Cache
+const smsCache = require('./smsCache');
 const notificationSettings = require('./notificationSettings');
 
 class PollingService {
   constructor(io) {
     this.io = io;
+    
+    // ✅ KRITISKT FIX: Initialize all dependencies
+    this.database = database;
+    this.dealsCache = dealsCache;
+    this.smsCache = smsCache;
+    this.leaderboardCache = leaderboardCache;
+    this.notificationSettings = notificationSettings;
+    this.soundSettings = soundSettings;
+    this.soundLibrary = soundLibrary;
+    this.adversusAPI = adversusAPI;
+    
+    // Polling configuration
     this.pollInterval = parseInt(process.env.POLL_INTERVAL) || 15000;
     this.lastCheckTime = new Date(Date.now() - 60000);
     this.isPolling = false;
@@ -19,24 +34,21 @@ class PollingService {
     this.maxRetries = 10;
     this.retryDelay = 15000;
     
-    // 🔥 NY: Track vilka deals vi redan skickat notifikationer för
+    // Track notified leads to prevent duplicate notifications
     this.notifiedLeads = new Set();
     
-    // 🔥 NY: Rensa notifiedLeads varje timme
+    // Cleanup old notifications every hour
     setInterval(() => {
-      const oneHourAgo = Date.now() - (60 * 60 * 1000);
-      // Ta bort gamla entries (vi lagrar timestamp i Set)
-      // För enkelhetens skull, rensa hela Set varje timme
       console.log(`🧹 Clearing notifiedLeads cache (${this.notifiedLeads.size} entries)`);
       this.notifiedLeads.clear();
-    }, 60 * 60 * 1000); // En timme
+    }, 60 * 60 * 1000);
   }
 
   async start() {
     console.log(`🔄 Starting polling (${this.pollInterval}ms interval)`);
     
-    // 📱 NY: Initialize SMS cache
-    await smsCache.init();
+    // Initialize SMS cache
+    await this.smsCache.init();
     
     this.isPolling = true;
     this.poll();
@@ -57,11 +69,11 @@ class PollingService {
     try {
       console.log('🔍 Polling for new deals...');
       
-      // 1️⃣ KOLLA PENDING DEALS FÖRST
+      // 1. Check pending deals first
       await this.checkPendingDeals();
       
-      // 2️⃣ HÄMTA NYA SUCCESS LEADS
-      const result = await adversusAPI.getSuccessLeads(this.lastCheckTime);
+      // 2. Fetch new success leads
+      const result = await this.adversusAPI.getSuccessLeads(this.lastCheckTime);
       const newLeads = result.leads || [];
       
       if (newLeads.length > 0) {
@@ -72,10 +84,10 @@ class PollingService {
         }
       }
       
-      // 3️⃣ 📱 NY: AUTO-SYNC SMS CACHE IF NEEDED
-      await smsCache.autoSync(adversusAPI);
+      // 3. Auto-sync SMS cache if needed
+      await this.smsCache.autoSync(this.adversusAPI);
       
-      // 4️⃣ RENSA GAMLA PENDING DEALS
+      // 4. Cleanup old pending deals
       this.cleanupOldPendingDeals();
       
       this.lastCheckTime = new Date();
@@ -107,7 +119,7 @@ class PollingService {
       const { lead, attempts, firstSeen } = pendingData;
       
       try {
-        const response = await adversusAPI.request(`/leads/${leadId}`);
+        const response = await this.adversusAPI.request(`/leads/${leadId}`);
         const updatedLead = response.leads?.[0];
         
         if (!updatedLead) {
@@ -154,127 +166,127 @@ class PollingService {
     }
   }
 
-async processDeal(lead) {
-  try {
-    console.log(`📌 Processing lead ${lead.id}...`);
-    
-    // 🔥 Hämta commission från resultData
-    const commissionField = lead.resultData?.find(f => f.id === 70163);
-    const commissionValue = parseFloat(commissionField?.value || 0);
-    
-    // 🔥 NYTT: Leta efter MultiDeals i BÅDE masterData OCH resultData
-    let multiDeals = '1'; // Default
-    
-    // Försök hitta i resultData först (field 74126)
-    const resultMultiDeals = lead.resultData?.find(f => f.id === 74126);
-    if (resultMultiDeals?.value) {
-      multiDeals = resultMultiDeals.value;
-      console.log(`  📊 Found multiDeals in resultData = ${multiDeals}`);
-    } else {
-      // Leta i masterData (flera möjliga labels/IDs)
-      const masterMultiDeals = lead.masterData?.find(f => 
-        f.label?.toLowerCase().includes('multideal') || 
-        f.label?.toLowerCase().includes('multi deal') ||
-        f.label?.toLowerCase().includes('antal deals') ||
-        f.id === 74126 ||
-        f.id === 74198  // Lägg till om du känner till exakt field ID
+  async processDeal(lead, fromPending = false) {
+    try {
+      console.log(`📌 Processing lead ${lead.id}...`);
+      
+      // Get commission from resultData
+      const commissionField = lead.resultData?.find(f => f.id === 70163);
+      const commissionValue = parseFloat(commissionField?.value || 0);
+      
+      // Get multiDeals - IMPORTANT: Check BOTH masterData AND resultData
+      let multiDeals = '1'; // Default
+      
+      // Try resultData first (field 74126)
+      const resultMultiDeals = lead.resultData?.find(f => f.id === 74126);
+      if (resultMultiDeals?.value) {
+        multiDeals = resultMultiDeals.value;
+        console.log(`  📊 Found multiDeals in resultData = ${multiDeals}`);
+      } else {
+        // Try masterData
+        const masterMultiDeals = lead.masterData?.find(f => 
+          f.label?.toLowerCase().includes('multideal') || 
+          f.label?.toLowerCase().includes('multi deal') ||
+          f.label?.toLowerCase().includes('antal deals') ||
+          f.id === 74126 ||
+          f.id === 74198
+        );
+        
+        if (masterMultiDeals?.value) {
+          multiDeals = masterMultiDeals.value;
+          console.log(`  📊 Found multiDeals in masterData (field ${masterMultiDeals.id}, label: "${masterMultiDeals.label}") = ${multiDeals}`);
+        }
+      }
+      
+      console.log(`  💰 Commission: ${commissionValue} THB`);
+      console.log(`  🎯 MultiDeals: ${multiDeals}`);
+      
+      // If commission = 0, add to pending queue (unless already from pending)
+      if (commissionValue === 0 && !fromPending) {
+        console.log(`  ⏳ Commission is 0, adding to pending queue`);
+        this.pendingDeals.set(lead.id, {
+          lead: lead,
+          attempts: 1,
+          firstSeen: Date.now()
+        });
+        return;
+      }
+      
+      // Remove from pending if it was there
+      if (this.pendingDeals.has(lead.id)) {
+        console.log(`  ✅ Removing from pending queue (commission received)`);
+        this.pendingDeals.delete(lead.id);
+      }
+      
+      // Get Order Date
+      const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
+      const orderDate = orderDateField?.value || lead.lastUpdatedTime;
+      
+      // Create deal object
+      const deal = {
+        leadId: lead.id,
+        userId: lead.lastContactedBy,
+        campaignId: lead.campaignId,
+        commission: commissionValue,
+        multiDeals: multiDeals,
+        orderDate: orderDate,
+        status: lead.status
+      };
+      
+      // ✅ NOW this.dealsCache IS DEFINED!
+      await this.dealsCache.addDeal(deal);
+      
+      // Clear leaderboard cache so new stats are recalculated
+      this.leaderboardCache.clear();
+      
+      // Get agent info
+      const agent = await this.database.getAgent(lead.lastContactedBy);
+      
+      if (!agent) {
+        console.log(`  ⚠️ Agent ${lead.lastContactedBy} not found in database`);
+        return;
+      }
+      
+      // Count multiDeals
+      const multiDealsCount = parseInt(multiDeals);
+      console.log(`  🎯 This deal counts as ${multiDealsCount} deal(s)`);
+      
+      // Check if we should send notification
+      const shouldNotify = await this.notificationSettings.shouldNotifyForAgent(
+        agent.userId,
+        agent.groupId
       );
       
-      if (masterMultiDeals?.value) {
-        multiDeals = masterMultiDeals.value;
-        console.log(`  📊 Found multiDeals in masterData (field ${masterMultiDeals.id}, label: "${masterMultiDeals.label}") = ${multiDeals}`);
+      if (!shouldNotify) {
+        console.log(`  🚫 Notification blocked by group filter`);
+        return;
       }
-    }
-    
-    console.log(`  💰 Commission: ${commissionValue} THB`);
-    console.log(`  🎯 MultiDeals: ${multiDeals}`);
-    
-    // Om commission = 0, lägg i pending queue
-    if (commissionValue === 0) {
-      console.log(`  ⏳ Commission is 0, adding to pending queue`);
-      this.pendingDeals.set(lead.id, {
-        lead: lead,
-        attempts: 1,
-        firstSeen: Date.now()
+      
+      // Get today's total for notification
+      const todayTotal = await this.dealsCache.getTodayTotalForAgent(lead.lastContactedBy);
+      
+      console.log(`  📊 Today's total for agent: ${todayTotal} THB (${multiDealsCount} deals)`);
+      
+      // Send notification via Socket.io
+      this.io.emit('newDeal', {
+        agent: {
+          userId: agent.userId,
+          name: agent.name,
+          profileImage: agent.profileImage
+        },
+        commission: commissionValue,
+        multiDeals: multiDealsCount,
+        todayTotal: todayTotal,
+        leadId: lead.id,
+        timestamp: new Date().toISOString()
       });
-      return;
+      
+      console.log(`  ✅ Deal processed and notification sent! (${multiDealsCount} deals)`);
+      
+    } catch (error) {
+      console.error(`  ❌ Error processing deal:`, error);
     }
-    
-    // Ta bort från pending om den fanns där
-    if (this.pendingDeals.has(lead.id)) {
-      console.log(`  ✅ Removing from pending queue (commission received)`);
-      this.pendingDeals.delete(lead.id);
-    }
-    
-    // Hämta Order Date
-    const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
-    const orderDate = orderDateField?.value || lead.lastUpdatedTime;
-    
-    // Skapa deal object
-    const deal = {
-      leadId: lead.id,
-      userId: lead.lastContactedBy,
-      campaignId: lead.campaignId,
-      commission: commissionValue,
-      multiDeals: multiDeals,  // ✅ Nu korrekt från masterData!
-      orderDate: orderDate,
-      status: lead.status
-    };
-    
-    // Lägg till i cache
-    await this.dealsCache.addDeal(deal);
-    
-    // Rensa leaderboard cache så att nya stats räknas om
-    this.leaderboardCache.clear();
-    
-    // Hämta agent info
-    const agent = await this.database.getAgent(lead.lastContactedBy);
-    
-    if (!agent) {
-      console.log(`  ⚠️ Agent ${lead.lastContactedBy} not found in database`);
-      return;
-    }
-    
-    // 🔥 VIKTIGT: Använd multiDeals när vi räknar dagens total!
-    const multiDealsCount = parseInt(multiDeals);
-    console.log(`  🎯 This deal counts as ${multiDealsCount} deal(s)`);
-    
-    // Kolla om vi ska skicka notifikation
-    const shouldNotify = await this.notificationSettings.shouldNotifyForAgent(
-      agent.userId,
-      agent.groupId
-    );
-    
-    if (!shouldNotify) {
-      console.log(`  🚫 Notification blocked by group filter`);
-      return;
-    }
-    
-    // Hämta dagens total FÖR NOTIFIKATION
-    const todayTotal = await this.dealsCache.getTodayTotalForAgent(lead.lastContactedBy);
-    
-    console.log(`  📊 Today's total for agent: ${todayTotal} THB (${multiDealsCount} deals)`);
-    
-    // Skicka notifikation via Socket.io
-    this.io.emit('newDeal', {
-      agent: {
-        userId: agent.userId,
-        name: agent.name,
-        profileImage: agent.profileImage
-      },
-      commission: commissionValue,
-      multiDeals: multiDealsCount,  // ✅ Skicka rätt antal!
-      todayTotal: todayTotal,
-      leadId: lead.id,
-      timestamp: new Date().toISOString()
-    });
-    
-    console.log(`  ✅ Deal processed and notification sent! (${multiDealsCount} deals)`);
-    
-  } catch (error) {
-    console.error(`  ❌ Error processing deal:`, error);
   }
-}
 
   cleanupOldPendingDeals() {
     const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
