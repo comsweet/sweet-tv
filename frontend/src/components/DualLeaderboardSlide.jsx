@@ -1,6 +1,7 @@
 // KOMPLETT INLINE CSS VERSION - frontend/src/components/DualLeaderboardSlide.jsx
 // INGA EXTERNA CSS FILER BEHÖVS!
 // Fixar: Separat scroll, Dart emoji, Frozen topp 3, OCH SCROLLA HELA VÄGEN!
+// ✨ NY: Dynamisk färglogik baserad på timePeriod
 
 import { useState, useEffect } from 'react';
 
@@ -204,10 +205,27 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     return labels[period] || period;
   };
 
-  const getCommissionStyle = (commission) => {
-    if (!commission || commission === 0) return styles.commissionZero;
-    if (commission < 3400) return styles.commissionLow;
-    return styles.commissionHigh;
+  // ✨ NY FÄRGLOGIK - Dynamisk baserad på timePeriod
+  const getCommissionStyle = (commission, timePeriod) => {
+    // 🔴 Alltid röd för 0 THB
+    if (!commission || commission === 0) {
+      return styles.commissionZero;
+    }
+
+    // 📅 Olika trösklar beroende på period
+    if (timePeriod === 'day') {
+      // Idag: 3 400 THB är gränsen
+      if (commission < 3400) {
+        return styles.commissionLow; // 🟠 Orange
+      }
+      return styles.commissionHigh; // 🟢 Grön
+    } else {
+      // Vecka & Månad: 50 000 THB är gränsen
+      if (commission < 50000) {
+        return styles.commissionLow; // 🟠 Orange
+      }
+      return styles.commissionHigh; // 🟢 Grön
+    }
   };
 
   // Reset scroll when slide becomes inactive
@@ -314,8 +332,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
           </div>
 
-          {/* Commission */}
-          <div style={{ ...styles.commission, ...getCommissionStyle(commission) }}>
+          {/* Commission - ✨ NY: Skickar med timePeriod! */}
+          <div style={{ ...styles.commission, ...getCommissionStyle(commission, leaderboard.timePeriod) }}>
             {commission.toLocaleString('sv-SE')} THB
           </div>
         </div>
