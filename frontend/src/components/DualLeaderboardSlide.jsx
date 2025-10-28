@@ -1,8 +1,8 @@
-// 🔥 TV SCROLL FIX V8 - ENKEL CSS utan state loops
-// PROBLEM V7: setCssReady skapar infinite loop
-// LÖSNING: Använd ref istället för state, inject CSS direkt
+// 🔥 TV SCROLL FIX V9 - GLOBAL CSS som aldrig tas bort
+// PROBLEM V8: useEffect cleanup körs för ofta, tar bort CSS i loop
+// LÖSNING: Skapa CSS vid första mount, ta ENDAST bort vid component unmount
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 
 const styles = {
   slide: {
@@ -284,7 +284,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     if (!leaderboard || !Array.isArray(stats)) return null;
 
     const styleElementRef = useRef(null);
-    const animationNameRef = useRef(null);
+    const isInitializedRef = useRef(false);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
@@ -302,63 +302,68 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const totalContentHeight = scrollableStats.length * effectiveRowHeight;
     const scrollDistance = Math.max(0, totalContentHeight - containerHeight);
 
-    // 🔥 INJECT CSS EN GÅNG med useRef - INGEN STATE!
-    useEffect(() => {
-      // Om CSS redan finns, returnera
-      if (styleElementRef.current) {
-        console.log(`[${side}] ✅ CSS already exists, skipping`);
-        return;
-      }
-
+    // 🔥 Beräkna animation data med useMemo (stabilt mellan renders)
+    const animationData = useMemo(() => {
       if (!needsScroll || scrollDistance <= 0) {
-        console.log(`[${side}] ⏸️  No scroll needed`);
-        return;
+        return null;
       }
 
-      console.log(`[${side}] 🎨 Creating CSS Animation (one-time)`);
-      console.log(`[${side}] - scrollDistance: ${scrollDistance}px`);
-
-      // Beräkna durations
       const scrollSpeed = 30;
       const scrollDuration = scrollDistance / scrollSpeed;
       const pauseDuration = 2;
       const totalCycleDuration = scrollDuration + pauseDuration;
-
       const animationName = `scroll-${side}-${Date.now()}`;
-      animationNameRef.current = animationName;
-
       const scrollPercent = (scrollDuration / totalCycleDuration * 100).toFixed(1);
 
-      // Inject CSS
+      return {
+        animationName,
+        totalCycleDuration,
+        scrollPercent,
+        scrollDistance
+      };
+    }, [needsScroll, scrollDistance, side]);
+
+    // 🔥 INJECT CSS VID MOUNT, TA BORT VID UNMOUNT
+    useEffect(() => {
+      // Om redan initialiserad eller ingen scroll behövs
+      if (isInitializedRef.current || !animationData) {
+        return;
+      }
+
+      console.log(`[${side}] 🎨 INJECTING CSS (mount only)`);
+      console.log(`[${side}] - scrollDistance: ${animationData.scrollDistance}px`);
+      console.log(`[${side}] - animation: ${animationData.animationName}`);
+
       const styleEl = document.createElement('style');
       styleEl.textContent = `
-        @keyframes ${animationName} {
+        @keyframes ${animationData.animationName} {
           0% {
             transform: translateY(0);
           }
-          ${scrollPercent}% {
-            transform: translateY(-${scrollDistance}px);
+          ${animationData.scrollPercent}% {
+            transform: translateY(-${animationData.scrollDistance}px);
           }
-          ${scrollPercent}%, 100% {
-            transform: translateY(-${scrollDistance}px);
+          ${animationData.scrollPercent}%, 100% {
+            transform: translateY(-${animationData.scrollDistance}px);
           }
         }
       `;
       document.head.appendChild(styleEl);
       styleElementRef.current = styleEl;
+      isInitializedRef.current = true;
 
-      console.log(`[${side}] ✅ CSS Animation created: ${animationName}`);
+      console.log(`[${side}] ✅ CSS injected successfully`);
 
-      // Cleanup
+      // 🔥 CLEANUP ENDAST VID UNMOUNT (hela komponenten tas bort)
       return () => {
-        console.log(`[${side}] 🧹 Removing CSS animation on unmount`);
+        console.log(`[${side}] 🧹 Component unmounting - removing CSS`);
         if (styleElementRef.current) {
           styleElementRef.current.remove();
           styleElementRef.current = null;
-          animationNameRef.current = null;
         }
+        isInitializedRef.current = false;
       };
-    }, [needsScroll, scrollDistance, side]);
+    }, []); // ✅ EMPTY DEPS = körs endast vid mount/unmount!
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -427,18 +432,14 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    // 🔥 Beräkna animation style - ENKEL!
+    // 🔥 Beräkna animation style
     const getAnimationStyle = () => {
-      if (!animationNameRef.current || !needsScroll || scrollDistance <= 0) {
+      if (!animationData) {
         return {};
       }
 
-      const scrollSpeed = 30;
-      const scrollDuration = scrollDistance / scrollSpeed;
-      const totalCycleDuration = scrollDuration + 2;
-
       return {
-        animation: `${animationNameRef.current} ${totalCycleDuration}s linear infinite`,
+        animation: `${animationData.animationName} ${animationData.totalCycleDuration}s linear infinite`,
         animationPlayState: isActive ? 'running' : 'paused',
         willChange: 'transform'
       };
