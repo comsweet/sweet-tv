@@ -1,5 +1,5 @@
 // backend/services/pollingService.js
-// ✅ FIXAD VERSION - Initialiserar alla dependencies i konstruktorn
+// ✅ KOMPLETT FIX: Dependencies + Ljudlogik + Korrekt notification
 
 const adversusAPI = require('./adversusAPI');
 const database = require('./database');
@@ -218,6 +218,17 @@ class PollingService {
         this.pendingDeals.delete(lead.id);
       }
       
+      // Get agent info BEFORE adding deal (to calculate previous total)
+      const agent = await this.database.getAgent(lead.lastContactedBy);
+      
+      if (!agent) {
+        console.log(`  ⚠️ Agent ${lead.lastContactedBy} not found in database`);
+        return;
+      }
+      
+      // ✅ FIX 1: Get today's total BEFORE adding the new deal
+      const previousTotal = await this.dealsCache.getTodayTotalForAgent(lead.lastContactedBy);
+      
       // Get Order Date
       const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
       const orderDate = orderDateField?.value || lead.lastUpdatedTime;
@@ -233,42 +244,63 @@ class PollingService {
         status: lead.status
       };
       
-      // ✅ NOW this.dealsCache IS DEFINED!
+      // Add to cache
       await this.dealsCache.addDeal(deal);
       
       // Clear leaderboard cache so new stats are recalculated
       this.leaderboardCache.clear();
       
-      // Get agent info
-      const agent = await this.database.getAgent(lead.lastContactedBy);
-      
-      if (!agent) {
-        console.log(`  ⚠️ Agent ${lead.lastContactedBy} not found in database`);
-        return;
-      }
+      // Calculate new total AFTER adding deal
+      const newTotal = previousTotal + commissionValue;
       
       // Count multiDeals
       const multiDealsCount = parseInt(multiDeals);
       console.log(`  🎯 This deal counts as ${multiDealsCount} deal(s)`);
       
-      // Check if we should send notification
-      const shouldNotify = await this.notificationSettings.shouldNotifyForAgent(
-        agent.userId,
-        agent.groupId
-      );
+      // ✅ FIX 2: Check if notification should be sent (KORREKT METOD)
+      const shouldNotify = await this.notificationSettings.shouldNotify(agent);
       
       if (!shouldNotify) {
         console.log(`  🚫 Notification blocked by group filter`);
         return;
       }
       
-      // Get today's total for notification
-      const todayTotal = await this.dealsCache.getTodayTotalForAgent(lead.lastContactedBy);
+      // ✅ FIX 3: LJUDLOGIK - Bestäm vilket ljud som ska spelas
+      const settings = await this.soundSettings.getSettings();
+      const dailyBudget = settings.dailyBudget || 3600;
       
-      console.log(`  📊 Today's total for agent: ${todayTotal} THB (${multiDealsCount} deals)`);
+      let soundType = 'default';
+      let soundUrl = settings.defaultSound || null;
+      let reachedBudget = false;
       
-      // Send notification via Socket.io
-      this.io.emit('newDeal', {
+      // Check if agent reached budget for the FIRST time today
+      if (previousTotal < dailyBudget && newTotal >= dailyBudget) {
+        reachedBudget = true;
+        console.log(`  🏆 Agent reached daily budget!`);
+      }
+      
+      // Determine sound based on budget status
+      if (newTotal >= dailyBudget) {
+        // Agent is at/over budget
+        if (agent.customSound && agent.preferCustomSound) {
+          soundType = 'agent';
+          soundUrl = agent.customSound;
+          console.log(`  🎵 Playing agent custom sound`);
+        } else {
+          soundType = 'milestone';
+          soundUrl = settings.milestoneSound || settings.defaultSound;
+          console.log(`  🎵 Playing milestone sound`);
+        }
+      } else {
+        soundType = 'default';
+        soundUrl = settings.defaultSound || null;
+        console.log(`  🎵 Playing default sound`);
+      }
+      
+      console.log(`  📊 Today's total: ${newTotal} THB (budget: ${dailyBudget})`);
+      
+      // ✅ FIX 4: Send notification via Socket.io (KORREKT EVENT NAMN)
+      this.io.emit('new_deal', {
         agent: {
           userId: agent.userId,
           name: agent.name,
@@ -276,15 +308,21 @@ class PollingService {
         },
         commission: commissionValue,
         multiDeals: multiDealsCount,
-        todayTotal: todayTotal,
+        soundType: soundType,
+        soundUrl: soundUrl,
+        dailyTotal: newTotal,
+        dailyBudget: dailyBudget,
+        reachedBudget: reachedBudget,
         leadId: lead.id,
         timestamp: new Date().toISOString()
       });
       
-      console.log(`  ✅ Deal processed and notification sent! (${multiDealsCount} deals)`);
+      console.log(`  ✅ Deal processed and notification sent!`);
+      console.log(`     Sound: ${soundType}, Total: ${newTotal} THB`);
       
     } catch (error) {
       console.error(`  ❌ Error processing deal:`, error);
+      console.error(`     Stack:`, error.stack);
     }
   }
 
