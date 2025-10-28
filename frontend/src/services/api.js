@@ -33,6 +33,9 @@ export const syncGroupsFromAdversus = () => api.post('/agents/sync-groups');
 export const getAdversusUserGroups = () => api.get('/adversus/user-groups');
 export const getAdversusUsers = () => api.get('/adversus/users');
 
+// 🔥 NY: Groups (KORREKT METOD - från user.group.id)
+export const getAvailableGroups = () => api.get('/groups/available');
+
 // Polling
 export const triggerManualPoll = () => api.post('/poll/trigger');
 
