@@ -124,11 +124,7 @@ const getResponsiveStyles = () => {
       borderColor: '#c0c0c0',
       borderWidth: `${2.5 * scale}px`
     },
-    itemThirdPlace: {
-      background: 'linear-gradient(135deg, #cd7f32 0%, #d4a574 100%)',
-      borderColor: '#b8860b',
-      borderWidth: `${2.5 * scale}px`
-    },
+    // itemThirdPlace borttagen - trean får samma style som alla andra
     itemFrozen: {
       position: 'relative',
       zIndex: 10,
@@ -139,7 +135,7 @@ const getResponsiveStyles = () => {
       background: 'rgba(255, 255, 255, 0.7)'
     },
     rank: {
-      fontSize: `${1.1 * scale}rem`, // Original storlek
+      fontSize: `${1.5 * scale}rem`, // ✨ ÖKAT från 1.1rem - Större medaljer!
       fontWeight: 'bold',
       textAlign: 'center',
       color: '#2c3e50',
@@ -393,9 +389,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         itemStyle = { ...itemStyle, ...styles.itemFirstPlace };
       } else if (rank === 2 && !isZeroDeals) {
         itemStyle = { ...itemStyle, ...styles.itemSecondPlace };
-      } else if (rank === 3 && !isZeroDeals) {
-        itemStyle = { ...itemStyle, ...styles.itemThirdPlace };
       }
+      // Rank 3 får vanlig style - ingen special styling
       if (isZeroDeals) {
         itemStyle = { ...itemStyle, ...styles.itemZeroDeals };
       }
