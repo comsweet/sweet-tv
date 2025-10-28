@@ -6,8 +6,6 @@ const { Server } = require('socket.io');
 const path = require('path');
 const apiRoutes = require('./routes/api');
 const PollingService = require('./services/pollingService');
-const dealsCache = require('./services/dealsCache'); // 📱 NY
-const smsCache = require('./services/smsCache');     // 📱 NY
 
 const app = express();
 const server = http.createServer(app);
@@ -37,16 +35,14 @@ io.on('connection', (socket) => {
   });
 });
 
-// 📱 NY: Start server with async initialization
+// 📱 Start server with async initialization
 async function startServer() {
   try {
-    // Initialize caches before starting polling
-    console.log('💾 Initializing caches...');
-    await dealsCache.init();
-    await smsCache.init();
-    console.log('✅ Caches initialized\n');
+    // 📱 NOTE: Cache initialization happens in PollingService.start()
+    // dealsCache and smsCache will be loaded when polling starts
+    console.log('🚀 Starting server...');
 
-    // Start polling
+    // Start polling (this will initialize caches internally)
     const pollingService = new PollingService(io);
     app.set('pollingService', pollingService);
     pollingService.start();
