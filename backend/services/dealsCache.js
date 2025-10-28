@@ -205,7 +205,7 @@ class DealsCache {
       // Konvertera till vårt format
       const deals = leads.map(lead => {
         const commissionField = lead.resultData?.find(f => f.id === 70163);
-        const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
+        const multiDealsField = lead.resultData?.find(f => f.id === 74126); // ✅ Uppdatera här också!
         const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
         
         return {
@@ -218,7 +218,7 @@ class DealsCache {
           status: lead.status,
           syncedAt: new Date().toISOString()
         };
-      }); // 🔥 DEBUG: Removed filter to see all deals
+      });
       
       console.log('🐛 DEBUG: Deals before filter:');
       deals.forEach(deal => {
