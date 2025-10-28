@@ -1179,14 +1179,23 @@ router.post('/notification-settings/mode', async (req, res) => {
   }
 });
 
-// GET available groups (korrekt metod)
+// ==================== GROUPS ====================
+
+// Get available groups (KORREKT METOD - från user.group.id)
 router.get('/groups/available', async (req, res) => {
   try {
     const groups = await notificationSettings.getAvailableGroups(adversusAPI);
-    res.json({ success: true, groups });
+    
+    res.json({
+      success: true,
+      groups: groups
+    });
   } catch (error) {
     console.error('Error fetching available groups:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 });
 
