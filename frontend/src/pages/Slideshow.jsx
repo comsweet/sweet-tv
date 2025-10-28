@@ -1,11 +1,12 @@
 // frontend/src/pages/Slideshow.jsx
+// ✨ UPPDATERAD: Nu med stöd för Live Leaderboards från Adversus (med SMS!)
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
-import { getSlideshow, getLeaderboardStats2 } from '../services/api';
+import { getSlideshow, getLeaderboardStats2, syncDealsFromAdversus, syncSMSFromAdversus } from '../services/api';
 import DealNotification from '../components/DealNotification';
-import DualLeaderboardSlide from '../components/DualLeaderboardSlide'; // ✨ KRITISK IMPORT
+import DualLeaderboardSlide from '../components/DualLeaderboardSlide';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -106,8 +107,43 @@ const Slideshow = () => {
   const intervalRef = useRef(null);
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
+  const adversusSyncRef = useRef(null);
 
-  // ✨ UPPDATERAD: Fetch slideshow med stöd för både single och dual mode
+  // ✨ NYTT: Synka Adversus-data (deals + SMS)
+  const syncAdversusData = async (silent = false) => {
+    try {
+      if (!silent) {
+        console.log('🔄 Synkar deals och SMS från Adversus...');
+      }
+      
+      await Promise.all([
+        syncDealsFromAdversus(),
+        syncSMSFromAdversus()
+      ]);
+      
+      if (!silent) {
+        console.log('✅ Adversus-data synkad!');
+      }
+    } catch (error) {
+      console.error('❌ Fel vid synkning av Adversus-data:', error);
+      // Fortsätt ändå - befintliga leaderboards fungerar fortfarande
+    }
+  };
+
+  // ✨ UPPDATERAD: Helper för att hämta stats (med stöd för live leaderboards)
+  const getStatsForLeaderboard = async (lbId) => {
+    // Kolla om det är en "live" leaderboard från Adversus
+    if (lbId === 'live-today' || lbId === 'live-month') {
+      console.log(`📊 Hämtar ${lbId} från Adversus cache...`);
+      const response = await getLeaderboardStats2(lbId);
+      return response;
+    } else {
+      // Befintlig logik för vanliga leaderboards
+      return await getLeaderboardStats2(lbId);
+    }
+  };
+
+  // ✨ UPPDATERAD: Fetch slideshow med stöd för både single och dual mode + live leaderboards
   const fetchSlideshowData = async (silent = false) => {
     try {
       if (!silent) {
@@ -138,10 +174,10 @@ const Slideshow = () => {
               console.log(`  Left: ${dualSlide.left}, Right: ${dualSlide.right}`);
             }
             
-            // Hämta båda leaderboards parallellt
+            // ✨ UPPDATERAD: Använd nya helper-funktionen
             const [leftStatsRes, rightStatsRes] = await Promise.all([
-              getLeaderboardStats2(dualSlide.left),
-              getLeaderboardStats2(dualSlide.right)
+              getStatsForLeaderboard(dualSlide.left),
+              getStatsForLeaderboard(dualSlide.right)
             ]);
             
             dualSlidesData.push({
@@ -190,7 +226,8 @@ const Slideshow = () => {
               console.log(`📈 Loading leaderboard ${i + 1}/${slideshowData.leaderboards.length}`);
             }
             
-            const statsResponse = await getLeaderboardStats2(lbId);
+            // ✨ UPPDATERAD: Använd nya helper-funktionen
+            const statsResponse = await getStatsForLeaderboard(lbId);
             
             leaderboardsWithStats.push({
               type: 'single',
@@ -234,9 +271,25 @@ const Slideshow = () => {
     }
   };
 
+  // ✨ UPPDATERAD: Initial load med Adversus-synkning
   useEffect(() => {
-    fetchSlideshowData();
+    const initializeSlideshow = async () => {
+      // Synka Adversus-data först
+      await syncAdversusData(false);
+      
+      // Sedan ladda slideshow
+      await fetchSlideshowData();
+    };
+
+    initializeSlideshow();
     
+    // ✨ NYTT: Auto-synk av Adversus-data varje 5 minuter
+    adversusSyncRef.current = setInterval(() => {
+      console.log('🔄 Auto-synk: Uppdaterar Adversus-data...');
+      syncAdversusData(true);
+    }, 5 * 60 * 1000); // 5 minuter
+    
+    // Befintlig auto-refresh av slideshow-data (varje 2 min)
     refreshIntervalRef.current = setInterval(() => {
       console.log('🔄 Auto-refresh: Updating leaderboard data...');
       fetchSlideshowData(true);
@@ -254,8 +307,11 @@ const Slideshow = () => {
       }
       
       setTimeout(() => {
-        console.log('🔄 Deal received: Refreshing leaderboard data...');
-        fetchSlideshowData(true);
+        console.log('🔄 Deal received: Refreshing data...');
+        // Synka Adversus-data och uppdatera slideshow
+        syncAdversusData(true).then(() => {
+          fetchSlideshowData(true);
+        });
       }, 5000);
     };
 
@@ -265,6 +321,9 @@ const Slideshow = () => {
       socketService.offNewDeal(handleNewDeal);
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
+      }
+      if (adversusSyncRef.current) {
+        clearInterval(adversusSyncRef.current);
       }
     };
   }, [id]);
@@ -307,6 +366,9 @@ const Slideshow = () => {
         <div className="slideshow-loading">
           <h1>🏆 Sweet TV</h1>
           <p>Laddar slideshow...</p>
+          <p style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.5rem' }}>
+            Synkar data från Adversus...
+          </p>
         </div>
       </div>
     );
@@ -341,7 +403,7 @@ const Slideshow = () => {
         ))}
       </div>
 
-      {/* ✨ UPPDATERAD: Render både single och dual slides */}
+      {/* ✨ UPPDATERAD: Render både single och dual slides (med SMS-data!) */}
       {leaderboardsData.map((slideData, index) => {
         const isActive = index === currentIndex;
         
