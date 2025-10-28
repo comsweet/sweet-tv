@@ -1,6 +1,6 @@
-// 🔥 ALTERNATIV 5: FADE PAGINATION med frozen top 3
-// Top 3 stannar alltid synliga
-// Resten visas i grupper om 14, fade in/out mellan grupper
+// 🔥 ALTERNATIV 8: WIPE TRANSITION
+// Top 3 frozen, resten wipes horizontally mellan grupper
+// Gammal grupp glider ut åt vänster, ny grupp glider in från höger
 
 import { useState, useEffect, useRef } from 'react';
 
@@ -70,17 +70,29 @@ const styles = {
     borderRadius: '10px',
     padding: '0.5rem'
   },
-  paginatedSection: {
+  wipeContainer: {
     position: 'relative',
     flex: 1,
     overflow: 'hidden'
   },
-  paginatedContent: {
+  wipeContent: {
     position: 'absolute',
     top: 0,
     left: 0,
     width: '100%',
-    transition: 'opacity 0.8s ease-in-out',
+    transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s ease',
+  },
+  wipeContentExiting: {
+    transform: 'translateX(-100%)',
+    opacity: 0
+  },
+  wipeContentEntering: {
+    transform: 'translateX(100%)',
+    opacity: 0
+  },
+  wipeContentActive: {
+    transform: 'translateX(0)',
+    opacity: 1
   },
   item: {
     display: 'flex',
@@ -288,6 +300,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     if (!leaderboard || !Array.isArray(stats)) return null;
 
     const [currentPage, setCurrentPage] = useState(0);
+    const [isTransitioning, setIsTransitioning] = useState(false);
     const intervalRef = useRef(null);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
@@ -298,40 +311,47 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
     const itemsPerPage = 14;
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
-    const needsPagination = scrollableStats.length > itemsPerPage;
+    const needsWipe = scrollableStats.length > itemsPerPage;
 
-    // 🔥 PAGINATION LOGIC - Fade mellan grupper
+    // 🔥 WIPE TRANSITION LOGIC
     useEffect(() => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
 
-      if (!isActive || !needsPagination) {
-        console.log(`[${side}] ⏸️  Pagination stopped`);
+      if (!isActive || !needsWipe) {
+        console.log(`[${side}] ⏸️  Wipe stopped`);
         setCurrentPage(0);
+        setIsTransitioning(false);
         return;
       }
 
-      console.log(`[${side}] ▶️  Starting pagination: ${totalPages} pages, ${scrollableStats.length} items`);
+      console.log(`[${side}] 🎬 Starting wipe transitions: ${totalPages} pages`);
 
-      // Byt sida var 5:e sekund
+      // Byt sida var 5:e sekund med wipe
       intervalRef.current = setInterval(() => {
-        setCurrentPage(prev => {
-          const next = (prev + 1) % totalPages;
-          console.log(`[${side}] 📄 Page ${prev + 1} → ${next + 1}`);
-          return next;
-        });
+        setIsTransitioning(true);
+        
+        // Efter 800ms (wipe duration), uppdatera page
+        setTimeout(() => {
+          setCurrentPage(prev => {
+            const next = (prev + 1) % totalPages;
+            console.log(`[${side}] ➡️  Wipe to page ${next + 1}`);
+            return next;
+          });
+          setIsTransitioning(false);
+        }, 800);
       }, 5000);
 
       return () => {
-        console.log(`[${side}] 🧹 Cleanup pagination`);
+        console.log(`[${side}] 🧹 Cleanup wipe`);
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
       };
-    }, [isActive, needsPagination, totalPages, side, scrollableStats.length]);
+    }, [isActive, needsWipe, totalPages, side, scrollableStats.length]);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -400,10 +420,25 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    // Beräkna vilka items som ska visas på current page
+    // Beräkna current & next page items
     const startIndex = currentPage * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
     const currentPageItems = scrollableStats.slice(startIndex, endIndex);
+
+    // 🔥 Beräkna wipe style
+    const getWipeStyle = () => {
+      if (isTransitioning) {
+        return {
+          ...styles.wipeContent,
+          ...styles.wipeContentExiting
+        };
+      } else {
+        return {
+          ...styles.wipeContent,
+          ...styles.wipeContentActive
+        };
+      }
+    };
 
     return (
       <div style={styles.column}>
@@ -415,33 +450,28 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           </p>
         </div>
 
-        {/* Top 3 - ALLTID SYNLIGA */}
+        {/* Top 3 - FROZEN */}
         {topStats.length > 0 && (
           <div style={styles.frozenSection}>
             {topStats.map((item, index) => renderItem(item, index, true))}
           </div>
         )}
 
-        {/* Resten - FADE PAGINATION */}
+        {/* Resten - WIPE TRANSITION */}
         {scrollableStats.length > 0 && (
           <>
-            <div style={styles.paginatedSection}>
-              <div 
-                style={{
-                  ...styles.paginatedContent,
-                  opacity: 1
-                }}
-              >
+            <div style={styles.wipeContainer}>
+              <div style={getWipeStyle()}>
                 {currentPageItems.map((item, index) => 
                   renderItem(item, startIndex + index + frozenCount, false)
                 )}
               </div>
             </div>
 
-            {needsPagination && (
+            {needsWipe && (
               <div style={styles.pageIndicator}>
                 <span style={styles.pageIndicatorText}>
-                  {isActive ? `📄 Sida ${currentPage + 1} av ${totalPages}` : '⏸️ Pausad'}
+                  {isActive ? `➡️ Sida ${currentPage + 1} av ${totalPages}` : '⏸️ Pausad'}
                 </span>
               </div>
             )}
