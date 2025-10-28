@@ -285,7 +285,7 @@ router.get('/stats/leaderboard', async (req, res) => {
         
         // Räkna ut SMS procent (Unique SMS / Deals = SMS per deal i procent)
         if (stats[userId].dealCount > 0) {
-          const percentage = (userSmsStats.uniqueSmsCount / stats[userId].dealCount) * 100;
+          const percentage = (stats[userId].dealCount / userSmsStats.uniqueSmsCount) * 100;
           stats[userId].smsPercentage = Math.round(percentage * 100) / 100;
         } else {
           stats[userId].smsPercentage = 0;
