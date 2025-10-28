@@ -353,13 +353,13 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
           </div>
 
-          {/* 📱 SMS COLUMN - NYTT! */}
+          {/* 📱 SMS COLUMN */}
           <div style={styles.sms}>
             <div style={{ ...styles.smsPercentage, ...getSmsPercentageStyle(smsPercentage) }}>
               📱 {smsPercentage.toFixed(2)}%
             </div>
             <div style={styles.smsCount}>
-              {uniqueSmsCount}/{totalSmsCount}
+              {dealCount}/{uniqueSmsCount}
             </div>
           </div>
 
