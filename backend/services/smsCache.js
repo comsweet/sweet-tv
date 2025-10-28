@@ -9,18 +9,38 @@ class SMSCache {
     this.cache = [];
     this.writeQueue = [];
     this.isProcessing = false;
+    this.initialized = false;
+    
+    // 🔥 Auto-initialize on first use
+    this._initPromise = null;
   }
 
   // ==================== INITIALIZATION ====================
 
-  async init() {
+  async _ensureInitialized() {
+    if (this.initialized) return;
+    
+    if (!this._initPromise) {
+      this._initPromise = this._doInit();
+    }
+    
+    await this._initPromise;
+  }
+
+  async _doInit() {
     try {
       await this.loadCache();
+      this.initialized = true;
       console.log('📱 SMS Cache initialized');
     } catch (error) {
       console.error('❌ Error initializing SMS cache:', error.message);
       this.cache = [];
+      this.initialized = true; // Mark as initialized even on error
     }
+  }
+
+  async init() {
+    await this._ensureInitialized();
   }
 
   async loadCache() {
@@ -103,6 +123,8 @@ class SMSCache {
   // ==================== SYNC FROM ADVERSUS ====================
 
   async syncSMS(adversusAPI) {
+    await this._ensureInitialized(); // 🔥 Auto-init
+    
     try {
       const { startDate, endDate, startDateFormatted, endDateFormatted } = this.getRollingWindow();
       
@@ -203,6 +225,8 @@ class SMSCache {
   }
 
   async autoSync(adversusAPI) {
+    await this._ensureInitialized(); // 🔥 Auto-init
+    
     if (await this.needsSync()) {
       console.log('📱 Auto-syncing SMS...');
       return await this.syncSMS(adversusAPI);
@@ -244,6 +268,8 @@ class SMSCache {
    * Success rate = (deals / unique SMS) * 100
    */
   async getSMSStatsForAgent(userId, startDate, endDate, dealsCache) {
+    await this._ensureInitialized(); // 🔥 Auto-init
+    
     const uniqueSMS = this.getUniqueSMSForAgent(userId, startDate, endDate);
     
     // Get deals count for same period
@@ -281,6 +307,8 @@ class SMSCache {
   // ==================== STATS & MAINTENANCE ====================
 
   async getStats() {
+    await this._ensureInitialized(); // 🔥 Auto-init
+    
     const lastSync = await this.getLastSync();
     const { startDateFormatted, endDateFormatted } = this.getRollingWindow();
 
