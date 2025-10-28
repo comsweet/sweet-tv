@@ -1,4 +1,5 @@
 // UPPDATERAD DUAL LEADERBOARD - NY DESIGN MED SMS SUCCESS RATE
+// ✨ UPPDATERAD: Bredare kolumner för agentnamn + synligare SMS count
 // ✨ NY: Horisontell layout med SMS success rate i färgkodad box (liknar bild 2)
 // 📱 SMS: Visar success rate med uniqueSMS i parentes
 // 🎨 Färgkodning: ≥75% grön, 60-74.99% orange, <60% röd
@@ -80,7 +81,7 @@ const styles = {
   items: {
     willChange: 'transform'
   },
-  // 🆕 NY DESIGN: Horisontell layout
+  // 🆕 NY DESIGN: Horisontell layout med mer utrymme
   item: {
     display: 'flex',
     alignItems: 'center',
@@ -105,12 +106,12 @@ const styles = {
     zIndex: 10,
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
   },
-  // Vänster del: Rank + Avatar + Name
+  // Vänster del: Rank + Avatar + Name (BREDARE för att visa hela namn)
   leftSection: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.8rem',
-    flex: '0 0 240px',
+    flex: '0 0 300px', // ✨ UPPDATERAT: Från 240px till 300px
     minWidth: 0
   },
   rank: {
@@ -145,7 +146,7 @@ const styles = {
   },
   name: {
     margin: 0,
-    fontSize: '1rem',
+    fontSize: '1.05rem', // ✨ UPPDATERAT: Från 1rem till 1.05rem
     fontWeight: 600,
     color: '#2c3e50',
     whiteSpace: 'nowrap',
@@ -165,7 +166,7 @@ const styles = {
     fontSize: '1.1rem',
     fontWeight: 600,
     color: '#2c3e50',
-    flex: '0 0 80px',
+    flex: '0 0 90px', // ✨ UPPDATERAT: Från 80px till 90px
     justifyContent: 'center'
   },
   // 🆕 SMS Success Rate Box (som i bild 2)
@@ -176,7 +177,7 @@ const styles = {
     justifyContent: 'center',
     padding: '0.4rem 0.8rem',
     borderRadius: '8px',
-    flex: '0 0 110px',
+    flex: '0 0 120px', // ✨ UPPDATERAT: Från 110px till 120px
     minHeight: '48px'
   },
   smsBoxGreen: {
@@ -207,8 +208,9 @@ const styles = {
     color: '#c0392b'
   },
   smsCount: {
-    fontSize: '0.75rem',
-    color: '#7f8c8d',
+    fontSize: '0.8rem', // ✨ UPPDATERAT: Från 0.75rem till 0.8rem
+    color: '#2c3e50',  // ✨ UPPDATERAT: Från '#7f8c8d' (grå) till '#2c3e50' (svart)
+    fontWeight: 'bold', // ✨ NYTT: Bold för bättre synlighet
     margin: '0.1rem 0 0',
     lineHeight: 1
   },
