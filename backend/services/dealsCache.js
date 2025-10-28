@@ -4,21 +4,11 @@ const path = require('path');
 /**
  * PERSISTENT DEALS CACHE
  * 
- * Sparar alla success leads i en fil istället för att hämta från Adversus varje gång.
- * Rolling window: Nuvarande månad + 7 dagar innan.
+ * Rolling window: 7 dagar innan månadsskifte → sista dagen i nuvarande månad
  * 
- * Exempel:
- * - 24 november → Cachar: 24 okt - 30 nov
- * - 1 november → Cachar: 25 okt - 30 nov
- * 
- * Benefits:
- * - Drastiskt färre API calls
- * - Snabbare leaderboards
- * - "Denna vecka" fungerar alltid (även över månadsskifte)
- * 
- * 🔥 CONCURRENT SAFETY:
- * - Queue-baserad write hantering
- * - Förhindrar race conditions när flera agenter lägger deals samtidigt
+ * ✅ AUTO-SYNC: Synkar var 5:e minut (tidigare 6 timmar) 
+ * ✅ Queue system för att undvika race conditions
+ * ✅ Persistent disk storage på Render
  */
 class DealsCache {
   constructor() {
@@ -30,11 +20,11 @@ class DealsCache {
       : path.join(__dirname, '../data'); // Local development
     
     this.cacheFile = path.join(this.dbPath, 'deals-cache.json');
-    this.lastSyncFile = path.join(this.dbPath, 'last-sync.json');
+    this.lastSyncFile = path.join(this.dbPath, 'deals-last-sync.json');
     
     console.log(`💾 Deals Cache path: ${this.dbPath} (isRender: ${isRender})`);
     
-    // 🔥 Queue för att hantera concurrent writes
+    // Queue för concurrent writes
     this.writeQueue = [];
     this.isProcessing = false;
     
@@ -46,29 +36,26 @@ class DealsCache {
       await fs.mkdir(this.dbPath, { recursive: true });
 
       // Skapa cache file
-    try {
-      await fs.access(this.cacheFile);
-      console.log('✅ deals-cache.json exists');  // ✅ Lägg till denna
-    } catch {
-      await fs.writeFile(this.cacheFile, JSON.stringify({ deals: [] }, null, 2));
-      console.log('📝 Created deals-cache.json');  // ✅ Lägg till denna
-    }
+      try {
+        await fs.access(this.cacheFile);
+      } catch {
+        await fs.writeFile(this.cacheFile, JSON.stringify({ deals: [] }, null, 2));
+      }
 
-    // Skapa last sync file
-    try {
-      await fs.access(this.lastSyncFile);
-      console.log('✅ last-sync.json exists');  // ✅ Lägg till denna
-    } catch {
-      await fs.writeFile(this.lastSyncFile, JSON.stringify({ lastSync: null }, null, 2));
-      console.log('📝 Created last-sync.json');  // ✅ Lägg till denna
-    }
+      // Skapa last sync file
+      try {
+        await fs.access(this.lastSyncFile);
+      } catch {
+        await fs.writeFile(this.lastSyncFile, JSON.stringify({ lastSync: null }, null, 2));
+      }
 
-    console.log('💾 Deals cache initialized on persistent disk');  // ✅ Ändra detta
-  } catch (error) {
-    console.error('Error initializing deals cache:', error);
+      console.log('💾 Deals cache initialized');
+    } catch (error) {
+      console.error('Error initializing deals cache:', error);
+    }
   }
-}
-  // 🔥 NY: Process write queue (en operation i taget)
+
+  // Process write queue
   async processWriteQueue() {
     if (this.isProcessing || this.writeQueue.length === 0) {
       return;
@@ -82,7 +69,7 @@ class DealsCache {
         await operation.execute();
         operation.resolve();
       } catch (error) {
-        console.error('❌ Queue operation failed:', error);
+        console.error('❌ Deals Queue operation failed:', error);
         operation.reject(error);
       }
     }
@@ -90,7 +77,7 @@ class DealsCache {
     this.isProcessing = false;
   }
 
-  // 🔥 NY: Queue a write operation
+  // Queue a write operation
   async queueWrite(executeFn) {
     return new Promise((resolve, reject) => {
       this.writeQueue.push({
@@ -229,24 +216,21 @@ class DealsCache {
           status: lead.status,
           syncedAt: new Date().toISOString()
         };
-      }); // 🔥 DEBUG: Removed filter to see all deals
-      
-      console.log('🐛 DEBUG: Deals before filter:');
-      deals.forEach(deal => {
-        console.log(`  Lead ${deal.leadId}: commission=${deal.commission}, orderDate=${deal.orderDate}`);
       });
       
+      // Filtrera bara deals MED commission (annars blir cachen full av pending deals)
       const dealsWithCommission = deals.filter(deal => deal.commission > 0);
       
-      // 🔥 SPARA ALLA DEALS (INTE BARA MED COMMISSION) - för debugging
-      await this.saveCache(deals); // Uses queue
+      console.log(`💾 Caching ${dealsWithCommission.length} deals WITH commission`);
+      console.log(`   Skipping ${deals.length - dealsWithCommission.length} deals WITHOUT commission`);
+      
+      // Spara bara deals med commission
+      await this.saveCache(dealsWithCommission); // Uses queue
       await this.updateLastSync();
       
-      console.log(`💾 Cached ${deals.length} deals total`);
-      console.log(`   - ${dealsWithCommission.length} deals WITH commission`);
-      console.log(`   - ${deals.length - dealsWithCommission.length} deals WITHOUT commission`);
+      console.log(`✅ Deals sync complete\n`);
       
-      return deals;
+      return dealsWithCommission;
     } catch (error) {
       console.error('❌ Error syncing deals:', error.message);
       throw error;
@@ -263,7 +247,7 @@ class DealsCache {
     });
   }
 
-  // Kolla om sync behövs
+  // 🔥 UPPDATERAD: Kolla om sync behövs (NU 5 MINUTER ISTÄLLET FÖR 6 TIMMAR!)
   async needsSync() {
     const lastSync = await this.getLastSync();
     
@@ -273,15 +257,15 @@ class DealsCache {
     }
     
     const lastSyncDate = new Date(lastSync);
-    const hoursSinceSync = (Date.now() - lastSyncDate.getTime()) / (1000 * 60 * 60);
+    const minutesSinceSync = (Date.now() - lastSyncDate.getTime()) / (1000 * 60);
     
-    // Sync var 6:e timme
-    if (hoursSinceSync > 6) {
-      console.log(`⏰ Last sync was ${Math.round(hoursSinceSync)}h ago - needs sync`);
+    // 🔥 ÄNDRAT: Sync var 5:e minut (tidigare 6 timmar)
+    if (minutesSinceSync > 5) {
+      console.log(`⏰ Last sync was ${Math.round(minutesSinceSync)} min ago - needs sync`);
       return true;
     }
     
-    console.log(`✅ Last sync was ${Math.round(hoursSinceSync)}h ago - cache is fresh`);
+    console.log(`✅ Last sync was ${Math.round(minutesSinceSync)} min ago - cache is fresh`);
     return false;
   }
 
@@ -335,42 +319,25 @@ class DealsCache {
       },
       totalCommission: deals.reduce((sum, d) => sum + d.commission, 0),
       uniqueAgents: new Set(deals.map(d => d.userId)).size,
-      queueLength: this.writeQueue.length // 🔥 NY: Visa queue status
+      queueLength: this.writeQueue.length
     };
   }
 
   // Get today's total commission for agent (FROM CACHE!)
   async getTodayTotalForAgent(userId) {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const deals = await this.getCache();
     
-    const allDeals = await this.getCache();
-    const todayDeals = allDeals.filter(deal => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayDeals = deals.filter(deal => {
+      if (deal.userId !== userId) return false;
+      
       const dealDate = new Date(deal.orderDate);
-      return dealDate >= startOfDay && 
-             dealDate <= endOfDay && 
-             String(deal.userId) === String(userId);
+      return dealDate >= today;
     });
     
-    const total = todayDeals.reduce((sum, deal) => sum + parseFloat(deal.commission || 0), 0);
-    console.log(`📊 Today's total for agent ${userId}: ${total} THB (from ${todayDeals.length} deals in cache)`);
-    return total;
-  }
-
-  // Get today's deals for agent (FROM CACHE!)
-  async getTodayDealsForAgent(userId) {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    
-    const allDeals = await this.getCache();
-    return allDeals.filter(deal => {
-      const dealDate = new Date(deal.orderDate);
-      return dealDate >= startOfDay && 
-             dealDate <= endOfDay && 
-             String(deal.userId) === String(userId);
-    });
+    return todayDeals.reduce((sum, deal) => sum + deal.commission, 0);
   }
 }
 
