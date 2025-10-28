@@ -177,8 +177,9 @@ const styles = {
     color: '#27ae60'
   },
   smsCount: {
-    fontSize: '0.75rem',
-    color: '#95a5a6'
+    fontSize: '0.8rem',
+    color: '#2c3e50',
+    fontWeight: 'bold'
   },
   commission: {
     fontSize: '0.95rem',
