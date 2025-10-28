@@ -1,12 +1,11 @@
-// KOMPLETT INLINE CSS VERSION - frontend/src/components/DualLeaderboardSlide.jsx
-// INGA EXTERNA CSS FILER BEHÖVS!
-// Fixar: Separat scroll, Dart emoji, Frozen topp 3, OCH SCROLLA HELA VÄGEN!
-// ✨ NY: Dynamisk färglogik baserad på timePeriod
-// 📱 NY: SMS-data (uniqueSMS + smsSuccessRate)
+// UPPDATERAD DUAL LEADERBOARD - NY DESIGN MED SMS SUCCESS RATE
+// ✨ NY: Horisontell layout med SMS success rate i färgkodad box (liknar bild 2)
+// 📱 SMS: Visar success rate med uniqueSMS i parentes
+// 🎨 Färgkodning: ≥75% grön, 60-74.99% orange, <60% röd
 
 import { useState, useEffect } from 'react';
 
-// 🎨 ALL CSS INLINE - Garanterat att fungera!
+// 🎨 ALL CSS INLINE
 const styles = {
   slide: {
     position: 'absolute',
@@ -81,17 +80,18 @@ const styles = {
   items: {
     willChange: 'transform'
   },
+  // 🆕 NY DESIGN: Horisontell layout
   item: {
-    display: 'grid',
-    gridTemplateColumns: '50px 40px 1fr 100px 120px 130px', // 📱 NY: Utökad för SMS
+    display: 'flex',
     alignItems: 'center',
-    gap: '0.6rem',
-    padding: '0.4rem 0.8rem',
-    marginBottom: '0.4rem',
+    gap: '1rem',
+    padding: '0.6rem 1rem',
+    marginBottom: '0.5rem',
     background: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: '10px',
+    borderRadius: '12px',
     border: '2px solid rgba(255, 255, 255, 0.3)',
-    transition: 'all 0.3s ease'
+    transition: 'all 0.3s ease',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
   },
   itemFirstPlace: {
     background: 'linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)',
@@ -105,23 +105,33 @@ const styles = {
     zIndex: 10,
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
   },
+  // Vänster del: Rank + Avatar + Name
+  leftSection: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.8rem',
+    flex: '0 0 240px',
+    minWidth: 0
+  },
   rank: {
     fontSize: '1.1rem',
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#2c3e50'
+    color: '#2c3e50',
+    width: '45px',
+    flexShrink: 0
   },
   avatar: {
-    width: '35px',
-    height: '35px',
+    width: '40px',
+    height: '40px',
     borderRadius: '50%',
     objectFit: 'cover',
     border: '2px solid rgba(102, 126, 234, 0.3)',
     flexShrink: 0
   },
   avatarPlaceholder: {
-    width: '35px',
-    height: '35px',
+    width: '40px',
+    height: '40px',
     borderRadius: '50%',
     border: '2px solid rgba(102, 126, 234, 0.3)',
     display: 'flex',
@@ -129,59 +139,86 @@ const styles = {
     justifyContent: 'center',
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     color: 'white',
-    fontSize: '0.9rem',
-    fontWeight: 'bold'
-  },
-  info: {
-    minWidth: 0
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    flexShrink: 0
   },
   name: {
     margin: 0,
-    fontSize: '0.95rem',
+    fontSize: '1rem',
     fontWeight: 600,
     color: '#2c3e50',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
-    textOverflow: 'ellipsis'
+    textOverflow: 'ellipsis',
+    flex: 1,
+    minWidth: 0
   },
   nameZero: {
     color: '#e74c3c'
   },
-  deals: {
+  // Mitten: Deals
+  dealsSection: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: '0.3rem',
-    fontSize: '1rem',
+    gap: '0.5rem',
+    fontSize: '1.1rem',
     fontWeight: 600,
-    color: '#2c3e50'
+    color: '#2c3e50',
+    flex: '0 0 80px',
+    justifyContent: 'center'
   },
-  // 📱 NY: SMS stats container
-  smsStats: {
+  // 🆕 SMS Success Rate Box (som i bild 2)
+  smsBox: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '0.2rem'
-  },
-  smsRow: {
-    display: 'flex',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: '0.3rem',
-    fontSize: '0.85rem',
-    fontWeight: 500
+    padding: '0.4rem 0.8rem',
+    borderRadius: '8px',
+    flex: '0 0 110px',
+    minHeight: '48px'
   },
-  smsCount: {
-    color: '#3498db' // Blue for SMS count
+  smsBoxGreen: {
+    background: 'rgba(46, 204, 113, 0.15)',
+    border: '2px solid #2ecc71'
+  },
+  smsBoxOrange: {
+    background: 'rgba(230, 126, 34, 0.15)',
+    border: '2px solid #e67e22'
+  },
+  smsBoxRed: {
+    background: 'rgba(231, 76, 60, 0.15)',
+    border: '2px solid #e74c3c'
   },
   smsRate: {
-    color: '#9b59b6' // Purple for success rate
+    fontSize: '1.1rem',
+    fontWeight: 'bold',
+    margin: 0,
+    lineHeight: 1.2
   },
+  smsRateGreen: {
+    color: '#27ae60'
+  },
+  smsRateOrange: {
+    color: '#d35400'
+  },
+  smsRateRed: {
+    color: '#c0392b'
+  },
+  smsCount: {
+    fontSize: '0.75rem',
+    color: '#7f8c8d',
+    margin: '0.1rem 0 0',
+    lineHeight: 1
+  },
+  // Höger: Commission
   commission: {
-    fontSize: '0.95rem',
+    fontSize: '1rem',
     fontWeight: 'bold',
     textAlign: 'right',
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
+    flex: '0 0 140px'
   },
   commissionZero: {
     color: '#e74c3c'
@@ -208,7 +245,6 @@ const styles = {
 };
 
 const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, rightStats, isActive }) => {
-  // 🔥 SEPARAT SCROLL för varje kolumn!
   const [leftScrollPosition, setLeftScrollPosition] = useState(0);
   const [rightScrollPosition, setRightScrollPosition] = useState(0);
 
@@ -227,42 +263,34 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     return labels[period] || period;
   };
 
-  // ✨ NY FÄRGLOGIK - Dynamisk baserad på timePeriod
+  // 🎨 Commission färglogik (samma som innan)
   const getCommissionStyle = (commission, timePeriod) => {
-    // 🔴 Alltid röd för 0 THB
     if (!commission || commission === 0) {
       return styles.commissionZero;
     }
 
-    // 📅 Olika trösklar beroende på period
     if (timePeriod === 'day') {
-      // Idag: 3 400 THB är gränsen
-      if (commission < 3400) {
-        return styles.commissionLow; // 🟠 Orange
-      }
-      return styles.commissionHigh; // 🟢 Grön
+      return commission < 3400 ? styles.commissionLow : styles.commissionHigh;
     } else if (timePeriod === 'week') {
-      // Vecka: 18 000 THB är gränsen
-      if (commission < 18000) {
-        return styles.commissionLow; // 🟠 Orange
-      }
-      return styles.commissionHigh; // 🟢 Grön
+      return commission < 18000 ? styles.commissionLow : styles.commissionHigh;
     } else if (timePeriod === 'month') {
-      // Månad: 50 000 THB är gränsen
-      if (commission < 50000) {
-        return styles.commissionLow; // 🟠 Orange
-      }
-      return styles.commissionHigh; // 🟢 Grön
+      return commission < 50000 ? styles.commissionLow : styles.commissionHigh;
     } else {
-      // Custom eller okänd period - använd månadens tröskel som default
-      if (commission < 50000) {
-        return styles.commissionLow; // 🟠 Orange
-      }
-      return styles.commissionHigh; // 🟢 Grön
+      return commission < 50000 ? styles.commissionLow : styles.commissionHigh;
     }
   };
 
-  // Reset scroll when slide becomes inactive
+  // 🆕 SMS Success Rate färglogik
+  const getSMSBoxStyle = (successRate) => {
+    if (successRate >= 75) {
+      return { box: styles.smsBoxGreen, text: styles.smsRateGreen };
+    } else if (successRate >= 60) {
+      return { box: styles.smsBoxOrange, text: styles.smsRateOrange };
+    } else {
+      return { box: styles.smsBoxRed, text: styles.smsRateRed };
+    }
+  };
+
   useEffect(() => {
     if (!isActive) {
       setLeftScrollPosition(0);
@@ -275,30 +303,24 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
-    // 🔥 FREEZE LOGIC: Topp 3 visas separat
     const frozenCount = 3;
     const topStats = stats.slice(0, frozenCount);
     const scrollableStats = stats.slice(frozenCount);
 
-    // Auto-scroll settings
-    const rowHeight = 52;
-    const marginPerRow = 6.4; // 0.4rem ≈ 6.4px
-    const effectiveRowHeight = rowHeight + marginPerRow; // Total space per row including margin
-    const visibleRows = 15; // Minskad från 18 eftersom topp 3 är frozen
+    const rowHeight = 58;
+    const marginPerRow = 8;
+    const effectiveRowHeight = rowHeight + marginPerRow;
+    const visibleRows = 14;
     const needsScroll = scrollableStats.length > visibleRows;
     
-    // 🔥 FIX: Scrolla hela vägen så sista användaren garanterat syns!
-    // Räkna med både row height OCH margin, plus extra säkerhetsbuffert
     const containerHeight = visibleRows * effectiveRowHeight;
     const totalContentHeight = scrollableStats.length * effectiveRowHeight;
-    const safetyBuffer = effectiveRowHeight * 2; // Extra buffert för att garantera sista raden syns
+    const safetyBuffer = effectiveRowHeight * 2;
     const maxScroll = needsScroll ? Math.max(0, totalContentHeight - containerHeight + safetyBuffer) : 0;
 
-    // 🔥 Använd rätt scroll position beroende på side
     const scrollPosition = side === 'left' ? leftScrollPosition : rightScrollPosition;
     const setScrollPosition = side === 'left' ? setLeftScrollPosition : setRightScrollPosition;
 
-    // Auto-scroll effect - SEPARAT för varje kolumn
     useEffect(() => {
       if (!isActive || !needsScroll) return;
 
@@ -323,9 +345,21 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       const isFirstPlace = index === 0 && !isZeroDeals;
       const commission = item.totalCommission || 0;
       
-      // 📱 NY: SMS data
+      // 📱 SMS data - VIKTIGT: Använd rätt properties från backend
       const uniqueSMS = item.uniqueSMS || 0;
       const smsSuccessRate = item.smsSuccessRate || 0;
+      
+      // Debug log för att se vad vi får
+      if (index === 0) {
+        console.log('📊 Item data:', {
+          name: item.agent.name,
+          uniqueSMS,
+          smsSuccessRate,
+          rawItem: item
+        });
+      }
+
+      const smsStyles = getSMSBoxStyle(smsSuccessRate);
 
       const itemStyle = {
         ...styles.item,
@@ -336,55 +370,49 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
       return (
         <div key={`${item.userId || index}-${item.agent.id || index}`} style={itemStyle}>
-          {/* Rank */}
-          <div style={styles.rank}>
-            {index === 0 && !isZeroDeals && '🥇'}
-            {index === 1 && !isZeroDeals && '🥈'}
-            {index === 2 && !isZeroDeals && '🥉'}
-            {(index > 2 || isZeroDeals) && `#${index + 1}`}
-          </div>
-
-          {/* Avatar */}
-          {item.agent.profileImage ? (
-            <img
-              src={item.agent.profileImage}
-              alt={item.agent.name || 'Agent'}
-              style={styles.avatar}
-            />
-          ) : (
-            <div style={styles.avatarPlaceholder}>
-              {(item.agent.name && item.agent.name.charAt(0)) || '?'}
+          {/* Vänster: Rank + Avatar + Name */}
+          <div style={styles.leftSection}>
+            <div style={styles.rank}>
+              {index === 0 && !isZeroDeals && '🥇'}
+              {index === 1 && !isZeroDeals && '🥈'}
+              {index === 2 && !isZeroDeals && '🥉'}
+              {(index > 2 || isZeroDeals) && `#${index + 1}`}
             </div>
-          )}
 
-          {/* Name */}
-          <div style={styles.info}>
+            {item.agent.profileImage ? (
+              <img
+                src={item.agent.profileImage}
+                alt={item.agent.name || 'Agent'}
+                style={styles.avatar}
+              />
+            ) : (
+              <div style={styles.avatarPlaceholder}>
+                {(item.agent.name && item.agent.name.charAt(0)) || '?'}
+              </div>
+            )}
+
             <p style={{ ...styles.name, ...(isZeroDeals ? styles.nameZero : {}) }}>
               {item.agent.name || `Agent ${item.userId || '?'}`}
             </p>
           </div>
 
-          {/* Deals - 🎯 DART EMOJI! */}
-          <div style={styles.deals}>
+          {/* Mitten: Deals */}
+          <div style={styles.dealsSection}>
             <span>🎯</span>
             <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
           </div>
 
-          {/* 📱 NY: SMS Stats */}
-          <div style={styles.smsStats}>
-            {/* SMS Count */}
-            <div style={styles.smsRow}>
-              <span>📱</span>
-              <span style={styles.smsCount}>{uniqueSMS}</span>
+          {/* 🆕 SMS Success Rate Box */}
+          <div style={{ ...styles.smsBox, ...smsStyles.box }}>
+            <div style={{ ...styles.smsRate, ...smsStyles.text }}>
+              {smsSuccessRate.toFixed(2)}%
             </div>
-            {/* Success Rate */}
-            <div style={styles.smsRow}>
-              <span>✓</span>
-              <span style={styles.smsRate}>{smsSuccessRate.toFixed(2)}%</span>
+            <div style={styles.smsCount}>
+              ({uniqueSMS} SMS)
             </div>
           </div>
 
-          {/* Commission - ✨ NY: Skickar med timePeriod! */}
+          {/* Höger: Commission */}
           <div style={{ ...styles.commission, ...getCommissionStyle(commission, leaderboard.timePeriod) }}>
             {commission.toLocaleString('sv-SE')} THB
           </div>
@@ -402,14 +430,12 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           </p>
         </div>
 
-        {/* 🔥 FROZEN TOP 3 - Visas alltid */}
         {topStats.length > 0 && (
           <div style={styles.frozenSection}>
             {topStats.map((item, index) => renderItem(item, index, true))}
           </div>
         )}
 
-        {/* SCROLLABLE REST */}
         {scrollableStats.length > 0 && (
           <>
             <div style={{ ...styles.scrollContainer, height: `${visibleRows * rowHeight}px` }}>
