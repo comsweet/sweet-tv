@@ -197,70 +197,127 @@ router.get('/adversus/user-groups', async (req, res) => {
   }
 });
 
-// STATS (MED PERSISTENT CACHE! och sms cache)
 router.get('/stats/leaderboard', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
     if (!startDate || !endDate) {
-      return res.status(400).json({ error: 'startDate and endDate are required' });
+      return res.status(400).json({ error: 'startDate and endDate required' });
     }
-
-    // Auto-sync both caches if needed
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    console.log(`📊 Fetching stats from ${start.toISOString()} to ${end.toISOString()}`);
+    
+    // AUTO-SYNC DEALS CACHE (syncar var 6:e timme)
     await dealsCache.autoSync(adversusAPI);
-    await smsCache.autoSync(adversusAPI);
-
-    const agents = await database.getAgents();
-    const deals = await dealsCache.getDealsInRange(startDate, endDate);
-
-    const stats = await Promise.all(agents.map(async agent => {
-      // Get deals for this agent
-      const agentDeals = deals.filter(deal => deal.userId === agent.userId);
+    
+    // HÄMTA FRÅN CACHE ISTÄLLET FÖR ADVERSUS!
+    const cachedDeals = await dealsCache.getDealsInRange(start, end);
+    
+    // Konvertera till leads-format för kompatibilitet
+    const leads = cachedDeals.map(deal => ({
+      id: deal.leadId,
+      lastContactedBy: deal.userId,
+      campaignId: deal.campaignId,
+      status: deal.status,
+      lastUpdatedTime: deal.orderDate,
+      resultData: [
+        { id: 70163, value: String(deal.commission) },
+        { id: 74126, value: deal.multiDeals },
+        { label: 'Order date', value: deal.orderDate }
+      ]
+    }));
+    
+    console.log(`✅ Loaded ${leads.length} deals from cache`);
+    
+    // 🔥 FIX: Bättre error handling för user-hämtning
+    let adversusUsers = [];
+    let localAgents = [];
+    
+    try {
+      const usersResult = await adversusAPI.getUsers();
+      adversusUsers = usersResult.users || [];
+      console.log(`✅ Loaded ${adversusUsers.length} Adversus users`);
+    } catch (error) {
+      console.error('⚠️ Failed to load Adversus users:', error.message);
+      // Fortsätt ändå, men med tom array
+    }
+    
+    try {
+      localAgents = await database.getAgents();
+      console.log(`✅ Loaded ${localAgents.length} local agents`);
+    } catch (error) {
+      console.error('⚠️ Failed to load local agents:', error.message);
+      // Fortsätt ändå, men med tom array
+    }
+    
+    const stats = {};
+    
+    leads.forEach(lead => {
+      const userId = lead.lastContactedBy;
       
-      // Calculate total deals (including multiDeals)
-      const dealCount = agentDeals.reduce((sum, deal) => {
-        const multiDeals = parseInt(deal.multiDeals) || 1;
-        return sum + multiDeals;
-      }, 0);
-
-      // Calculate total commission
-      const totalCommission = agentDeals.reduce((sum, deal) => {
-        const multiDeals = parseInt(deal.multiDeals) || 1;
-        return sum + (deal.commission * multiDeals);
-      }, 0);
-
-      // Get SMS stats for this agent
-      const smsStats = await smsCache.getSMSStatsForAgent(
-        agent.userId,
-        startDate,
-        endDate,
-        dealsCache
-      );
-
+      if (!userId) return;
+      
+      if (!stats[userId]) {
+        stats[userId] = {
+          userId: userId,
+          totalCommission: 0,
+          dealCount: 0
+        };
+      }
+      
+      const commissionField = lead.resultData?.find(f => f.id === 70163);
+      const commission = parseFloat(commissionField?.value || 0);
+      
+      // 🔥 FIX: Använd multiDeals field ID 74126
+      const multiDealsField = lead.resultData?.find(f => f.id === 74126);
+      const multiDealsValue = parseInt(multiDealsField?.value || '1');
+      
+      stats[userId].totalCommission += commission;
+      stats[userId].dealCount += multiDealsValue;
+    });
+    
+    // 🔥 FIX: Bättre agent-objektsbygge med fallbacks
+    const leaderboard = Object.values(stats).map(stat => {
+      const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
+      const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
+      
+      // Bygg agentnamn
+      let agentName = `Agent ${stat.userId}`;
+      if (adversusUser) {
+        if (adversusUser.name) {
+          agentName = adversusUser.name;
+        } else if (adversusUser.firstname || adversusUser.lastname) {
+          agentName = `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim();
+        }
+      }
+      
+      // 🔥 VIKTIGT: Alltid returnera ett komplett objekt med agent!
       return {
-        userId: agent.userId,
-        name: agent.name,
-        profileImage: agent.profileImage,
-        groupId: agent.groupId,
-        dealCount,
-        totalCommission,
-        uniqueSMS: smsStats.uniqueSMS,
-        smsSuccessRate: smsStats.successRate // Already formatted to 2 decimals
+        userId: stat.userId,
+        totalCommission: stat.totalCommission,
+        dealCount: stat.dealCount,
+        agent: {
+          userId: stat.userId,
+          name: agentName,
+          email: adversusUser?.email || '',
+          profileImage: localAgent?.profileImage || null
+        }
       };
-    }));
-
-    // Sort by deal count (descending)
-    stats.sort((a, b) => b.dealCount - a.dealCount);
-
-    // Add rankings
-    const rankedStats = stats.map((stat, index) => ({
-      ...stat,
-      rank: index + 1
-    }));
-
-    res.json(rankedStats);
+    }).sort((a, b) => b.totalCommission - a.totalCommission);
+    
+    console.log(`📈 Leaderboard with ${leaderboard.length} agents`);
+    
+    // 🔥 DEBUG: Kolla första objektet
+    if (leaderboard.length > 0) {
+      console.log('📊 Sample stat object:', JSON.stringify(leaderboard[0], null, 2));
+    }
+    
+    res.json(leaderboard);
   } catch (error) {
-    console.error('Error getting leaderboard stats:', error);
+    console.error('❌ Error fetching stats:', error);
     res.status(500).json({ error: error.message });
   }
 });
