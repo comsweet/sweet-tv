@@ -103,6 +103,7 @@ const Slideshow = () => {
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [lastUpdate, setLastUpdate] = useState(Date.now()); // 🔥 FIX: Force re-render timestamp
   const intervalRef = useRef(null);
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
@@ -226,6 +227,8 @@ const Slideshow = () => {
         console.log(`🔄 Silent refresh complete`);
       }
       
+      setLeaderboardsData(prev => prev); // Trigger state update
+      setLastUpdate(Date.now()); // 🔥 FIX: Force re-render by updating timestamp
       setIsLoading(false);
       
     } catch (error) {
@@ -341,14 +344,14 @@ const Slideshow = () => {
         ))}
       </div>
 
-      {/* ✨ UPPDATERAD: Render både single och dual slides */}
+      {/* ✨ UPPDATERAD: Render både single och dual slides med lastUpdate i key */}
       {leaderboardsData.map((slideData, index) => {
         const isActive = index === currentIndex;
         
         if (slideData.type === 'dual') {
           return (
             <DualLeaderboardSlide
-              key={index}
+              key={`dual-${index}-${lastUpdate}`}  // 🔥 FIX: Include timestamp to force re-render
               leftLeaderboard={slideData.leftLeaderboard}
               rightLeaderboard={slideData.rightLeaderboard}
               leftStats={slideData.leftStats}
@@ -359,7 +362,7 @@ const Slideshow = () => {
         } else {
           return (
             <LeaderboardSlide
-              key={slideData.leaderboard.id}
+              key={`single-${slideData.leaderboard.id}-${lastUpdate}`}  // 🔥 FIX: Include timestamp to force re-render
               leaderboard={slideData.leaderboard}
               stats={slideData.stats}
               isActive={isActive}
