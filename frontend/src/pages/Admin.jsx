@@ -1069,10 +1069,16 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                   </div>
                   
                   <div className="slideshow-card-body">
-                    <div className="slideshow-info">
+                    <<div className="slideshow-info">
                       <span className="info-label">Antal leaderboards:</span>
-                      <span className="info-value">{slideshow.leaderboards.length}</span>
+                      <span className="info-value">
+                        {slideshow.type === 'dual' 
+                          ? (slideshow.dualSlides?.length || 0) * 2  // Dual mode: varje slide har 2 leaderboards
+                          : (slideshow.leaderboards?.length || 0)    // Single mode: antalet i array
+                        }
+                      </span>
                     </div>
+
                     
                     <div className="slideshow-info">
                       <span className="info-label">Duration per slide:</span>
