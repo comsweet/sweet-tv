@@ -537,6 +537,15 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
     }
   };
 
+  // 🆕 NYA FUNKTIONER FÖR SLIDESHOW URL
+  const handleOpenSlideshow = (slideshowId) => {
+    window.location.href = `/#/slideshow/${slideshowId}`;
+  };
+
+  const getSlideshowUrl = (slideshowId) => {
+    return `${window.location.origin}/#/slideshow/${slideshowId}`;
+  };
+
   const handleLeaderboardToggle = (lbId) => {
     setSlideshowForm(prev => ({
       ...prev,
@@ -1080,9 +1089,25 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                         </div>
                       </>
                     )}
+
+                    {/* 🆕 NY: Visa URL */}
+                    <div className="slideshow-info slideshow-url-info">
+                      <span className="info-label">🔗 URL:</span>
+                      <span className="info-value slideshow-url" title="Klicka för att markera och kopiera">
+                        {getSlideshowUrl(ss.id)}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="slideshow-card-footer">
+                    {/* 🆕 NY: Öppna slideshow-knapp */}
+                    <button 
+                      onClick={() => handleOpenSlideshow(ss.id)} 
+                      className="btn-primary"
+                      title="Öppna slideshow"
+                    >
+                      🚀 Öppna Slideshow
+                    </button>
                     <button onClick={() => handleEditSlideshow(ss)} className="btn-secondary">
                       ✏️ Redigera
                     </button>
