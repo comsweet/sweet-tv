@@ -1342,4 +1342,345 @@ router.post('/agents/sync-groups', async (req, res) => {
   }
 });
 
+// ============================================
+// NYA LEADERBOARD ENDPOINTS
+// ============================================
+
+// 1. DEALS SYNC
+router.post('/deals/sync', async (req, res) => {
+  try {
+    console.log('🔄 Startar synkning av deals från Adversus...');
+    
+    const filters = {
+      status: { $eq: "success" }
+    };
+
+    let allDeals = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const url = `https://api.adversus.io/v1/leads?page=${page}&pageSize=100&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+      
+      console.log(`📄 Hämtar deals sida ${page}...`);
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${process.env.ADVERSUS_API_KEY}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      const deals = (data.content || []).map(lead => {
+        const commissionField = lead.resultData?.find(f => f.id === 70163);
+        const commission = parseFloat(commissionField?.value || 0);
+        
+        return {
+          id: lead.id,
+          userId: lead.userId,
+          leadId: lead.leadId,
+          status: lead.status,
+          commission: commission,
+          resultData: lead.resultData,
+          createdDateTime: lead.createdDateTime,
+          lastModifiedDateTime: lead.lastModifiedDateTime,
+          timestamp: lead.lastModifiedDateTime || lead.createdDateTime
+        };
+      });
+
+      allDeals = allDeals.concat(deals);
+      hasMore = data.content && data.content.length === 100;
+      page++;
+    }
+
+    global.dealsCache = allDeals;
+    const totalCommission = allDeals.reduce((sum, d) => sum + d.commission, 0);
+    
+    console.log(`✅ Synkade ${allDeals.length} deals från Adversus`);
+    console.log(`💰 Total commission: ${totalCommission.toFixed(2)} THB`);
+    
+    res.json({ 
+      success: true, 
+      count: allDeals.length,
+      totalCommission: totalCommission,
+      message: `Synkade ${allDeals.length} deals med total commission ${totalCommission.toFixed(2)} THB`
+    });
+
+  } catch (error) {
+    console.error('❌ Deals sync failed:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+// 2. SMS SYNC
+router.post('/sms/sync', async (req, res) => {
+  try {
+    console.log('📱 Startar synkning av SMS från Adversus...');
+    
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    
+    const startDate = new Date(monthStart);
+    startDate.setDate(startDate.getDate() - 7);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const now = new Date();
+
+    console.log(`📅 Datumintervall: ${startDate.toISOString()} → ${now.toISOString()}`);
+
+    const filters = {
+      type: { $eq: "outbound" },
+      timestamp: {
+        $gte: startDate.toISOString(),
+        $lte: now.toISOString()
+      }
+    };
+
+    let allSms = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const url = `https://api.adversus.io/v1/sms?page=${page}&pageSize=100&includeMeta=true&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+      
+      console.log(`📄 Hämtar SMS sida ${page}...`);
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${process.env.ADVERSUS_API_KEY}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      allSms = allSms.concat(data.content || []);
+      hasMore = data.content && data.content.length === 100;
+      page++;
+    }
+
+    global.smsCache = allSms;
+    
+    console.log(`✅ Synkade ${allSms.length} SMS från Adversus`);
+    
+    res.json({ 
+      success: true, 
+      count: allSms.length,
+      dateRange: {
+        from: startDate.toISOString(),
+        to: now.toISOString()
+      },
+      message: `Synkade ${allSms.length} SMS från ${startDate.toLocaleDateString('sv-SE')} till nu`
+    });
+
+  } catch (error) {
+    console.error('❌ SMS sync failed:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+// 3. LEADERBOARD
+router.get('/leaderboards/:type', async (req, res) => {
+  try {
+    const { type } = req.params;
+    
+    console.log(`📊 Genererar ${type} leaderboard...`);
+    
+    if (!global.dealsCache || !global.smsCache) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cache är tom. Kör /api/deals/sync och /api/sms/sync först!'
+      });
+    }
+    
+    let filteredDeals = [];
+    let dealStartDate;
+    
+    if (type === 'today') {
+      dealStartDate = new Date();
+      dealStartDate.setHours(0, 0, 0, 0);
+      
+      filteredDeals = global.dealsCache.filter(deal => {
+        const dealDate = new Date(deal.lastModifiedDateTime || deal.createdDateTime);
+        return dealDate >= dealStartDate;
+      });
+      
+    } else if (type === 'month') {
+      dealStartDate = new Date();
+      dealStartDate.setDate(1);
+      dealStartDate.setHours(0, 0, 0, 0);
+      
+      filteredDeals = global.dealsCache.filter(deal => {
+        const dealDate = new Date(deal.lastModifiedDateTime || deal.createdDateTime);
+        return dealDate >= dealStartDate;
+      });
+    }
+
+    let filteredSms = [];
+    
+    if (type === 'today') {
+      const smsStartDate = new Date();
+      smsStartDate.setHours(0, 0, 0, 0);
+      
+      filteredSms = global.smsCache.filter(sms => {
+        const smsDate = new Date(sms.timestamp);
+        return smsDate >= smsStartDate;
+      });
+      
+    } else if (type === 'month') {
+      const smsStartDate = new Date();
+      smsStartDate.setDate(1);
+      smsStartDate.setHours(0, 0, 0, 0);
+      
+      filteredSms = global.smsCache.filter(sms => {
+        const smsDate = new Date(sms.timestamp);
+        return smsDate >= smsStartDate;
+      });
+    }
+
+    const stats = {};
+    
+    filteredDeals.forEach(deal => {
+      const userId = deal.userId;
+      if (!stats[userId]) {
+        stats[userId] = {
+          userId: userId,
+          deals: 0,
+          totalCommission: 0,
+          smsSent: 0,
+          uniqueSms: new Set()
+        };
+      }
+      stats[userId].deals++;
+      stats[userId].totalCommission += deal.commission || 0;
+    });
+
+    filteredSms.forEach(sms => {
+      const userId = sms.userId;
+      if (!stats[userId]) {
+        stats[userId] = {
+          userId: userId,
+          deals: 0,
+          totalCommission: 0,
+          smsSent: 0,
+          uniqueSms: new Set()
+        };
+      }
+      stats[userId].smsSent++;
+      
+      if (sms.receiver) {
+        stats[userId].uniqueSms.add(sms.receiver);
+      }
+    });
+
+    const leaderboard = Object.values(stats).map(stat => {
+      const uniqueSmsCount = stat.uniqueSms.size;
+      const successRate = uniqueSmsCount > 0 ? (stat.deals / uniqueSmsCount) * 100 : 0;
+      
+      return {
+        userId: stat.userId,
+        deals: stat.deals,
+        commission: stat.totalCommission,
+        smsSent: stat.smsSent,
+        uniqueSms: uniqueSmsCount,
+        successRate: parseFloat(successRate.toFixed(2))
+      };
+    }).sort((a, b) => b.commission - a.commission);
+
+    console.log(`✅ Genererade leaderboard med ${leaderboard.length} agents`);
+
+    res.json({ 
+      success: true, 
+      type: type,
+      leaderboard: leaderboard,
+      stats: {
+        totalDeals: filteredDeals.length,
+        totalSms: filteredSms.length,
+        totalCommission: leaderboard.reduce((sum, l) => sum + l.commission, 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Leaderboard calculation failed:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+// 4. CACHE INVALIDATE
+router.post('/leaderboards/cache/invalidate-all', async (req, res) => {
+  try {
+    console.log('🗑️ Rensar all cache...');
+    
+    global.dealsCache = [];
+    global.smsCache = [];
+    
+    console.log('✅ Cache rensad!');
+    
+    res.json({ 
+      success: true,
+      message: 'All cache har rensats'
+    });
+    
+  } catch (error) {
+    console.error('❌ Cache invalidation failed:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+// 5. STATS ENDPOINTS
+router.get('/deals/stats', (req, res) => {
+  const deals = global.dealsCache || [];
+  const totalCommission = deals.reduce((sum, d) => sum + d.commission, 0);
+  
+  res.json({
+    success: true,
+    count: deals.length,
+    totalCommission: totalCommission,
+    deals: deals.slice(0, 5)
+  });
+});
+
+router.get('/sms/stats', (req, res) => {
+  const sms = global.smsCache || [];
+  const uniqueReceivers = new Set(sms.map(s => s.receiver)).size;
+  
+  res.json({
+    success: true,
+    count: sms.length,
+    uniqueReceivers: uniqueReceivers,
+    sms: sms.slice(0, 5)
+  });
+});
+
+router.get('/leaderboards/cache/stats', (req, res) => {
+  const deals = global.dealsCache || [];
+  const sms = global.smsCache || [];
+  
+  res.json({
+    success: true,
+    dealsCount: deals.length,
+    smsCount: sms.length,
+    totalCommission: deals.reduce((sum, d) => sum + d.commission, 0)
+  });
+});
+
 module.exports = router;
