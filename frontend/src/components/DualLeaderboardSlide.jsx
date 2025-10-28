@@ -2,6 +2,7 @@
 // INGA EXTERNA CSS FILER BEHÖVS!
 // Fixar: Separat scroll, Dart emoji, Frozen topp 3, OCH SCROLLA HELA VÄGEN!
 // ✨ NY: Dynamisk färglogik baserad på timePeriod
+// 📱 NY: SMS-data (uniqueSMS + smsSuccessRate)
 
 import { useState, useEffect } from 'react';
 
@@ -82,7 +83,7 @@ const styles = {
   },
   item: {
     display: 'grid',
-    gridTemplateColumns: '50px 40px 1fr 100px 130px',
+    gridTemplateColumns: '50px 40px 1fr 100px 120px 130px', // 📱 NY: Utökad för SMS
     alignItems: 'center',
     gap: '0.6rem',
     padding: '0.4rem 0.8rem',
@@ -154,6 +155,27 @@ const styles = {
     fontSize: '1rem',
     fontWeight: 600,
     color: '#2c3e50'
+  },
+  // 📱 NY: SMS stats container
+  smsStats: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '0.2rem'
+  },
+  smsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.3rem',
+    fontSize: '0.85rem',
+    fontWeight: 500
+  },
+  smsCount: {
+    color: '#3498db' // Blue for SMS count
+  },
+  smsRate: {
+    color: '#9b59b6' // Purple for success rate
   },
   commission: {
     fontSize: '0.95rem',
@@ -300,6 +322,10 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       const isZeroDeals = !item.dealCount || item.dealCount === 0;
       const isFirstPlace = index === 0 && !isZeroDeals;
       const commission = item.totalCommission || 0;
+      
+      // 📱 NY: SMS data
+      const uniqueSMS = item.uniqueSMS || 0;
+      const smsSuccessRate = item.smsSuccessRate || 0;
 
       const itemStyle = {
         ...styles.item,
@@ -342,6 +368,20 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           <div style={styles.deals}>
             <span>🎯</span>
             <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
+          </div>
+
+          {/* 📱 NY: SMS Stats */}
+          <div style={styles.smsStats}>
+            {/* SMS Count */}
+            <div style={styles.smsRow}>
+              <span>📱</span>
+              <span style={styles.smsCount}>{uniqueSMS}</span>
+            </div>
+            {/* Success Rate */}
+            <div style={styles.smsRow}>
+              <span>✓</span>
+              <span style={styles.smsRate}>{smsSuccessRate.toFixed(2)}%</span>
+            </div>
           </div>
 
           {/* Commission - ✨ NY: Skickar med timePeriod! */}
