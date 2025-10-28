@@ -188,59 +188,86 @@ class DealsCache {
     });
   }
 
-  // Sync deals från Adversus
-  async syncDeals(adversusAPI) {
-    console.log('🔄 Syncing deals from Adversus...');
+  // Sync deals från Adversus MultiDeals från masterData resterande från resultData
+async syncDeals(adversusAPI) {
+  console.log('🔄 Syncing deals from Adversus...');
+  
+  const { startDate, endDate } = this.getRollingWindow();
+  console.log(`📅 Rolling window: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+  
+  try {
+    // Hämta alla leads från Adversus i rolling window
+    const result = await adversusAPI.getLeadsInDateRange(startDate, endDate);
+    const leads = result.leads || [];
     
-    const { startDate, endDate } = this.getRollingWindow();
-    console.log(`📅 Rolling window: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+    console.log(`✅ Fetched ${leads.length} leads from Adversus`);
     
-    try {
-      // Hämta alla leads från Adversus i rolling window
-      const result = await adversusAPI.getLeadsInDateRange(startDate, endDate);
-      const leads = result.leads || [];
+    // Konvertera till vårt format
+    const deals = leads.map(lead => {
+      // 🔥 Commission från resultData
+      const commissionField = lead.resultData?.find(f => f.id === 70163);
+      const commission = parseFloat(commissionField?.value || 0);
       
-      console.log(`✅ Fetched ${leads.length} leads from Adversus`);
+      // 🔥 NYTT: Leta efter MultiDeals i BÅDE masterData OCH resultData!
+      let multiDeals = '1'; // Default
       
-      // Konvertera till vårt format
-      const deals = leads.map(lead => {
-        const commissionField = lead.resultData?.find(f => f.id === 70163);
-        const multiDealsField = lead.resultData?.find(f => f.id === 74126); // ✅ Uppdatera här också!
-        const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
+      // Försök hitta i resultData först (field 74126)
+      const resultMultiDeals = lead.resultData?.find(f => f.id === 74126);
+      if (resultMultiDeals?.value) {
+        multiDeals = resultMultiDeals.value;
+        console.log(`  📊 Lead ${lead.id}: Found multiDeals in resultData = ${multiDeals}`);
+      } else {
+        // Leta i masterData (okänt field ID, så vi kollar labels)
+        const masterMultiDeals = lead.masterData?.find(f => 
+          f.label?.toLowerCase().includes('multideal') || 
+          f.label?.toLowerCase().includes('multi deal') ||
+          f.label?.toLowerCase().includes('antal deals') ||
+          f.id === 74126  // Testa samma ID som backup
+        );
         
-        return {
-          leadId: lead.id,
-          userId: lead.lastContactedBy,
-          campaignId: lead.campaignId,
-          commission: parseFloat(commissionField?.value || 0),
-          multiDeals: multiDealsField?.value || '0',
-          orderDate: orderDateField?.value || lead.lastUpdatedTime,
-          status: lead.status,
-          syncedAt: new Date().toISOString()
-        };
-      });
+        if (masterMultiDeals?.value) {
+          multiDeals = masterMultiDeals.value;
+          console.log(`  📊 Lead ${lead.id}: Found multiDeals in masterData (field ${masterMultiDeals.id}) = ${multiDeals}`);
+        }
+      }
       
-      console.log('🐛 DEBUG: Deals before filter:');
-      deals.forEach(deal => {
-        console.log(`  Lead ${deal.leadId}: commission=${deal.commission}, orderDate=${deal.orderDate}`);
-      });
+      const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
       
-      const dealsWithCommission = deals.filter(deal => deal.commission > 0);
-      
-      // 🔥 SPARA ALLA DEALS (INTE BARA MED COMMISSION) - för debugging
-      await this.saveCache(deals); // Uses queue
-      await this.updateLastSync();
-      
-      console.log(`💾 Cached ${deals.length} deals total`);
-      console.log(`   - ${dealsWithCommission.length} deals WITH commission`);
-      console.log(`   - ${deals.length - dealsWithCommission.length} deals WITHOUT commission`);
-      
-      return deals;
-    } catch (error) {
-      console.error('❌ Error syncing deals:', error.message);
-      throw error;
-    }
+      return {
+        leadId: lead.id,
+        userId: lead.lastContactedBy,
+        campaignId: lead.campaignId,
+        commission: commission,
+        multiDeals: multiDeals,
+        orderDate: orderDateField?.value || lead.lastUpdatedTime,
+        status: lead.status,
+        syncedAt: new Date().toISOString()
+      };
+    });
+    
+    console.log('🐛 DEBUG: Sample deals:');
+    deals.slice(0, 5).forEach(deal => {
+      console.log(`  Lead ${deal.leadId}: commission=${deal.commission}, multiDeals=${deal.multiDeals}`);
+    });
+    
+    const dealsWithCommission = deals.filter(deal => deal.commission > 0);
+    const dealsWithMultiple = deals.filter(deal => parseInt(deal.multiDeals) > 1);
+    
+    // SPARA ALLA DEALS
+    await this.saveCache(deals);
+    await this.updateLastSync();
+    
+    console.log(`💾 Cached ${deals.length} deals total`);
+    console.log(`   - ${dealsWithCommission.length} deals WITH commission`);
+    console.log(`   - ${deals.length - dealsWithCommission.length} deals WITHOUT commission`);
+    console.log(`   - ${dealsWithMultiple.length} deals WITH multiDeals > 1 🎯`);
+    
+    return deals;
+  } catch (error) {
+    console.error('❌ Error syncing deals:', error.message);
+    throw error;
   }
+}
 
   // Hämta deals för en period (från cache!)
   async getDealsInRange(startDate, endDate) {
