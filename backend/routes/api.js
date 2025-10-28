@@ -5,6 +5,7 @@ const database = require('../services/database');
 const leaderboardService = require('../services/leaderboards');
 const slideshowService = require('../services/slideshows');
 const dealsCache = require('../services/dealsCache');
+const smsCache = require('../services/smsCache');
 const leaderboardCache = require('../services/leaderboardCache');
 const soundSettings = require('../services/soundSettings');
 const soundLibrary = require('../services/soundLibrary');
@@ -1280,6 +1281,96 @@ router.post('/agents/sync-groups', async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error syncing groups:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== SMS MANAGEMENT ====================
+
+// Sync SMS from Adversus
+router.post('/sms/sync', async (req, res) => {
+  try {
+    console.log('🔄 Manual SMS sync triggered from admin');
+    const sms = await smsCache.forceSync(adversusAPI);
+    
+    res.json({ 
+      success: true, 
+      message: `Synced ${sms.length} SMS`,
+      count: sms.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get SMS stats
+router.get('/sms/stats', async (req, res) => {
+  try {
+    const stats = await smsCache.getStats();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get SMS for specific agent
+router.get('/sms/agent/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate required' });
+    }
+
+    const uniqueSMS = smsCache.getUniqueSMSForAgent(
+      parseInt(userId), 
+      startDate, 
+      endDate
+    );
+
+    const smsStats = await smsCache.getSMSStatsForAgent(
+      parseInt(userId),
+      startDate,
+      endDate,
+      dealsCache
+    );
+
+    res.json({
+      userId: parseInt(userId),
+      uniqueSMS,
+      ...smsStats
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clean old SMS
+router.post('/sms/clean', async (req, res) => {
+  try {
+    const result = await smsCache.cleanOldSMS();
+    res.json({ 
+      success: true, 
+      message: `Cleaned ${result.removed} old SMS`,
+      ...result
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clear SMS cache
+router.delete('/sms/cache', async (req, res) => {
+  try {
+    await smsCache.saveCache([]);
+    console.log('✅ Cleared sms-cache.json');
+    
+    res.json({ 
+      success: true, 
+      message: 'Cleared SMS cache'
+    });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
