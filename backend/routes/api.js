@@ -216,7 +216,7 @@ router.get('/stats/leaderboard', async (req, res) => {
     // HÄMTA FRÅN CACHE ISTÄLLET FÖR ADVERSUS!
     const cachedDeals = await dealsCache.getDealsInRange(start, end);
     
-    // Konvertera till leads-format för kompatibilitet
+    // 🔥 FIX: Använd ID 74126 istället för label
     const leads = cachedDeals.map(deal => ({
       id: deal.leadId,
       lastContactedBy: deal.userId,
@@ -225,14 +225,14 @@ router.get('/stats/leaderboard', async (req, res) => {
       lastUpdatedTime: deal.orderDate,
       resultData: [
         { id: 70163, value: String(deal.commission) },
-        { id: 74126, value: deal.multiDeals },
+        { id: 74126, value: deal.multiDeals },  // 🔥 FIX: Använd ID istället för label!
         { label: 'Order date', value: deal.orderDate }
       ]
     }));
     
     console.log(`✅ Loaded ${leads.length} deals from cache`);
     
-    // 🔥 FIX: Bättre error handling för user-hämtning
+    // 🔥 FIX: Bättre error handling
     let adversusUsers = [];
     let localAgents = [];
     
@@ -242,7 +242,6 @@ router.get('/stats/leaderboard', async (req, res) => {
       console.log(`✅ Loaded ${adversusUsers.length} Adversus users`);
     } catch (error) {
       console.error('⚠️ Failed to load Adversus users:', error.message);
-      // Fortsätt ändå, men med tom array
     }
     
     try {
@@ -250,7 +249,6 @@ router.get('/stats/leaderboard', async (req, res) => {
       console.log(`✅ Loaded ${localAgents.length} local agents`);
     } catch (error) {
       console.error('⚠️ Failed to load local agents:', error.message);
-      // Fortsätt ändå, men med tom array
     }
     
     const stats = {};
@@ -271,20 +269,24 @@ router.get('/stats/leaderboard', async (req, res) => {
       const commissionField = lead.resultData?.find(f => f.id === 70163);
       const commission = parseFloat(commissionField?.value || 0);
       
-      // 🔥 FIX: Använd multiDeals field ID 74126
+      // 🔥 FIX: Nu hittar den rätt field!
       const multiDealsField = lead.resultData?.find(f => f.id === 74126);
       const multiDealsValue = parseInt(multiDealsField?.value || '1');
       
+      // 🐛 DEBUG LOG (ta bort efter test)
+      if (multiDealsValue > 1) {
+        console.log(`  🎯 Lead ${lead.id}: multiDeals=${multiDealsValue}`);
+      }
+      
       stats[userId].totalCommission += commission;
-      stats[userId].dealCount += multiDealsValue;
+      stats[userId].dealCount += multiDealsValue;  // 🔥 Nu räknas det rätt!
     });
     
-    // 🔥 FIX: Bättre agent-objektsbygge med fallbacks
+    // 🔥 FIX: Bygg alltid komplett agent-objekt
     const leaderboard = Object.values(stats).map(stat => {
       const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
       const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
       
-      // Bygg agentnamn
       let agentName = `Agent ${stat.userId}`;
       if (adversusUser) {
         if (adversusUser.name) {
