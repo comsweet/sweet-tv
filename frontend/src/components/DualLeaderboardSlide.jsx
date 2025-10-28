@@ -1,6 +1,6 @@
-// 🔥 TV SCROLL FIX V6 - CSS Animation med PAUSA (inte ta bort)
-// PROBLEM V5: Animation tas bort när isActive=false, skapar ryck
-// LÖSNING: Behåll animation men pausa den med animation-play-state
+// 🔥 TV SCROLL FIX V7 - ALLTID SKAPA CSS, kontrollera play-state separat
+// PROBLEM V6: CSS skapas aldrig för slides med isActive=false
+// LÖSNING: Skapa CSS oavsett isActive, använd play-state för kontroll
 
 import { useState, useEffect, useRef } from 'react';
 
@@ -285,6 +285,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
     const styleElementRef = useRef(null);
     const animationNameRef = useRef(`scroll-${side}-${Date.now()}`);
+    const [cssReady, setCssReady] = useState(false);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
@@ -302,15 +303,20 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const totalContentHeight = scrollableStats.length * effectiveRowHeight;
     const scrollDistance = Math.max(0, totalContentHeight - containerHeight);
 
-    // 🔥 INJECT CSS ANIMATION EN GÅNG, sedan kontrollera med play-state
+    // 🔥 INJECT CSS ANIMATION OAVSETT isActive
     useEffect(() => {
+      console.log(`[${side}] 🎬 CSS Setup useEffect`);
+      console.log(`[${side}] - needsScroll: ${needsScroll}`);
+      console.log(`[${side}] - scrollDistance: ${scrollDistance}px`);
+
+      // ✅ KRITISK FIX: Skapa CSS oavsett isActive!
       if (!needsScroll || scrollDistance <= 0) {
-        console.log(`[${side}] ⏸️  No scroll needed`);
+        console.log(`[${side}] ⏸️  No scroll needed (not enough content)`);
+        setCssReady(false);
         return;
       }
 
-      console.log(`[${side}] 🎨 Setting up CSS Animation (one-time)`);
-      console.log(`[${side}] - scrollDistance: ${scrollDistance}px`);
+      console.log(`[${side}] 🎨 Creating CSS Animation...`);
 
       // Beräkna durations
       const scrollSpeed = 30; // pixels per second
@@ -343,16 +349,18 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       styleElementRef.current = styleEl;
 
       console.log(`[${side}] ✅ CSS Animation created: ${animationName}`);
+      setCssReady(true);
 
-      // Cleanup när komponenten unmountas
+      // Cleanup
       return () => {
         console.log(`[${side}] 🧹 Removing CSS animation`);
         if (styleElementRef.current) {
           styleElementRef.current.remove();
           styleElementRef.current = null;
         }
+        setCssReady(false);
       };
-    }, [needsScroll, scrollDistance, side]);
+    }, [needsScroll, scrollDistance, side]); // ✅ Ingen isActive dependency här!
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -421,17 +429,23 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    // 🔥 Beräkna animation style med play-state
+    // 🔥 Beräkna animation style baserat på isActive OCH cssReady
     const getAnimationStyle = () => {
-      if (!needsScroll || scrollDistance <= 0) return {};
+      if (!cssReady) {
+        console.log(`[${side}] ⏳ CSS not ready yet, isActive=${isActive}`);
+        return {};
+      }
 
       const scrollSpeed = 30;
       const scrollDuration = scrollDistance / scrollSpeed;
       const totalCycleDuration = scrollDuration + 2;
 
+      const playState = isActive ? 'running' : 'paused';
+      console.log(`[${side}] 🎮 Animation state: ${playState} (isActive=${isActive})`);
+
       return {
         animation: `${animationNameRef.current} ${totalCycleDuration}s linear infinite`,
-        animationPlayState: isActive ? 'running' : 'paused', // ✨ PAUSA istället för att ta bort!
+        animationPlayState: playState, // ✅ Kontrollera här baserat på isActive
         willChange: 'transform'
       };
     };
@@ -463,7 +477,9 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             {needsScroll && (
               <div style={styles.scrollIndicator}>
                 <span style={styles.scrollIndicatorText}>
-                  {isActive ? '▶️ Scrollar...' : '⏸️ Pausad'}
+                  {!cssReady && '⏳ Laddar...'}
+                  {cssReady && isActive && '▶️ Scrollar...'}
+                  {cssReady && !isActive && '⏸️ Pausad'}
                 </span>
               </div>
             )}
