@@ -483,7 +483,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       lastUpdatedTime: deal.orderDate,
       resultData: [
         { id: 70163, value: String(deal.commission) },
-        { label: 'MultiDeals', value: deal.multiDeals },
+        { id: 74126, value: deal.multiDeals },
         { label: 'Order date', value: deal.orderDate }
       ]
     }));
