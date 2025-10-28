@@ -827,7 +827,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
 
         {/* Rest of tabs remain the same... */}
         {/* Groups Tab */}
-        {activeTab === 'groups' && !isLoading && (
+       {activeTab === 'groups' && !isLoading && (
           <div className="groups-section">
             <div className="section-header">
               <h2>User Groups från Adversus ({userGroups.length})</h2>
@@ -838,6 +838,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
                   <div>
                     <h3>{group.name || 'Unnamed Group'}</h3>
                     <p>ID: {group.id}</p>
+                    <p>👥 {group.agentCount} användare</p>  {/* 🔥 NY RAD */}
                   </div>
                 </div>
               ))}
