@@ -1179,6 +1179,17 @@ router.post('/notification-settings/mode', async (req, res) => {
   }
 });
 
+// GET available groups (korrekt metod)
+router.get('/groups/available', async (req, res) => {
+  try {
+    const groups = await notificationSettings.getAvailableGroups(adversusAPI);
+    res.json({ success: true, groups });
+  } catch (error) {
+    console.error('Error fetching available groups:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 🔥 NY: SYNKA GROUPS FRÅN ADVERSUS
 // Lägg till detta i backend/routes/api.js efter andra agent-endpoints
 
