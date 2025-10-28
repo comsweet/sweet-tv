@@ -256,7 +256,9 @@ router.get('/stats/leaderboard', async (req, res) => {
       const commission = parseFloat(commissionField?.value || 0);
       
       stats[userId].totalCommission += commission;
-      stats[userId].dealCount += 1;
+      const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
+      const multiDealsValue = parseInt(multiDealsField?.value || '1');
+      stats[userId].dealCount += multiDealsValue;
     });
     
     const leaderboard = Object.values(stats).map(stat => {
@@ -540,7 +542,9 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       const commission = parseFloat(commissionField?.value || 0);
       
       stats[userId].totalCommission += commission;
-      stats[userId].dealCount += 1;
+      const multiDealsField = lead.resultData?.find(f => f.label === 'MultiDeals');
+      const multiDealsValue = parseInt(multiDealsField?.value || '1');
+      stats[userId].dealCount += multiDealsValue;
     });
     
     const leaderboardStats = Object.values(stats).map(stat => {
