@@ -615,6 +615,17 @@ router.post('/poll/trigger', async (req, res) => {
   }
 });
 
+// Nytt endpoint för att invaldera cache när deal skapas
+router.post('/leaderboards/cache/invalidate-all', async (req, res) => {
+  try {
+    leaderboardCache.clear();
+    console.log('🗑️ Cache cleared due to new deal');
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // CACHE ENDPOINTS
 router.post('/leaderboards/cache/invalidate', async (req, res) => {
   try {
