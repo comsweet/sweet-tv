@@ -450,6 +450,9 @@ router.delete('/slideshows/:id', async (req, res) => {
 });
 
 // 🔥 FIXED: LEADERBOARD DATA WITH PERSISTENT DEALS CACHE - VISA ALLA AGENTER INKL DE MED 0 DEALS!
+// 🔥 FIXAD VERSION av /leaderboards/:id/stats endpoint
+// Lägg till detta i backend/routes/api.js (ersätt befintlig endpoint)
+
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
     const leaderboard = await leaderboardService.getLeaderboard(req.params.id);
@@ -472,9 +475,13 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     }
     
     console.log(`📊 Cache miss - loading from persistent cache: ${leaderboard.name}`);
+    console.log(`📅 Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
     
     // AUTO-SYNC PERSISTENT DEALS CACHE (var 6:e timme)
     await dealsCache.autoSync(adversusAPI);
+    
+    // 📱 AUTO-SYNC SMS CACHE (var 6:e timme)
+    await smsCache.autoSync(adversusAPI);
     
     // HÄMTA FRÅN PERSISTENT CACHE
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
@@ -555,39 +562,39 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       console.log(`   📊 Initialized stats for ${Object.keys(stats).length} users in groups (including those with 0 deals)`);
     }
     
-        // Räkna deals för varje user
-        leads.forEach(lead => {
-          const userId = lead.lastContactedBy;
-          
-          if (!userId) return;
-          
-          // Använd filtreringen (om den finns)
-          if (filteredUserIds && !filteredUserIds.has(userId)) return;
-          
-          // Om ingen filter, skapa entry first time vi ser usern
-          if (!stats[userId]) {
-            stats[userId] = {
-              userId: userId,
-              totalCommission: 0,
-              dealCount: 0
-            };
-          }
-          
-          const commissionField = lead.resultData?.find(f => f.id === 70163);
-          const commission = parseFloat(commissionField?.value || 0);
-          
-          // 🔥 FIX: Använd multiDeals field ID 74126
-          const multiDealsField = lead.resultData?.find(f => f.id === 74126);
-          const multiDealsValue = parseInt(multiDealsField?.value || '1');
-          
-          stats[userId].totalCommission += commission;
-          stats[userId].dealCount += multiDealsValue;  // ✅ ANVÄND multiDealsValue
-        });
+    // Räkna deals för varje user
+    leads.forEach(lead => {
+      const userId = lead.lastContactedBy;
+      
+      if (!userId) return;
+      
+      // Använd filtreringen (om den finns)
+      if (filteredUserIds && !filteredUserIds.has(userId)) return;
+      
+      // Om ingen filter, skapa entry first time vi ser usern
+      if (!stats[userId]) {
+        stats[userId] = {
+          userId: userId,
+          totalCommission: 0,
+          dealCount: 0
+        };
+      }
+      
+      const commissionField = lead.resultData?.find(f => f.id === 70163);
+      const commission = parseFloat(commissionField?.value || 0);
+      
+      // 🔥 FIX: Använd multiDeals field ID 74126
+      const multiDealsField = lead.resultData?.find(f => f.id === 74126);
+      const multiDealsValue = parseInt(multiDealsField?.value || '1');
+      
+      stats[userId].totalCommission += commission;
+      stats[userId].dealCount += multiDealsValue;  // ✅ ANVÄND multiDealsValue
+    });
     
-    // 📱 ============= LÄGG TILL SMS DATA =============
+    // 📱 ============= NY SEKTION: LÄGG TILL SMS DATA =============
     console.log('📱 Fetching SMS stats for all users...');
     
-    // Hämta SMS stats för alla users ASYNC
+    // Bygg leaderboard stats med SMS-data
     const leaderboardStats = await Promise.all(
       Object.values(stats).map(async (stat) => {
         const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
@@ -622,32 +629,32 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
               totalDeals: smsData.totalDeals,
               successRate: smsData.successRate
             });
-      }
-    } catch (error) {
-      console.error(`⚠️ Failed to get SMS stats for user ${stat.userId}:`, error.message);
-    }
+          }
+        } catch (error) {
+          console.error(`⚠️ Failed to get SMS stats for user ${stat.userId}:`, error.message);
+        }
+        
+        // ✅ RETURNERA KOMPLETT OBJEKT MED SMS-DATA
+        return {
+          userId: stat.userId,
+          dealCount: stat.dealCount,
+          totalCommission: stat.totalCommission,
+          uniqueSMS: smsData.uniqueSMS,           // 📱 NY!
+          smsSuccessRate: smsData.successRate,    // 📱 NY!
+          totalDeals: smsData.totalDeals,         // 📱 NY!
+          agent: {
+            id: stat.userId,
+            userId: stat.userId,
+            name: agentName,
+            email: adversusUser?.email || '',
+            profileImage: localAgent?.profileImage || null
+          }
+        };
+      })
+    );
     
-    // ✅ RETURNERA KOMPLETT OBJEKT MED SMS-DATA
-    return {
-      userId: stat.userId,
-      dealCount: stat.dealCount,
-      totalCommission: stat.totalCommission,
-      uniqueSMS: smsData.uniqueSMS,           // 📱 NY!
-      smsSuccessRate: smsData.successRate,    // 📱 NY!
-      totalDeals: smsData.totalDeals,         // 📱 NY!
-      agent: {
-        id: stat.userId,
-        userId: stat.userId,
-        name: agentName,
-        email: adversusUser?.email || '',
-        profileImage: localAgent?.profileImage || null
-      }
-    };
-  })
-);
-
-// Sortera efter commission
-leaderboardStats.sort((a, b) => b.totalCommission - a.totalCommission);
+    // Sortera efter commission
+    leaderboardStats.sort((a, b) => b.totalCommission - a.totalCommission);
     
     const responseData = {
       leaderboard: leaderboard,
@@ -666,11 +673,19 @@ leaderboardStats.sort((a, b) => b.totalCommission - a.totalCommission);
       responseData
     );
     
-    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents (including ${leaderboardStats.filter(s => s.dealCount === 0).length} with 0 deals)`);
+    console.log(`📈 Leaderboard "${leaderboard.name}" with ${leaderboardStats.length} agents`);
+    console.log(`   - ${leaderboardStats.filter(s => s.dealCount === 0).length} with 0 deals`);
+    console.log(`   - ${leaderboardStats.filter(s => s.uniqueSMS > 0).length} with SMS data`);
+    
+    // 🐛 DEBUG: Visa första objektet
+    if (leaderboardStats.length > 0) {
+      console.log('📊 Sample response object:', JSON.stringify(leaderboardStats[0], null, 2));
+    }
     
     res.json(responseData);
   } catch (error) {
     console.error('❌ Error fetching leaderboard stats:', error.message);
+    console.error('Stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 });
