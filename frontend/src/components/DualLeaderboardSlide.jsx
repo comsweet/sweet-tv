@@ -360,7 +360,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
               📱 {smsPercentage.toFixed(2)}%
             </div>
             <div style={styles.smsCount}>
-              {dealCount}/{uniqueSmsCount}
+              {uniqueSmsCount} SMS
             </div>
           </div>
 
