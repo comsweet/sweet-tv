@@ -1,8 +1,8 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - FIXED
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - FULLY FIXED
 // Top 3 frozen, resten wipes horizontally mellan grupper
 // Gammal grupp glider ut åt vänster, ny grupp glider in från höger
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 const styles = {
   slide: {
@@ -310,10 +310,17 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const scrollableStats = stats.slice(frozenCount);
 
     const itemsPerPage = 14;
-    const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
-    const needsWipe = scrollableStats.length > itemsPerPage;
+    
+    // 🔥 MEMOIZE dessa värden så de inte ändras varje render
+    const totalPages = useMemo(() => {
+      return Math.ceil(scrollableStats.length / itemsPerPage);
+    }, [scrollableStats.length, itemsPerPage]);
+    
+    const needsWipe = useMemo(() => {
+      return scrollableStats.length > itemsPerPage;
+    }, [scrollableStats.length, itemsPerPage]);
 
-    // 🔥 WIPE TRANSITION LOGIC - FIXED
+    // 🔥 WIPE TRANSITION LOGIC - FULLY FIXED
     useEffect(() => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -321,7 +328,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       }
 
       if (!isActive || !needsWipe) {
-        console.log(`[${side}] ⏸️  Wipe stopped`);
+        console.log(`[${side}] ⏸️  Wipe stopped (isActive: ${isActive}, needsWipe: ${needsWipe})`);
         setCurrentPage(0);
         setIsTransitioning(false);
         return;
@@ -331,13 +338,14 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
       // Byt sida var 5:e sekund med wipe
       intervalRef.current = setInterval(() => {
+        console.log(`[${side}] 🔥 Wipe triggered!`);
         setIsTransitioning(true);
         
         // Efter 800ms (wipe duration), uppdatera page
         setTimeout(() => {
           setCurrentPage(prev => {
             const next = (prev + 1) % totalPages;
-            console.log(`[${side}] ➡️  Wipe to page ${next + 1}`);
+            console.log(`[${side}] ➡️  Wipe to page ${next + 1}/${totalPages}`);
             return next;
           });
           setIsTransitioning(false);
@@ -351,7 +359,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           intervalRef.current = null;
         }
       };
-    }, [isActive, needsWipe, totalPages, side]); // ← FIXED: Removed scrollableStats.length
+    }, [isActive, needsWipe, totalPages, side]); // ← Nu är dessa memoized
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
