@@ -1,9 +1,11 @@
+// backend/services/pollingService.js
 const adversusAPI = require('./adversusAPI');
 const database = require('./database');
 const soundSettings = require('./soundSettings');
 const soundLibrary = require('./soundLibrary');
 const leaderboardCache = require('./leaderboardCache');
 const dealsCache = require('./dealsCache');
+const smsCache = require('./smsCache'); // 🔥 FIX: Lägg till smsCache
 const notificationSettings = require('./notificationSettings');
 
 class PollingService {
@@ -24,8 +26,6 @@ class PollingService {
     // 🔥 NY: Rensa notifiedLeads varje timme
     setInterval(() => {
       const oneHourAgo = Date.now() - (60 * 60 * 1000);
-      // Ta bort gamla entries (vi lagrar timestamp i Set)
-      // För enkelhetens skull, rensa hela Set varje timme
       console.log(`🧹 Clearing notifiedLeads cache (${this.notifiedLeads.size} entries)`);
       this.notifiedLeads.clear();
     }, 60 * 60 * 1000); // En timme
@@ -67,23 +67,10 @@ class PollingService {
         }
       }
       
-      // 3️⃣ RENSA GAMLA PENDING DEALS
-      this.cleanupOldPendingDeals();
-      
       this.lastCheckTime = new Date();
       
-      if (this.pendingDeals.size > 0) {
-        console.log(`⏳ ${this.pendingDeals.size} deals waiting for commission`);
-      }
-      
     } catch (error) {
-      console.error('❌ Error during polling:', error.message);
-      
-      if (error.message === 'RATE_LIMIT_EXCEEDED') {
-        console.log('⏳ Rate limit hit, backing off...');
-        this.stop();
-        setTimeout(() => this.start(), 60000);
-      }
+      console.error('Error polling for deals:', error);
     }
   }
 
@@ -92,53 +79,36 @@ class PollingService {
     
     console.log(`🔄 Checking ${this.pendingDeals.size} pending deals...`);
     
-    const toProcess = [];
     const toRemove = [];
     
     for (const [leadId, pendingData] of this.pendingDeals.entries()) {
-      const { lead, attempts, firstSeen } = pendingData;
+      pendingData.attempts++;
+      
+      if (pendingData.attempts > this.maxRetries) {
+        console.log(`⏭️  Giving up on lead ${leadId} after ${this.maxRetries} attempts`);
+        toRemove.push(leadId);
+        continue;
+      }
+      
+      console.log(`♻️  Retry ${pendingData.attempts}/${this.maxRetries} for lead ${leadId}`);
       
       try {
-        const response = await adversusAPI.request(`/leads/${leadId}`);
-        const updatedLead = response.leads?.[0];
+        const leadResponse = await adversusAPI.getLeadById(leadId);
+        const lead = leadResponse.leads?.[0];
         
-        if (!updatedLead) {
-          console.log(`⚠️  Lead ${leadId} not found, removing from pending`);
-          toRemove.push(leadId);
-          continue;
-        }
-        
-        const commissionField = updatedLead.resultData?.find(f => f.id === 70163);
-        const commissionValue = parseFloat(commissionField?.value || 0);
-        
-        if (commissionValue > 0) {
-          console.log(`✅ Lead ${leadId} now has commission (${commissionValue} THB) after ${attempts} attempts!`);
-          toProcess.push(updatedLead);
-          toRemove.push(leadId);
-        } else {
-          if (attempts >= this.maxRetries) {
-            const ageMinutes = Math.round((Date.now() - firstSeen) / 60000);
-            console.log(`⏭️  Lead ${leadId} still no commission after ${attempts} attempts (${ageMinutes} min) - giving up`);
+        if (lead) {
+          const commissionField = lead.resultData?.find(f => f.id === 70163);
+          const commission = parseFloat(commissionField?.value || '0');
+          
+          if (commission > 0) {
+            console.log(`✅ Lead ${leadId} now has commission: ${commission} THB`);
             toRemove.push(leadId);
-          } else {
-            this.pendingDeals.set(leadId, {
-              ...pendingData,
-              attempts: attempts + 1
-            });
-            console.log(`⏳ Lead ${leadId} still waiting... (attempt ${attempts + 1}/${this.maxRetries})`);
+            await this.processDeal(lead, true);
           }
         }
       } catch (error) {
         console.error(`❌ Error checking pending lead ${leadId}:`, error.message);
-        
-        if (attempts >= this.maxRetries) {
-          toRemove.push(leadId);
-        }
       }
-    }
-    
-    for (const lead of toProcess) {
-      await this.processDeal(lead, true);
     }
     
     for (const leadId of toRemove) {
@@ -202,6 +172,15 @@ class PollingService {
         console.log('🗑️  Invalidating all leaderboard caches after new deal');
         leaderboardCache.clear();
         
+        // 🔥 FIX: SYNKA SMS DIREKT efter ny deal för att få uppdaterad SMS%
+        try {
+          console.log('📱 Syncing SMS after new deal (incremental sync)...');
+          await smsCache.syncSms(adversusAPI, false); // false = incremental (bara sista 3 min)
+          console.log('✅ SMS synced successfully');
+        } catch (smsError) {
+          console.error('⚠️  Failed to sync SMS, but continuing:', smsError.message);
+        }
+        
         if (fromPending) {
           console.log(`🎉 PENDING DEAL PROCESSED: Lead ${lead.id} finally has commission!`);
         }
@@ -220,131 +199,63 @@ class PollingService {
           const adversusUser = userResponse.users?.[0];
           
           if (adversusUser) {
-            const agentData = {
-              userId: adversusUser.id,
+            agent = await database.addAgent({
+              userId: deal.userId,
               name: adversusUser.name || 
                     `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
-                    `Agent ${adversusUser.id}`,
+                    `Agent ${deal.userId}`,
               email: adversusUser.email || '',
-              groupId: adversusUser.group?.id ? parseInt(adversusUser.group.id) : null,
-              groupName: adversusUser.group?.name || null
-            };
-            
-            agent = await database.addAgent(agentData);
-            console.log(`✅ Auto-created agent: ${agent.name} (group: ${agent.groupId})`);
-          }
-        } catch (error) {
-          console.error(`⚠️  Could not fetch user ${deal.userId} from Adversus:`, error.message);
-        }
-      } else if (!agent.groupId) {
-        // 🔥 FIX: Om agent finns men saknar groupId, uppdatera från Adversus
-        try {
-          console.log(`⚠️  Agent ${agent.name} missing groupId, fetching from Adversus...`);
-          const userResponse = await adversusAPI.getUser(deal.userId);
-          const adversusUser = userResponse.users?.[0];
-          
-          if (adversusUser && adversusUser.group?.id) {
-            const groupId = parseInt(adversusUser.group.id);
-            const groupName = adversusUser.group.name || null;
-            
-            await database.updateAgent(deal.userId, {
-              groupId: groupId,
-              groupName: groupName
+              customSound: null,
+              preferCustomSound: false
             });
-            
-            // Uppdatera lokala agent-objektet
-            agent.groupId = groupId;
-            agent.groupName = groupName;
-            
-            console.log(`✅ Updated agent ${agent.name} with groupId: ${groupId} (${groupName})`);
           }
-        } catch (error) {
-          console.error(`⚠️  Could not update groupId for agent ${deal.userId}:`, error.message);
+        } catch (userError) {
+          console.error(`⚠️  Could not fetch user ${deal.userId}:`, userError.message);
         }
       }
       
-      // Skicka notification
-      if (agent) {
-        const settings = await soundSettings.getSettings();
-        const dailyBudget = settings.dailyBudget || 3600; // 🔥 FIX: Default till 3600 THB
+      // Kolla dagsbudget för milestones
+      const settings = await notificationSettings.getSettings();
+      const dailyBudget = settings.dailyBudget || 3400;
+      
+      let soundType = 'agent';
+      let soundUrl = null;
+      
+      // Milestone check
+      if (previousTotal < dailyBudget && newTotal >= dailyBudget) {
+        console.log(`🏆 MILESTONE: ${agent?.name || deal.userId} reached daily budget (${dailyBudget} THB)!`);
+        soundType = 'milestone';
         
-        let soundType = 'default';
-        let soundUrl = settings.defaultSound;
-        let reachedBudget = false;
-        
-        // 🔥 FIX: Markera om detta är FÖRSTA gången budgeten nås
-        if (previousTotal < dailyBudget && newTotal >= dailyBudget) {
-          reachedBudget = true;
-          console.log(`🎉 Agent ${agent.name} REACHED daily budget for first time! (${newTotal} THB >= ${dailyBudget} THB)`);
-        }
-        
-        // 🔥 NY LOGIK: Kolla om agenten är ÖVER budgeten (oavsett om det är första gången)
-        if (newTotal >= dailyBudget) {
-          console.log(`💰 Agent ${agent.name} is at/over budget (${newTotal} THB >= ${dailyBudget} THB)`);
-          
-          // Försök hitta custom sound
-          let agentSound = null;
-          if (agent.customSound) {
-            const allSounds = await soundLibrary.getSounds();
-            agentSound = allSounds.find(s => s.url === agent.customSound);
-          }
-          
-          // 🔥 NY LJUDLOGIK:
-          // 1. HAR personligt ljud OCH preferCustomSound → Spela personligt ljud
-          // 2. HAR INTE personligt ljud → Spela milestone ljud
-          if (agentSound && agent.preferCustomSound) {
-            soundType = 'agent';
-            soundUrl = agentSound.url;
-            console.log(`🎵 Playing CUSTOM sound for ${agent.name}: ${agentSound.name}`);
-          } else if (settings.milestoneSound) {
-            soundType = 'milestone';
-            soundUrl = settings.milestoneSound;
-            console.log(`🏆 Playing MILESTONE sound for ${agent.name} (no custom sound or not preferred)`);
-          }
-        } else {
-          // Under budgeten → standard ljud
-          console.log(`📊 Agent ${agent.name} is under budget (${newTotal} THB < ${dailyBudget} THB) - playing default sound`);
-        }
-        
-        const notification = {
-          deal: savedDeal || {
-            leadId: deal.leadId,
-            userId: deal.userId,
-            commission: commissionValue,
-            orderDate: deal.orderDate
-          },
-          agent: agent,
-          commission: deal.commission,
-          soundType: soundType,
-          soundUrl: soundUrl,
-          dailyTotal: newTotal,
-          reachedBudget: reachedBudget,
-          timestamp: new Date().toISOString()
-        };
-        
-        // Filtrera baserat på group settings
-        const shouldNotify = await notificationSettings.shouldNotify(agent);
-        
-        // 🔥 FIX: Extra logging för debugging
-        console.log(`🔍 Notification check for ${agent.name}:`, {
-          groupId: agent.groupId,
-          shouldNotify: shouldNotify
-        });
-        
-        if (shouldNotify) {
-          this.io.emit('new_deal', notification);
-          console.log(`🎉 New deal notification sent for ${agent.name} (sound: ${soundType}, group: ${agent.groupId})`);
-          
-          // 🔥 NY: Markera som notified
-          this.notifiedLeads.add(lead.id);
-        } else {
-          console.log(`🚫 Notification blocked for ${agent.name} (group ${agent.groupId} is filtered out)`);
-          // 🔥 NY: Markera som notified även om blockerad (för att inte försöka igen)
-          this.notifiedLeads.add(lead.id);
-        }
+        const soundLib = await soundLibrary.getLibrary();
+        soundUrl = soundLib.milestone || 'https://res.cloudinary.com/dmr8kbj04/video/upload/v1761585396/sweet-tv-sounds/sound-ta-ching-7053.mp3';
       } else {
-        console.log(`⚠️  Skipping notification - no valid agent for userId ${deal.userId}`);
+        // Agent custom sound eller default
+        if (agent?.preferCustomSound && agent?.customSound) {
+          soundUrl = agent.customSound;
+        } else {
+          const settings = await soundSettings.getSettings();
+          soundUrl = settings.defaultSound || 'https://res.cloudinary.com/dmr8kbj04/video/upload/v1761585396/sweet-tv-sounds/sound-ta-ching-7053.mp3';
+        }
       }
+      
+      const notification = {
+        agent: {
+          id: deal.userId,
+          name: agent?.name || `Agent ${deal.userId}`
+        },
+        commission: commissionValue,
+        totalToday: newTotal,
+        soundType: soundType,
+        soundUrl: soundUrl,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log(`🔊 Emitting notification: ${notification.agent.name} - ${commissionValue} THB (Total: ${newTotal} THB)`);
+      this.io.emit('newDeal', notification);
+      
+      // 🔥 VIKTIGT: Markera som notifierad
+      this.notifiedLeads.add(lead.id);
+      console.log(`✅ Marked lead ${lead.id} as notified`);
       
     } catch (error) {
       console.error(`❌ Error processing deal ${lead.id}:`, error.message);
