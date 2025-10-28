@@ -4,7 +4,6 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-
 const apiRoutes = require('./routes/api');
 const PollingService = require('./services/pollingService');
 
@@ -16,6 +15,14 @@ const io = new Server(server, {
     methods: ['GET', 'POST', 'PUT', 'DELETE']
   }
 });
+
+// ============================================
+// ✅ LÄGG TILL DETTA:
+// ============================================
+global.dealsCache = [];
+global.smsCache = [];
+console.log('✅ Leaderboard cache initialiserad');
+// ============================================
 
 app.use(cors());
 app.use(express.json());
