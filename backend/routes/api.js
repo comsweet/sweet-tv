@@ -187,14 +187,23 @@ router.get('/adversus/users', async (req, res) => {
   }
 });
 
-router.get('/adversus/user-groups', async (req, res) => {
+// NY: Hämta BARA riktiga user groups (från user.group.id, EJ memberOf!)
+router.get('/adversus/actual-user-groups', async (req, res) => {
   try {
-    const userGroups = await adversusAPI.getUserGroups();
-    res.json(userGroups);
+    console.log('🔍 Fetching ACTUAL user groups (not memberOf)...');
+    const groups = await notificationSettings.getAvailableGroups(adversusAPI);
+    console.log(`   ✅ Found ${groups.length} actual groups`);
+    res.json({
+      success: true,
+      groups: groups,
+      count: groups.length
+    });
   } catch (error) {
+    console.error('Error fetching actual user groups:', error);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // STATS (MED PERSISTENT CACHE!)
 router.get('/stats/leaderboard', async (req, res) => {
