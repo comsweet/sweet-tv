@@ -350,16 +350,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       // 📱 SMS data - VIKTIGT: Använd rätt properties från backend
       const uniqueSMS = item.uniqueSMS || 0;
       const smsSuccessRate = item.smsSuccessRate || 0;
-      
-      // Debug log för att se vad vi får
-      if (index === 0) {
-        console.log('📊 Item data:', {
-          name: item.agent.name,
-          uniqueSMS,
-          smsSuccessRate,
-          rawItem: item
-        });
-      }
 
       const smsStyles = getSMSBoxStyle(smsSuccessRate);
 
