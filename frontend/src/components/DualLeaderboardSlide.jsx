@@ -309,6 +309,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       const smsPercentage = item.smsPercentage || 0;
       const uniqueSmsCount = item.uniqueSmsCount || 0;
       const totalSmsCount = item.totalSmsCount || 0;
+      const dealCount = item.dealCount || 0;
 
       const itemStyle = {
         ...styles.item,
@@ -350,7 +351,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           {/* Deals - 🎯 DART EMOJI! */}
           <div style={styles.deals}>
             <span>🎯</span>
-            <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
+            <span style={isZeroDeals ? styles.nameZero : {}}>{dealCount}</span>
           </div>
 
           {/* 📱 SMS COLUMN */}
