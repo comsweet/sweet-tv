@@ -1,10 +1,9 @@
-// 🔥 TV SCROLL FIX V5 - CSS ANIMATION istället för JS scroll
-// PROBLEM: container.scrollTop fungerar inte på WebOS
-// LÖSNING: CSS @keyframes animation för smooth scroll
+// 🔥 TV SCROLL FIX V6 - CSS Animation med PAUSA (inte ta bort)
+// PROBLEM V5: Animation tas bort när isActive=false, skapar ryck
+// LÖSNING: Behåll animation men pausa den med animation-play-state
 
 import { useState, useEffect, useRef } from 'react';
 
-// 🎨 ALL CSS INLINE + CSS ANIMATION
 const styles = {
   slide: {
     position: 'absolute',
@@ -73,11 +72,11 @@ const styles = {
   },
   scrollContainer: {
     position: 'relative',
-    overflow: 'hidden', // ✨ Hidden för CSS animation
+    overflow: 'hidden',
     flex: 1
   },
   scrollContent: {
-    // ✨ CSS animation appliceras här
+    willChange: 'transform'
   },
   item: {
     display: 'flex',
@@ -284,8 +283,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
   const LeaderboardColumn = ({ leaderboard, stats, side }) => {
     if (!leaderboard || !Array.isArray(stats)) return null;
 
-    const [animationKey, setAnimationKey] = useState(0);
     const styleElementRef = useRef(null);
+    const animationNameRef = useRef(`scroll-${side}-${Date.now()}`);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
@@ -303,47 +302,39 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const totalContentHeight = scrollableStats.length * effectiveRowHeight;
     const scrollDistance = Math.max(0, totalContentHeight - containerHeight);
 
-    // 🔥 CSS ANIMATION VERSION - Fungerar på alla browsers inkl TV!
+    // 🔥 INJECT CSS ANIMATION EN GÅNG, sedan kontrollera med play-state
     useEffect(() => {
-      console.log(`[${side}] 🎬 CSS Animation useEffect triggered`);
-      console.log(`[${side}] - isActive: ${isActive}`);
-      console.log(`[${side}] - needsScroll: ${needsScroll}`);
-      console.log(`[${side}] - scrollDistance: ${scrollDistance}px`);
-
-      if (!isActive || !needsScroll || scrollDistance <= 0) {
-        console.log(`[${side}] ⏸️  Animation not needed`);
-        // Ta bort animation
-        if (styleElementRef.current) {
-          styleElementRef.current.remove();
-          styleElementRef.current = null;
-        }
+      if (!needsScroll || scrollDistance <= 0) {
+        console.log(`[${side}] ⏸️  No scroll needed`);
         return;
       }
 
-      console.log(`[${side}] 🚀 STARTING CSS ANIMATION!`);
+      console.log(`[${side}] 🎨 Setting up CSS Animation (one-time)`);
+      console.log(`[${side}] - scrollDistance: ${scrollDistance}px`);
 
-      // Beräkna animation duration (längre content = längre tid)
+      // Beräkna durations
       const scrollSpeed = 30; // pixels per second
       const scrollDuration = scrollDistance / scrollSpeed;
-      const totalCycleDuration = scrollDuration + 2; // +2s paus
+      const pauseDuration = 2;
+      const totalCycleDuration = scrollDuration + pauseDuration;
 
-      console.log(`[${side}] - scrollDuration: ${scrollDuration}s`);
-      console.log(`[${side}] - totalCycleDuration: ${totalCycleDuration}s`);
+      console.log(`[${side}] - scrollDuration: ${scrollDuration.toFixed(1)}s`);
+      console.log(`[${side}] - totalCycleDuration: ${totalCycleDuration.toFixed(1)}s`);
 
-      // Skapa unique animation name
-      const animationName = `scroll-${side}-${animationKey}`;
+      const animationName = animationNameRef.current;
+      const scrollPercent = (scrollDuration / totalCycleDuration * 100).toFixed(1);
 
-      // Inject CSS keyframes
+      // Inject CSS
       const styleEl = document.createElement('style');
       styleEl.textContent = `
         @keyframes ${animationName} {
           0% {
             transform: translateY(0);
           }
-          ${(scrollDuration / totalCycleDuration * 100).toFixed(1)}% {
+          ${scrollPercent}% {
             transform: translateY(-${scrollDistance}px);
           }
-          ${(scrollDuration / totalCycleDuration * 100).toFixed(1)}%, 100% {
+          ${scrollPercent}%, 100% {
             transform: translateY(-${scrollDistance}px);
           }
         }
@@ -351,12 +342,9 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       document.head.appendChild(styleEl);
       styleElementRef.current = styleEl;
 
-      console.log(`[${side}] ✅ CSS Animation injected: ${animationName}`);
+      console.log(`[${side}] ✅ CSS Animation created: ${animationName}`);
 
-      // Trigger re-render för att applicera animation
-      setAnimationKey(prev => prev + 1);
-
-      // Cleanup
+      // Cleanup när komponenten unmountas
       return () => {
         console.log(`[${side}] 🧹 Removing CSS animation`);
         if (styleElementRef.current) {
@@ -364,7 +352,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           styleElementRef.current = null;
         }
       };
-    }, [isActive, needsScroll, side, scrollDistance]);
+    }, [needsScroll, scrollDistance, side]);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -433,11 +421,20 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    // Beräkna animation style
-    const animationStyle = (isActive && needsScroll && scrollDistance > 0) ? {
-      animation: `scroll-${side}-${animationKey} ${(scrollDistance / 30) + 2}s linear infinite`,
-      willChange: 'transform'
-    } : {};
+    // 🔥 Beräkna animation style med play-state
+    const getAnimationStyle = () => {
+      if (!needsScroll || scrollDistance <= 0) return {};
+
+      const scrollSpeed = 30;
+      const scrollDuration = scrollDistance / scrollSpeed;
+      const totalCycleDuration = scrollDuration + 2;
+
+      return {
+        animation: `${animationNameRef.current} ${totalCycleDuration}s linear infinite`,
+        animationPlayState: isActive ? 'running' : 'paused', // ✨ PAUSA istället för att ta bort!
+        willChange: 'transform'
+      };
+    };
 
     return (
       <div style={styles.column}>
@@ -458,7 +455,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         {scrollableStats.length > 0 && (
           <>
             <div style={{ ...styles.scrollContainer, height: `${containerHeight}px` }}>
-              <div style={{ ...styles.scrollContent, ...animationStyle }}>
+              <div style={{ ...styles.scrollContent, ...getAnimationStyle() }}>
                 {scrollableStats.map((item, index) => renderItem(item, index + frozenCount, false))}
               </div>
             </div>
@@ -466,7 +463,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             {needsScroll && (
               <div style={styles.scrollIndicator}>
                 <span style={styles.scrollIndicatorText}>
-                  Scrollar automatiskt... (CSS Animation)
+                  {isActive ? '▶️ Scrollar...' : '⏸️ Pausad'}
                 </span>
               </div>
             )}
