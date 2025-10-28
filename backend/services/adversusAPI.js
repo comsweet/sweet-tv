@@ -254,6 +254,131 @@ class AdversusAPI {
     
     return response;
   }
+
+  /**
+   * Hämtar SMS från Adversus för ett datumintervall
+   * @param {Date} startDate - Startdatum
+   * @param {Date} endDate - Slutdatum
+   * @returns {Promise<Object>} SMS-data med användare
+   */
+  async getSMS(startDate, endDate) {
+    // Lägg till 7 dagars buffer bakåt från startDate
+    const bufferStart = new Date(startDate);
+    bufferStart.setDate(bufferStart.getDate() - 7);
+
+    const filters = {
+      "type": { "$eq": "outbound" },
+      "timestamp": {
+        "$gt": bufferStart.toISOString(),
+        "$lt": endDate.toISOString()
+      }
+    };
+
+    console.log('📱 Fetching SMS (timestamp range: %s to %s)',
+      bufferStart.toISOString().split('T')[0],
+      endDate.toISOString().split('T')[0]
+    );
+
+    let allSMS = [];
+    let currentPage = 1;
+    let totalPages = 1;
+    const pageSize = 1000;
+
+    while (currentPage <= totalPages) {
+      const params = {
+        filters: JSON.stringify(filters),
+        page: currentPage,
+        pageSize: pageSize,
+        includeMeta: true
+      };
+
+      try {
+        console.log(`   📄 SMS Page ${currentPage}/${totalPages}...`);
+        const response = await this.request('/sms', params);
+
+        const sms = response.sms || [];
+
+        if (sms.length > 0) {
+          allSMS.push(...sms);
+          console.log(`   ✅ Got ${sms.length} SMS`);
+        }
+
+        if (response.meta && response.meta.pagination) {
+          const pagination = response.meta.pagination;
+          totalPages = pagination.pageCount || 1;
+
+          if (!pagination.nextUrl || pagination.page >= pagination.pageCount) {
+            console.log(`   ✅ Last SMS page reached`);
+            break;
+          }
+        } else {
+          break;
+        }
+
+        // Safety: Max 10 pages
+        if (currentPage >= 10) {
+          console.log('   ⚠️  Stopped at 10 SMS pages (rate limit protection)');
+          break;
+        }
+
+        currentPage++;
+
+      } catch (error) {
+        console.error(`   ❌ Error on SMS page ${currentPage}:`, error.message);
+
+        if (error.message === 'RATE_LIMIT_EXCEEDED') {
+          console.log('   ⏸️  Stopping SMS fetch due to rate limit');
+        }
+        break;
+      }
+    }
+
+    console.log(`   ✅ Fetched ${allSMS.length} total SMS\n`);
+
+    return {
+      sms: allSMS,
+      meta: {
+        totalCount: allSMS.length
+      }
+    };
+  }
+
+  /**
+   * Räknar unika SMS per användare
+   * Ett unikt SMS = samma telefonnummer per dag per användare
+   * @param {Array} smsData - SMS-array från getSMS
+   * @returns {Object} Map med userId -> antal unika SMS
+   */
+  calculateUniqueSMS(smsData) {
+    const uniqueSMSMap = {};
+
+    smsData.forEach(sms => {
+      const userId = sms.userId;
+      const receiver = sms.receiver;
+      const timestamp = new Date(sms.timestamp);
+      const dateKey = timestamp.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      if (!userId || !receiver) return;
+
+      if (!uniqueSMSMap[userId]) {
+        uniqueSMSMap[userId] = new Set();
+      }
+
+      // Skapa en unik nyckel: telefonnummer + datum
+      const uniqueKey = `${receiver}_${dateKey}`;
+      uniqueSMSMap[userId].add(uniqueKey);
+    });
+
+    // Konvertera Sets till count
+    const result = {};
+    Object.keys(uniqueSMSMap).forEach(userId => {
+      result[userId] = uniqueSMSMap[userId].size;
+    });
+
+    console.log(`📊 Unique SMS count per user:`, result);
+
+    return result;
+  }
 }
 
 module.exports = new AdversusAPI();
