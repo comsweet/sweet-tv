@@ -143,8 +143,9 @@ class SMSCache {
       let allSMS = [];
       let page = 1;
       let hasMore = true;
+      const maxPages = 20; // Safety limit to prevent infinite loops
 
-      while (hasMore) {
+      while (hasMore && page <= maxPages) {
         const result = await adversusAPI.getSMS(filters, page, 1000);
         const smsArray = result.sms || [];
         
@@ -152,17 +153,36 @@ class SMSCache {
         
         console.log(`📱 Fetched page ${page}: ${smsArray.length} SMS`);
         
-        // Check if there are more pages
+        // 🔍 DEBUG: Log pagination info
         const meta = result.meta;
         if (meta && meta.pagination) {
+          console.log(`   📊 Pagination: page ${meta.pagination.page}/${meta.pagination.pageCount}, total: ${meta.pagination.total}`);
           hasMore = meta.pagination.page < meta.pagination.pageCount;
           page++;
         } else {
-          hasMore = false;
+          // 🔥 FIX: If no meta, check if we got a full page (1000 SMS)
+          // If we got exactly 1000, there might be more pages
+          if (smsArray.length === 1000) {
+            console.log(`   ⚠️  No meta found, but got full page (1000 SMS). Fetching next page...`);
+            page++;
+            hasMore = true;
+          } else {
+            console.log(`   ✅ No meta found, got ${smsArray.length} SMS (< 1000). Assuming last page.`);
+            hasMore = false;
+          }
+        }
+        
+        // Small delay to respect rate limits
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
 
-      console.log(`📱 Total fetched: ${allSMS.length} SMS`);
+      if (page > maxPages) {
+        console.log(`⚠️  Reached max pages limit (${maxPages}). There might be more SMS.`);
+      }
+
+      console.log(`📱 Total fetched: ${allSMS.length} SMS across ${page - 1} pages`);
 
       // Filter to only delivered SMS (do it in code since API doesn't support status filter)
       const deliveredSMS = allSMS.filter(sms => sms.status === 'delivered');
