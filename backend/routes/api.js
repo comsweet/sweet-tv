@@ -283,7 +283,7 @@ router.get('/stats/leaderboard', async (req, res) => {
         stats[userId].uniqueSmsCount = userSmsStats.uniqueSmsCount;
         stats[userId].totalSmsCount = userSmsStats.totalSms;
         
-        // Räkna ut SMS procent (Unique SMS / Antal affärer)
+        // Räkna ut SMS procent (Unique SMS / Deals = SMS per deal i procent)
         if (stats[userId].dealCount > 0) {
           const percentage = (userSmsStats.uniqueSmsCount / stats[userId].dealCount) * 100;
           stats[userId].smsPercentage = Math.round(percentage * 100) / 100;
@@ -292,7 +292,7 @@ router.get('/stats/leaderboard', async (req, res) => {
         }
       }
     });
-    
+        
     const leaderboard = Object.values(stats).map(stat => {
       const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
       const localAgent = localAgents.find(a => String(a.userId) === String(stat.userId));
