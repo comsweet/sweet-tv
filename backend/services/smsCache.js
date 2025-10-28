@@ -1,4 +1,5 @@
 // backend/services/smsCache.js
+// 🔥 FIXED VERSION - Type-safe userId comparisons
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -265,10 +266,16 @@ class SMSCache {
     const start = new Date(startDate);
     const end = new Date(endDate);
 
+    // 🔥 FIX: Convert userId to number for consistency
+    const userIdNum = parseInt(userId);
+
     // Filter SMS for this agent in date range
+    // 🔥 FIX: Type-safe comparison using String()
     const agentSMS = this.cache.filter(sms => {
       const smsDate = new Date(sms.timestamp);
-      return sms.userId === userId && smsDate >= start && smsDate <= end;
+      return String(sms.userId) === String(userIdNum) && 
+             smsDate >= start && 
+             smsDate <= end;
     });
 
     // Group by receiver + date (YYYY-MM-DD)
@@ -285,16 +292,32 @@ class SMSCache {
 
   /**
    * Get SMS stats for an agent (unique SMS + success rate)
-   * Success rate = (deals / unique SMS) * 100
+   * Success rate = (totalDeals / uniqueSMS) * 100
    */
   async getSMSStatsForAgent(userId, startDate, endDate, dealsCache) {
     await this._ensureInitialized(); // 🔥 Auto-init
     
-    const uniqueSMS = this.getUniqueSMSForAgent(userId, startDate, endDate);
+    // 🔥 FIX: Convert userId to number for consistency
+    const userIdNum = parseInt(userId);
+    
+    const uniqueSMS = this.getUniqueSMSForAgent(userIdNum, startDate, endDate);
     
     // Get deals count for same period
     const deals = await dealsCache.getDealsInRange(startDate, endDate);
-    const agentDeals = deals.filter(deal => deal.userId === userId);
+    
+    // 🔥 FIX: Type-safe comparison using String()
+    const agentDeals = deals.filter(deal => {
+      return String(deal.userId) === String(userIdNum);
+    });
+    
+    // 🐛 DEBUG: Log when no match is found
+    if (deals.length > 0 && agentDeals.length === 0) {
+      console.log(`⚠️  SMS Stats: Found ${deals.length} total deals but 0 for user ${userIdNum}`);
+      console.log(`   Sample deal userId: "${deals[0].userId}" (type: ${typeof deals[0].userId})`);
+      console.log(`   Looking for userId: ${userIdNum} (type: ${typeof userIdNum})`);
+    } else if (agentDeals.length > 0) {
+      console.log(`✅ SMS Stats: Found ${agentDeals.length} deals for user ${userIdNum}`);
+    }
     
     // Calculate total deals (including multiDeals)
     const totalDeals = agentDeals.reduce((sum, deal) => {
@@ -304,6 +327,9 @@ class SMSCache {
 
     // Calculate success rate with 2 decimals
     const successRate = uniqueSMS > 0 ? (totalDeals / uniqueSMS * 100) : 0;
+
+    // 🐛 DEBUG: Log result
+    console.log(`📊 SMS Stats for user ${userIdNum}: uniqueSMS=${uniqueSMS}, totalDeals=${totalDeals}, rate=${successRate.toFixed(2)}%`);
 
     return {
       uniqueSMS,
@@ -387,7 +413,11 @@ class SMSCache {
   }
 
   getSMSForAgent(userId, startDate, endDate) {
-    return this.getSMSInRange(startDate, endDate).filter(sms => sms.userId === userId);
+    // 🔥 FIX: Type-safe comparison
+    const userIdNum = parseInt(userId);
+    return this.getSMSInRange(startDate, endDate).filter(sms => {
+      return String(sms.userId) === String(userIdNum);
+    });
   }
 }
 
