@@ -5,7 +5,7 @@ const soundSettings = require('./soundSettings');
 const soundLibrary = require('./soundLibrary');
 const leaderboardCache = require('./leaderboardCache');
 const dealsCache = require('./dealsCache');
-const smsCache = require('./smsCache'); // 🔥 FIX: Lägg till smsCache
+const smsCache = require('./smsCache');
 const notificationSettings = require('./notificationSettings');
 
 class PollingService {
@@ -20,15 +20,14 @@ class PollingService {
     this.maxRetries = 10;
     this.retryDelay = 15000;
     
-    // 🔥 NY: Track vilka deals vi redan skickat notifikationer för
+    // Track vilka deals vi redan skickat notifikationer för
     this.notifiedLeads = new Set();
     
-    // 🔥 NY: Rensa notifiedLeads varje timme
+    // Rensa notifiedLeads varje timme
     setInterval(() => {
-      const oneHourAgo = Date.now() - (60 * 60 * 1000);
       console.log(`🧹 Clearing notifiedLeads cache (${this.notifiedLeads.size} entries)`);
       this.notifiedLeads.clear();
-    }, 60 * 60 * 1000); // En timme
+    }, 60 * 60 * 1000);
   }
 
   start() {
@@ -149,7 +148,7 @@ class PollingService {
         status: lead.status
       };
       
-      // 🔥 FIX: Kolla om vi redan skickat notification för denna lead
+      // Kolla om vi redan skickat notification för denna lead
       const alreadyNotified = this.notifiedLeads.has(lead.id);
       
       if (alreadyNotified) {
@@ -161,72 +160,36 @@ class PollingService {
       const previousTotal = await dealsCache.getTodayTotalForAgent(deal.userId);
       const newTotal = previousTotal + commissionValue;
       
-      // Försök spara till cache (kan returnera null om redan finns)
+      // Spara till persistent cache
       const savedDeal = await dealsCache.addDeal(deal);
       
-      // 🔥 FIX: Skicka notification ÄVEN om dealen redan fanns i cache
-      // (men bara om vi inte redan skickat notification för den)
+      // 🔥 FIX: INVALIDERA IN-MEMORY CACHE så silent refresh får färsk data!
+      leaderboardCache.clear();
+      console.log('🗑️  Cleared in-memory cache - silent refresh will now get fresh data');
       
-      if (savedDeal) {
-        // Ny deal i cache - invalidera cache och logga
-        console.log('🗑️  Invalidating all leaderboard caches after new deal');
-        leaderboardCache.clear();
-        
-        // 🔥 FIX: SYNKA SMS DIREKT efter ny deal för att få uppdaterad SMS%
-        try {
-          console.log('📱 Syncing SMS after new deal (incremental sync)...');
-          await smsCache.syncSms(adversusAPI, false); // false = incremental (bara sista 3 min)
-          console.log('✅ SMS synced successfully');
-        } catch (smsError) {
-          console.error('⚠️  Failed to sync SMS, but continuing:', smsError.message);
-        }
-        
-        if (fromPending) {
-          console.log(`🎉 PENDING DEAL PROCESSED: Lead ${lead.id} finally has commission!`);
-        }
-      } else {
-        console.log(`ℹ️  Lead ${lead.id} already in cache, but will send notification anyway`);
+      // Hämta agent info
+      const agent = await database.getAgent(deal.userId);
+      
+      // Kolla notification settings
+      const notifSettings = await notificationSettings.getSettings();
+      if (!notifSettings.enabled) {
+        console.log('🔕 Notifications disabled - skipping');
+        this.notifiedLeads.add(lead.id);
+        return;
       }
       
-      // 🔥 NY LOGIK: Skicka notification OAVSETT om savedDeal är null
-      // Hämta agent-info
-      let agent = await database.getAgent(deal.userId);
-      
-      // Om agent inte finns lokalt, hämta från Adversus
-      if (!agent) {
-        try {
-          const userResponse = await adversusAPI.getUser(deal.userId);
-          const adversusUser = userResponse.users?.[0];
-          
-          if (adversusUser) {
-            agent = await database.addAgent({
-              userId: deal.userId,
-              name: adversusUser.name || 
-                    `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim() ||
-                    `Agent ${deal.userId}`,
-              email: adversusUser.email || '',
-              customSound: null,
-              preferCustomSound: false
-            });
-          }
-        } catch (userError) {
-          console.error(`⚠️  Could not fetch user ${deal.userId}:`, userError.message);
-        }
-      }
-      
-      // Kolla dagsbudget för milestones
-      const settings = await notificationSettings.getSettings();
-      const dailyBudget = settings.dailyBudget || 3400;
-      
-      let soundType = 'agent';
+      // Kolla milestone
+      let soundType = 'normal';
       let soundUrl = null;
       
-      // Milestone check
-      if (previousTotal < dailyBudget && newTotal >= dailyBudget) {
-        console.log(`🏆 MILESTONE: ${agent?.name || deal.userId} reached daily budget (${dailyBudget} THB)!`);
+      const milestones = [50000, 40000, 30000, 20000, 10000, 5000, 3000];
+      const passedMilestone = milestones.find(m => previousTotal < m && newTotal >= m);
+      
+      if (passedMilestone) {
         soundType = 'milestone';
+        console.log(`🎉 MILESTONE! ${agent?.name || deal.userId} reached ${passedMilestone} THB!`);
         
-        const soundLib = await soundLibrary.getLibrary();
+        const soundLib = await soundLibrary.getSounds();
         soundUrl = soundLib.milestone || 'https://res.cloudinary.com/dmr8kbj04/video/upload/v1761585396/sweet-tv-sounds/sound-ta-ching-7053.mp3';
       } else {
         // Agent custom sound eller default
@@ -253,7 +216,7 @@ class PollingService {
       console.log(`🔊 Emitting notification: ${notification.agent.name} - ${commissionValue} THB (Total: ${newTotal} THB)`);
       this.io.emit('newDeal', notification);
       
-      // 🔥 VIKTIGT: Markera som notifierad
+      // Markera som notifierad
       this.notifiedLeads.add(lead.id);
       console.log(`✅ Marked lead ${lead.id} as notified`);
       
