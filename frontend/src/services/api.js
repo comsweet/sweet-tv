@@ -32,6 +32,8 @@ export const getLeaderboardStats = (startDate, endDate) =>
 export const syncGroupsFromAdversus = () => api.post('/agents/sync-groups');
 export const getActualUserGroups = () => api.get('/adversus/actual-user-groups');
 export const getAdversusUsers = () => api.get('/adversus/users');
+export const syncDealsFromAdversus = () => api.post('/deals/sync');
+export const syncSMSFromAdversus = () => api.post('/sms/sync');
 
 // Polling
 export const triggerManualPoll = () => api.post('/poll/trigger');
