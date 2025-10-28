@@ -1,4 +1,4 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - FULLY FIXED WITH SMOOTH ANIMATION
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - COMPLETELY FIXED
 // Top 3 frozen, resten wipes horizontally mellan grupper
 
 import { useState, useEffect, useRef } from 'react';
@@ -35,7 +35,8 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    height: '100%'
   },
   header: {
     textAlign: 'center',
@@ -72,15 +73,19 @@ const styles = {
   wipeContainer: {
     position: 'relative',
     flex: 1,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    minHeight: 0
   },
   wipeContent: {
     position: 'absolute',
     top: 0,
     left: 0,
+    right: 0,
+    bottom: 0,
     width: '100%',
-    height: '100%',
-    transition: 'transform 1s cubic-bezier(0.4, 0, 0.2, 1), opacity 1s ease',
+    overflow: 'hidden',
+    transition: 'transform 1.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.8s ease',
+    willChange: 'transform, opacity'
   },
   wipeContentCurrent: {
     transform: 'translateX(0)',
@@ -94,13 +99,13 @@ const styles = {
   },
   wipeContentNext: {
     transform: 'translateX(100%)',
-    opacity: 0,
-    zIndex: 1
+    opacity: 1,
+    zIndex: 3
   },
   wipeContentEntering: {
     transform: 'translateX(0)',
     opacity: 1,
-    zIndex: 2
+    zIndex: 3
   },
   item: {
     display: 'flex',
@@ -112,7 +117,9 @@ const styles = {
     borderRadius: '12px',
     border: '2px solid rgba(255, 255, 255, 0.3)',
     transition: 'all 0.3s ease',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+    height: '58px',
+    flexShrink: 0
   },
   itemFirstPlace: {
     background: 'linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)',
@@ -284,7 +291,7 @@ const useWipeAnimation = (isActive, totalPages, side) => {
 
     const scheduleNextWipe = () => {
       timerRef.current = setTimeout(() => {
-        console.log(`[${side}] 🔥 Starting wipe transition`);
+        console.log(`[${side}] 🔥 Starting wipe transition from page ${currentPage + 1}`);
         
         // Förbered nästa sida
         const nextPageNum = (currentPage + 1) % totalPages;
@@ -292,21 +299,21 @@ const useWipeAnimation = (isActive, totalPages, side) => {
         
         // Vänta en frame för att CSS ska appliceras
         requestAnimationFrame(() => {
-          setIsTransitioning(true);
+          requestAnimationFrame(() => {
+            setIsTransitioning(true);
+          });
           
-          // Efter animation (1s), uppdatera current page
+          // Efter animation (1.8s), uppdatera current page
           setTimeout(() => {
             setCurrentPage(nextPageNum);
             setIsTransitioning(false);
-            console.log(`[${side}] ➡️ Completed wipe to page ${nextPageNum + 1}/${totalPages}`);
+            console.log(`[${side}] ✅ Completed wipe to page ${nextPageNum + 1}/${totalPages}`);
             
             // Schedule nästa wipe
-            if (isActive) {
-              scheduleNextWipe();
-            }
-          }, 1000); // CSS transition duration
+            scheduleNextWipe();
+          }, 1800); // 🔥 1.8s animation duration
         });
-      }, 10000); // 🔥 10 sekunder mellan wipes
+      }, 12000); // 🔥 12 sekunder mellan wipes
     };
 
     console.log(`[${side}] 🎬 Starting wipe cycle with ${totalPages} pages`);
@@ -322,6 +329,32 @@ const useWipeAnimation = (isActive, totalPages, side) => {
   }, [isActive, totalPages, side, currentPage]);
 
   return { currentPage, nextPage, isTransitioning };
+};
+
+// 🔥 Hook för att dynamiskt beräkna hur många items som får plats
+const useItemsPerPage = (containerRef) => {
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const calculateItems = () => {
+      const containerHeight = containerRef.current.clientHeight;
+      const itemHeight = 58 + 8; // item height + marginBottom (0.5rem = 8px)
+      const calculatedItems = Math.floor(containerHeight / itemHeight);
+      const finalItems = Math.max(8, Math.min(calculatedItems, 15)); // Min 8, max 15
+      
+      console.log(`📏 Container height: ${containerHeight}px, Items per page: ${finalItems}`);
+      setItemsPerPage(finalItems);
+    };
+
+    calculateItems();
+    window.addEventListener('resize', calculateItems);
+    
+    return () => window.removeEventListener('resize', calculateItems);
+  }, [containerRef]);
+
+  return itemsPerPage;
 };
 
 const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, rightStats, isActive }) => {
@@ -366,16 +399,16 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     }
   };
 
-  const LeaderboardColumn = ({ leaderboard, stats, side, currentPage, nextPage, isTransitioning }) => {
+  const LeaderboardColumn = ({ leaderboard, stats, side, currentPage, nextPage, isTransitioning, itemsPerPage }) => {
     if (!leaderboard || !Array.isArray(stats)) return null;
 
+    const wipeContainerRef = useRef(null);
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
     const frozenCount = 3;
     const topStats = stats.slice(0, frozenCount);
     const scrollableStats = stats.slice(frozenCount);
 
-    const itemsPerPage = 10; // 🔥 MINSKA från 14 till 10 för bättre spacing
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
 
@@ -393,7 +426,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
       const itemStyle = {
         ...styles.item,
-        height: '58px',
         ...(isFirstPlace ? styles.itemFirstPlace : {}),
         ...(isFrozen ? styles.itemFrozen : {})
       };
@@ -446,18 +478,20 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    // 🔥 Rendera items för båda sidor
+    // 🔥 Rendera items för en specifik sida
     const renderPageItems = (pageNum) => {
       const startIndex = pageNum * itemsPerPage;
       const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
       const pageItems = scrollableStats.slice(startIndex, endIndex);
+      
+      console.log(`[${side}] Page ${pageNum + 1}: Showing items ${startIndex + frozenCount + 1}-${endIndex + frozenCount} (indices ${startIndex}-${endIndex - 1} in scrollable)`);
       
       return pageItems.map((item, index) => 
         renderItem(item, startIndex + index + frozenCount, false)
       );
     };
 
-    // 🔥 Beräkna styles för current och next content
+    // 🔥 Styles för current och next content
     const getCurrentStyle = () => {
       if (isTransitioning) {
         return { ...styles.wipeContent, ...styles.wipeContentExiting };
@@ -492,7 +526,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
         {scrollableStats.length > 0 && (
           <>
-            <div style={styles.wipeContainer}>
+            <div ref={wipeContainerRef} style={styles.wipeContainer}>
               {/* Current page */}
               <div style={getCurrentStyle()}>
                 {renderPageItems(currentPage)}
@@ -519,13 +553,18 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     );
   };
 
+  // 🔥 Fast itemsPerPage för konsistens (kan göras dynamisk senare)
+  const itemsPerPage = 10;
+
   // 🔥 Beräkna totala sidor för varje kolumn
   const frozenCount = 3;
   const leftScrollable = leftStats.slice(frozenCount);
   const rightScrollable = rightStats.slice(frozenCount);
-  const itemsPerPage = 10;
   const leftTotalPages = Math.ceil(leftScrollable.length / itemsPerPage);
   const rightTotalPages = Math.ceil(rightScrollable.length / itemsPerPage);
+
+  console.log(`🔢 Left: ${leftScrollable.length} scrollable items, ${leftTotalPages} pages`);
+  console.log(`🔢 Right: ${rightScrollable.length} scrollable items, ${rightTotalPages} pages`);
 
   // 🔥 Använd custom hook för varje kolumn
   const leftWipe = useWipeAnimation(isActive, leftTotalPages, 'left');
@@ -546,6 +585,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           currentPage={leftWipe.currentPage}
           nextPage={leftWipe.nextPage}
           isTransitioning={leftWipe.isTransitioning}
+          itemsPerPage={itemsPerPage}
         />
         <LeaderboardColumn 
           leaderboard={rightLeaderboard} 
@@ -554,6 +594,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           currentPage={rightWipe.currentPage}
           nextPage={rightWipe.nextPage}
           isTransitioning={rightWipe.isTransitioning}
+          itemsPerPage={itemsPerPage}
         />
       </div>
     </div>
