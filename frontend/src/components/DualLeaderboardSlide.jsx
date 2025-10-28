@@ -219,8 +219,20 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         return styles.commissionLow; // 🟠 Orange
       }
       return styles.commissionHigh; // 🟢 Grön
+    } else if (timePeriod === 'week') {
+      // Vecka: 18 000 THB är gränsen
+      if (commission < 18000) {
+        return styles.commissionLow; // 🟠 Orange
+      }
+      return styles.commissionHigh; // 🟢 Grön
+    } else if (timePeriod === 'month') {
+      // Månad: 50 000 THB är gränsen
+      if (commission < 50000) {
+        return styles.commissionLow; // 🟠 Orange
+      }
+      return styles.commissionHigh; // 🟢 Grön
     } else {
-      // Vecka & Månad: 50 000 THB är gränsen
+      // Custom eller okänd period - använd månadens tröskel som default
       if (commission < 50000) {
         return styles.commissionLow; // 🟠 Orange
       }
