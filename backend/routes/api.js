@@ -421,6 +421,20 @@ router.delete('/slideshows/:id', async (req, res) => {
   }
 });
 
+// Live Today
+router.get('/leaderboards/live-today/stats', async (req, res) => {
+  // Hämta från global.dealsCache och global.smsCache
+  // Filtrera för idag
+  // Returnera samma format som befintliga leaderboards
+});
+
+// Live Month  
+router.get('/leaderboards/live-month/stats', async (req, res) => {
+  // Hämta från global.dealsCache och global.smsCache
+  // Filtrera för denna månad
+  // Returnera samma format som befintliga leaderboards
+});
+
 // 🔥 FIXED: LEADERBOARD DATA WITH PERSISTENT DEALS CACHE - VISA ALLA AGENTER INKL DE MED 0 DEALS!
 router.get('/leaderboards/:id/stats', async (req, res) => {
   try {
