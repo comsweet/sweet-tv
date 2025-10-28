@@ -1,4 +1,4 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - COMPLETELY REWRITTEN
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - MOVED TO PARENT LEVEL
 // Top 3 frozen, resten wipes horizontally mellan grupper
 
 import { useState, useEffect, useRef } from 'react';
@@ -249,6 +249,62 @@ const styles = {
   }
 };
 
+// 🔥 Flytta wipe-state till top level
+const useWipeAnimation = (isActive, totalPages, side) => {
+  const [currentPage, setCurrentPage] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (!isActive || totalPages <= 1) {
+      setCurrentPage(0);
+      setIsTransitioning(false);
+      return;
+    }
+
+    // 🔥 RECURSIVE TIMEOUT istället för setInterval
+    const scheduleNextWipe = () => {
+      timerRef.current = setTimeout(() => {
+        console.log(`[${side}] 🔥 Wipe triggered!`);
+        setIsTransitioning(true);
+
+        setTimeout(() => {
+          setCurrentPage(prev => {
+            const next = (prev + 1) % totalPages;
+            console.log(`[${side}] ➡️ Page ${next + 1}/${totalPages}`);
+            return next;
+          });
+          setIsTransitioning(false);
+          
+          // Schedule nästa wipe
+          if (isActive) {
+            scheduleNextWipe();
+          }
+        }, 800);
+      }, 5000);
+    };
+
+    console.log(`[${side}] 🎬 Starting wipe cycle`);
+    scheduleNextWipe();
+
+    return () => {
+      console.log(`[${side}] 🧹 Cleanup timer`);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [isActive, totalPages, side]);
+
+  return { currentPage, isTransitioning };
+};
+
 const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, rightStats, isActive }) => {
   if (!leftLeaderboard || !rightLeaderboard || !Array.isArray(leftStats) || !Array.isArray(rightStats)) {
     console.error('❌ DualLeaderboardSlide: Missing required data');
@@ -291,13 +347,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     }
   };
 
-  const LeaderboardColumn = ({ leaderboard, stats, side }) => {
+  const LeaderboardColumn = ({ leaderboard, stats, side, currentPage, isTransitioning }) => {
     if (!leaderboard || !Array.isArray(stats)) return null;
-
-    const [currentPage, setCurrentPage] = useState(0);
-    const [isTransitioning, setIsTransitioning] = useState(false);
-    const intervalRef = useRef(null);
-    const isActiveRef = useRef(isActive);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
@@ -308,61 +359,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const itemsPerPage = 14;
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
-
-    // 🔥 Update ref when isActive changes
-    useEffect(() => {
-      isActiveRef.current = isActive;
-    }, [isActive]);
-
-    // 🔥 SIMPLE WIPE LOGIC - Kör endast när komponenten mountas
-    useEffect(() => {
-      console.log(`[${side}] 🎬 Component mounted, needs wipe: ${needsWipe}`);
-      
-      if (!needsWipe) {
-        console.log(`[${side}] ⏭️ No wipe needed (only ${scrollableStats.length} items)`);
-        return;
-      }
-
-      // Start interval direkt
-      const startInterval = () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-
-        intervalRef.current = setInterval(() => {
-          // Kolla ref istället för dependency
-          if (!isActiveRef.current) {
-            console.log(`[${side}] ⏸️ Skipping wipe (not active)`);
-            return;
-          }
-
-          console.log(`[${side}] 🔥 Wipe triggered!`);
-          setIsTransitioning(true);
-
-          setTimeout(() => {
-            setCurrentPage(prev => {
-              const next = (prev + 1) % totalPages;
-              console.log(`[${side}] ➡️ Wipe to page ${next + 1}/${totalPages}`);
-              return next;
-            });
-            setIsTransitioning(false);
-          }, 800);
-        }, 5000);
-
-        console.log(`[${side}] ✅ Interval started`);
-      };
-
-      startInterval();
-
-      // Cleanup
-      return () => {
-        console.log(`[${side}] 🧹 Cleanup - clearing interval`);
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      };
-    }, []); // ← TOM DEPENDENCY ARRAY - kör bara vid mount/unmount
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -488,6 +484,18 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     );
   };
 
+  // 🔥 Beräkna totala sidor för varje kolumn
+  const frozenCount = 3;
+  const leftScrollable = leftStats.slice(frozenCount);
+  const rightScrollable = rightStats.slice(frozenCount);
+  const itemsPerPage = 14;
+  const leftTotalPages = Math.ceil(leftScrollable.length / itemsPerPage);
+  const rightTotalPages = Math.ceil(rightScrollable.length / itemsPerPage);
+
+  // 🔥 Använd custom hook för varje kolumn
+  const leftWipe = useWipeAnimation(isActive, leftTotalPages, 'left');
+  const rightWipe = useWipeAnimation(isActive, rightTotalPages, 'right');
+
   const slideStyle = {
     ...styles.slide,
     ...(isActive ? styles.slideActive : {})
@@ -496,8 +504,20 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
   return (
     <div style={slideStyle}>
       <div style={styles.container}>
-        <LeaderboardColumn leaderboard={leftLeaderboard} stats={leftStats} side="left" />
-        <LeaderboardColumn leaderboard={rightLeaderboard} stats={rightStats} side="right" />
+        <LeaderboardColumn 
+          leaderboard={leftLeaderboard} 
+          stats={leftStats} 
+          side="left"
+          currentPage={leftWipe.currentPage}
+          isTransitioning={leftWipe.isTransitioning}
+        />
+        <LeaderboardColumn 
+          leaderboard={rightLeaderboard} 
+          stats={rightStats} 
+          side="right"
+          currentPage={rightWipe.currentPage}
+          isTransitioning={rightWipe.isTransitioning}
+        />
       </div>
     </div>
   );
