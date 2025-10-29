@@ -48,30 +48,7 @@ const LeaderboardCard = ({ leaderboard, stats, refreshKey }) => {
         content.classList.remove('scrolling');
       }
     };
-  }, [stats, refreshKey]);  // 🔥 FIX: Lägg till refreshKey här!
-
-  // 🔥 SEPARAT useEffect: Force reset när refreshKey ändras
-  useEffect(() => {
-    const content = scrollContentRef.current;
-    if (!content) return;
-    
-    console.log(`🔄 RefreshKey changed to ${refreshKey} - resetting animation`);
-    
-    // Remove scrolling class
-    content.classList.remove('scrolling');
-    
-    // Force reflow to ensure CSS reset
-    void content.offsetHeight;
-    
-    // Re-add scrolling class if we have stats
-    if (stats.length > 1) {
-      // Small delay to ensure DOM update
-      setTimeout(() => {
-        content.classList.add('scrolling');
-        console.log(`✅ Animation restarted for leaderboard`);
-      }, 50);
-    }
-  }, [refreshKey]);
+  }, [stats, refreshKey]);
 
   const getTimePeriodLabel = (period) => {
     const labels = {
@@ -322,15 +299,7 @@ const Display = () => {
       console.log(`✅ Notification ACCEPTED`);
       setCurrentNotification(notification);
       
-      if (dealRefreshTimeoutRef.current) {
-        clearTimeout(dealRefreshTimeoutRef.current);
-      }
-      
-      console.log(`⏰ Scheduling refresh in 5 seconds...`);
-      dealRefreshTimeoutRef.current = setTimeout(() => {
-        console.log('🔄 DEAL-TRIGGERED REFRESH');
-        fetchLeaderboards(true, true);
-      }, 5000);
+      // Refresh kommer triggas automatiskt från handleNotificationComplete efter 10 sek!
       
       console.log('═══════════════════════════════════════════\n');
     };
@@ -354,7 +323,11 @@ const Display = () => {
   }, []);
 
   const handleNotificationComplete = () => {
+    console.log('🎉 Notification complete - triggering refresh now!');
     setCurrentNotification(null);
+    
+    // 🔥 Refresh EXAKT när popupen försvinner!
+    fetchLeaderboards(true, true);
   };
 
   const getGridClass = () => {
