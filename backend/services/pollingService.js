@@ -267,7 +267,7 @@ class PollingService {
         return;
       }
       
-      // ✅ SOUND LOGIC with detailed logging
+      // ✅ FIXED SOUND LOGIC - Using correct method names
       const settings = await this.soundSettings.getSettings();
       const dailyBudget = settings.dailyBudget || 3600;
       
@@ -285,21 +285,21 @@ class PollingService {
         reachedBudget = true;
         console.log(`   🏆 MILESTONE REACHED! Agent reached ${dailyBudget} THB today!`);
         
-        // Try to find milestone sound
-        const milestoneSound = await this.soundLibrary.getMilestoneSound(agent.userId);
-        if (milestoneSound) {
+        // ✅ FIX: Use milestone sound from settings (not from soundLibrary!)
+        if (settings.milestoneSound) {
           soundType = 'milestone';
-          soundUrl = milestoneSound.url;
-          console.log(`   🎵 Using MILESTONE sound: "${milestoneSound.name}"`);
+          soundUrl = settings.milestoneSound;
+          console.log(`   🎵 Using MILESTONE sound from settings`);
         } else {
-          console.log(`   🎵 No milestone sound found, using default`);
+          console.log(`   🎵 No milestone sound configured, using default`);
         }
       } else {
         console.log(`   📊 Normal deal (no milestone)`);
         
-        // Try to find agent-specific sound
-        const agentSound = await this.soundLibrary.getAgentSound(agent.userId);
+        // ✅ FIX: Use getSoundForAgent (correct method name)
+        const agentSound = await this.soundLibrary.getSoundForAgent(agent.userId);
         if (agentSound) {
+          soundType = 'agent';
           soundUrl = agentSound.url;
           console.log(`   🎵 Using AGENT-SPECIFIC sound: "${agentSound.name}"`);
         } else {
