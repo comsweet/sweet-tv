@@ -5,7 +5,7 @@ import DealNotification from '../components/DealNotification.jsx';
 import '../components/DealNotification.css';
 import './Display.css';
 
-const LeaderboardCard = ({ leaderboard, stats }) => {
+const LeaderboardCard = ({ leaderboard, stats, refreshKey }) => {
   const scrollContainerRef = useRef(null);
   const scrollContentRef = useRef(null);
 
@@ -48,7 +48,7 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
         content.classList.remove('scrolling');
       }
     };
-  }, [stats]);
+  }, [stats, refreshKey]);  // 🔥 FIX: Lägg till refreshKey här!
 
   const getTimePeriodLabel = (period) => {
     const labels = {
@@ -369,6 +369,7 @@ const Display = () => {
               key={`${leaderboard.id}-${refreshKey}`}
               leaderboard={leaderboard}
               stats={stats}
+              refreshKey={refreshKey}
             />
           ))}
         </div>
