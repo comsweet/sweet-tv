@@ -1,6 +1,6 @@
 // backend/services/smsCache.js
 // 🔥 UPDATED VERSION - Handles both old and new cache formats
-// 🔥 FIXED: Persistent disk path + robust format handling
+// 🔥 FIXED: Persistent disk path + robust format handling + SINGLE getUniqueSMSForAgent with return
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -221,7 +221,7 @@ class SMSCache {
       
       console.log(`📱 Delivered SMS: ${deliveredSMS.length} / ${allSMS.length}`);
 
-      // ✅ EFTER (normalisera till number):
+      // ✅ Normalize userId to number
       const smsData = deliveredSMS.map(sms => ({
         id: sms.id,
         userId: parseInt(sms.userId),  // 🔥 FIX: Alltid number!
@@ -294,27 +294,53 @@ class SMSCache {
    * Example: 5 SMS to +46701234567 on 2025-10-28 = 1 unique SMS
    */
   getUniqueSMSForAgent(userId, startDate, endDate) {
-    // 🔥 SAFETY CHECK: Ensure cache is array
-    if (!Array.isArray(this.cache)) {
-      console.error(`❌ CACHE IS NOT AN ARRAY! Type: ${typeof this.cache}`);
-      console.error(`   Cache value:`, this.cache);
-      return 0;
-    }
-
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // 🔥 FIX: Convert userId to number for consistency
+    // 🔥 DEBUG LOG
+    console.log(`\n🔍 ==================== SMS DEBUG ====================`);
+    console.log(`🔍 getUniqueSMSForAgent() called:`);
+    console.log(`   userId: ${userId} (type: ${typeof userId})`);
+    console.log(`   startDate input: ${startDate} (type: ${typeof startDate})`);
+    console.log(`   endDate input: ${endDate} (type: ${typeof endDate})`);
+    console.log(`   start parsed: ${start.toISOString()}`);
+    console.log(`   end parsed: ${end.toISOString()}`);
+    console.log(`   Cache size: ${this.cache.length} SMS total`);
+
     const userIdNum = parseInt(userId);
 
-    // Filter SMS for this agent in date range
-    // 🔥 FIX: Type-safe comparison using String()
     const agentSMS = this.cache.filter(sms => {
       const smsDate = new Date(sms.timestamp);
-      return String(sms.userId) === String(userIdNum) && 
-             smsDate >= start && 
-             smsDate <= end;
+      const userMatch = String(sms.userId) === String(userIdNum);
+      const dateMatch = smsDate >= start && smsDate <= end;
+      
+      return userMatch && dateMatch;
     });
+
+    console.log(`   ✅ Found ${agentSMS.length} matching SMS for user ${userId}`);
+    
+    if (agentSMS.length === 0) {
+      console.log(`\n   ⚠️  ZERO SMS FOUND! Debugging...`);
+      
+      const allUserSMS = this.cache.filter(sms => String(sms.userId) === String(userIdNum));
+      console.log(`   User has ${allUserSMS.length} total SMS in cache (any date)`);
+      
+      if (allUserSMS.length > 0) {
+        console.log(`   Sample timestamps for this user:`);
+        allUserSMS.slice(0, 3).forEach((sms, idx) => {
+          const smsDate = new Date(sms.timestamp);
+          console.log(`     [${idx + 1}] ${sms.timestamp} → ${smsDate.toISOString()}`);
+          console.log(`         >= start? ${smsDate >= start}, <= end? ${smsDate <= end}`);
+        });
+      }
+      
+      const todaySMS = this.cache.filter(sms => {
+        const smsDate = new Date(sms.timestamp);
+        return smsDate >= start && smsDate <= end;
+      });
+      console.log(`   Cache has ${todaySMS.length} total SMS in date range (all users)`);
+    }
+    console.log(`🔍 ==================== END DEBUG ====================\n`);
 
     // Group by receiver + date (YYYY-MM-DD)
     const uniqueReceiverDates = new Set();
@@ -325,7 +351,10 @@ class SMSCache {
       uniqueReceiverDates.add(key);
     });
 
-    return uniqueReceiverDates.size;
+    const result = uniqueReceiverDates.size;
+    console.log(`   🎯 Returning uniqueSMS count: ${result}`);
+    
+    return result;
   }
 
   /**
@@ -365,59 +394,6 @@ class SMSCache {
       successRate: parseFloat(successRate.toFixed(2)) // Format: 33.33
     };
   }
-
-  getUniqueSMSForAgent(userId, startDate, endDate) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-
-  // 🔥 DEBUG LOG - LÄGG TILL DESSA RADER
-  console.log(`\n🔍 ==================== SMS DEBUG ====================`);
-  console.log(`🔍 getUniqueSMSForAgent() called:`);
-  console.log(`   userId: ${userId} (type: ${typeof userId})`);
-  console.log(`   startDate input: ${startDate} (type: ${typeof startDate})`);
-  console.log(`   endDate input: ${endDate} (type: ${typeof endDate})`);
-  console.log(`   start parsed: ${start.toISOString()}`);
-  console.log(`   end parsed: ${end.toISOString()}`);
-  console.log(`   Cache size: ${this.cache.length} SMS total`);
-
-  const userIdNum = parseInt(userId);
-
-  const agentSMS = this.cache.filter(sms => {
-    const smsDate = new Date(sms.timestamp);
-    const userMatch = String(sms.userId) === String(userIdNum);
-    const dateMatch = smsDate >= start && smsDate <= end;
-    
-    return userMatch && dateMatch;
-  });
-
-  // 🔥 LÄGG TILL DESSA RADER EFTER filter
-  console.log(`   ✅ Found ${agentSMS.length} matching SMS for user ${userId}`);
-  
-  if (agentSMS.length === 0) {
-    console.log(`\n   ⚠️  ZERO SMS FOUND! Debugging...`);
-    
-    const allUserSMS = this.cache.filter(sms => String(sms.userId) === String(userIdNum));
-    console.log(`   User has ${allUserSMS.length} total SMS in cache (any date)`);
-    
-    if (allUserSMS.length > 0) {
-      console.log(`   Sample timestamps for this user:`);
-      allUserSMS.slice(0, 3).forEach((sms, idx) => {
-        const smsDate = new Date(sms.timestamp);
-        console.log(`     [${idx + 1}] ${sms.timestamp} → ${smsDate.toISOString()}`);
-        console.log(`         >= start? ${smsDate >= start}, <= end? ${smsDate <= end}`);
-      });
-    }
-    
-    const todaySMS = this.cache.filter(sms => {
-      const smsDate = new Date(sms.timestamp);
-      return smsDate >= start && smsDate <= end;
-    });
-    console.log(`   Cache has ${todaySMS.length} total SMS in date range (all users)`);
-  }
-  console.log(`🔍 ==================== END DEBUG ====================\n`);
-
-  // ... rest av function (uniqueReceiverDates etc.)
-}
 
   /**
    * ✅ NEW: Calculate SMS success rate using pre-calculated dealCount
