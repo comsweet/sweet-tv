@@ -46,7 +46,10 @@ const DealNotification = ({ notification, onComplete }) => {
     // CONFETTI ANIMATION - varar lika länge som popupen (10s)
     const confettiDuration = 10000;
     const confettiEnd = Date.now() + confettiDuration;
-    const colors = notification.soundType === 'milestone' 
+    
+    // 🔥 FIXAT: Använd reachedBudget för guld-konfetti (agent kan ha agent-specific sound!)
+    const isMilestone = notification.reachedBudget || notification.soundType === 'milestone';
+    const colors = isMilestone
       ? ['#ffd700', '#ffffff', '#ffed4e'] // Gold for milestone
       : ['#bb0000', '#ffffff', '#00bb00']; // Standard colors
 
@@ -110,7 +113,7 @@ const DealNotification = ({ notification, onComplete }) => {
       {/* 🔥 Mörk backdrop bakom popupen */}
       <div className="notification-backdrop"></div>
       
-      <div className={`deal-notification ${soundType === 'milestone' ? 'milestone' : ''}`}>
+      <div className={`deal-notification ${(reachedBudget || soundType === 'milestone') ? 'milestone' : ''}`}>
         <audio ref={audioRef} />
         
         <div className="notification-content">
@@ -131,12 +134,12 @@ const DealNotification = ({ notification, onComplete }) => {
             <p className="notification-commission">
               +{parseFloat(commission).toLocaleString('sv-SE')} THB
             </p>
-            {soundType === 'milestone' && totalToday && (
+            {(reachedBudget || soundType === 'milestone') && totalToday && (
               <p className="notification-message milestone">
                 🏆 DAGSBUDGET NÅDD! ({totalToday.toLocaleString('sv-SE')} THB idag)
               </p>
             )}
-            {soundType !== 'milestone' && (
+            {!(reachedBudget || soundType === 'milestone') && (
               <p className="notification-message">🎉 Ny affär registrerad!</p>
             )}
           </div>
