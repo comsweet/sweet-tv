@@ -1,6 +1,6 @@
 // backend/services/smsCache.js
-// 🔥 UPDATED VERSION - 2-minute sync interval + Type-safe userId comparisons
-// 🔥 FIXED: Persistent disk path for Render deployment
+// 🔥 UPDATED VERSION - Handles both old and new cache formats
+// 🔥 FIXED: Persistent disk path + robust format handling
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -58,8 +58,27 @@ class SMSCache {
   async loadCache() {
     try {
       const data = await fs.readFile(this.cacheFile, 'utf8');
-      this.cache = JSON.parse(data);
-      console.log(`📱 Loaded ${this.cache.length} SMS from cache`);
+      const parsed = JSON.parse(data);
+      
+      // 🔥 ROBUST: Handle both old and new formats
+      if (Array.isArray(parsed)) {
+        // New format: direct array
+        this.cache = parsed;
+        console.log(`📱 Loaded ${this.cache.length} SMS from cache (new format)`);
+      } else if (parsed.sms && Array.isArray(parsed.sms)) {
+        // Old format: { sms: [...] }
+        this.cache = parsed.sms;
+        console.log(`📱 Loaded ${this.cache.length} SMS from cache (old format - will convert)`);
+        
+        // Convert to new format immediately
+        await this.saveCache(this.cache);
+        console.log(`✅ Converted cache to new format`);
+      } else {
+        // Unknown format - start fresh
+        console.log(`⚠️  Unknown cache format, starting fresh`);
+        this.cache = [];
+        await this.saveCache([]);
+      }
     } catch (error) {
       if (error.code === 'ENOENT') {
         console.log('📱 No SMS cache found, starting fresh');
@@ -126,6 +145,7 @@ class SMSCache {
 
   async saveCache(smsArray) {
     return this.queueWrite(async () => {
+      // 🔥 ALWAYS save as direct array (new format)
       await fs.writeFile(this.cacheFile, JSON.stringify(smsArray, null, 2));
       this.cache = smsArray;
       return smsArray;
@@ -253,7 +273,7 @@ class SMSCache {
     const now = new Date();
     const minutesSinceSync = (now - lastSyncTime) / (1000 * 60);
 
-    return minutesSinceSync >= 2; // 🔥 UPDATED: Sync every 2 minutes (was 6 hours)
+    return minutesSinceSync >= 2; // 🔥 UPDATED: Sync every 2 minutes
   }
 
   async autoSync(adversusAPI) {
@@ -274,6 +294,13 @@ class SMSCache {
    * Example: 5 SMS to +46701234567 on 2025-10-28 = 1 unique SMS
    */
   getUniqueSMSForAgent(userId, startDate, endDate) {
+    // 🔥 SAFETY CHECK: Ensure cache is array
+    if (!Array.isArray(this.cache)) {
+      console.error(`❌ CACHE IS NOT AN ARRAY! Type: ${typeof this.cache}`);
+      console.error(`   Cache value:`, this.cache);
+      return 0;
+    }
+
     const start = new Date(startDate);
     const end = new Date(endDate);
 
@@ -323,15 +350,6 @@ class SMSCache {
       return String(deal.userId) === String(userIdNum);
     });
     
-    // 🐛 DEBUG: Log when no match is found
-    if (deals.length > 0 && agentDeals.length === 0) {
-      console.log(`⚠️  SMS Stats: Found ${deals.length} total deals but 0 for user ${userIdNum}`);
-      console.log(`   Sample deal userId: "${deals[0].userId}" (type: ${typeof deals[0].userId})`);
-      console.log(`   Looking for userId: ${userIdNum} (type: ${typeof userIdNum})`);
-    } else if (agentDeals.length > 0) {
-      console.log(`✅ SMS Stats: Found ${agentDeals.length} deals for user ${userIdNum}`);
-    }
-    
     // Calculate total deals (including multiDeals)
     const totalDeals = agentDeals.reduce((sum, deal) => {
       const multiDeals = parseInt(deal.multiDeals) || 1;
@@ -340,9 +358,6 @@ class SMSCache {
 
     // Calculate success rate with 2 decimals
     const successRate = uniqueSMS > 0 ? (totalDeals / uniqueSMS * 100) : 0;
-
-    // 🐛 DEBUG: Log result
-    console.log(`📊 SMS Stats for user ${userIdNum}: uniqueSMS=${uniqueSMS}, totalDeals=${totalDeals}, rate=${successRate.toFixed(2)}%`);
 
     return {
       uniqueSMS,
@@ -366,8 +381,6 @@ class SMSCache {
     const uniqueSMS = this.getUniqueSMSForAgent(userIdNum, startDate, endDate);
     const successRate = uniqueSMS > 0 ? (dealCount / uniqueSMS * 100) : 0;
     
-    console.log(`📊 SMS Success Rate for user ${userIdNum}: ${dealCount} deals / ${uniqueSMS} SMS = ${successRate.toFixed(2)}%`);
-
     return {
       uniqueSMS,
       successRate: parseFloat(successRate.toFixed(2))
@@ -390,6 +403,15 @@ class SMSCache {
 
   async getStats() {
     await this._ensureInitialized(); // 🔥 Auto-init
+    
+    // 🔥 SAFETY CHECK
+    if (!Array.isArray(this.cache)) {
+      return {
+        error: 'Cache is not an array',
+        cacheType: typeof this.cache,
+        cacheValue: this.cache
+      };
+    }
     
     const lastSync = await this.getLastSync();
     const { startDateFormatted, endDateFormatted } = this.getRollingWindow();
@@ -439,6 +461,12 @@ class SMSCache {
   // ==================== QUERY HELPERS ====================
 
   getSMSInRange(startDate, endDate) {
+    // 🔥 SAFETY CHECK
+    if (!Array.isArray(this.cache)) {
+      console.error(`❌ Cache is not an array in getSMSInRange`);
+      return [];
+    }
+
     const start = new Date(startDate);
     const end = new Date(endDate);
 
