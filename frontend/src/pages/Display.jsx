@@ -5,21 +5,40 @@ import DealNotification from '../components/DealNotification.jsx';
 import '../components/DealNotification.css';
 import './Display.css';
 
-// 🔥 GLOBAL STATE for wipe management (persists across re-renders)
-const wipeState = {};
-const wipeIntervals = {};
-
 const LeaderboardCard = ({ leaderboard, stats }) => {
-  const [, forceUpdate] = useState(0);
-  const leaderboardId = leaderboard.id;
+  const scrollContainerRef = useRef(null);
+  const scrollContentRef = useRef(null);
 
-  // Initialize wipe state
-  if (!wipeState[leaderboardId]) {
-    wipeState[leaderboardId] = {
-      currentPage: 0,
-      isTransitioning: false
+  useEffect(() => {
+    if (stats.length <= 1) return; // Om bara 1 agent, ingen scroll
+
+    const container = scrollContainerRef.current;
+    const content = scrollContentRef.current;
+    
+    if (!container || !content) return;
+
+    // Beräkna scroll-distans
+    const containerHeight = container.clientHeight;
+    const contentHeight = content.scrollHeight;
+    const scrollDistance = contentHeight - containerHeight;
+
+    if (scrollDistance <= 0) {
+      // Content passar i viewporten, ingen scroll behövs
+      return;
+    }
+
+    // Sätt CSS variable för animation
+    container.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
+    
+    // Starta animation
+    content.classList.add('scrolling');
+
+    return () => {
+      if (content) {
+        content.classList.remove('scrolling');
+      }
     };
-  }
+  }, [stats]);
 
   const getTimePeriodLabel = (period) => {
     const labels = {
@@ -44,50 +63,9 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
     return 'sms-red';
   };
 
-  // 🔥 WIPE LOGIC - samma som DualLeaderboardSlide
-  const frozenCount = 3; // Top 3 är alltid synliga
-  const itemsPerPage = 7; // 7 items passar perfekt för 1080p TV
-  
-  const topStats = stats.slice(0, frozenCount);
-  const scrollableStats = stats.slice(frozenCount);
-  const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
-  const needsWipe = scrollableStats.length > itemsPerPage;
-
-  // Listen to wipe events
-  useEffect(() => {
-    const handleWipe = (event) => {
-      if (event.detail.leaderboardId !== leaderboardId) return;
-      
-      wipeState[leaderboardId].isTransitioning = true;
-      forceUpdate(n => n + 1);
-      
-      setTimeout(() => {
-        wipeState[leaderboardId].currentPage = 
-          (wipeState[leaderboardId].currentPage + 1) % totalPages;
-        wipeState[leaderboardId].isTransitioning = false;
-        forceUpdate(n => n + 1);
-      }, 800);
-    };
-
-    window.addEventListener('leaderboard-wipe', handleWipe);
-    return () => window.removeEventListener('leaderboard-wipe', handleWipe);
-  }, [leaderboardId, totalPages]);
-
-  // Create interval ONCE for auto-wipe
-  useEffect(() => {
-    if (!needsWipe || wipeIntervals[leaderboardId]) return;
-
-    console.log(`✅ [${leaderboard.name}] Auto-wipe enabled: ${totalPages} pages × ${itemsPerPage} items/page`);
-    console.log(`   🔄 Will rotate every 12 seconds`);
-    
-    wipeIntervals[leaderboardId] = setInterval(() => {
-      window.dispatchEvent(new CustomEvent('leaderboard-wipe', {
-        detail: { leaderboardId }
-      }));
-    }, 12000); // 12 seconds per page
-
-    // NO CLEANUP - interval lives forever for TV display
-  }, [needsWipe, leaderboardId, totalPages, leaderboard.name]);
+  // Separera #1 från resten
+  const firstPlace = stats.length > 0 ? stats[0] : null;
+  const scrollableStats = stats.slice(1); // Alla utom #1
 
   const renderAgent = (item, index, isFrozen = false) => {
     if (!item) return null;
@@ -99,13 +77,13 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
     return (
       <div 
         key={item.userId}
-        className={`leaderboard-item-display ${index === 0 && !isZeroDeals ? 'first-place' : ''} ${isZeroDeals ? 'zero-deals' : ''} ${isFrozen ? 'frozen-item' : ''}`}
+        className={`leaderboard-item-display ${index === 0 && !isZeroDeals && isFrozen ? 'first-place' : ''} ${isZeroDeals ? 'zero-deals' : ''} ${isFrozen ? 'frozen-item' : ''}`}
       >
         <div className="rank-display">
-          {index === 0 && !isZeroDeals && '🥇'}
-          {index === 1 && !isZeroDeals && '🥈'}
-          {index === 2 && !isZeroDeals && '🥉'}
-          {(index > 2 || isZeroDeals) && `#${index + 1}`}
+          {index === 0 && !isZeroDeals && isFrozen && '🥇'}
+          {index === 1 && !isZeroDeals && !isFrozen && '🥈'}
+          {index === 2 && !isZeroDeals && !isFrozen && '🥉'}
+          {((index > 2 && !isFrozen) || (index > 0 && isFrozen) || isZeroDeals) && `#${index + 1}`}
         </div>
         
         {item.agent.profileImage ? (
@@ -147,15 +125,6 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
     );
   };
 
-  // Calculate current page items
-  const startIndex = wipeState[leaderboardId].currentPage * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
-  const currentPageItems = scrollableStats.slice(startIndex, endIndex);
-
-  // Display range for indicator
-  const displayStart = startIndex + frozenCount + 1;
-  const displayEnd = endIndex + frozenCount;
-
   return (
     <div className="leaderboard-card-display">
       <div className="leaderboard-header">
@@ -163,46 +132,26 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
         <p className="leaderboard-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
         <p className="leaderboard-agent-count">
           👥 {stats.length} agenter
-          {needsWipe && (
-            <span className="page-indicator"> • Visar {displayStart}-{displayEnd}</span>
-          )}
         </p>
       </div>
 
       {stats.length === 0 ? (
         <div className="no-data-display">Inga affärer än</div>
       ) : (
-        <div className="leaderboard-items-container">
-          {/* 🔥 FROZEN SECTION - Top 3 alltid synliga */}
-          {topStats.length > 0 && (
-            <div className="frozen-section">
-              {topStats.map((item, index) => renderAgent(item, index, true))}
+        <div className="leaderboard-items-wrapper">
+          {/* 🔥 FROZEN #1 SECTION */}
+          {firstPlace && (
+            <div className="frozen-first-place">
+              {renderAgent(firstPlace, 0, true)}
             </div>
           )}
 
-          {/* 🔥 WIPE SECTION - Resten roterar */}
+          {/* 🔥 AUTO-SCROLL SECTION - Alla utom #1 */}
           {scrollableStats.length > 0 && (
-            <div className="wipe-container">
-              <div 
-                className={`wipe-content ${wipeState[leaderboardId].isTransitioning ? 'wipe-exiting' : 'wipe-active'}`}
-              >
-                {currentPageItems.map((item, pageIndex) => {
-                  const globalIndex = startIndex + frozenCount + pageIndex;
-                  return renderAgent(item, globalIndex, false);
-                })}
+            <div className="scroll-container" ref={scrollContainerRef}>
+              <div className="scroll-content" ref={scrollContentRef}>
+                {scrollableStats.map((item, idx) => renderAgent(item, idx + 1, false))}
               </div>
-            </div>
-          )}
-
-          {/* 🔥 PAGE INDICATOR */}
-          {needsWipe && totalPages > 1 && (
-            <div className="page-dots">
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <div 
-                  key={i}
-                  className={`page-dot ${i === wipeState[leaderboardId].currentPage ? 'active' : ''}`}
-                />
-              ))}
             </div>
           )}
         </div>
@@ -265,24 +214,15 @@ const Display = () => {
           
           leaderboardsWithStats.push({
             leaderboard: lb,
-            stats: stats
+            stats: stats // ✅ ALLA agenter, ingen slice()
           });
           
           const totalDeals = stats.reduce((sum, s) => sum + s.dealCount, 0);
           const totalCommission = stats.reduce((sum, s) => sum + s.totalCommission, 0);
           
           console.log(`   ✅ ${silent ? 'Updated' : 'Loaded'} "${lb.name}"`);
-          console.log(`      - ${stats.length} agents (ALL VISIBLE with auto-wipe)`);
+          console.log(`      - ${stats.length} agents (ALL VISIBLE with auto-scroll)`);
           console.log(`      - ${totalDeals} deals, ${totalCommission.toLocaleString('sv-SE')} THB`);
-          
-          // Show wipe info
-          if (stats.length > 10) {
-            const frozenCount = 3;
-            const itemsPerPage = 7;
-            const scrollableCount = stats.length - frozenCount;
-            const totalPages = Math.ceil(scrollableCount / itemsPerPage);
-            console.log(`      - 🔄 Auto-wipe: Top ${frozenCount} frozen, ${scrollableCount} rotating (${totalPages} pages)`);
-          }
           
           if (i < activeLeaderboards.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -315,7 +255,8 @@ const Display = () => {
   useEffect(() => {
     console.log('\n🚀 ═══════════════════════════════════════════');
     console.log('🚀 DISPLAY COMPONENT MOUNTED');
-    console.log('📺 TV MODE: Auto-wipe enabled for 10+ agents');
+    console.log('📺 TV MODE: Auto-scroll enabled (30s cycle)');
+    console.log('🥇 Frozen #1 at top');
     console.log('═══════════════════════════════════════════\n');
     
     fetchLeaderboards();
