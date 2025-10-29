@@ -1,5 +1,8 @@
-// 🔥 TEST VERSION - Minimal möjliga kod
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - WITH GLOBAL INTERVAL
 import { useState, useEffect, useRef } from 'react';
+
+// 🔥 GLOBAL intervals - överlever re-mounts
+const wipeIntervals = {};
 
 const styles = {
   slide: {
@@ -275,11 +278,12 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     return { box: styles.smsBoxRed, text: styles.smsRateRed };
   };
 
-  const LeaderboardColumn = ({ leaderboard, stats }) => {
+  const LeaderboardColumn = ({ leaderboard, stats, side }) => {
     if (!leaderboard || !Array.isArray(stats)) return null;
 
     const [currentPage, setCurrentPage] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
+    const columnId = `${leaderboard.id}-${side}`;
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
     const frozenCount = 3;
@@ -289,35 +293,36 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
 
-    // 🔥 SIMPLAST MÖJLIGA - starta alltid, inga checks
+    // 🔥 GLOBAL INTERVAL som överlever re-mounts
     useEffect(() => {
-      console.log('🎬 useEffect körs, needsWipe:', needsWipe, 'totalPages:', totalPages);
+      if (!needsWipe) return;
       
-      if (!needsWipe) {
-        console.log('⏭️ Behöver inte wipe, avslutar');
+      // Om intervallet redan finns, använd det
+      if (wipeIntervals[columnId]) {
+        console.log(`♻️ [${side}] Interval redan aktivt`);
         return;
       }
 
-      console.log('✅ Startar interval');
+      console.log(`✅ [${side}] Skapar nytt interval`);
       
-      const interval = setInterval(() => {
-        console.log('🔥 Interval tick!');
+      wipeIntervals[columnId] = setInterval(() => {
+        console.log(`🔥 [${side}] Interval tick!`);
         setIsTransitioning(true);
         setTimeout(() => {
           setCurrentPage(prev => {
             const next = (prev + 1) % totalPages;
-            console.log(`➡️ Byter sida: ${prev} → ${next}`);
+            console.log(`➡️ [${side}] Byter sida: ${prev} → ${next}`);
             return next;
           });
           setIsTransitioning(false);
         }, 1800);
-      }, 5000); // 5s för snabbare test
+      }, 12000);
 
       return () => {
-        console.log('🧹 Cleanup');
-        clearInterval(interval);
+        console.log(`🧹 [${side}] Cleanup (men interval finns kvar)`);
+        // VI RENSAR INTE intervallet här - det lever kvar
       };
-    }, [needsWipe, totalPages]);
+    }, [needsWipe, totalPages, columnId, side]);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -405,7 +410,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             {needsWipe && (
               <div style={styles.pageIndicator}>
                 <span style={styles.pageIndicatorText}>
-                  ➡️ Sida {currentPage + 1} av {totalPages} {isTransitioning ? '(wiping...)' : ''}
+                  ➡️ Sida {currentPage + 1} av {totalPages}
                 </span>
               </div>
             )}
@@ -418,8 +423,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
   return (
     <div style={{ ...styles.slide, ...(isActive ? styles.slideActive : {}) }}>
       <div style={styles.container}>
-        <LeaderboardColumn leaderboard={leftLeaderboard} stats={leftStats} />
-        <LeaderboardColumn leaderboard={rightLeaderboard} stats={rightStats} />
+        <LeaderboardColumn leaderboard={leftLeaderboard} stats={leftStats} side="left" />
+        <LeaderboardColumn leaderboard={rightLeaderboard} stats={rightStats} side="right" />
       </div>
     </div>
   );
