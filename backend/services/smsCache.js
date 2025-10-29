@@ -221,10 +221,10 @@ class SMSCache {
       
       console.log(`📱 Delivered SMS: ${deliveredSMS.length} / ${allSMS.length}`);
 
-      // Transform to our format
+      // ✅ EFTER (normalisera till number):
       const smsData = deliveredSMS.map(sms => ({
         id: sms.id,
-        userId: sms.userId,
+        userId: parseInt(sms.userId),  // 🔥 FIX: Alltid number!
         receiver: sms.receiver,
         timestamp: sms.timestamp,
         campaignId: sms.campaignId,
