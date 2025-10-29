@@ -8,6 +8,8 @@ const path = require('path');
  * Rolling window: Nuvarande månad + 7 dagar innan.
  * 
  * 🔥 UPDATED: Synkar var 2:e minut (istället för 6 timmar) för real-time updates!
+ * 🔥 FIXED: Persistent disk path för Render deployment
+ * 🔥 FIXED: Force sync flag för omedelbar sync efter ny deal
  * 
  * Exempel:
  * - 24 november → Cachar: 24 okt - 30 nov
@@ -25,13 +27,24 @@ const path = require('path');
  */
 class DealsCache {
   constructor() {
-    this.dbPath = path.join(__dirname, '../data');
+    // 🔥 KRITISK FIX: Persistent disk på Render!
+    const isRender = process.env.RENDER === 'true';
+    
+    this.dbPath = isRender 
+      ? '/var/data'  // Render persistent disk
+      : path.join(__dirname, '../data');  // Local development
+    
     this.cacheFile = path.join(this.dbPath, 'deals-cache.json');
     this.lastSyncFile = path.join(this.dbPath, 'last-sync.json');
+    
+    console.log(`💾 Deals cache path: ${this.dbPath} (isRender: ${isRender})`);
     
     // 🔥 Queue för att hantera concurrent writes
     this.writeQueue = [];
     this.isProcessing = false;
+    
+    // 🔥 NEW: Track if we need immediate sync
+    this.needsImmediateSync = false;
     
     this.initCache();
   }
@@ -160,7 +173,7 @@ class DealsCache {
     }
   }
 
-  // 🔥 UPPDATERAD: Queue-safe add deal
+  // 🔥 UPPDATERAD: Queue-safe add deal + flag för immediate sync
   async addDeal(deal) {
     return this.queueWrite(async () => {
       // Read fresh data inside queue operation
@@ -186,7 +199,11 @@ class DealsCache {
       
       allDeals.push(newDeal);
       await this._saveCache(allDeals); // Direct write (already in queue)
-      console.log(`💾 Added deal ${newDeal.leadId} to cache`);
+      
+      // 🔥 NEW: Flag that we need immediate sync on next API call
+      this.needsImmediateSync = true;
+      
+      console.log(`💾 Added deal ${newDeal.leadId} to cache (immediate sync flagged)`);
       return newDeal;
     });
   }
@@ -260,6 +277,9 @@ async syncDeals(adversusAPI) {
     await this.saveCache(deals);
     await this.updateLastSync();
     
+    // 🔥 NEW: Clear immediate sync flag
+    this.needsImmediateSync = false;
+    
     console.log(`💾 Cached ${deals.length} deals total`);
     console.log(`   - ${dealsWithCommission.length} deals WITH commission`);
     console.log(`   - ${deals.length - dealsWithCommission.length} deals WITHOUT commission`);
@@ -284,6 +304,12 @@ async syncDeals(adversusAPI) {
 
   // 🔥 KRITISK FIX: Kolla om sync behövs (2 minuter istället för 6 timmar!)
   async needsSync() {
+    // 🔥 NEW: Check immediate sync flag first
+    if (this.needsImmediateSync) {
+      console.log('🔥 IMMEDIATE SYNC NEEDED - New deal was added');
+      return true;
+    }
+    
     const lastSync = await this.getLastSync();
     
     if (!lastSync) {
@@ -348,13 +374,14 @@ async syncDeals(adversusAPI) {
     return {
       totalDeals: deals.length,
       lastSync: lastSync,
+      needsImmediateSync: this.needsImmediateSync,  // 🔥 NEW
       rollingWindow: {
         start: startDate.toISOString(),
         end: endDate.toISOString()
       },
       totalCommission: deals.reduce((sum, d) => sum + d.commission, 0),
       uniqueAgents: new Set(deals.map(d => d.userId)).size,
-      queueLength: this.writeQueue.length // 🔥 Visa queue status
+      queueLength: this.writeQueue.length
     };
   }
 
