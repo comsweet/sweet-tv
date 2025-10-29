@@ -96,7 +96,7 @@
   font-size: 1.5rem;
 }
 
-/* Leaderboard Items - COMPACT for 20 agents */
+/* Leaderboard Items - UPDATED with SMS box */
 .leaderboard-items {
   flex: 1;
   overflow-y: auto;
@@ -106,13 +106,13 @@
 
 .leaderboard-item-display {
   display: grid;
-  grid-template-columns: 50px 50px 1fr 120px 140px;
+  grid-template-columns: 50px 50px 1fr 130px 130px 160px; /* 🔥 UPDATED: Added SMS column */
   align-items: center;
   gap: 0.8rem;
-  padding: 0.6rem 1rem;
-  margin-bottom: 0.6rem;
+  padding: 0.7rem 1rem;
+  margin-bottom: 0.7rem;
   background: white;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 2px solid #e1e8ed;
   transition: all 0.3s ease;
 }
@@ -122,7 +122,6 @@
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
 }
 
-/* 🔥 UPDATED: Zero deals styling - mindre hover-effekt */
 .leaderboard-item-display.zero-deals:hover {
   transform: translateX(5px);
 }
@@ -179,7 +178,6 @@
   text-overflow: ellipsis;
 }
 
-/* 🔥 NEW: Rött namn för zero deals */
 .agent-name-display.zero-deals {
   color: #e74c3c;
 }
@@ -190,14 +188,14 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: #2c3e50;
   white-space: nowrap;
 }
 
 .deals-column-display .emoji {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
 }
 
 .deals-column-display.zero {
@@ -205,9 +203,64 @@
   font-weight: 500;
 }
 
-/* 🔥 UPDATED: Commission färglogik */
-.commission-display {
+/* 🔥 SMS BOX STYLING - NYTT! */
+.sms-box-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  min-height: 50px;
+  border: 2px solid;
+}
+
+/* SMS Box färger baserat på success rate */
+.sms-box-display.sms-green {
+  background: rgba(46, 204, 113, 0.15);
+  border-color: #2ecc71;
+}
+
+.sms-box-display.sms-orange {
+  background: rgba(230, 126, 34, 0.15);
+  border-color: #e67e22;
+}
+
+.sms-box-display.sms-red {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: #e74c3c;
+}
+
+.sms-rate {
   font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.sms-green .sms-rate {
+  color: #27ae60;
+}
+
+.sms-orange .sms-rate {
+  color: #d35400;
+}
+
+.sms-red .sms-rate {
+  color: #c0392b;
+}
+
+.sms-count {
+  font-size: 0.85rem;
+  color: #2c3e50;
+  font-weight: 600;
+  margin: 0.2rem 0 0;
+  line-height: 1;
+}
+
+/* Commission färglogik med time period thresholds */
+.commission-display {
+  font-size: 1.3rem;
   font-weight: bold;
   white-space: nowrap;
   text-align: right;
@@ -219,13 +272,13 @@
   font-weight: 600;
 }
 
-/* Svart för under 3400 THB */
+/* Orange för låga belopp */
 .commission-display.low {
-  color: #2c3e50;
+  color: #e67e22;
   font-weight: 600;
 }
 
-/* Grön för 3400 THB eller över */
+/* Grön för höga belopp */
 .commission-display.high {
   color: #27ae60;
   font-weight: bold;
