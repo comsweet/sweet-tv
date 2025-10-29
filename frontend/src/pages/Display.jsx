@@ -16,7 +16,6 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
     return labels[period] || period;
   };
 
-  // 🔥 Helper function för commission klass
   const getCommissionClass = (commission, timePeriod) => {
     if (commission === 0) return 'zero';
     if (timePeriod === 'day') return commission < 3400 ? 'low' : 'high';
@@ -24,7 +23,6 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
     return commission < 50000 ? 'low' : 'high';
   };
 
-  // 🔥 Helper function för SMS box färg
   const getSMSBoxClass = (successRate) => {
     if (successRate >= 75) return 'sms-green';
     if (successRate >= 60) return 'sms-orange';
@@ -52,7 +50,6 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
                 key={item.userId} 
                 className={`leaderboard-item-display ${index === 0 && !isZeroDeals ? 'first-place' : ''} ${isZeroDeals ? 'zero-deals' : ''}`}
               >
-                {/* Rank */}
                 <div className="rank-display">
                   {index === 0 && !isZeroDeals && '🥇'}
                   {index === 1 && !isZeroDeals && '🥈'}
@@ -60,7 +57,6 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
                   {(index > 2 || isZeroDeals) && `#${index + 1}`}
                 </div>
                 
-                {/* Avatar */}
                 {item.agent.profileImage ? (
                   <img 
                     src={item.agent.profileImage} 
@@ -73,20 +69,17 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
                   </div>
                 )}
                 
-                {/* Name */}
                 <div className="agent-info-display">
                   <h3 className={`agent-name-display ${isZeroDeals ? 'zero-deals' : ''}`}>
                     {item.agent.name}
                   </h3>
                 </div>
                 
-                {/* Deals column with dart emoji */}
                 <div className={`deals-column-display ${isZeroDeals ? 'zero' : ''}`}>
                   <span className="emoji">🎯</span>
                   <span>{item.dealCount} affärer</span>
                 </div>
                 
-                {/* 🔥 SMS BOX */}
                 <div className={`sms-box-display ${getSMSBoxClass(smsSuccessRate)}`}>
                   <div className="sms-rate">
                     {smsSuccessRate.toFixed(2)}%
@@ -96,7 +89,6 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
                   </div>
                 </div>
                 
-                {/* Commission */}
                 <div className={`commission-display ${getCommissionClass(item.totalCommission, leaderboard.timePeriod)}`}>
                   {item.totalCommission.toLocaleString('sv-SE')} THB
                 </div>
@@ -114,29 +106,40 @@ const Display = () => {
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
-  const refreshIntervalRef = useRef(null);
+  const [refreshKey, setRefreshKey] = useState(0); // 🔥 FORCE RE-RENDER
   
-  // 🔥 FIX: Deduplication tracking
-  const lastNotificationRef = useRef(null);
-  const notificationTimeoutRef = useRef(null);
+  const refreshIntervalRef = useRef(null);
+  const dealRefreshTimeoutRef = useRef(null);
+  
+  // 🔥 ENHANCED: Track notified deals to prevent duplicates
+  const notifiedDealsRef = useRef(new Set());
+  const lastNotificationTimeRef = useRef(0);
 
-  // 🔥 ENHANCED: Fetch leaderboards with better silent mode logging
-  const fetchLeaderboards = async (silent = false) => {
+  // 🔥 ENHANCED: Fetch leaderboards with force refresh option
+  const fetchLeaderboards = async (silent = false, forceRefresh = false) => {
     try {
+      const timestamp = new Date().toLocaleTimeString();
+      
       if (!silent) {
-        console.log('\n📊 === LOADING LEADERBOARDS (Initial) ===');
+        console.log('\n📊 ═══════════════════════════════════════════');
+        console.log('📊 LOADING LEADERBOARDS (Initial)');
+        console.log(`⏰ Time: ${timestamp}`);
+        console.log('═══════════════════════════════════════════');
         setIsLoading(true);
       } else {
-        console.log('\n🔄 === SILENT REFRESH STARTING ===');
-        console.log(`⏰ Time: ${new Date().toLocaleTimeString()}`);
+        console.log('\n🔄 ═══════════════════════════════════════════');
+        console.log('🔄 SILENT REFRESH');
+        console.log(`⏰ Time: ${timestamp}`);
+        console.log(`🔑 Force Refresh: ${forceRefresh ? 'YES' : 'NO'}`);
+        console.log('═══════════════════════════════════════════');
       }
       
-      // Steg 1: Hämta aktiva leaderboards
+      // Fetch active leaderboards
       const response = await getActiveLeaderboards();
       const activeLeaderboards = response.data;
       
       if (!silent) {
-        console.log(`📊 Fetching stats for ${activeLeaderboards.length} leaderboards SEQUENTIALLY...`);
+        console.log(`📊 Fetching stats for ${activeLeaderboards.length} leaderboards...`);
         setLoadingProgress({ current: 0, total: activeLeaderboards.length });
       } else {
         console.log(`📊 Updating ${activeLeaderboards.length} leaderboards...`);
@@ -144,15 +147,15 @@ const Display = () => {
       
       const leaderboardsWithStats = [];
       
-      // Steg 2: Hämta stats EN leaderboard i taget
+      // Fetch stats ONE leaderboard at a time
       for (let i = 0; i < activeLeaderboards.length; i++) {
         const lb = activeLeaderboards[i];
         
         if (!silent) {
           setLoadingProgress({ current: i + 1, total: activeLeaderboards.length });
-          console.log(`📈 Loading leaderboard ${i + 1}/${activeLeaderboards.length}: "${lb.name}"`);
+          console.log(`   📈 [${i + 1}/${activeLeaderboards.length}] Loading "${lb.name}"`);
         } else {
-          console.log(`   📈 Updating "${lb.name}"...`);
+          console.log(`   📈 [${i + 1}/${activeLeaderboards.length}] Updating "${lb.name}"`);
         }
         
         try {
@@ -164,25 +167,33 @@ const Display = () => {
             stats: stats
           });
           
+          // 🔥 ENHANCED: Show detailed stats in console
+          const totalDeals = stats.reduce((sum, s) => sum + s.dealCount, 0);
+          const totalCommission = stats.reduce((sum, s) => sum + s.totalCommission, 0);
+          const topAgent = stats[0];
+          
           if (!silent) {
-            console.log(`✅ Loaded "${lb.name}" (${stats.length} agents)`);
+            console.log(`   ✅ Loaded "${lb.name}"`);
+            console.log(`      - ${stats.length} agents`);
+            console.log(`      - ${totalDeals} deals total`);
+            console.log(`      - ${totalCommission.toLocaleString('sv-SE')} THB total`);
+            if (topAgent) {
+              console.log(`      - Top: ${topAgent.agent.name} (${topAgent.dealCount} deals, ${topAgent.totalCommission.toLocaleString('sv-SE')} THB)`);
+            }
           } else {
-            // 🔥 ENHANCED: Show stats summary in silent mode
-            const totalDeals = stats.reduce((sum, s) => sum + s.dealCount, 0);
-            const totalCommission = stats.reduce((sum, s) => sum + s.totalCommission, 0);
             console.log(`   ✅ Updated "${lb.name}": ${stats.length} agents, ${totalDeals} deals, ${totalCommission.toLocaleString('sv-SE')} THB`);
+            if (topAgent) {
+              console.log(`      👑 Top: ${topAgent.agent.name} → ${topAgent.dealCount} deals, ${topAgent.totalCommission.toLocaleString('sv-SE')} THB`);
+            }
           }
           
-          // Delay mellan varje leaderboard
+          // Delay between leaderboards
           if (i < activeLeaderboards.length - 1) {
-            if (!silent) {
-              console.log('⏳ Waiting 2s before next leaderboard...');
-            }
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
           
         } catch (error) {
-          console.error(`❌ Error loading "${lb.name}":`, error);
+          console.error(`   ❌ Error loading "${lb.name}":`, error);
           leaderboardsWithStats.push({
             leaderboard: lb,
             stats: []
@@ -191,14 +202,22 @@ const Display = () => {
       }
       
       if (!silent) {
-        console.log(`✅ All ${leaderboardsWithStats.length} leaderboards loaded!`);
-        console.log('='.repeat(50) + '\n');
+        console.log(`\n✅ All ${leaderboardsWithStats.length} leaderboards loaded!`);
+        console.log('═══════════════════════════════════════════\n');
       } else {
-        console.log(`✅ Silent refresh complete: Updated ${leaderboardsWithStats.length} leaderboards`);
-        console.log('='.repeat(50) + '\n');
+        console.log(`\n✅ Silent refresh complete: ${leaderboardsWithStats.length} leaderboards updated`);
+        console.log('═══════════════════════════════════════════\n');
       }
       
+      // 🔥 CRITICAL: Update state AND force re-render
       setLeaderboardsData(leaderboardsWithStats);
+      if (forceRefresh) {
+        setRefreshKey(prev => {
+          const newKey = prev + 1;
+          console.log(`🔑 Refresh key updated: ${prev} → ${newKey}`);
+          return newKey;
+        });
+      }
       setIsLoading(false);
       
     } catch (error) {
@@ -208,70 +227,128 @@ const Display = () => {
   };
 
   useEffect(() => {
+    console.log('\n🚀 ═══════════════════════════════════════════');
+    console.log('🚀 DISPLAY COMPONENT MOUNTED');
+    console.log('═══════════════════════════════════════════\n');
+    
     // Initial fetch
-    console.log('🚀 Display component mounted - Starting initial load');
     fetchLeaderboards();
     
-    // 🔥 AUTOMATIC REFRESH var 2:e minut (background update)
+    // 🔥 AUTO-REFRESH every 2 minutes (background update)
     console.log('⏰ Setting up auto-refresh: Every 2 minutes');
     refreshIntervalRef.current = setInterval(() => {
-      console.log('\n⏰ === AUTO-REFRESH TRIGGERED (2 minute interval) ===');
-      fetchLeaderboards(true); // silent = true (no loading screen)
-    }, 2 * 60 * 1000); // 2 minuter
+      console.log('\n⏰ ═══════════════════════════════════════════');
+      console.log('⏰ AUTO-REFRESH TRIGGERED (2 minute interval)');
+      console.log('═══════════════════════════════════════════');
+      fetchLeaderboards(true, true); // silent + forceRefresh
+    }, 2 * 60 * 1000);
 
+    // Connect to socket
     socketService.connect();
 
+    // 🔥 ENHANCED: Handle new deal notifications
     const handleNewDeal = (notification) => {
-      console.log('\n🎉 === NEW DEAL RECEIVED ===');
-      console.log(`   Agent: ${notification.agent.name}`);
-      console.log(`   Commission: ${notification.commission} THB`);
-      console.log(`   Daily Total: ${notification.dailyTotal} THB`);
+      console.log('\n🎉 ═══════════════════════════════════════════');
+      console.log('🎉 NEW DEAL RECEIVED');
+      console.log('═══════════════════════════════════════════');
+      console.log(`   👤 Agent: ${notification.agent?.name || 'Unknown'}`);
+      console.log(`   💰 Commission: ${notification.commission || 0} THB`);
+      console.log(`   📈 Daily Total: ${notification.dailyTotal || 0} THB`);
+      console.log(`   🎯 Daily Budget: ${notification.dailyBudget || 0} THB`);
+      console.log(`   🔊 Sound: ${notification.soundType || 'unknown'}`);
+      console.log(`   🏆 Reached Budget: ${notification.reachedBudget ? 'YES' : 'NO'}`);
+      console.log(`   🆔 Lead ID: ${notification.leadId || 'unknown'}`);
       
-      // 🔥 FIX: Deduplication logic
+      // 🔥 CRITICAL: Deduplication logic
       const currentTime = Date.now();
-      const notificationKey = `${notification.agent.userId}-${notification.commission}`;
-      const lastKey = lastNotificationRef.current;
-      const timeSinceLastNotification = currentTime - (notificationTimeoutRef.current || 0);
+      const leadId = notification.leadId;
       
-      // Block if SAME agent with SAME commission within 2 seconds
-      if (lastKey === notificationKey && timeSinceLastNotification < 2000) {
-        console.log('⚠️  DUPLICATE notification detected - IGNORING');
-        console.log(`   Same agent (${notification.agent.name}) + same commission (${notification.commission} THB) within 2s`);
-        console.log('='.repeat(50) + '\n');
+      // Check if we already processed this leadId
+      if (notifiedDealsRef.current.has(leadId)) {
+        console.log('\n⚠️  DUPLICATE NOTIFICATION DETECTED!');
+        console.log(`   🆔 Lead ID ${leadId} already processed`);
+        console.log(`   ❌ BLOCKING notification`);
+        console.log('═══════════════════════════════════════════\n');
         return;
       }
       
-      // Update tracking for next notification
-      lastNotificationRef.current = notificationKey;
-      notificationTimeoutRef.current = currentTime;
+      // Additional time-based check (same agent, same commission within 3 seconds)
+      const notificationKey = `${notification.agent?.userId}-${notification.commission}`;
+      const timeSinceLastNotification = currentTime - lastNotificationTimeRef.current;
       
-      console.log(`✅ Notification ACCEPTED: ${notification.agent.name} - ${notification.commission} THB`);
+      if (timeSinceLastNotification < 3000) {
+        console.log('\n⚠️  POSSIBLE DUPLICATE (time-based check)');
+        console.log(`   ⏱️  Only ${timeSinceLastNotification}ms since last notification`);
+        console.log(`   🔑 Key: ${notificationKey}`);
+        console.log(`   ⚠️  WARNING: This might be a duplicate!`);
+      }
+      
+      // Add to processed set
+      notifiedDealsRef.current.add(leadId);
+      lastNotificationTimeRef.current = currentTime;
+      
+      console.log(`\n✅ Notification ACCEPTED`);
+      console.log(`   🆔 Tracking Lead ID: ${leadId}`);
+      console.log(`   📝 Total tracked: ${notifiedDealsRef.current.size} deals`);
+      
+      // Show notification popup
       setCurrentNotification(notification);
       
-      // 🔥 IMMEDIATE BACKGROUND UPDATE efter notification (5 sekunder)
-      console.log('⏰ Scheduling silent refresh in 5 seconds...');
-      setTimeout(() => {
-        console.log('\n🔄 === DEAL-TRIGGERED REFRESH (5s after notification) ===');
-        fetchLeaderboards(true);
+      // 🔥 CLEAR any pending refresh timeout
+      if (dealRefreshTimeoutRef.current) {
+        clearTimeout(dealRefreshTimeoutRef.current);
+        console.log(`   🧹 Cleared previous refresh timeout`);
+      }
+      
+      // 🔥 SCHEDULE REFRESH after 5 seconds
+      console.log(`\n⏰ Scheduling silent refresh in 5 seconds...`);
+      dealRefreshTimeoutRef.current = setTimeout(() => {
+        console.log('\n🔄 ═══════════════════════════════════════════');
+        console.log('🔄 DEAL-TRIGGERED REFRESH (5s after notification)');
+        console.log(`   🆔 Triggered by Lead ID: ${leadId}`);
+        console.log('═══════════════════════════════════════════');
+        fetchLeaderboards(true, true); // silent + forceRefresh
       }, 5000);
       
-      console.log('='.repeat(50) + '\n');
+      console.log('═══════════════════════════════════════════\n');
     };
 
     socketService.onNewDeal(handleNewDeal);
 
+    // Cleanup old notified deals every 5 minutes
+    const cleanupInterval = setInterval(() => {
+      const size = notifiedDealsRef.current.size;
+      if (size > 100) {
+        console.log(`\n🧹 Cleaning up notified deals cache (${size} entries)`);
+        notifiedDealsRef.current.clear();
+        console.log(`✅ Cache cleared\n`);
+      }
+    }, 5 * 60 * 1000);
+
     return () => {
-      console.log('🧹 Display component unmounting - Cleaning up');
+      console.log('\n🧹 ═══════════════════════════════════════════');
+      console.log('🧹 DISPLAY COMPONENT UNMOUNTING');
+      console.log('═══════════════════════════════════════════\n');
+      
       socketService.offNewDeal(handleNewDeal);
+      
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
-        console.log('⏰ Auto-refresh timer cleared');
+        console.log('   ⏰ Auto-refresh timer cleared');
       }
+      
+      if (dealRefreshTimeoutRef.current) {
+        clearTimeout(dealRefreshTimeoutRef.current);
+        console.log('   ⏰ Deal refresh timeout cleared');
+      }
+      
+      clearInterval(cleanupInterval);
+      console.log('   🧹 Cleanup interval cleared\n');
     };
   }, []);
 
   const handleNotificationComplete = () => {
-    console.log('🧹 Notification completed - Closing popup');
+    console.log('🧹 Notification completed - Closing popup\n');
     setCurrentNotification(null);
   };
 
@@ -304,10 +381,10 @@ const Display = () => {
           <p className="hint">Skapa en leaderboard i Admin-panelen</p>
         </div>
       ) : (
-        <div className={`leaderboards-grid ${getGridClass()}`}>
+        <div className={`leaderboards-grid ${getGridClass()}`} key={refreshKey}>
           {leaderboardsData.slice(0, 4).map(({ leaderboard, stats }) => (
             <LeaderboardCard 
-              key={leaderboard.id}
+              key={`${leaderboard.id}-${refreshKey}`}
               leaderboard={leaderboard}
               stats={stats}
             />
