@@ -28,7 +28,7 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
     }
 
     // 🔥 DYNAMISK SCROLL-HASTIGHET: 50 pixels per sekund
-    const SCROLL_SPEED = 50; // px/s (justera för snabbare/långsammare)
+    const SCROLL_SPEED = 35; // px/s (justera för snabbare/långsammare)
     const scrollDuration = scrollDistance / SCROLL_SPEED;
     
     // Total animation duration inkl. pauser (lägg till 20% för pauser)
