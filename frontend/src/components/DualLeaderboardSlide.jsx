@@ -1,4 +1,4 @@
-// 🔥 ALTERNATIV 8: FIXED - 5 items per page (4-8, 9-13, 14-18, etc)
+// 🔥 ALTERNATIV 8: FIXED - 7 items per page (optimal för 1080p)
 import { useState, useEffect } from 'react';
 
 // 🔥 GLOBAL state som ALDRIG rensas
@@ -299,8 +299,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const topStats = stats.slice(0, frozenCount);
     const scrollableStats = stats.slice(frozenCount);
     
-    // 🔥 5 items per page (4-8, 9-13, 14-18, etc)
-    const itemsPerPage = 5;
+    // 🔥 7 items per page - passar 1080p skärmar (4-10, 11-17, 18-24, etc)
+    const itemsPerPage = 7;
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
 
@@ -327,7 +327,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     useEffect(() => {
       if (!needsWipe || wipeIntervals[columnId]) return;
 
-      console.log(`✅ [${side}] Skapar interval med ${totalPages} sidor, ${itemsPerPage} items per sida`);
+      console.log(`✅ [${side}] Skapar interval: ${totalPages} sidor × ${itemsPerPage} items/sida`);
       
       wipeIntervals[columnId] = setInterval(() => {
         window.dispatchEvent(new CustomEvent('leaderboard-wipe', {
@@ -400,7 +400,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const displayStart = startIndex + frozenCount + 1;
     const displayEnd = endIndex + frozenCount;
 
-    console.log(`[${side}] Page ${wipeState[columnId].currentPage + 1}/${totalPages}: Plats ${displayStart}-${displayEnd} (${currentPageItems.length} items)`);
+    console.log(`[${side}] Sida ${wipeState[columnId].currentPage + 1}/${totalPages}: Plats ${displayStart}-${displayEnd} (${currentPageItems.length} items)`);
 
     return (
       <div style={styles.column}>
