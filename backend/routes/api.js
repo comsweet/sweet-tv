@@ -461,6 +461,12 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     }
 
     const { startDate, endDate } = leaderboardService.getDateRange(leaderboard);
+
+    // AUTO-SYNC PERSISTENT DEALS CACHE (var 6:e timme)
+    await dealsCache.autoSync(adversusAPI);
+    
+    // 📱 AUTO-SYNC SMS CACHE (var 6:e timme)
+    await smsCache.autoSync(adversusAPI);
     
     // TRY IN-MEMORY CACHE FIRST (5 min TTL)
     const cached = leaderboardCache.get(
@@ -477,11 +483,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
     console.log(`📊 Cache miss - loading from persistent cache: ${leaderboard.name}`);
     console.log(`📅 Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
     
-    // AUTO-SYNC PERSISTENT DEALS CACHE (var 6:e timme)
-    await dealsCache.autoSync(adversusAPI);
-    
-    // 📱 AUTO-SYNC SMS CACHE (var 6:e timme)
-    await smsCache.autoSync(adversusAPI);
     
     // HÄMTA FRÅN PERSISTENT CACHE
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
