@@ -253,23 +253,38 @@ const Slideshow = () => {
   const refreshIntervalRef = useRef(null);
 
   const fetchSlideshowData = async (silent = false) => {
+    console.log('\n🔥 ═══════════════════════════════════════════');
+    console.log(`🔥 fetchSlideshowData CALLED! silent=${silent}`);
+    console.log(`⏰ Time: ${new Date().toLocaleTimeString()}`);
+    console.log('═══════════════════════════════════════════');
+    
     try {
       if (!silent) {
+        console.log('📊 Setting loading state...');
         setIsLoading(true);
       }
       
+      console.log(`📡 Fetching slideshow ${id}...`);
       const slideshowResponse = await getSlideshow(id);
       const slideshowData = slideshowResponse.data;
+      
+      console.log('✅ Slideshow data received:', {
+        type: slideshowData.type,
+        leaderboards: slideshowData.leaderboards?.length || 0,
+        dualSlides: slideshowData.dualSlides?.length || 0
+      });
       
       if (!silent) {
         setSlideshow(slideshowData);
       }
       
       if (slideshowData.type === 'dual' && slideshowData.dualSlides) {
+        console.log('📊 Processing DUAL slides...');
         const dualSlidesData = [];
         
         for (let i = 0; i < slideshowData.dualSlides.length; i++) {
           const dualSlide = slideshowData.dualSlides[i];
+          console.log(`   📈 Loading dual slide ${i + 1}/${slideshowData.dualSlides.length}`);
           
           try {
             const [leftStatsRes, rightStatsRes] = await Promise.all([
@@ -286,46 +301,64 @@ const Slideshow = () => {
               rightStats: rightStatsRes.data.stats || []
             });
             
+            console.log(`   ✅ Dual slide ${i + 1} loaded`);
+            
             if (i < slideshowData.dualSlides.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 2000));
             }
           } catch (error) {
-            console.error(`Error loading dual slide ${i + 1}:`, error.message);
+            console.error(`   ❌ Error loading dual slide ${i + 1}:`, error.message);
           }
         }
         
+        console.log(`✅ Setting ${dualSlidesData.length} dual slides to state...`);
         setLeaderboardsData(dualSlidesData);
       } else {
+        console.log('📊 Processing SINGLE slides...');
         const leaderboardsWithStats = [];
         
         for (let i = 0; i < slideshowData.leaderboards.length; i++) {
           const lbId = slideshowData.leaderboards[i];
+          console.log(`   📈 Loading leaderboard ${i + 1}/${slideshowData.leaderboards.length} (ID: ${lbId})`);
           
           try {
             const statsResponse = await getLeaderboardStats2(lbId);
+            const stats = statsResponse.data.stats || [];
             
             leaderboardsWithStats.push({
               type: 'single',
               leaderboard: statsResponse.data.leaderboard,
-              stats: statsResponse.data.stats || [] // ✅ ALLA agenter, ingen .slice()
+              stats: stats
             });
+            
+            const totalDeals = stats.reduce((sum, s) => sum + (s.dealCount || 0), 0);
+            console.log(`   ✅ Loaded "${statsResponse.data.leaderboard.name}": ${stats.length} agents, ${totalDeals} deals`);
             
             if (i < slideshowData.leaderboards.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 2000));
             }
           } catch (error) {
-            console.error(`Error loading leaderboard ${lbId}:`, error.message);
+            console.error(`   ❌ Error loading leaderboard ${lbId}:`, error.message);
           }
         }
         
+        console.log(`✅ Setting ${leaderboardsWithStats.length} single slides to state...`);
         setLeaderboardsData(leaderboardsWithStats);
       }
       
+      console.log(`🔑 Updating refreshKey from ${refreshKey} to ${refreshKey + 1}`);
       setRefreshKey(prev => prev + 1);
+      
+      console.log('✅ Setting loading to false');
       setIsLoading(false);
       
+      console.log('🎉 fetchSlideshowData COMPLETE!');
+      console.log('═══════════════════════════════════════════\n');
+      
     } catch (error) {
-      console.error('Error fetching slideshow:', error);
+      console.error('\n❌ ═══════════════════════════════════════════');
+      console.error('❌ Error fetching slideshow:', error);
+      console.error('═══════════════════════════════════════════\n');
       setIsLoading(false);
     }
   };
