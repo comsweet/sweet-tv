@@ -1,12 +1,23 @@
 // backend/services/smsCache.js
 // 🔥 UPDATED VERSION - 2-minute sync interval + Type-safe userId comparisons
+// 🔥 FIXED: Persistent disk path for Render deployment
 const fs = require('fs').promises;
 const path = require('path');
 
 class SMSCache {
   constructor() {
-    this.cacheFile = path.join(__dirname, '../data/sms-cache.json');
-    this.lastSyncFile = path.join(__dirname, '../data/sms-last-sync.json');
+    // 🔥 KRITISK FIX: Persistent disk på Render!
+    const isRender = process.env.RENDER === 'true';
+    
+    const dbPath = isRender 
+      ? '/var/data'  // Render persistent disk
+      : path.join(__dirname, '../data');  // Local development
+    
+    this.cacheFile = path.join(dbPath, 'sms-cache.json');
+    this.lastSyncFile = path.join(dbPath, 'sms-last-sync.json');
+    
+    console.log(`📱 SMS cache path: ${dbPath} (isRender: ${isRender})`);
+    
     this.cache = [];
     this.writeQueue = [];
     this.isProcessing = false;
