@@ -56,14 +56,16 @@ const DealNotification = ({ notification, onComplete }) => {
         angle: 60,
         spread: 55,
         origin: { x: 0 },
-        colors: colors
+        colors: colors,
+        zIndex: 10000 // 🔥 FIXAT: Högre än backdrop (9998) och notification (9999)
       });
       confetti({
         particleCount: 3,
         angle: 120,
         spread: 55,
         origin: { x: 1 },
-        colors: colors
+        colors: colors,
+        zIndex: 10000 // 🔥 FIXAT: Högre än backdrop (9998) och notification (9999)
       });
 
       if (Date.now() < confettiEnd) {
@@ -101,14 +103,14 @@ const DealNotification = ({ notification, onComplete }) => {
     };
   }, []); // Empty dependency - only run once on mount
 
-  const { agent, commission, soundType, dailyTotal } = notification;
+  const { agent, commission, soundType, totalToday, reachedBudget } = notification;
 
   return (
     <>
       {/* 🔥 Mörk backdrop bakom popupen */}
       <div className="notification-backdrop"></div>
       
-      <div className="deal-notification">
+      <div className={`deal-notification ${soundType === 'milestone' ? 'milestone' : ''}`}>
         <audio ref={audioRef} />
         
         <div className="notification-content">
@@ -129,9 +131,9 @@ const DealNotification = ({ notification, onComplete }) => {
             <p className="notification-commission">
               +{parseFloat(commission).toLocaleString('sv-SE')} THB
             </p>
-            {soundType === 'milestone' && dailyTotal && (
+            {soundType === 'milestone' && totalToday && (
               <p className="notification-message milestone">
-                🏆 DAGSBUDGET NÅD! ({dailyTotal.toLocaleString('sv-SE')} THB idag)
+                🏆 DAGSBUDGET NÅDD! ({totalToday.toLocaleString('sv-SE')} THB idag)
               </p>
             )}
             {soundType !== 'milestone' && (
