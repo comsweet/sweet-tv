@@ -1,4 +1,4 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - WITH DYNAMIC ITEMS PER PAGE
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - STABLE VERSION
 // Top 3 frozen, resten wipes horizontally mellan grupper
 
 import { useState, useEffect, useRef } from 'react';
@@ -83,7 +83,28 @@ const styles = {
     right: 0,
     bottom: 0,
     width: '100%',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    transition: 'transform 1.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.8s ease'
+  },
+  wipeContentCurrent: {
+    transform: 'translateX(0)',
+    opacity: 1,
+    zIndex: 2
+  },
+  wipeContentExiting: {
+    transform: 'translateX(-100%)',
+    opacity: 0,
+    zIndex: 1
+  },
+  wipeContentNext: {
+    transform: 'translateX(100%)',
+    opacity: 1,
+    zIndex: 3
+  },
+  wipeContentEntering: {
+    transform: 'translateX(0)',
+    opacity: 1,
+    zIndex: 3
   },
   item: {
     display: 'flex',
@@ -247,107 +268,87 @@ const styles = {
   }
 };
 
-// 🔥 Hook för att beräkna hur många items som får plats
+// 🔥 Hook för att beräkna items per page EN GÅNG
 const useItemsPerPage = (containerRef) => {
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const itemsPerPageRef = useRef(10);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || initialized) return;
 
     const calculateItems = () => {
       const containerHeight = containerRef.current.clientHeight;
-      // Item height: 58px + margin-bottom: 8px (0.5rem) = 66px per item
-      const itemHeight = 66;
+      const itemHeight = 66; // 58px + 8px margin
       const calculatedItems = Math.floor(containerHeight / itemHeight);
-      // Sätt gränser: minst 6, max 15 items per sida
       const finalItems = Math.max(6, Math.min(calculatedItems, 15));
       
-      console.log(`📏 Container height: ${containerHeight}px → ${finalItems} items per page`);
-      setItemsPerPage(finalItems);
+      itemsPerPageRef.current = finalItems;
+      console.log(`📏 [${containerRef.current.dataset.side}] Container height: ${containerHeight}px → ${finalItems} items per page`);
+      setInitialized(true);
     };
 
-    // Beräkna efter en kort delay så att layout är klar
-    const timer = setTimeout(calculateItems, 100);
-    
-    window.addEventListener('resize', calculateItems);
-    
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', calculateItems);
-    };
-  }, [containerRef]);
+    const timer = setTimeout(calculateItems, 200);
+    return () => clearTimeout(timer);
+  }, [containerRef, initialized]);
 
-  return itemsPerPage;
+  return itemsPerPageRef.current;
 };
 
-// 🔥 Hook som använder direkt DOM manipulation för smooth animation
-const useWipeAnimation = (containerRef, totalPages, side, isActive) => {
+// 🔥 Simplified wipe animation
+const useWipeAnimation = (totalPages, side, isActive) => {
   const [currentPage, setCurrentPage] = useState(0);
-  const animationRef = useRef(null);
-  const timeoutRef = useRef(null);
+  const [nextPage, setNextPage] = useState(1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const timerRef = useRef(null);
 
   useEffect(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
 
-    if (!isActive || totalPages <= 1 || !containerRef.current) {
+    if (!isActive || totalPages <= 1) {
       setCurrentPage(0);
+      setNextPage(1);
+      setIsTransitioning(false);
       return;
     }
 
     const performWipe = () => {
-      const container = containerRef.current;
-      if (!container) return;
-
-      const nextPage = (currentPage + 1) % totalPages;
-      console.log(`[${side}] 🔥 Wiping from page ${currentPage + 1} to ${nextPage + 1}`);
-
-      // Animera ut (åt vänster)
-      container.style.transition = 'transform 1.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.8s ease';
-      container.style.transform = 'translateX(-100%)';
-      container.style.opacity = '0';
-
-      // Efter animation, uppdatera page och reset position
-      timeoutRef.current = setTimeout(() => {
-        // Ta bort transition och flytta till höger
-        container.style.transition = 'none';
-        container.style.transform = 'translateX(100%)';
+      const nextPageNum = (currentPage + 1) % totalPages;
+      
+      console.log(`[${side}] 🔥 Wipe: ${currentPage + 1} → ${nextPageNum + 1}`);
+      
+      // Set next page och trigga transition
+      setNextPage(nextPageNum);
+      
+      // Vänta en frame
+      requestAnimationFrame(() => {
+        setIsTransitioning(true);
         
-        // Uppdatera innehållet
-        setCurrentPage(nextPage);
-        
-        // Force reflow så CSS appliceras
-        container.offsetHeight;
-        
-        // Animera in (från höger till center)
-        animationRef.current = requestAnimationFrame(() => {
-          container.style.transition = 'transform 1.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.8s ease';
-          container.style.transform = 'translateX(0)';
-          container.style.opacity = '1';
+        // Efter 1.8s animation, uppdatera current page
+        setTimeout(() => {
+          setCurrentPage(nextPageNum);
+          setIsTransitioning(false);
           
-          console.log(`[${side}] ✅ Wiped to page ${nextPage + 1}`);
-          
-          // Schedule next wipe efter 12 sekunder
-          timeoutRef.current = setTimeout(performWipe, 12000);
-        });
-      }, 1800);
+          // Schedule nästa wipe
+          timerRef.current = setTimeout(performWipe, 12000);
+        }, 1800);
+      });
     };
 
-    // Start första wipe efter 12 sekunder
-    console.log(`[${side}] 🎬 Starting wipe cycle with ${totalPages} pages`);
-    timeoutRef.current = setTimeout(performWipe, 12000);
+    console.log(`[${side}] 🎬 Starting wipe (${totalPages} pages)`);
+    timerRef.current = setTimeout(performWipe, 12000);
 
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
     };
-  }, [currentPage, totalPages, side, isActive, containerRef]);
+  }, [currentPage, totalPages, side, isActive]);
 
-  return currentPage;
+  return { currentPage, nextPage, isTransitioning };
 };
 
 const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, rightStats, isActive }) => {
@@ -402,14 +403,14 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const topStats = stats.slice(0, frozenCount);
     const scrollableStats = stats.slice(frozenCount);
 
-    // 🔥 Dynamiskt beräkna items per page baserat på skärmhöjd
+    // 🔥 Get items per page (stabil)
     const itemsPerPage = useItemsPerPage(wipeContainerRef);
     
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
 
-    // 🔥 Använd custom hook med DOM manipulation
-    const currentPage = useWipeAnimation(wipeContainerRef, totalPages, side, isActive);
+    // 🔥 Wipe animation
+    const { currentPage, nextPage, isTransitioning } = useWipeAnimation(totalPages, side, isActive);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -477,12 +478,31 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    // Rendera items för current page
-    const startIndex = currentPage * itemsPerPage;
-    const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
-    const pageItems = scrollableStats.slice(startIndex, endIndex);
+    // Render page items
+    const renderPageItems = (pageNum) => {
+      const startIndex = pageNum * itemsPerPage;
+      const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
+      const pageItems = scrollableStats.slice(startIndex, endIndex);
+      
+      return pageItems.map((item, index) => 
+        renderItem(item, startIndex + index + frozenCount, false)
+      );
+    };
 
-    console.log(`[${side}] 📄 Page ${currentPage + 1}/${totalPages}: Items ${startIndex + frozenCount + 1}-${endIndex + frozenCount} (${pageItems.length} items)`);
+    // Styles för current och next
+    const getCurrentStyle = () => {
+      if (isTransitioning) {
+        return { ...styles.wipeContent, ...styles.wipeContentExiting };
+      }
+      return { ...styles.wipeContent, ...styles.wipeContentCurrent };
+    };
+
+    const getNextStyle = () => {
+      if (isTransitioning) {
+        return { ...styles.wipeContent, ...styles.wipeContentEntering };
+      }
+      return { ...styles.wipeContent, ...styles.wipeContentNext };
+    };
 
     return (
       <div style={styles.column}>
@@ -502,12 +522,18 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
         {scrollableStats.length > 0 && (
           <>
-            <div ref={wipeContainerRef} style={styles.wipeContainer}>
-              <div style={styles.wipeContent}>
-                {pageItems.map((item, index) => 
-                  renderItem(item, startIndex + index + frozenCount, false)
-                )}
+            <div ref={wipeContainerRef} style={styles.wipeContainer} data-side={side}>
+              {/* Current page */}
+              <div style={getCurrentStyle()}>
+                {renderPageItems(currentPage)}
               </div>
+              
+              {/* Next page */}
+              {needsWipe && (
+                <div style={getNextStyle()}>
+                  {renderPageItems(nextPage)}
+                </div>
+              )}
             </div>
 
             {needsWipe && (
