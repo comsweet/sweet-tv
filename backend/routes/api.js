@@ -619,8 +619,18 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
             stat.userId,
             startDate.toISOString(),
             endDate.toISOString(),
-            stat.dealCount  // ✅ Använd dealCount som redan finns!
+            stat.dealCount
           );
+          
+          // 🔥 DEBUG: Logga vad getSMSSuccessRate returnerar
+          console.log(`📊 getSMSSuccessRate returned for user ${stat.userId}:`, {
+            uniqueSMS: smsData.uniqueSMS,
+            successRate: smsData.successRate
+          });
+          
+        } catch (error) {
+          console.error(`⚠️ Failed to get SMS stats for user ${stat.userId}:`, error.message);
+        }
           
           // 🐛 DEBUG: Logga SMS data för första 3 användare
           if (Object.keys(stats).length <= 3) {
