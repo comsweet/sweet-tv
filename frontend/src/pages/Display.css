@@ -1,9 +1,359 @@
-/* ==============================================
-   TV SIZE CONTROL STYLES
-   Fungerar TILLSAMMANS med Display.css
-   ============================================== */
+/* Display.css - TV Display with Auto-Scroll and Size Control */
 
-/* Toggle button (syns när menyn är gömd) */
+.display-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
+  color: white;
+}
+
+.display-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.display-header h1 {
+  font-size: 3rem;
+  margin: 0;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Loading state */
+.loading-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  font-size: 1.5rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.no-leaderboards {
+  text-align: center;
+  padding: 4rem 2rem;
+  font-size: 1.5rem;
+}
+
+.no-leaderboards .hint {
+  font-size: 1.2rem;
+  opacity: 0.8;
+  margin-top: 1rem;
+}
+
+/* Grid layout for multiple leaderboards */
+.leaderboards-grid {
+  display: grid;
+  gap: 2rem;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+.leaderboards-grid.grid-1 {
+  grid-template-columns: 1fr;
+  max-width: 1400px;
+}
+
+.leaderboards-grid.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.leaderboards-grid.grid-4 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+/* Leaderboard Card */
+.leaderboard-card-display {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 200px);
+  min-height: 600px;
+}
+
+.leaderboard-header {
+  text-align: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.leaderboard-header h2 {
+  margin: 0 0 0.5rem;
+  color: #2c3e50;
+  font-size: 1.8rem;
+}
+
+.leaderboard-period {
+  margin: 0.5rem 0 0;
+  color: #7f8c8d;
+  font-size: 1rem;
+}
+
+.leaderboard-agent-count {
+  margin: 0.5rem 0 0;
+  color: #667eea;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.page-indicator {
+  color: #764ba2;
+  font-size: 0.95rem;
+}
+
+/* No data state */
+.no-data-display {
+  text-align: center;
+  padding: 3rem;
+  color: #7f8c8d;
+  font-size: 1.3rem;
+}
+
+/* LEADERBOARD ITEMS CONTAINER */
+.leaderboard-items-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* FROZEN SECTION - Top agent always visible */
+.frozen-section {
+  flex-shrink: 0;
+  border-bottom: 3px solid rgba(102, 126, 234, 0.2);
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.05) 0%, transparent 100%);
+  border-radius: 10px;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.frozen-item {
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* SCROLLABLE AGENTS */
+.scrollable-agents {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(102, 126, 234, 0.5) transparent;
+}
+
+.scrollable-agents::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollable-agents::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollable-agents::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.5);
+  border-radius: 4px;
+}
+
+/* Leaderboard Item */
+.leaderboard-item-display {
+  display: grid;
+  grid-template-columns: 50px 60px 1fr 120px 140px 160px;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  margin-bottom: 0.5rem;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  transition: none;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.leaderboard-item-display:hover {
+  background: #e9ecef;
+  transform: translateX(5px);
+  border-color: #667eea;
+}
+
+/* First place styling */
+.leaderboard-item-display.first-place {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  border: 3px solid #ffd700;
+  box-shadow: 0 8px 30px rgba(255, 215, 0, 0.4);
+  transform: scale(1.02);
+}
+
+.leaderboard-item-display.first-place:hover {
+  background: linear-gradient(135deg, #ffe69c 0%, #ffd966 100%);
+}
+
+/* Frozen top styling */
+.frozen-top {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%) !important;
+  border: 3px solid #ffd700 !important;
+  box-shadow: 0 8px 30px rgba(255, 215, 0, 0.4) !important;
+}
+
+/* Zero deals styling */
+.leaderboard-item-display.zero-deals {
+  opacity: 0.6;
+  background: #f1f3f5;
+}
+
+.leaderboard-item-display.zero-deals:hover {
+  opacity: 0.8;
+  background: #e9ecef;
+}
+
+/* Rank */
+.rank-display {
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  color: #495057;
+}
+
+/* Avatar */
+.agent-avatar-display {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #667eea;
+}
+
+.agent-avatar-placeholder-display {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  border: 3px solid #667eea;
+}
+
+/* Agent Info */
+.agent-info-display {
+  min-width: 0;
+}
+
+.agent-name-display {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-name-display.zero-deals {
+  color: #868e96;
+}
+
+/* Deals Column */
+.deals-column-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  color: #495057;
+  font-weight: 600;
+}
+
+.deals-column-display .emoji {
+  font-size: 1.3rem;
+}
+
+.deals-column-display.zero {
+  color: #adb5bd;
+}
+
+/* SMS Box */
+.sms-box-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem;
+  border-radius: 8px;
+  font-weight: bold;
+  min-width: 100px;
+}
+
+.sms-rate {
+  font-size: 1.2rem;
+}
+
+.sms-count {
+  font-size: 0.85rem;
+  color: #000;
+  font-weight: bold;
+  margin-top: 2px;
+}
+
+/* SMS color coding */
+.sms-box-display.sms-green {
+  background-color: #d4edda;
+}
+
+.sms-box-display.sms-green .sms-rate {
+  color: #155724;
+}
+
+.sms-box-display.sms-orange {
+  background-color: #fff3cd;
+}
+
+.sms-box-display.sms-orange .sms-rate {
+  color: #856404;
+}
+
+.sms-box-display.sms-red {
+  background-color: #f8d7da;
+}
+
+.sms-box-display.sms-red .sms-rate {
+  color: #721c24;
+}
+
+/* Commission Display */
+.commission-display {
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-align: right;
+  padding-right: 0.5rem;
+}
+
+.commission-display.zero {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.commission-display.low {
+  color: #fd7e14;
+}
+
+.commission-display.high {
+  color: #27ae60;
+  font-weight: bold;
+}
+
+/* ==================================================
+   TV SIZE CONTROL STYLES
+   ================================================== */
+
 .tv-size-toggle {
   position: fixed;
   top: 20px;
@@ -25,7 +375,6 @@
   background: rgba(0, 0, 0, 0.9);
 }
 
-/* Storleks-kontroller (visas temporärt) */
 .tv-size-control {
   position: fixed;
   top: 20px;
@@ -85,50 +434,9 @@
   background: rgba(255, 0, 0, 0.9);
 }
 
-/* ==============================================
-   FROZEN TOP AGENT (#1)
-   ============================================== */
-
-.frozen-top {
-  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%) !important;
-  border: 3px solid #ffd700 !important;
-  box-shadow: 0 8px 30px rgba(255, 215, 0, 0.4) !important;
-}
-
-.frozen-section {
-  margin-bottom: 1rem;
-}
-
-/* ==============================================
-   SCROLLABLE AGENTS CONTAINER
-   ============================================== */
-
-.scrollable-agents {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  /* BASIC scrollbar för TV */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(102, 126, 234, 0.5) transparent;
-}
-
-/* WebKit scrollbar (Chrome, Safari, Opera) */
-.scrollable-agents::-webkit-scrollbar {
-  width: 8px;
-}
-
-.scrollable-agents::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.scrollable-agents::-webkit-scrollbar-thumb {
-  background: rgba(102, 126, 234, 0.5);
-  border-radius: 4px;
-}
-
-/* ==============================================
+/* ==================================================
    SIZE MODES - COMPACT
-   ============================================== */
+   ================================================== */
 
 .size-compact .leaderboard-item-display {
   padding: 0.4rem 0.8rem;
@@ -186,17 +494,13 @@
   font-size: 0.85rem;
 }
 
-/* ==============================================
-   SIZE MODES - NORMAL (DEFAULT)
-   ============================================== */
+/* ==================================================
+   SIZE MODES - NORMAL (DEFAULT - no changes needed)
+   ================================================== */
 
-.size-normal .leaderboard-item-display {
-  /* Använder default från Display.css */
-}
-
-/* ==============================================
+/* ==================================================
    SIZE MODES - LARGE
-   ============================================== */
+   ================================================== */
 
 .size-large .leaderboard-item-display {
   padding: 1rem 1.2rem;
@@ -254,9 +558,9 @@
   font-size: 1.1rem;
 }
 
-/* ==============================================
+/* ==================================================
    SIZE MODES - EXTRA LARGE
-   ============================================== */
+   ================================================== */
 
 .size-xlarge .leaderboard-item-display {
   padding: 1.3rem 1.5rem;
@@ -314,39 +618,48 @@
   font-size: 1.3rem;
 }
 
-/* ==============================================
-   RESPONSIVE GRID ADJUSTMENTS
-   ============================================== */
-
-/* För stora lägen, använd mindre cards per rad */
+/* Responsive grid adjustments */
 .size-large .leaderboards-grid.grid-4,
 .size-xlarge .leaderboards-grid.grid-4 {
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: auto;
 }
 
-/* ==============================================
-   TV OPTIMIZATIONS
-   ============================================== */
-
-/* Reduce transitions för bättre TV-prestanda */
-.size-compact .leaderboard-item-display,
-.size-normal .leaderboard-item-display,
-.size-large .leaderboard-item-display,
-.size-xlarge .leaderboard-item-display {
-  transition: none;
+/* Responsive - mainly for testing */
+@media (max-width: 1200px) {
+  .leaderboards-grid.grid-4 {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+  
+  .leaderboards-grid.grid-2 {
+    grid-template-columns: 1fr;
+  }
 }
 
-/* Ensure proper rendering på older TV browsers */
-.leaderboard-items-container {
-  /* Basic flexbox - well supported */
-  display: flex;
-  flex-direction: column;
-}
+@media (max-width: 768px) {
+  .display-container {
+    padding: 1rem;
+  }
 
-/* ==============================================
-   PRINT/SCREENSAVER MODE
-   ============================================== */
+  .display-header h1 {
+    font-size: 2rem;
+  }
+
+  .leaderboard-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .leaderboard-item-display {
+    grid-template-columns: 40px 50px 1fr 100px;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .sms-box-display {
+    display: none;
+  }
+}
 
 @media print {
   .tv-size-control,
