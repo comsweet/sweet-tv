@@ -1,4 +1,4 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - FINAL WORKING VERSION
+// 🔥 TEST VERSION - Minimal möjliga kod
 import { useState, useEffect, useRef } from 'react';
 
 const styles = {
@@ -280,7 +280,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
     const [currentPage, setCurrentPage] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
-    const intervalRef = useRef(null);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
     const frozenCount = 3;
@@ -290,32 +289,35 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
 
-    // 🔥 SUPER SIMPLE - kör bara om needsWipe är true och interval inte redan kör
+    // 🔥 SIMPLAST MÖJLIGA - starta alltid, inga checks
     useEffect(() => {
-      // Om intervallet redan kör eller inte behövs, gör inget
-      if (intervalRef.current || !needsWipe || !isActive) {
+      console.log('🎬 useEffect körs, needsWipe:', needsWipe, 'totalPages:', totalPages);
+      
+      if (!needsWipe) {
+        console.log('⏭️ Behöver inte wipe, avslutar');
         return;
       }
 
-      // Starta intervallet
-      console.log(`✅ Starting wipe interval (${totalPages} pages)`);
+      console.log('✅ Startar interval');
       
-      intervalRef.current = setInterval(() => {
+      const interval = setInterval(() => {
+        console.log('🔥 Interval tick!');
         setIsTransitioning(true);
         setTimeout(() => {
-          setCurrentPage(prev => (prev + 1) % totalPages);
+          setCurrentPage(prev => {
+            const next = (prev + 1) % totalPages;
+            console.log(`➡️ Byter sida: ${prev} → ${next}`);
+            return next;
+          });
           setIsTransitioning(false);
         }, 1800);
-      }, 12000);
+      }, 5000); // 5s för snabbare test
 
       return () => {
-        console.log('🧹 Cleaning up interval');
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
+        console.log('🧹 Cleanup');
+        clearInterval(interval);
       };
-    }, []); // Tom array - kör bara EN gång
+    }, [needsWipe, totalPages]);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -403,7 +405,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             {needsWipe && (
               <div style={styles.pageIndicator}>
                 <span style={styles.pageIndicatorText}>
-                  ➡️ Sida {currentPage + 1} av {totalPages}
+                  ➡️ Sida {currentPage + 1} av {totalPages} {isTransitioning ? '(wiping...)' : ''}
                 </span>
               </div>
             )}
