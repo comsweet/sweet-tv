@@ -267,7 +267,7 @@ class PollingService {
         return;
       }
       
-      // ✅ FIXED SOUND LOGIC - Using correct method names
+      // ✅ FIXED SOUND LOGIC v2 - Correct hierarchy when over budget
       const settings = await this.soundSettings.getSettings();
       const dailyBudget = settings.dailyBudget || 3600;
       
@@ -280,31 +280,35 @@ class PollingService {
       let soundUrl = settings.defaultSound || null;
       let reachedBudget = false;
       
-      // Check if agent reached budget for the FIRST time today
-      if (previousTotal < dailyBudget && newTotal >= dailyBudget) {
-        reachedBudget = true;
-        console.log(`   🏆 MILESTONE REACHED! Agent reached ${dailyBudget} THB today!`);
+      // ✅ Check if agent is OVER budget (regardless of when)
+      if (newTotal >= dailyBudget) {
+        console.log(`   🏆 Agent is OVER budget (${newTotal.toFixed(2)} >= ${dailyBudget} THB)`);
         
-        // ✅ FIX: Use milestone sound from settings (not from soundLibrary!)
-        if (settings.milestoneSound) {
-          soundType = 'milestone';
-          soundUrl = settings.milestoneSound;
-          console.log(`   🎵 Using MILESTONE sound from settings`);
-        } else {
-          console.log(`   🎵 No milestone sound configured, using default`);
-        }
-      } else {
-        console.log(`   📊 Normal deal (no milestone)`);
-        
-        // ✅ FIX: Use getSoundForAgent (correct method name)
+        // 1. Try to find agent-specific sound first
         const agentSound = await this.soundLibrary.getSoundForAgent(agent.userId);
         if (agentSound) {
           soundType = 'agent';
           soundUrl = agentSound.url;
           console.log(`   🎵 Using AGENT-SPECIFIC sound: "${agentSound.name}"`);
+        } else if (settings.milestoneSound) {
+          // 2. If no agent-specific sound, use milestone sound
+          soundType = 'milestone';
+          soundUrl = settings.milestoneSound;
+          console.log(`   🎵 Using MILESTONE sound (no agent-specific sound found)`);
         } else {
-          console.log(`   🎵 Using DEFAULT sound`);
+          // 3. Fallback to default if nothing else is configured
+          console.log(`   🎵 Using DEFAULT sound (no milestone sound configured)`);
         }
+        
+        // Special flag if this is the FIRST time reaching budget today
+        if (previousTotal < dailyBudget) {
+          reachedBudget = true;
+          console.log(`   🎊 First time reaching budget today!`);
+        }
+      } else {
+        // Agent is under budget - use default sound
+        console.log(`   📊 Agent is UNDER budget (${newTotal.toFixed(2)} < ${dailyBudget} THB)`);
+        console.log(`   🎵 Using DEFAULT sound`);
       }
       
       // Create notification
