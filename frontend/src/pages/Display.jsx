@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { getActiveLeaderboards, getLeaderboardData } from '../services/api';
-import socketService from '../services/socketService';
-import DealNotification from '../components/DealNotification';
+import socketService from '../services/socket';
+import { getActiveLeaderboards, getLeaderboardStats2 } from '../services/api';
+import DealNotification from '../components/DealNotification.jsx';
+import '../components/DealNotification.css';
 import './Display.css';
 import './DisplayTV.css'; // NY CSS FIL
 
@@ -64,10 +65,31 @@ const TVSizeControl = ({ currentSize, onSizeChange }) => {
 const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
   const scrollContainerRef = useRef(null);
   const scrollIntervalRef = useRef(null);
-  const [isScrolling, setIsScrolling] = useState(false);
   
   const leaderboardId = leaderboard.id;
-  const timePeriod = leaderboard.timePeriod;
+
+  const getTimePeriodLabel = (period) => {
+    const labels = {
+      day: 'Idag',
+      week: 'Denna vecka',
+      month: 'Denna månad',
+      custom: 'Anpassat'
+    };
+    return labels[period] || period;
+  };
+
+  const getCommissionClass = (commission, timePeriod) => {
+    if (commission === 0) return 'zero';
+    if (timePeriod === 'day') return commission < 3400 ? 'low' : 'high';
+    if (timePeriod === 'week') return commission < 18000 ? 'low' : 'high';
+    return commission < 50000 ? 'low' : 'high';
+  };
+
+  const getSMSBoxClass = (successRate) => {
+    if (successRate >= 75) return 'sms-green';
+    if (successRate >= 60) return 'sms-orange';
+    return 'sms-red';
+  };
 
   // Freeze #1 alltid
   const topAgent = stats.length > 0 ? stats[0] : null;
@@ -106,18 +128,6 @@ const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
     };
   }, [scrollableStats.length, leaderboard.name]);
 
-  const getCommissionClass = (commission) => {
-    if (timePeriod === 'day') return commission < 1200 ? 'low' : 'high';
-    if (timePeriod === 'week') return commission < 18000 ? 'low' : 'high';
-    return commission < 50000 ? 'low' : 'high';
-  };
-
-  const getSMSBoxClass = (successRate) => {
-    if (successRate >= 75) return 'sms-green';
-    if (successRate >= 60) return 'sms-orange';
-    return 'sms-red';
-  };
-
   const renderAgent = (item, index, isFrozen = false) => {
     if (!item) return null;
     
@@ -135,19 +145,19 @@ const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
           {index > 0 && `#${index + 1}`}
         </div>
         
-        {item.agent.profileImage ? (
+        {item.agent?.profileImage ? (
           <img 
             src={item.agent.profileImage} 
-            alt={item.agent.name}
+            alt={item.agent?.name || 'Agent'}
             className="agent-image-display"
           />
         ) : (
           <div className="agent-image-placeholder">
-            {item.agent.name.charAt(0).toUpperCase()}
+            {(item.agent?.name || 'A').charAt(0).toUpperCase()}
           </div>
         )}
         
-        <div className="agent-name-display">{item.agent.name}</div>
+        <div className="agent-name-display">{item.agent?.name || 'Unknown'}</div>
         
         <div className="stats-display">
           <div className="stat-item">
@@ -160,8 +170,8 @@ const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
               {uniqueSMS}
             </span>
           </div>
-          <div className={`commission-display ${getCommissionClass(item.totalCommission)}`}>
-            {item.totalCommission.toLocaleString()} THB
+          <div className={`commission-display ${getCommissionClass(item.totalCommission, leaderboard.timePeriod)}`}>
+            {item.totalCommission.toLocaleString('sv-SE')} THB
           </div>
         </div>
       </div>
@@ -173,9 +183,7 @@ const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
       <div className="leaderboard-header">
         <h2>{leaderboard.name}</h2>
         <p className="leaderboard-period">
-          {timePeriod === 'day' && '📅 Idag'}
-          {timePeriod === 'week' && '📅 Denna vecka'}
-          {timePeriod === 'month' && '📅 Denna månad'}
+          📅 {getTimePeriodLabel(leaderboard.timePeriod)}
         </p>
         <p className="leaderboard-agent-count">
           👥 {stats.length} {stats.length === 1 ? 'säljare' : 'säljare'}
@@ -216,35 +224,66 @@ const Display = () => {
   const notifiedDealsRef = useRef(new Set());
   const lastNotificationTimeRef = useRef(0);
 
-  const fetchLeaderboards = async (silentRefresh = false, forceRefresh = false) => {
+  const fetchLeaderboards = async (silent = false, forceRefresh = false) => {
     try {
-      if (!silentRefresh) setIsLoading(true);
-      
-      console.log('\n🔄 ═══════════════════════════════════════════');
-      console.log(`🔄 ${silentRefresh ? 'SILENT' : 'FULL'} REFRESH`);
-      console.log('═══════════════════════════════════════════');
+      if (!silent) {
+        setIsLoading(true);
+        console.log('\n🔄 ═══════════════════════════════════════════');
+        console.log('🔄 FETCHING LEADERBOARDS');
+        console.log('═══════════════════════════════════════════');
+      }
       
       const activeLeaderboards = await getActiveLeaderboards();
-      console.log(`📊 Found ${activeLeaderboards.length} active leaderboards`);
       
-      setLoadingProgress({ current: 0, total: activeLeaderboards.length });
+      if (!silent) {
+        console.log(`📊 Found ${activeLeaderboards.length} active leaderboards`);
+      }
       
-      const leaderboardsWithStats = await Promise.all(
-        activeLeaderboards.map(async (lb, index) => {
-          console.log(`\n📥 [${index + 1}/${activeLeaderboards.length}] Fetching: ${lb.name}`);
-          const data = await getLeaderboardData(lb.id);
-          setLoadingProgress({ current: index + 1, total: activeLeaderboards.length });
-          console.log(`   ✅ ${data.stats.length} agents loaded`);
-          return {
-            leaderboard: data.leaderboard,
-            stats: data.stats
-          };
-        })
-      );
+      const leaderboardsWithStats = [];
       
-      console.log('\n✅ ═══════════════════════════════════════════');
-      console.log(`✅ ${silentRefresh ? 'Silent refresh complete' : 'All leaderboards loaded'}`);
-      console.log('═══════════════════════════════════════════\n');
+      for (let i = 0; i < activeLeaderboards.length; i++) {
+        const lb = activeLeaderboards[i];
+        
+        if (!silent) {
+          setLoadingProgress({ current: i + 1, total: activeLeaderboards.length });
+          console.log(`   📈 [${i + 1}/${activeLeaderboards.length}] Loading "${lb.name}"`);
+        }
+        
+        try {
+          const statsResponse = await getLeaderboardStats2(lb.id);
+          const stats = statsResponse.data.stats || [];
+          
+          leaderboardsWithStats.push({
+            leaderboard: lb,
+            stats: stats
+          });
+          
+          const totalDeals = stats.reduce((sum, s) => sum + s.dealCount, 0);
+          const totalCommission = stats.reduce((sum, s) => sum + s.totalCommission, 0);
+          
+          if (!silent) {
+            console.log(`   ✅ Loaded "${lb.name}"`);
+            console.log(`      - ${stats.length} agents`);
+            console.log(`      - ${totalDeals} deals, ${totalCommission.toLocaleString('sv-SE')} THB`);
+          }
+          
+          if (i < activeLeaderboards.length - 1 && !silent) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          
+        } catch (error) {
+          console.error(`   ❌ Error loading "${lb.name}":`, error);
+          leaderboardsWithStats.push({
+            leaderboard: lb,
+            stats: []
+          });
+        }
+      }
+      
+      if (!silent) {
+        console.log(`\n✅ All leaderboards loaded`);
+        console.log('═══════════════════════════════════════════\n');
+      }
       
       setLeaderboardsData(leaderboardsWithStats);
       if (forceRefresh) {
