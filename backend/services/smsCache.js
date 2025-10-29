@@ -1,6 +1,7 @@
 // backend/services/smsCache.js
 // 🔥 UPDATED VERSION - Handles both old and new cache formats
 // 🔥 FIXED: Persistent disk path + robust format handling + SINGLE getUniqueSMSForAgent with return
+// 🔥🔥🔥 NEW: resetLastSync() to force sync when a deal is added!
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -251,6 +252,16 @@ class SMSCache {
   async updateLastSync() {
     const lastSync = {
       timestamp: new Date().toISOString(),
+      count: this.cache.length
+    };
+    await fs.writeFile(this.lastSyncFile, JSON.stringify(lastSync, null, 2));
+  }
+
+  // 🔥🔥🔥 NEW: Reset last sync to force next autoSync to sync!
+  async resetLastSync() {
+    console.log('🔄 Resetting SMS last sync - next autoSync will force sync');
+    const lastSync = {
+      timestamp: new Date(0).toISOString(), // Set to epoch = always needs sync
       count: this.cache.length
     };
     await fs.writeFile(this.lastSyncFile, JSON.stringify(lastSync, null, 2));
