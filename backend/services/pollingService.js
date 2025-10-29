@@ -1,5 +1,6 @@
 // backend/services/pollingService.js
 // 🔥 KRITISK FIX: Auto-sync både SMS OCH DEALS cache var 2:e minut!
+// 🔥🔥🔥 NEW: Reset SMS cache when deal is added so SMS syncs on next request!
 
 const adversusAPI = require('./adversusAPI');
 const database = require('./database');
@@ -239,6 +240,10 @@ class PollingService {
       
       // Add to cache
       await this.dealsCache.addDeal(deal);
+      
+      // 🔥🔥🔥 CRITICAL: Reset SMS cache so it syncs on next request!
+      await this.smsCache.resetLastSync();
+      console.log(`📱 Reset SMS cache - will sync on next request`);
       
       // Remove from pending if it was there
       if (this.pendingDeals.has(lead.id)) {
