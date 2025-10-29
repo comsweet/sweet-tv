@@ -62,7 +62,7 @@ const TVSizeControl = ({ currentSize, onSizeChange }) => {
 };
 
 // ⭐ LeaderboardSlide komponent med AUTO-SCROLL och FROZEN #1
-const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize }) => {
+const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKey }) => {
   const scrollContainerRef = useRef(null);
   const scrollContentRef = useRef(null);
 
@@ -105,7 +105,7 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize }) => {
         content.classList.remove('scrolling');
       }
     };
-  }, [isActive, stats.length]);
+  }, [isActive, stats.length, refreshKey]);  // 🔥 FIX: Lägg till refreshKey här!
 
   const getTimePeriodLabel = (period) => {
     const labels = {
@@ -474,6 +474,7 @@ const Slideshow = () => {
               stats={slideData.stats}
               isActive={isActive}
               displaySize={displaySize}
+              refreshKey={refreshKey}
             />
           );
         }
