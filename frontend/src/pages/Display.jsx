@@ -115,6 +115,10 @@ const Display = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
   const refreshIntervalRef = useRef(null);
+  
+  // 🔥 FIX: Deduplication tracking
+  const lastNotificationRef = useRef(null);
+  const notificationTimeoutRef = useRef(null);
 
   // Fetch leaderboards med silent mode
   const fetchLeaderboards = async (silent = false) => {
@@ -202,6 +206,27 @@ const Display = () => {
 
     const handleNewDeal = (notification) => {
       console.log('🎉 New deal received:', notification);
+      
+      // 🔥 FIX: Deduplication logic - blocks ONLY exact duplicates
+      // (same agent + same commission within 2 seconds)
+      const currentTime = Date.now();
+      const notificationKey = `${notification.agent.userId}-${notification.commission}`;
+      const lastKey = lastNotificationRef.current;
+      const timeSinceLastNotification = currentTime - (notificationTimeoutRef.current || 0);
+      
+      // Block if SAME agent with SAME commission within 10 seconds
+      // Different agents will have different userIds → NOT blocked!
+      if (lastKey === notificationKey && timeSinceLastNotification < 10000) {
+        console.log('⚠️  DUPLICATE notification detected - IGNORING');
+        console.log(`   Same agent (${notification.agent.name}) + same commission (${notification.commission} THB) within 2s`);
+        return;
+      }
+      
+      // Update tracking for next notification
+      lastNotificationRef.current = notificationKey;
+      notificationTimeoutRef.current = currentTime;
+      
+      console.log(`✅ Notification ACCEPTED: ${notification.agent.name} - ${notification.commission} THB`);
       setCurrentNotification(notification);
       
       // IMMEDIATE BACKGROUND UPDATE efter notification
