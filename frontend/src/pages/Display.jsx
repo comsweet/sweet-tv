@@ -50,6 +50,29 @@ const LeaderboardCard = ({ leaderboard, stats, refreshKey }) => {
     };
   }, [stats, refreshKey]);  // 🔥 FIX: Lägg till refreshKey här!
 
+  // 🔥 SEPARAT useEffect: Force reset när refreshKey ändras
+  useEffect(() => {
+    const content = scrollContentRef.current;
+    if (!content) return;
+    
+    console.log(`🔄 RefreshKey changed to ${refreshKey} - resetting animation`);
+    
+    // Remove scrolling class
+    content.classList.remove('scrolling');
+    
+    // Force reflow to ensure CSS reset
+    void content.offsetHeight;
+    
+    // Re-add scrolling class if we have stats
+    if (stats.length > 1) {
+      // Small delay to ensure DOM update
+      setTimeout(() => {
+        content.classList.add('scrolling');
+        console.log(`✅ Animation restarted for leaderboard`);
+      }, 50);
+    }
+  }, [refreshKey]);
+
   const getTimePeriodLabel = (period) => {
     const labels = {
       day: 'Idag',
