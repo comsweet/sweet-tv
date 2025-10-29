@@ -337,6 +337,10 @@ class PollingService {
       console.log(`   🎵 Sound URL: ${soundUrl || 'None'}`);
       
       this.io.emit('new_deal', notification);
+
+      // 🔥 CRITICAL: Invalidera cache så frontend får fresh stats!
+      this.leaderboardCache.clear();
+      console.log(`🗑️  Cleared leaderboard cache - next request will get fresh stats`);
       
       console.log(`${'='.repeat(70)}\n`);
       
