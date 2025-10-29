@@ -1,4 +1,4 @@
-/* Slideshow.css - 🔥 COMPACT 1080p OPTIMIZED VERSION WITH TV SIZE CONTROL */
+/* Slideshow.css - 🔥 AUTO-SCROLL VERSION WITH FROZEN #1 */
 
 .slideshow-container {
   min-height: 100vh;
@@ -188,6 +188,7 @@
   margin-bottom: 1rem;
   color: white;
   animation: slideInFromTop 0.6s ease-out;
+  flex-shrink: 0;
 }
 
 .slideshow-header h1 {
@@ -208,18 +209,74 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
-/* Items list */
-.slideshow-items {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 0.5rem;
-}
-
 .slideshow-no-data {
   text-align: center;
   padding: 3rem;
   color: rgba(255, 255, 255, 0.7);
   font-size: 1.5rem;
+}
+
+/* ==================================================
+   🔥 AUTO-SCROLL LAYOUT WITH FROZEN #1
+   ================================================== */
+
+.slideshow-items-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 🔥 FROZEN #1 SECTION */
+.frozen-first-place {
+  flex-shrink: 0;
+  margin-bottom: 1rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 3px solid rgba(255, 215, 0, 0.5);
+  background: linear-gradient(180deg, rgba(255, 215, 0, 0.1) 0%, transparent 100%);
+  border-radius: 12px;
+  padding: 0.5rem;
+  animation: slideInFromTop 0.8s ease-out;
+}
+
+.frozen-item {
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3) !important;
+}
+
+/* 🔥 SCROLL CONTAINER */
+.scroll-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+
+.scroll-content {
+  position: relative;
+  width: 100%;
+}
+
+/* 🔥 AUTO-SCROLL ANIMATION - 30 sekunder cycle */
+.scroll-content.scrolling {
+  animation: autoScroll 30s ease-in-out infinite;
+}
+
+@keyframes autoScroll {
+  0%, 10% {
+    transform: translateY(0);
+  }
+  45%, 55% {
+    transform: translateY(var(--scroll-distance, 0));
+  }
+  90%, 100% {
+    transform: translateY(0);
+  }
+}
+
+/* Pausa scroll vid hover (bra för testing) */
+.scroll-container:hover .scroll-content.scrolling {
+  animation-play-state: paused;
 }
 
 /* NORMAL Leaderboard items (default) */
@@ -630,21 +687,21 @@
 }
 
 /* Scrollbar */
-.slideshow-items::-webkit-scrollbar {
+.scroll-container::-webkit-scrollbar {
   width: 8px;
 }
 
-.slideshow-items::-webkit-scrollbar-track {
+.scroll-container::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
 
-.slideshow-items::-webkit-scrollbar-thumb {
+.scroll-container::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.3);
   border-radius: 10px;
 }
 
-.slideshow-items::-webkit-scrollbar-thumb:hover {
+.scroll-container::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
 }
 
