@@ -1,5 +1,6 @@
 /* ==============================================
    TV SIZE CONTROL STYLES
+   Fungerar TILLSAMMANS med Display.css
    ============================================== */
 
 /* Toggle button (syns när menyn är gömd) */
@@ -89,12 +90,13 @@
    ============================================== */
 
 .frozen-top {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: white;
-  border-bottom: 3px solid #667eea !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%) !important;
+  border: 3px solid #ffd700 !important;
+  box-shadow: 0 8px 30px rgba(255, 215, 0, 0.4) !important;
+}
+
+.frozen-section {
+  margin-bottom: 1rem;
 }
 
 /* ==============================================
@@ -129,32 +131,46 @@
    ============================================== */
 
 .size-compact .leaderboard-item-display {
-  min-height: 50px;
-  padding: 8px 12px;
+  padding: 0.4rem 0.8rem;
+  margin-bottom: 0.3rem;
+  grid-template-columns: 40px 50px 1fr 100px 100px 140px;
+  gap: 0.8rem;
 }
 
 .size-compact .rank-display {
-  font-size: 1rem;
-  width: 35px;
+  font-size: 1.1rem;
 }
 
-.size-compact .agent-image-display,
-.size-compact .agent-image-placeholder {
-  width: 35px;
-  height: 35px;
-  font-size: 16px;
+.size-compact .agent-avatar-display,
+.size-compact .agent-avatar-placeholder-display {
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
 }
 
 .size-compact .agent-name-display {
+  font-size: 0.95rem;
+}
+
+.size-compact .deals-column-display {
+  font-size: 0.95rem;
+}
+
+.size-compact .deals-column-display .emoji {
+  font-size: 1.1rem;
+}
+
+.size-compact .sms-box-display {
+  padding: 0.3rem;
+  min-width: 80px;
+}
+
+.size-compact .sms-rate {
   font-size: 1rem;
 }
 
-.size-compact .stat-label {
-  font-size: 0.7rem;
-}
-
-.size-compact .stat-value {
-  font-size: 0.9rem;
+.size-compact .sms-count {
+  font-size: 0.75rem;
 }
 
 .size-compact .commission-display {
@@ -162,7 +178,7 @@
 }
 
 .size-compact .leaderboard-header h2 {
-  font-size: 1.3rem;
+  font-size: 1.4rem;
 }
 
 .size-compact .leaderboard-period,
@@ -175,45 +191,7 @@
    ============================================== */
 
 .size-normal .leaderboard-item-display {
-  min-height: 70px;
-  padding: 12px 15px;
-}
-
-.size-normal .rank-display {
-  font-size: 1.4rem;
-  width: 45px;
-}
-
-.size-normal .agent-image-display,
-.size-normal .agent-image-placeholder {
-  width: 50px;
-  height: 50px;
-  font-size: 20px;
-}
-
-.size-normal .agent-name-display {
-  font-size: 1.2rem;
-}
-
-.size-normal .stat-label {
-  font-size: 0.8rem;
-}
-
-.size-normal .stat-value {
-  font-size: 1.1rem;
-}
-
-.size-normal .commission-display {
-  font-size: 1.3rem;
-}
-
-.size-normal .leaderboard-header h2 {
-  font-size: 1.6rem;
-}
-
-.size-normal .leaderboard-period,
-.size-normal .leaderboard-agent-count {
-  font-size: 0.9rem;
+  /* Använder default från Display.css */
 }
 
 /* ==============================================
@@ -221,45 +199,59 @@
    ============================================== */
 
 .size-large .leaderboard-item-display {
-  min-height: 95px;
-  padding: 18px 20px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 0.7rem;
+  grid-template-columns: 60px 70px 1fr 130px 130px 180px;
+  gap: 1.2rem;
 }
 
 .size-large .rank-display {
   font-size: 1.8rem;
-  width: 60px;
 }
 
-.size-large .agent-image-display,
-.size-large .agent-image-placeholder {
-  width: 70px;
-  height: 70px;
-  font-size: 28px;
+.size-large .agent-avatar-display,
+.size-large .agent-avatar-placeholder-display {
+  width: 65px;
+  height: 65px;
+  font-size: 2rem;
 }
 
 .size-large .agent-name-display {
+  font-size: 1.35rem;
+}
+
+.size-large .deals-column-display {
+  font-size: 1.3rem;
+}
+
+.size-large .deals-column-display .emoji {
   font-size: 1.5rem;
 }
 
-.size-large .stat-label {
-  font-size: 0.95rem;
+.size-large .sms-box-display {
+  padding: 0.6rem;
+  min-width: 110px;
 }
 
-.size-large .stat-value {
+.size-large .sms-rate {
   font-size: 1.4rem;
 }
 
+.size-large .sms-count {
+  font-size: 0.95rem;
+}
+
 .size-large .commission-display {
-  font-size: 1.6rem;
+  font-size: 1.4rem;
 }
 
 .size-large .leaderboard-header h2 {
-  font-size: 2rem;
+  font-size: 2.1rem;
 }
 
 .size-large .leaderboard-period,
 .size-large .leaderboard-agent-count {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
 }
 
 /* ==============================================
@@ -267,56 +259,59 @@
    ============================================== */
 
 .size-xlarge .leaderboard-item-display {
-  min-height: 120px;
-  padding: 25px 25px;
+  padding: 1.3rem 1.5rem;
+  margin-bottom: 0.9rem;
+  grid-template-columns: 75px 85px 1fr 150px 150px 200px;
+  gap: 1.5rem;
 }
 
 .size-xlarge .rank-display {
   font-size: 2.2rem;
-  width: 75px;
 }
 
-.size-xlarge .agent-image-display,
-.size-xlarge .agent-image-placeholder {
-  width: 90px;
-  height: 90px;
-  font-size: 36px;
+.size-xlarge .agent-avatar-display,
+.size-xlarge .agent-avatar-placeholder-display {
+  width: 80px;
+  height: 80px;
+  font-size: 2.5rem;
 }
 
 .size-xlarge .agent-name-display {
-  font-size: 1.9rem;
-}
-
-.size-xlarge .stat-label {
-  font-size: 1.1rem;
-}
-
-.size-xlarge .stat-value {
   font-size: 1.7rem;
 }
 
+.size-xlarge .deals-column-display {
+  font-size: 1.6rem;
+}
+
+.size-xlarge .deals-column-display .emoji {
+  font-size: 1.9rem;
+}
+
+.size-xlarge .sms-box-display {
+  padding: 0.8rem;
+  min-width: 130px;
+}
+
+.size-xlarge .sms-rate {
+  font-size: 1.7rem;
+}
+
+.size-xlarge .sms-count {
+  font-size: 1.1rem;
+}
+
 .size-xlarge .commission-display {
-  font-size: 2rem;
+  font-size: 1.7rem;
 }
 
 .size-xlarge .leaderboard-header h2 {
-  font-size: 2.5rem;
+  font-size: 2.6rem;
 }
 
 .size-xlarge .leaderboard-period,
 .size-xlarge .leaderboard-agent-count {
-  font-size: 1.2rem;
-}
-
-/* ==============================================
-   LEADERBOARD LIST ADJUSTMENTS
-   ============================================== */
-
-.leaderboard-list-display {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
+  font-size: 1.3rem;
 }
 
 /* ==============================================
@@ -335,21 +330,18 @@
    ============================================== */
 
 /* Reduce transitions för bättre TV-prestanda */
-.leaderboard-item-display {
+.size-compact .leaderboard-item-display,
+.size-normal .leaderboard-item-display,
+.size-large .leaderboard-item-display,
+.size-xlarge .leaderboard-item-display {
   transition: none;
 }
 
 /* Ensure proper rendering på older TV browsers */
-.leaderboard-card-display {
+.leaderboard-items-container {
   /* Basic flexbox - well supported */
   display: flex;
   flex-direction: column;
-}
-
-/* No fancy backdrop filters eller shadows */
-.display-container {
-  /* Keep it simple */
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 /* ==============================================
