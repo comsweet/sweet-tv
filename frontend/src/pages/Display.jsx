@@ -17,10 +17,18 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
   };
 
   // 🔥 Helper function för commission klass
-  const getCommissionClass = (commission) => {
+  const getCommissionClass = (commission, timePeriod) => {
     if (commission === 0) return 'zero';
-    if (commission < 3400) return 'low';
-    return 'high';
+    if (timePeriod === 'day') return commission < 3400 ? 'low' : 'high';
+    if (timePeriod === 'week') return commission < 18000 ? 'low' : 'high';
+    return commission < 50000 ? 'low' : 'high';
+  };
+
+  // 🔥 Helper function för SMS box färg
+  const getSMSBoxClass = (successRate) => {
+    if (successRate >= 75) return 'sms-green';
+    if (successRate >= 60) return 'sms-orange';
+    return 'sms-red';
   };
 
   return (
@@ -34,8 +42,10 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
         <div className="no-data-display">Inga affärer än</div>
       ) : (
         <div className="leaderboard-items">
-          {stats.slice(0, 10).map((item, index) => {
+          {stats.slice(0, 20).map((item, index) => {
             const isZeroDeals = item.dealCount === 0;
+            const uniqueSMS = item.uniqueSMS || 0;
+            const smsSuccessRate = item.smsSuccessRate || 0;
             
             return (
               <div 
@@ -63,7 +73,7 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
                   </div>
                 )}
                 
-                {/* Name - 🔥 UPDATED: Lägg till zero-deals klass på namnet */}
+                {/* Name */}
                 <div className="agent-info-display">
                   <h3 className={`agent-name-display ${isZeroDeals ? 'zero-deals' : ''}`}>
                     {item.agent.name}
@@ -76,8 +86,18 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
                   <span>{item.dealCount} affärer</span>
                 </div>
                 
-                {/* 🔥 UPDATED: Commission med färglogik baserat på belopp */}
-                <div className={`commission-display ${getCommissionClass(item.totalCommission)}`}>
+                {/* 🔥 SMS BOX - NYTT! */}
+                <div className={`sms-box-display ${getSMSBoxClass(smsSuccessRate)}`}>
+                  <div className="sms-rate">
+                    {smsSuccessRate.toFixed(2)}%
+                  </div>
+                  <div className="sms-count">
+                    ({uniqueSMS} SMS)
+                  </div>
+                </div>
+                
+                {/* Commission */}
+                <div className={`commission-display ${getCommissionClass(item.totalCommission, leaderboard.timePeriod)}`}>
                   {item.totalCommission.toLocaleString('sv-SE')} THB
                 </div>
               </div>
