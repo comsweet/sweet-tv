@@ -1,4 +1,4 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - MINIMAL VERSION
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - FINAL WORKING VERSION
 import { useState, useEffect, useRef } from 'react';
 
 const styles = {
@@ -281,7 +281,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const [currentPage, setCurrentPage] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const intervalRef = useRef(null);
-    const hasRunRef = useRef(false);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
     const frozenCount = 3;
@@ -291,13 +290,16 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
 
-    // EXTREM MINIMAL useEffect
+    // 🔥 SUPER SIMPLE - kör bara om needsWipe är true och interval inte redan kör
     useEffect(() => {
-      if (hasRunRef.current) return;
-      if (!isActive || !needsWipe) return;
-      
-      hasRunRef.current = true;
+      // Om intervallet redan kör eller inte behövs, gör inget
+      if (intervalRef.current || !needsWipe || !isActive) {
+        return;
+      }
 
+      // Starta intervallet
+      console.log(`✅ Starting wipe interval (${totalPages} pages)`);
+      
       intervalRef.current = setInterval(() => {
         setIsTransitioning(true);
         setTimeout(() => {
@@ -307,9 +309,13 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       }, 12000);
 
       return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
+        console.log('🧹 Cleaning up interval');
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
       };
-    }, []);
+    }, []); // Tom array - kör bara EN gång
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -397,7 +403,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             {needsWipe && (
               <div style={styles.pageIndicator}>
                 <span style={styles.pageIndicatorText}>
-                  {isActive ? `➡️ Sida ${currentPage + 1} av ${totalPages}` : '⏸️ Pausad'}
+                  ➡️ Sida {currentPage + 1} av {totalPages}
                 </span>
               </div>
             )}
