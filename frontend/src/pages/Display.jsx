@@ -34,13 +34,15 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
       <div className="leaderboard-header">
         <h2>{leaderboard.name}</h2>
         <p className="leaderboard-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
+        <p className="leaderboard-agent-count">👥 {stats.length} agenter</p>
       </div>
 
       {stats.length === 0 ? (
         <div className="no-data-display">Inga affärer än</div>
       ) : (
         <div className="leaderboard-items">
-          {stats.slice(0, 20).map((item, index) => {
+          {/* 🔥 REMOVED .slice(0, 20) - VISA ALLA AGENTER! */}
+          {stats.map((item, index) => {
             const isZeroDeals = item.dealCount === 0;
             const uniqueSMS = item.uniqueSMS || 0;
             const smsSuccessRate = item.smsSuccessRate || 0;
@@ -106,16 +108,13 @@ const Display = () => {
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
-  const [refreshKey, setRefreshKey] = useState(0); // 🔥 FORCE RE-RENDER
+  const [refreshKey, setRefreshKey] = useState(0);
   
   const refreshIntervalRef = useRef(null);
   const dealRefreshTimeoutRef = useRef(null);
-  
-  // 🔥 ENHANCED: Track notified deals to prevent duplicates
   const notifiedDealsRef = useRef(new Set());
   const lastNotificationTimeRef = useRef(0);
 
-  // 🔥 ENHANCED: Fetch leaderboards with force refresh option
   const fetchLeaderboards = async (silent = false, forceRefresh = false) => {
     try {
       const timestamp = new Date().toLocaleTimeString();
@@ -134,7 +133,6 @@ const Display = () => {
         console.log('═══════════════════════════════════════════');
       }
       
-      // Fetch active leaderboards
       const response = await getActiveLeaderboards();
       const activeLeaderboards = response.data;
       
@@ -147,7 +145,6 @@ const Display = () => {
       
       const leaderboardsWithStats = [];
       
-      // Fetch stats ONE leaderboard at a time
       for (let i = 0; i < activeLeaderboards.length; i++) {
         const lb = activeLeaderboards[i];
         
@@ -167,27 +164,25 @@ const Display = () => {
             stats: stats
           });
           
-          // 🔥 ENHANCED: Show detailed stats in console
           const totalDeals = stats.reduce((sum, s) => sum + s.dealCount, 0);
           const totalCommission = stats.reduce((sum, s) => sum + s.totalCommission, 0);
           const topAgent = stats[0];
           
-          if (!silent) {
-            console.log(`   ✅ Loaded "${lb.name}"`);
-            console.log(`      - ${stats.length} agents`);
-            console.log(`      - ${totalDeals} deals total`);
-            console.log(`      - ${totalCommission.toLocaleString('sv-SE')} THB total`);
-            if (topAgent) {
-              console.log(`      - Top: ${topAgent.agent.name} (${topAgent.dealCount} deals, ${topAgent.totalCommission.toLocaleString('sv-SE')} THB)`);
-            }
-          } else {
-            console.log(`   ✅ Updated "${lb.name}": ${stats.length} agents, ${totalDeals} deals, ${totalCommission.toLocaleString('sv-SE')} THB`);
-            if (topAgent) {
-              console.log(`      👑 Top: ${topAgent.agent.name} → ${topAgent.dealCount} deals, ${topAgent.totalCommission.toLocaleString('sv-SE')} THB`);
-            }
+          // 🔥 SHOW ALL AGENT COUNT
+          console.log(`   ✅ ${silent ? 'Updated' : 'Loaded'} "${lb.name}"`);
+          console.log(`      - ${stats.length} agents (SHOWING ALL)`);
+          console.log(`      - ${totalDeals} deals total`);
+          console.log(`      - ${totalCommission.toLocaleString('sv-SE')} THB total`);
+          if (topAgent) {
+            console.log(`      - Top: ${topAgent.agent.name} (${topAgent.dealCount} deals, ${topAgent.totalCommission.toLocaleString('sv-SE')} THB)`);
           }
           
-          // Delay between leaderboards
+          // Show bottom agent too (so we can see the range)
+          const bottomAgent = stats[stats.length - 1];
+          if (bottomAgent && stats.length > 1) {
+            console.log(`      - Bottom: ${bottomAgent.agent.name} (${bottomAgent.dealCount} deals, ${bottomAgent.totalCommission.toLocaleString('sv-SE')} THB)`);
+          }
+          
           if (i < activeLeaderboards.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
@@ -209,7 +204,6 @@ const Display = () => {
         console.log('═══════════════════════════════════════════\n');
       }
       
-      // 🔥 CRITICAL: Update state AND force re-render
       setLeaderboardsData(leaderboardsWithStats);
       if (forceRefresh) {
         setRefreshKey(prev => {
@@ -231,22 +225,18 @@ const Display = () => {
     console.log('🚀 DISPLAY COMPONENT MOUNTED');
     console.log('═══════════════════════════════════════════\n');
     
-    // Initial fetch
     fetchLeaderboards();
     
-    // 🔥 AUTO-REFRESH every 2 minutes (background update)
     console.log('⏰ Setting up auto-refresh: Every 2 minutes');
     refreshIntervalRef.current = setInterval(() => {
       console.log('\n⏰ ═══════════════════════════════════════════');
       console.log('⏰ AUTO-REFRESH TRIGGERED (2 minute interval)');
       console.log('═══════════════════════════════════════════');
-      fetchLeaderboards(true, true); // silent + forceRefresh
+      fetchLeaderboards(true, true);
     }, 2 * 60 * 1000);
 
-    // Connect to socket
     socketService.connect();
 
-    // 🔥 ENHANCED: Handle new deal notifications
     const handleNewDeal = (notification) => {
       console.log('\n🎉 ═══════════════════════════════════════════');
       console.log('🎉 NEW DEAL RECEIVED');
@@ -259,11 +249,9 @@ const Display = () => {
       console.log(`   🏆 Reached Budget: ${notification.reachedBudget ? 'YES' : 'NO'}`);
       console.log(`   🆔 Lead ID: ${notification.leadId || 'unknown'}`);
       
-      // 🔥 CRITICAL: Deduplication logic
       const currentTime = Date.now();
       const leadId = notification.leadId;
       
-      // Check if we already processed this leadId
       if (notifiedDealsRef.current.has(leadId)) {
         console.log('\n⚠️  DUPLICATE NOTIFICATION DETECTED!');
         console.log(`   🆔 Lead ID ${leadId} already processed`);
@@ -272,7 +260,6 @@ const Display = () => {
         return;
       }
       
-      // Additional time-based check (same agent, same commission within 3 seconds)
       const notificationKey = `${notification.agent?.userId}-${notification.commission}`;
       const timeSinceLastNotification = currentTime - lastNotificationTimeRef.current;
       
@@ -283,7 +270,6 @@ const Display = () => {
         console.log(`   ⚠️  WARNING: This might be a duplicate!`);
       }
       
-      // Add to processed set
       notifiedDealsRef.current.add(leadId);
       lastNotificationTimeRef.current = currentTime;
       
@@ -291,23 +277,20 @@ const Display = () => {
       console.log(`   🆔 Tracking Lead ID: ${leadId}`);
       console.log(`   📝 Total tracked: ${notifiedDealsRef.current.size} deals`);
       
-      // Show notification popup
       setCurrentNotification(notification);
       
-      // 🔥 CLEAR any pending refresh timeout
       if (dealRefreshTimeoutRef.current) {
         clearTimeout(dealRefreshTimeoutRef.current);
         console.log(`   🧹 Cleared previous refresh timeout`);
       }
       
-      // 🔥 SCHEDULE REFRESH after 5 seconds
       console.log(`\n⏰ Scheduling silent refresh in 5 seconds...`);
       dealRefreshTimeoutRef.current = setTimeout(() => {
         console.log('\n🔄 ═══════════════════════════════════════════');
         console.log('🔄 DEAL-TRIGGERED REFRESH (5s after notification)');
         console.log(`   🆔 Triggered by Lead ID: ${leadId}`);
         console.log('═══════════════════════════════════════════');
-        fetchLeaderboards(true, true); // silent + forceRefresh
+        fetchLeaderboards(true, true);
       }, 5000);
       
       console.log('═══════════════════════════════════════════\n');
@@ -315,7 +298,6 @@ const Display = () => {
 
     socketService.onNewDeal(handleNewDeal);
 
-    // Cleanup old notified deals every 5 minutes
     const cleanupInterval = setInterval(() => {
       const size = notifiedDealsRef.current.size;
       if (size > 100) {
