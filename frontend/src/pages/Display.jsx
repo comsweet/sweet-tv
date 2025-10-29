@@ -4,7 +4,6 @@ import { getActiveLeaderboards, getLeaderboardStats2 } from '../services/api';
 import DealNotification from '../components/DealNotification.jsx';
 import '../components/DealNotification.css';
 import './Display.css';
-import './DisplayTV.css'; // NY CSS FIL
 
 // ==============================================
 // TV SIZE CONTROL COMPONENT
@@ -13,10 +12,9 @@ const TVSizeControl = ({ currentSize, onSizeChange }) => {
   const [isVisible, setIsVisible] = useState(true);
   
   useEffect(() => {
-    // Visa kontroller i 10 sekunder, sedan göm dem
     const timer = setTimeout(() => setIsVisible(false), 10000);
     return () => clearTimeout(timer);
-  }, [currentSize]); // Reset timer när storlek ändras
+  }, [currentSize]);
 
   const sizes = [
     { id: 'compact', label: 'Kompakt', icon: '📏' },
@@ -26,7 +24,6 @@ const TVSizeControl = ({ currentSize, onSizeChange }) => {
   ];
 
   if (!isVisible) {
-    // Visa bara en liten knapp för att öppna menyn igen
     return (
       <div className="tv-size-toggle" onClick={() => setIsVisible(true)}>
         ⚙️
@@ -65,8 +62,6 @@ const TVSizeControl = ({ currentSize, onSizeChange }) => {
 const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
   const scrollContainerRef = useRef(null);
   const scrollIntervalRef = useRef(null);
-  
-  const leaderboardId = leaderboard.id;
 
   const getTimePeriodLabel = (period) => {
     const labels = {
@@ -91,35 +86,30 @@ const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
     return 'sms-red';
   };
 
-  // Freeze #1 alltid
   const topAgent = stats.length > 0 ? stats[0] : null;
-  const scrollableStats = stats.slice(1); // Alla utom #1
+  const scrollableStats = stats.slice(1);
 
-  // Auto-scroll logic
   useEffect(() => {
     const container = scrollContainerRef.current;
-    if (!container || scrollableStats.length <= 6) return; // Ingen scroll om ≤6 agenter
+    if (!container || scrollableStats.length <= 6) return;
 
     console.log(`🔄 [${leaderboard.name}] Auto-scroll enabled`);
 
-    let scrollDirection = 1; // 1 = ner, -1 = upp
+    let scrollDirection = 1;
     let scrollPosition = 0;
 
     scrollIntervalRef.current = setInterval(() => {
       const maxScroll = container.scrollHeight - container.clientHeight;
-      
-      // Scrolla ner eller upp
       scrollPosition += scrollDirection * 1;
       
-      // Byt riktning vid topp/botten
       if (scrollPosition >= maxScroll) {
-        scrollDirection = -1; // Börja scrolla upp
+        scrollDirection = -1;
       } else if (scrollPosition <= 0) {
-        scrollDirection = 1; // Börja scrolla ner
+        scrollDirection = 1;
       }
       
       container.scrollTop = scrollPosition;
-    }, 50); // Uppdatera var 50ms för smooth scroll
+    }, 50);
 
     return () => {
       if (scrollIntervalRef.current) {
@@ -200,14 +190,12 @@ const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
         </div>
       ) : (
         <div className="leaderboard-items-container">
-          {/* FROZEN #1 */}
           {topAgent && (
             <div className="frozen-section">
               {renderAgent(topAgent, 0, true)}
             </div>
           )}
           
-          {/* SCROLLABLE REST */}
           <div 
             ref={scrollContainerRef}
             className="scrollable-agents"
@@ -242,17 +230,10 @@ const Display = () => {
     try {
       if (!silent) {
         setIsLoading(true);
-        console.log('\n🔄 ═══════════════════════════════════════════');
-        console.log('🔄 FETCHING LEADERBOARDS');
-        console.log('═══════════════════════════════════════════');
+        console.log('\n🔄 FETCHING LEADERBOARDS');
       }
       
       const activeLeaderboards = await getActiveLeaderboards();
-      
-      if (!silent) {
-        console.log(`📊 Found ${activeLeaderboards.length} active leaderboards`);
-      }
-      
       const leaderboardsWithStats = [];
       
       for (let i = 0; i < activeLeaderboards.length; i++) {
@@ -272,19 +253,6 @@ const Display = () => {
             stats: stats
           });
           
-          const totalDeals = stats.reduce((sum, s) => sum + s.dealCount, 0);
-          const totalCommission = stats.reduce((sum, s) => sum + s.totalCommission, 0);
-          
-          if (!silent) {
-            console.log(`   ✅ Loaded "${lb.name}"`);
-            console.log(`      - ${stats.length} agents`);
-            console.log(`      - ${totalDeals} deals, ${totalCommission.toLocaleString('sv-SE')} THB`);
-            
-            if (stats.length > 6) {
-              console.log(`      - 🔄 Auto-scroll enabled (${stats.length} agents)`);
-            }
-          }
-          
           if (i < activeLeaderboards.length - 1 && !silent) {
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
@@ -296,11 +264,6 @@ const Display = () => {
             stats: []
           });
         }
-      }
-      
-      if (!silent) {
-        console.log(`\n✅ All leaderboards loaded`);
-        console.log('═══════════════════════════════════════════\n');
       }
       
       setLeaderboardsData(leaderboardsWithStats);
@@ -316,29 +279,20 @@ const Display = () => {
   };
 
   useEffect(() => {
-    console.log('\n🚀 ═══════════════════════════════════════════');
-    console.log('🚀 DISPLAY COMPONENT MOUNTED');
-    console.log('📺 TV MODE: Auto-scroll enabled');
+    console.log('\n🚀 DISPLAY COMPONENT MOUNTED');
     console.log(`📏 Display size: ${displaySize}`);
-    console.log('═══════════════════════════════════════════\n');
     
     fetchLeaderboards();
     
-    console.log('⏰ Setting up auto-refresh: Every 2 minutes');
     refreshIntervalRef.current = setInterval(() => {
-      console.log('\n⏰ AUTO-REFRESH TRIGGERED (2 minute interval)');
+      console.log('\n⏰ AUTO-REFRESH');
       fetchLeaderboards(true, true);
     }, 2 * 60 * 1000);
 
     socketService.connect();
 
     const handleNewDeal = (notification) => {
-      console.log('\n🎉 ═══════════════════════════════════════════');
-      console.log('🎉 NEW DEAL RECEIVED');
-      console.log(`   👤 Agent: ${notification.agent?.name || 'Unknown'}`);
-      console.log(`   💰 Commission: ${notification.commission || 0} THB`);
-      console.log(`   🆔 Lead ID: ${notification.leadId || 'unknown'}`);
-      
+      console.log('\n🎉 NEW DEAL RECEIVED');
       const leadId = notification.leadId;
       
       if (notifiedDealsRef.current.has(leadId)) {
@@ -347,35 +301,26 @@ const Display = () => {
       }
       
       notifiedDealsRef.current.add(leadId);
-      lastNotificationTimeRef.current = Date.now();
-      
-      console.log(`✅ Notification ACCEPTED`);
       setCurrentNotification(notification);
       
       if (dealRefreshTimeoutRef.current) {
         clearTimeout(dealRefreshTimeoutRef.current);
       }
       
-      console.log(`⏰ Scheduling refresh in 5 seconds...`);
       dealRefreshTimeoutRef.current = setTimeout(() => {
-        console.log('🔄 DEAL-TRIGGERED REFRESH');
         fetchLeaderboards(true, true);
       }, 5000);
-      
-      console.log('═══════════════════════════════════════════\n');
     };
 
     socketService.onNewDeal(handleNewDeal);
 
     const cleanupInterval = setInterval(() => {
       if (notifiedDealsRef.current.size > 100) {
-        console.log(`🧹 Clearing cache (${notifiedDealsRef.current.size} entries)`);
         notifiedDealsRef.current.clear();
       }
     }, 5 * 60 * 1000);
 
     return () => {
-      console.log('\n🧹 DISPLAY UNMOUNTING');
       socketService.offNewDeal(handleNewDeal);
       if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
       if (dealRefreshTimeoutRef.current) clearTimeout(dealRefreshTimeoutRef.current);
@@ -401,7 +346,6 @@ const Display = () => {
         <h1>🏆 Sweet TV Leaderboards</h1>
       </header>
 
-      {/* TV SIZE CONTROLS */}
       <TVSizeControl 
         currentSize={displaySize}
         onSizeChange={setDisplaySize}
