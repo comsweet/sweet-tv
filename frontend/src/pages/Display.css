@@ -150,9 +150,9 @@
   width: 100%;
 }
 
-/* 🔥 AUTO-SCROLL ANIMATION - 30 sekunder cycle */
+/* 🔥 AUTO-SCROLL ANIMATION - DYNAMISK HASTIGHET baserat på innehållslängd */
 .scroll-content.scrolling {
-  animation: autoScroll 90s ease-in-out infinite;
+  animation: autoScroll var(--scroll-duration, 30s) ease-in-out infinite;
 }
 
 @keyframes autoScroll {
