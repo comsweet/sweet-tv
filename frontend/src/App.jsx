@@ -2,19 +2,27 @@ import { HashRouter as Router, Routes, Route } from 'react-router-dom'
 import Display from './pages/Display'
 import Admin from './pages/Admin'
 import Slideshow from './pages/Slideshow'
-import SlideshowsList from './pages/SlideshowsList'  // 🆕 NY IMPORT
+import SlideshowsList from './pages/SlideshowsList'
 import './App.css'
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Display />} />
+        {/* Startsida = Slideshow-lista */}
+        <Route path="/" element={<SlideshowsList />} />
+        
+        {/* Admin */}
         <Route path="/admin" element={<Admin />} />
-        {/* 🆕 NY: Översiktssida för alla slideshows */}
+        
+        {/* Slideshow-lista (samma som startsida) */}
         <Route path="/slideshow" element={<SlideshowsList />} />
-        {/* Befintlig: Specifik slideshow med ID */}
+        
+        {/* Specifik slideshow */}
         <Route path="/slideshow/:id" element={<Slideshow />} />
+        
+        {/* Display (om du någonsin behöver den) */}
+        <Route path="/display" element={<Display />} />
       </Routes>
     </Router>
   )
