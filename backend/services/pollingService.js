@@ -1,5 +1,5 @@
 // backend/services/pollingService.js
-// ✅ KOMPLETT FIX: Dependencies + Ljudlogik + Korrekt notification + SMS sync vid varje deal
+// ✅ KOMPLETT FIX med ENHANCED DEBUG LOGGING
 
 const adversusAPI = require('./adversusAPI');
 const database = require('./database');
@@ -168,11 +168,15 @@ class PollingService {
 
   async processDeal(lead, fromPending = false) {
     try {
-      console.log(`📌 Processing lead ${lead.id}...`);
+      console.log(`\n${'='.repeat(70)}`);
+      console.log(`🎯 PROCESSING NEW DEAL - Lead ID: ${lead.id}`);
+      console.log(`${'='.repeat(70)}`);
       
       // Get commission from resultData
       const commissionField = lead.resultData?.find(f => f.id === 70163);
       const commissionValue = parseFloat(commissionField?.value || 0);
+      
+      console.log(`💰 Commission: ${commissionValue.toFixed(2)} THB`);
       
       // Get multiDeals - IMPORTANT: Check BOTH masterData AND resultData
       let multiDeals = '1'; // Default
@@ -181,7 +185,7 @@ class PollingService {
       const resultMultiDeals = lead.resultData?.find(f => f.id === 74126);
       if (resultMultiDeals?.value) {
         multiDeals = resultMultiDeals.value;
-        console.log(`  📊 Found multiDeals in resultData = ${multiDeals}`);
+        console.log(`🎯 MultiDeals: ${multiDeals} (found in resultData)`);
       } else {
         // Try masterData
         const masterMultiDeals = lead.masterData?.find(f => 
@@ -194,16 +198,16 @@ class PollingService {
         
         if (masterMultiDeals?.value) {
           multiDeals = masterMultiDeals.value;
-          console.log(`  📊 Found multiDeals in masterData (field ${masterMultiDeals.id}, label: "${masterMultiDeals.label}") = ${multiDeals}`);
+          console.log(`🎯 MultiDeals: ${multiDeals} (found in masterData, field ${masterMultiDeals.id}: "${masterMultiDeals.label}")`);
+        } else {
+          console.log(`🎯 MultiDeals: ${multiDeals} (default, not found in data)`);
         }
       }
       
-      console.log(`  💰 Commission: ${commissionValue} THB`);
-      console.log(`  🎯 MultiDeals: ${multiDeals}`);
-      
       // If commission = 0, add to pending queue (unless already from pending)
       if (commissionValue === 0 && !fromPending) {
-        console.log(`  ⏳ Commission is 0, adding to pending queue`);
+        console.log(`⏳ Commission is 0 - Adding to pending queue`);
+        console.log(`${'='.repeat(70)}\n`);
         this.pendingDeals.set(lead.id, {
           lead: lead,
           attempts: 1,
@@ -212,22 +216,24 @@ class PollingService {
         return;
       }
       
-      // Remove from pending if it was there
-      if (this.pendingDeals.has(lead.id)) {
-        console.log(`  ✅ Removing from pending queue (commission received)`);
-        this.pendingDeals.delete(lead.id);
-      }
-      
       // Get agent info BEFORE adding deal (to calculate previous total)
       const agent = await this.database.getAgent(lead.lastContactedBy);
       
       if (!agent) {
-        console.log(`  ⚠️ Agent ${lead.lastContactedBy} not found in database`);
+        console.log(`⚠️  Agent ${lead.lastContactedBy} not found in database`);
+        console.log(`${'='.repeat(70)}\n`);
         return;
       }
       
-      // ✅ FIX 1: Get today's total BEFORE adding the new deal
+      console.log(`👤 Agent: ${agent.name} (ID: ${agent.userId})`);
+      console.log(`📁 Group: ${agent.groupName || 'N/A'} (ID: ${agent.groupId || 'N/A'})`);
+      
+      // ✅ CRITICAL: Get today's total BEFORE adding the new deal
       const previousTotal = await this.dealsCache.getTodayTotalForAgent(lead.lastContactedBy);
+      
+      console.log(`\n📊 BUDGET CALCULATION:`);
+      console.log(`   Previous total (today): ${previousTotal.toFixed(2)} THB`);
+      console.log(`   This deal commission:   ${commissionValue.toFixed(2)} THB`);
       
       // Get Order Date
       const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
@@ -247,27 +253,41 @@ class PollingService {
       // Add to cache
       await this.dealsCache.addDeal(deal);
       
+      // Remove from pending if it was there
+      if (this.pendingDeals.has(lead.id)) {
+        console.log(`   ✅ Removed from pending queue (commission received)`);
+        this.pendingDeals.delete(lead.id);
+      }
+      
       // Clear leaderboard cache so new stats are recalculated
       this.leaderboardCache.clear();
       
       // Calculate new total AFTER adding deal
       const newTotal = previousTotal + commissionValue;
       
+      console.log(`   ➕ New total (today):      ${newTotal.toFixed(2)} THB`);
+      
       // Count multiDeals
       const multiDealsCount = parseInt(multiDeals);
-      console.log(`  🎯 This deal counts as ${multiDealsCount} deal(s)`);
+      console.log(`   🎯 Deal count:             ${multiDealsCount} deal(s)`);
       
-      // ✅ FIX 2: Check if notification should be sent (KORREKT METOD)
+      // Check if notification should be sent (group filtering)
       const shouldNotify = await this.notificationSettings.shouldNotify(agent);
       
       if (!shouldNotify) {
-        console.log(`  🚫 Notification blocked by group filter`);
+        console.log(`\n🚫 Notification BLOCKED by group filter`);
+        console.log(`${'='.repeat(70)}\n`);
         return;
       }
       
-      // ✅ FIX 3: LJUDLOGIK - Bestäm vilket ljud som ska spelas
+      // ✅ SOUND LOGIC with detailed logging
       const settings = await this.soundSettings.getSettings();
       const dailyBudget = settings.dailyBudget || 3600;
+      
+      console.log(`\n🔊 SOUND LOGIC:`);
+      console.log(`   Daily budget threshold: ${dailyBudget} THB`);
+      console.log(`   Previous total:         ${previousTotal.toFixed(2)} THB (${previousTotal < dailyBudget ? 'UNDER' : 'OVER'} budget)`);
+      console.log(`   New total:              ${newTotal.toFixed(2)} THB (${newTotal < dailyBudget ? 'UNDER' : 'OVER'} budget)`);
       
       let soundType = 'default';
       let soundUrl = settings.defaultSound || null;
@@ -276,7 +296,7 @@ class PollingService {
       // Check if agent reached budget for the FIRST time today
       if (previousTotal < dailyBudget && newTotal >= dailyBudget) {
         reachedBudget = true;
-        console.log(`  🏆 Agent reached daily budget!`);
+        console.log(`   🏆 MILESTONE REACHED! Agent crossed budget threshold!`);
       }
       
       // Determine sound based on budget status
@@ -285,22 +305,30 @@ class PollingService {
         if (agent.customSound && agent.preferCustomSound) {
           soundType = 'agent';
           soundUrl = agent.customSound;
-          console.log(`  🎵 Playing agent custom sound`);
+          console.log(`   🎵 Sound type: AGENT (custom sound)`);
+          console.log(`   📢 Reason: Agent over budget + has custom sound + preferCustomSound=true`);
         } else {
           soundType = 'milestone';
           soundUrl = settings.milestoneSound || settings.defaultSound;
-          console.log(`  🎵 Playing milestone sound`);
+          console.log(`   🎵 Sound type: MILESTONE (dagsbudget)`);
+          console.log(`   📢 Reason: Agent over budget (${newTotal.toFixed(2)} >= ${dailyBudget})`);
+          if (agent.customSound && !agent.preferCustomSound) {
+            console.log(`   ℹ️  Note: Agent has custom sound but preferCustomSound=false`);
+          } else if (!agent.customSound) {
+            console.log(`   ℹ️  Note: Agent has no custom sound`);
+          }
         }
       } else {
         soundType = 'default';
         soundUrl = settings.defaultSound || null;
-        console.log(`  🎵 Playing default sound`);
+        console.log(`   🎵 Sound type: DEFAULT (standard pling)`);
+        console.log(`   📢 Reason: Agent under budget (${newTotal.toFixed(2)} < ${dailyBudget})`);
       }
       
-      console.log(`  📊 Today's total: ${newTotal} THB (budget: ${dailyBudget})`);
+      console.log(`   🔗 Sound URL: ${soundUrl || 'NONE'}`);
       
-      // ✅ FIX 4: Send notification via Socket.io (KORREKT EVENT NAMN)
-      this.io.emit('new_deal', {
+      // Send notification via Socket.io
+      const notification = {
         agent: {
           userId: agent.userId,
           name: agent.name,
@@ -315,20 +343,30 @@ class PollingService {
         reachedBudget: reachedBudget,
         leadId: lead.id,
         timestamp: new Date().toISOString()
-      });
+      };
       
-      console.log(`  ✅ Deal processed and notification sent!`);
-      console.log(`     Sound: ${soundType}, Total: ${newTotal} THB`);
+      this.io.emit('new_deal', notification);
       
-      // 🔥 NEW: Immediately sync SMS cache after deal is processed
-      // This ensures SMS stats are updated right away for the leaderboards
-      console.log('  📱 Syncing SMS cache after new deal...');
+      console.log(`\n✅ NOTIFICATION SENT`);
+      console.log(`   Event: new_deal`);
+      console.log(`   Agent: ${agent.name}`);
+      console.log(`   Commission: ${commissionValue.toFixed(2)} THB`);
+      console.log(`   Sound: ${soundType}`);
+      console.log(`   Daily Total: ${newTotal.toFixed(2)} THB`);
+      
+      // Sync SMS cache after deal
+      console.log(`\n📱 Syncing SMS cache...`);
       await this.smsCache.forceSync(this.adversusAPI);
-      console.log('  ✅ SMS cache synced!');
+      console.log(`✅ SMS cache synced`);
+      
+      console.log(`${'='.repeat(70)}\n`);
       
     } catch (error) {
-      console.error(`  ❌ Error processing deal:`, error);
-      console.error(`     Stack:`, error.stack);
+      console.error(`\n❌ ERROR PROCESSING DEAL:`, error);
+      console.error(`   Lead ID: ${lead.id}`);
+      console.error(`   Error message: ${error.message}`);
+      console.error(`   Stack: ${error.stack}`);
+      console.log(`${'='.repeat(70)}\n`);
     }
   }
 
