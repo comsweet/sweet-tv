@@ -20,10 +20,18 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
     return labels[period] || period;
   };
 
-  const getCommissionClass = (commission) => {
+  const getCommissionClass = (commission, timePeriod) => {
     if (commission === 0) return 'zero';
-    if (commission < 3400) return 'low';
-    return 'high';
+    if (timePeriod === 'day') return commission < 3400 ? 'low' : 'high';
+    if (timePeriod === 'week') return commission < 18000 ? 'low' : 'high';
+    return commission < 50000 ? 'low' : 'high';
+  };
+
+  // 🔥 NYTT: SMS Box färglogik
+  const getSMSBoxClass = (successRate) => {
+    if (successRate >= 75) return 'sms-green';
+    if (successRate >= 60) return 'sms-orange';
+    return 'sms-red';
   };
 
   const totalDeals = stats.reduce((sum, stat) => sum + stat.dealCount, 0);
@@ -43,6 +51,8 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
           <div className="slideshow-items">
             {stats.slice(0, 20).map((item, index) => {
               const isZeroDeals = item.dealCount === 0;
+              const uniqueSMS = item.uniqueSMS || 0;
+              const smsSuccessRate = item.smsSuccessRate || 0;
               
               return (
                 <div 
@@ -82,7 +92,17 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
                     <span>{item.dealCount} affärer</span>
                   </div>
                   
-                  <div className={`slideshow-commission ${getCommissionClass(item.totalCommission)}`}>
+                  {/* 🔥 NYTT: SMS BOX */}
+                  <div className={`slideshow-sms-box ${getSMSBoxClass(smsSuccessRate)}`}>
+                    <div className="sms-rate">
+                      {smsSuccessRate.toFixed(2)}%
+                    </div>
+                    <div className="sms-count">
+                      ({uniqueSMS} SMS)
+                    </div>
+                  </div>
+                  
+                  <div className={`slideshow-commission ${getCommissionClass(item.totalCommission, leaderboard.timePeriod)}`}>
                     {item.totalCommission.toLocaleString('sv-SE')} THB
                   </div>
                 </div>
@@ -103,19 +123,17 @@ const Slideshow = () => {
   const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
-  const [refreshKey, setRefreshKey] = useState(0); // ✨ NYTT: Force re-render
+  const [refreshKey, setRefreshKey] = useState(0);
   const intervalRef = useRef(null);
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
 
-  // ✨ UPPDATERAD: Fetch slideshow med bättre refresh och mindre logging
   const fetchSlideshowData = async (silent = false) => {
     try {
       if (!silent) {
         setIsLoading(true);
       }
       
-      // ✨ NYTT: Lägg till timestamp för att undvika caching
       const timestamp = Date.now();
       const slideshowResponse = await getSlideshow(id);
       const slideshowData = slideshowResponse.data;
@@ -125,16 +143,13 @@ const Slideshow = () => {
         console.log(`📺 Loading ${slideshowData.type === 'dual' ? 'Dual' : 'Single'} Slideshow: "${slideshowData.name}"`);
       }
       
-      // ✨ UPPDATERAD: Hantera både single och dual mode
       if (slideshowData.type === 'dual' && slideshowData.dualSlides) {
-        // Dual mode
         const dualSlidesData = [];
         
         for (let i = 0; i < slideshowData.dualSlides.length; i++) {
           const dualSlide = slideshowData.dualSlides[i];
           
           try {
-            // Hämta båda leaderboards parallellt med timestamp
             const [leftStatsRes, rightStatsRes] = await Promise.all([
               getLeaderboardStats2(dualSlide.left),
               getLeaderboardStats2(dualSlide.right)
@@ -147,10 +162,9 @@ const Slideshow = () => {
               rightLeaderboard: rightStatsRes.data.leaderboard,
               leftStats: leftStatsRes.data.stats || [],
               rightStats: rightStatsRes.data.stats || [],
-              timestamp // ✨ NYTT: Spara timestamp för debugging
+              timestamp
             });
             
-            // Delay mellan slides
             if (i < slideshowData.dualSlides.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 3000));
             }
@@ -167,7 +181,6 @@ const Slideshow = () => {
         setLeaderboardsData(dualSlidesData);
         
       } else {
-        // Single mode (original logic)
         const leaderboardsWithStats = [];
         
         for (let i = 0; i < slideshowData.leaderboards.length; i++) {
@@ -180,10 +193,9 @@ const Slideshow = () => {
               type: 'single',
               leaderboard: statsResponse.data.leaderboard,
               stats: statsResponse.data.stats || [],
-              timestamp // ✨ NYTT: Spara timestamp
+              timestamp
             });
             
-            // Delay mellan leaderboards
             if (i < slideshowData.leaderboards.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 3000));
             }
@@ -200,7 +212,6 @@ const Slideshow = () => {
         setLeaderboardsData(leaderboardsWithStats);
       }
       
-      // ✨ NYTT: Force re-render genom att öka refreshKey
       setRefreshKey(prev => prev + 1);
       
       if (!silent) {
@@ -220,7 +231,6 @@ const Slideshow = () => {
   useEffect(() => {
     fetchSlideshowData();
     
-    // ✨ UPPDATERAD: Auto-refresh med bättre logging
     refreshIntervalRef.current = setInterval(() => {
       console.log('🔄 Auto-refresh triggered');
       fetchSlideshowData(true);
@@ -230,14 +240,12 @@ const Slideshow = () => {
 
     const handleNewDeal = (notification) => {
       console.log('🎉 New deal received:', notification.agent?.name || 'Unknown');
-      console.log('📦 Full notification:', notification);
       
       if (notification.agent && 
           notification.agent.name && 
           notification.agent.name !== 'Agent null') {
         setCurrentNotification(notification);
         
-        // ✅ Refresh efter 5 sekunder (efter ljud och konfetti är klart)
         setTimeout(() => {
           console.log('🔄 Refreshing leaderboard data after new deal...');
           fetchSlideshowData(true);
@@ -245,7 +253,6 @@ const Slideshow = () => {
       }
     };
 
-    // ✅ Lyssna på rätt event namn
     socketService.on('new_deal', handleNewDeal);
 
     return () => {
@@ -256,7 +263,6 @@ const Slideshow = () => {
     };
   }, [id]);
 
-  // ✨ UPPDATERAD: Slide rotation med individuell duration per slide
   useEffect(() => {
     if (leaderboardsData.length === 0 || !slideshow) return;
 
@@ -327,7 +333,6 @@ const Slideshow = () => {
         ))}
       </div>
 
-      {/* ✨ UPPDATERAD: Render både single och dual slides */}
       {leaderboardsData.map((slideData, index) => {
         const isActive = index === currentIndex;
         
