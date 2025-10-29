@@ -1,5 +1,5 @@
 // frontend/src/pages/Slideshow.jsx
-// 🔥 KOMPLETT VERSION MED TV-SIZE CONTROL
+// 🔥 AUTO-SCROLL VERSION - Visar ALLA agenter med smooth scroll
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
@@ -61,8 +61,42 @@ const TVSizeControl = ({ currentSize, onSizeChange }) => {
   );
 };
 
-// ⭐ LeaderboardSlide komponent med SMS-box OCH displaySize
+// ⭐ LeaderboardSlide komponent med AUTO-SCROLL och FROZEN #1
 const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize }) => {
+  const scrollContainerRef = useRef(null);
+  const scrollContentRef = useRef(null);
+
+  useEffect(() => {
+    if (!isActive || stats.length <= 1) return;
+
+    const container = scrollContainerRef.current;
+    const content = scrollContentRef.current;
+    
+    if (!container || !content) return;
+
+    // Beräkna scrollbar höjd
+    const containerHeight = container.clientHeight;
+    const contentHeight = content.scrollHeight;
+    const scrollDistance = contentHeight - containerHeight;
+
+    if (scrollDistance <= 0) {
+      // Inget att scrolla
+      return;
+    }
+
+    // Sätt CSS variable för animation
+    container.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
+    
+    // Starta animation
+    content.classList.add('scrolling');
+
+    return () => {
+      if (content) {
+        content.classList.remove('scrolling');
+      }
+    };
+  }, [isActive, stats.length]);
+
   const getTimePeriodLabel = (period) => {
     const labels = {
       day: 'Idag',
@@ -88,6 +122,71 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize }) => {
 
   const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
+  // Separera #1 från resten
+  const firstPlace = stats.length > 0 ? stats[0] : null;
+  const scrollableStats = stats.slice(1); // Alla utom #1
+
+  const renderAgent = (item, index, isFrozen = false) => {
+    if (!item) return null;
+
+    const isZeroDeals = !item.dealCount || item.dealCount === 0;
+    const uniqueSMS = item.uniqueSMS || 0;
+    const smsSuccessRate = item.smsSuccessRate || 0;
+    
+    return (
+      <div 
+        key={`${item.userId}-${index}`}
+        className={`slideshow-item ${index === 0 && !isZeroDeals && isFrozen ? 'first-place' : ''} ${isZeroDeals ? 'zero-deals' : ''} ${isFrozen ? 'frozen-item' : ''}`}
+        style={{ 
+          animationDelay: isActive && !isFrozen ? `${index * 0.1}s` : '0s'
+        }}
+      >
+        <div className="slideshow-rank">
+          {index === 0 && !isZeroDeals && isFrozen && '🥇'}
+          {index === 1 && !isZeroDeals && !isFrozen && '🥈'}
+          {index === 2 && !isZeroDeals && !isFrozen && '🥉'}
+          {((index > 2 && !isFrozen) || (index > 0 && isFrozen) || isZeroDeals) && `#${index + 1}`}
+        </div>
+        
+        {item.agent && item.agent.profileImage ? (
+          <img 
+            src={item.agent.profileImage} 
+            alt={item.agent.name || 'Agent'}
+            className="slideshow-avatar"
+          />
+        ) : (
+          <div className="slideshow-avatar-placeholder">
+            {item.agent && item.agent.name ? item.agent.name.charAt(0) : '?'}
+          </div>
+        )}
+        
+        <div className="slideshow-info">
+          <h3 className={`slideshow-name ${isZeroDeals ? 'zero-deals' : ''}`}>
+            {item.agent ? item.agent.name : 'Unknown'}
+          </h3>
+        </div>
+        
+        <div className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
+          <span className="emoji">🎯</span>
+          <span>{item.dealCount || 0} affärer</span>
+        </div>
+        
+        <div className={`slideshow-sms-box ${getSMSBoxClass(smsSuccessRate)}`}>
+          <div className="sms-rate">
+            {smsSuccessRate.toFixed(2)}%
+          </div>
+          <div className="sms-count">
+            ({uniqueSMS} SMS)
+          </div>
+        </div>
+        
+        <div className={`slideshow-commission ${getCommissionClass(item.totalCommission || 0, leaderboard.timePeriod)}`}>
+          {(item.totalCommission || 0).toLocaleString('sv-SE')} THB
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={`slideshow-slide ${isActive ? 'active' : ''}`}>
       <div className="slideshow-content">
@@ -100,65 +199,22 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize }) => {
         {stats.length === 0 ? (
           <div className="slideshow-no-data">Inga affärer än</div>
         ) : (
-          <div className="slideshow-items">
-            {stats.slice(0, 20).map((item, index) => {
-              const isZeroDeals = !item.dealCount || item.dealCount === 0;
-              const uniqueSMS = item.uniqueSMS || 0;
-              const smsSuccessRate = item.smsSuccessRate || 0;
-              
-              return (
-                <div 
-                  key={`${item.userId}-${index}`}
-                  className={`slideshow-item ${index === 0 && !isZeroDeals ? 'first-place' : ''} ${isZeroDeals ? 'zero-deals' : ''}`}
-                  style={{ 
-                    animationDelay: isActive ? `${index * 0.1}s` : '0s'
-                  }}
-                >
-                  <div className="slideshow-rank">
-                    {index === 0 && !isZeroDeals && '🥇'}
-                    {index === 1 && !isZeroDeals && '🥈'}
-                    {index === 2 && !isZeroDeals && '🥉'}
-                    {(index > 2 || isZeroDeals) && `#${index + 1}`}
-                  </div>
-                  
-                  {item.agent && item.agent.profileImage ? (
-                    <img 
-                      src={item.agent.profileImage} 
-                      alt={item.agent.name || 'Agent'}
-                      className="slideshow-avatar"
-                    />
-                  ) : (
-                    <div className="slideshow-avatar-placeholder">
-                      {item.agent && item.agent.name ? item.agent.name.charAt(0) : '?'}
-                    </div>
-                  )}
-                  
-                  <div className="slideshow-info">
-                    <h3 className={`slideshow-name ${isZeroDeals ? 'zero-deals' : ''}`}>
-                      {item.agent ? item.agent.name : 'Unknown'}
-                    </h3>
-                  </div>
-                  
-                  <div className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
-                    <span className="emoji">🎯</span>
-                    <span>{item.dealCount || 0} affärer</span>
-                  </div>
-                  
-                  <div className={`slideshow-sms-box ${getSMSBoxClass(smsSuccessRate)}`}>
-                    <div className="sms-rate">
-                      {smsSuccessRate.toFixed(2)}%
-                    </div>
-                    <div className="sms-count">
-                      ({uniqueSMS} SMS)
-                    </div>
-                  </div>
-                  
-                  <div className={`slideshow-commission ${getCommissionClass(item.totalCommission || 0, leaderboard.timePeriod)}`}>
-                    {(item.totalCommission || 0).toLocaleString('sv-SE')} THB
-                  </div>
+          <div className="slideshow-items-wrapper">
+            {/* 🔥 FROZEN #1 SECTION */}
+            {firstPlace && (
+              <div className="frozen-first-place">
+                {renderAgent(firstPlace, 0, true)}
+              </div>
+            )}
+
+            {/* 🔥 AUTO-SCROLL SECTION - Alla utom #1 */}
+            {scrollableStats.length > 0 && (
+              <div className="scroll-container" ref={scrollContainerRef}>
+                <div className="scroll-content" ref={scrollContentRef}>
+                  {scrollableStats.map((item, idx) => renderAgent(item, idx + 1, false))}
                 </div>
-              );
-            })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -240,7 +296,7 @@ const Slideshow = () => {
             leaderboardsWithStats.push({
               type: 'single',
               leaderboard: statsResponse.data.leaderboard,
-              stats: statsResponse.data.stats || []
+              stats: statsResponse.data.stats || [] // ✅ ALLA agenter, ingen .slice()
             });
             
             if (i < slideshowData.leaderboards.length - 1) {
