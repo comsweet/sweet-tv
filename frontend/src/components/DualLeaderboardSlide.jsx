@@ -1,4 +1,4 @@
-// 🔥 ALTERNATIV 8: FIXED - Shows ALL users, 0.8s animation
+// 🔥 ALTERNATIV 8: FIXED - 5 items per page (4-8, 9-13, 14-18, etc)
 import { useState, useEffect } from 'react';
 
 // 🔥 GLOBAL state som ALDRIG rensas
@@ -81,7 +81,7 @@ const styles = {
     top: 0,
     left: 0,
     width: '100%',
-    transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s ease', // 🔥 0.8s
+    transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s ease',
   },
   wipeContentExiting: {
     transform: 'translateX(-100%)',
@@ -298,7 +298,9 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const frozenCount = 3;
     const topStats = stats.slice(0, frozenCount);
     const scrollableStats = stats.slice(frozenCount);
-    const itemsPerPage = 10;
+    
+    // 🔥 5 items per page (4-8, 9-13, 14-18, etc)
+    const itemsPerPage = 5;
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
 
@@ -310,7 +312,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         wipeState[columnId].isTransitioning = true;
         forceUpdate(n => n + 1);
         
-        // 🔥 0.8s animation time
         setTimeout(() => {
           wipeState[columnId].currentPage = (wipeState[columnId].currentPage + 1) % totalPages;
           wipeState[columnId].isTransitioning = false;
@@ -326,13 +327,13 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     useEffect(() => {
       if (!needsWipe || wipeIntervals[columnId]) return;
 
-      console.log(`✅ [${side}] Skapar interval med ${totalPages} sidor`);
+      console.log(`✅ [${side}] Skapar interval med ${totalPages} sidor, ${itemsPerPage} items per sida`);
       
       wipeIntervals[columnId] = setInterval(() => {
         window.dispatchEvent(new CustomEvent('leaderboard-wipe', {
           detail: { columnId }
         }));
-      }, 12000); // 🔥 12 sekunder
+      }, 12000);
 
       // 🔥 INGET CLEANUP - intervallet lever för evigt
     }, [needsWipe, columnId, side, totalPages]);
@@ -395,11 +396,11 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
     const currentPageItems = scrollableStats.slice(startIndex, endIndex);
 
-    // 🔥 För debug - visa faktiska platser
+    // Display ranges for indicator
     const displayStart = startIndex + frozenCount + 1;
     const displayEnd = endIndex + frozenCount;
 
-    console.log(`[${side}] Page ${wipeState[columnId].currentPage + 1}: Visar plats ${displayStart}-${displayEnd} (scrollable index ${startIndex}-${endIndex - 1})`);
+    console.log(`[${side}] Page ${wipeState[columnId].currentPage + 1}/${totalPages}: Plats ${displayStart}-${displayEnd} (${currentPageItems.length} items)`);
 
     return (
       <div style={styles.column}>
