@@ -47,10 +47,11 @@ const DealNotification = ({ notification, onComplete }) => {
     const confettiDuration = 10000;
     const confettiEnd = Date.now() + confettiDuration;
     
-    // 🔥 FIXAT: Använd reachedBudget för guld-konfetti (agent kan ha agent-specific sound!)
-    const isMilestone = notification.reachedBudget || notification.soundType === 'milestone';
+    // 🔥 FIXAT: Backend sätter soundType till 'agent' eller 'milestone' NÄR agenten är över budget
+    // Om under budget blir det 'default'. Så vi kan använda soundType !== 'default' för guld!
+    const isMilestone = notification.soundType !== 'default';
     const colors = isMilestone
-      ? ['#ffd700', '#ffffff', '#ffed4e'] // Gold for milestone
+      ? ['#ffd700', '#ffffff', '#ffed4e'] // Gold for milestone (agent över budget)
       : ['#bb0000', '#ffffff', '#00bb00']; // Standard colors
 
     const runConfetti = () => {
@@ -113,7 +114,7 @@ const DealNotification = ({ notification, onComplete }) => {
       {/* 🔥 Mörk backdrop bakom popupen */}
       <div className="notification-backdrop"></div>
       
-      <div className={`deal-notification ${(reachedBudget || soundType === 'milestone') ? 'milestone' : ''}`}>
+      <div className={`deal-notification ${notification.soundType !== 'default' ? 'milestone' : ''}`}>
         <audio ref={audioRef} />
         
         <div className="notification-content">
@@ -134,12 +135,12 @@ const DealNotification = ({ notification, onComplete }) => {
             <p className="notification-commission">
               +{parseFloat(commission).toLocaleString('sv-SE')} THB
             </p>
-            {(reachedBudget || soundType === 'milestone') && totalToday && (
+            {notification.soundType !== 'default' && totalToday && (
               <p className="notification-message milestone">
                 🏆 DAGSBUDGET NÅDD! ({totalToday.toLocaleString('sv-SE')} THB idag)
               </p>
             )}
-            {!(reachedBudget || soundType === 'milestone') && (
+            {notification.soundType === 'default' && (
               <p className="notification-message">🎉 Ny affär registrerad!</p>
             )}
           </div>
