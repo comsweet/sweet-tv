@@ -1,4 +1,4 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - STABLE VERSION
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - SUPER SIMPLE VERSION
 // Top 3 frozen, resten wipes horizontally mellan grupper
 
 import { useState, useEffect, useRef } from 'react';
@@ -268,85 +268,54 @@ const styles = {
   }
 };
 
-// 🔥 Hook för att beräkna items per page EN GÅNG
-const useItemsPerPage = (containerRef) => {
-  const itemsPerPageRef = useRef(10);
-  const [initialized, setInitialized] = useState(false);
-
-  useEffect(() => {
-    if (!containerRef.current || initialized) return;
-
-    const calculateItems = () => {
-      const containerHeight = containerRef.current.clientHeight;
-      const itemHeight = 66; // 58px + 8px margin
-      const calculatedItems = Math.floor(containerHeight / itemHeight);
-      const finalItems = Math.max(6, Math.min(calculatedItems, 15));
-      
-      itemsPerPageRef.current = finalItems;
-      console.log(`📏 [${containerRef.current.dataset.side}] Container height: ${containerHeight}px → ${finalItems} items per page`);
-      setInitialized(true);
-    };
-
-    const timer = setTimeout(calculateItems, 200);
-    return () => clearTimeout(timer);
-  }, [containerRef, initialized]);
-
-  return itemsPerPageRef.current;
-};
-
-// 🔥 Simplified wipe animation
+// 🔥 SUPER SIMPLE - bara en timer, inga dependencies
 const useWipeAnimation = (totalPages, side, isActive) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [nextPage, setNextPage] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const timerRef = useRef(null);
+  const currentPageRef = useRef(0);
 
+  // Uppdatera ref när currentPage ändras
   useEffect(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
 
-    if (!isActive || totalPages <= 1) {
-      setCurrentPage(0);
-      setNextPage(1);
-      setIsTransitioning(false);
-      return;
-    }
+  // EN ENDA useEffect med TOM dependency array
+  useEffect(() => {
+    if (!isActive || totalPages <= 1) return;
 
-    const performWipe = () => {
-      const nextPageNum = (currentPage + 1) % totalPages;
-      
-      console.log(`[${side}] 🔥 Wipe: ${currentPage + 1} → ${nextPageNum + 1}`);
-      
-      // Set next page och trigga transition
-      setNextPage(nextPageNum);
-      
-      // Vänta en frame
-      requestAnimationFrame(() => {
+    console.log(`[${side}] 🎬 Init wipe (${totalPages} pages)`);
+
+    const scheduleWipe = () => {
+      timerRef.current = setTimeout(() => {
+        const current = currentPageRef.current;
+        const next = (current + 1) % totalPages;
+        
+        console.log(`[${side}] 🔥 Wipe ${current + 1} → ${next + 1}`);
+        
+        setNextPage(next);
         setIsTransitioning(true);
         
-        // Efter 1.8s animation, uppdatera current page
         setTimeout(() => {
-          setCurrentPage(nextPageNum);
+          setCurrentPage(next);
+          currentPageRef.current = next;
           setIsTransitioning(false);
           
-          // Schedule nästa wipe
-          timerRef.current = setTimeout(performWipe, 12000);
+          // Schedule nästa
+          scheduleWipe();
         }, 1800);
-      });
+      }, 12000);
     };
 
-    console.log(`[${side}] 🎬 Starting wipe (${totalPages} pages)`);
-    timerRef.current = setTimeout(performWipe, 12000);
+    scheduleWipe();
 
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
-        timerRef.current = null;
       }
     };
-  }, [currentPage, totalPages, side, isActive]);
+  }, []); // 🔥 TOM - körs BARA vid mount
 
   return { currentPage, nextPage, isTransitioning };
 };
@@ -403,8 +372,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const topStats = stats.slice(0, frozenCount);
     const scrollableStats = stats.slice(frozenCount);
 
-    // 🔥 Get items per page (stabil)
-    const itemsPerPage = useItemsPerPage(wipeContainerRef);
+    // 🔥 Fast items per page
+    const itemsPerPage = 10;
     
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
@@ -522,7 +491,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
 
         {scrollableStats.length > 0 && (
           <>
-            <div ref={wipeContainerRef} style={styles.wipeContainer} data-side={side}>
+            <div ref={wipeContainerRef} style={styles.wipeContainer}>
               {/* Current page */}
               <div style={getCurrentStyle()}>
                 {renderPageItems(currentPage)}
