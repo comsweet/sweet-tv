@@ -607,7 +607,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
                      `Agent ${stat.userId}`;
         }
         
-        // 📱 HÄMTA SMS STATS för denna user
+         // 📱 HÄMTA SMS STATS för denna user
         let smsData = {
           uniqueSMS: 0,
           successRate: 0,
@@ -628,18 +628,6 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
             successRate: smsData.successRate
           });
           
-        } catch (error) {
-          console.error(`⚠️ Failed to get SMS stats for user ${stat.userId}:`, error.message);
-        }
-          
-          // 🐛 DEBUG: Logga SMS data för första 3 användare
-          if (Object.keys(stats).length <= 3) {
-            console.log(`   📊 User ${stat.userId} (${agentName}):`, {
-              uniqueSMS: smsData.uniqueSMS,
-              totalDeals: smsData.totalDeals,
-              successRate: smsData.successRate
-            });
-          }
         } catch (error) {
           console.error(`⚠️ Failed to get SMS stats for user ${stat.userId}:`, error.message);
         }
