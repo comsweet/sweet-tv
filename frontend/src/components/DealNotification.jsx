@@ -89,6 +89,10 @@ const DealNotification = ({ notification, onComplete }) => {
         audioRef.current.pause();
         audioRef.current.src = '';
       }
+      console.log('🔥 CALLING onComplete NOW!');  // 🔥 NY RAD!
+      onComplete();
+      console.log('✅ onComplete called successfully!');  // 🔥 NY RAD!
+    }, 10000);
       onComplete();
     }, 10000);
 
