@@ -1,3 +1,5 @@
+console.log('🔥🔥🔥 DISPLAY.JSX LOADED - VERSION: EVENT-DRIVEN-v3');
+
 import { useState, useEffect, useRef } from 'react';
 import socketService from '../services/socket';
 import { getActiveLeaderboards, getLeaderboardStats2 } from '../services/api';
