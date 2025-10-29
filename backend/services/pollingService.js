@@ -1,5 +1,5 @@
 // backend/services/pollingService.js
-// ✅ KOMPLETT FIX med ENHANCED DEBUG LOGGING
+// ✅ ENHANCED with BETTER DEDUPLICATION & LOGGING
 
 const adversusAPI = require('./adversusAPI');
 const database = require('./database');
@@ -14,7 +14,7 @@ class PollingService {
   constructor(io) {
     this.io = io;
     
-    // ✅ KRITISKT FIX: Initialize all dependencies
+    // Initialize all dependencies
     this.database = database;
     this.dealsCache = dealsCache;
     this.smsCache = smsCache;
@@ -34,18 +34,25 @@ class PollingService {
     this.maxRetries = 10;
     this.retryDelay = 15000;
     
-    // Track notified leads to prevent duplicate notifications
+    // 🔥 CRITICAL: Track notified leads to prevent duplicate notifications
     this.notifiedLeads = new Set();
     
     // Cleanup old notifications every hour
     setInterval(() => {
-      console.log(`🧹 Clearing notifiedLeads cache (${this.notifiedLeads.size} entries)`);
-      this.notifiedLeads.clear();
+      const size = this.notifiedLeads.size;
+      if (size > 0) {
+        console.log(`\n🧹 Clearing notifiedLeads cache (${size} entries)`);
+        this.notifiedLeads.clear();
+        console.log(`✅ Cache cleared\n`);
+      }
     }, 60 * 60 * 1000);
   }
 
   async start() {
-    console.log(`🔄 Starting polling (${this.pollInterval}ms interval)`);
+    console.log(`\n🔄 ═══════════════════════════════════════════`);
+    console.log(`🔄 STARTING POLLING SERVICE`);
+    console.log(`⏱️  Interval: ${this.pollInterval}ms (${this.pollInterval / 1000}s)`);
+    console.log(`═══════════════════════════════════════════\n`);
     
     // Initialize SMS cache
     await this.smsCache.init();
@@ -56,7 +63,9 @@ class PollingService {
   }
 
   stop() {
-    console.log('⏸️  Stopping polling');
+    console.log('\n⏸️  ═══════════════════════════════════════════');
+    console.log('⏸️  STOPPING POLLING SERVICE');
+    console.log('═══════════════════════════════════════════\n');
     this.isPolling = false;
     if (this.intervalId) {
       clearInterval(this.intervalId);
@@ -67,7 +76,8 @@ class PollingService {
     if (!this.isPolling) return;
 
     try {
-      console.log('🔍 Polling for new deals...');
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`\n🔍 [${timestamp}] Polling for new deals...`);
       
       // 1. Check pending deals first
       await this.checkPendingDeals();
@@ -77,7 +87,7 @@ class PollingService {
       const newLeads = result.leads || [];
       
       if (newLeads.length > 0) {
-        console.log(`✅ Found ${newLeads.length} new success leads`);
+        console.log(`\n✅ Found ${newLeads.length} new success leads`);
         
         for (const lead of newLeads) {
           await this.processDeal(lead);
@@ -110,7 +120,7 @@ class PollingService {
   async checkPendingDeals() {
     if (this.pendingDeals.size === 0) return;
     
-    console.log(`🔄 Checking ${this.pendingDeals.size} pending deals...`);
+    console.log(`\n🔄 Checking ${this.pendingDeals.size} pending deals...`);
     
     const toProcess = [];
     const toRemove = [];
@@ -168,9 +178,20 @@ class PollingService {
 
   async processDeal(lead, fromPending = false) {
     try {
-      console.log(`\n${'='.repeat(70)}`);
-      console.log(`🎯 PROCESSING NEW DEAL - Lead ID: ${lead.id}`);
-      console.log(`${'='.repeat(70)}`);
+      console.log(`\n${'═'.repeat(70)}`);
+      console.log(`🎯 PROCESSING NEW DEAL`);
+      console.log(`${'═'.repeat(70)}`);
+      console.log(`🆔 Lead ID: ${lead.id}`);
+      
+      // 🔥 CRITICAL: Check if we already notified about this lead
+      if (this.notifiedLeads.has(lead.id)) {
+        console.log(`\n⚠️  DUPLICATE DEAL DETECTED!`);
+        console.log(`   🆔 Lead ID ${lead.id} already processed`);
+        console.log(`   ❌ BLOCKING duplicate notification`);
+        console.log(`   📊 Total tracked: ${this.notifiedLeads.size} deals`);
+        console.log(`${'═'.repeat(70)}\n`);
+        return;
+      }
       
       // Get commission from resultData
       const commissionField = lead.resultData?.find(f => f.id === 70163);
@@ -178,7 +199,7 @@ class PollingService {
       
       console.log(`💰 Commission: ${commissionValue.toFixed(2)} THB`);
       
-      // Get multiDeals - IMPORTANT: Check BOTH masterData AND resultData
+      // Get multiDeals - Check BOTH masterData AND resultData
       let multiDeals = '1'; // Default
       
       // Try resultData first (field 74126)
@@ -207,7 +228,7 @@ class PollingService {
       // If commission = 0, add to pending queue (unless already from pending)
       if (commissionValue === 0 && !fromPending) {
         console.log(`⏳ Commission is 0 - Adding to pending queue`);
-        console.log(`${'='.repeat(70)}\n`);
+        console.log(`${'═'.repeat(70)}\n`);
         this.pendingDeals.set(lead.id, {
           lead: lead,
           attempts: 1,
@@ -221,7 +242,7 @@ class PollingService {
       
       if (!agent) {
         console.log(`⚠️  Agent ${lead.lastContactedBy} not found in database`);
-        console.log(`${'='.repeat(70)}\n`);
+        console.log(`${'═'.repeat(70)}\n`);
         return;
       }
       
@@ -232,8 +253,8 @@ class PollingService {
       const previousTotal = await this.dealsCache.getTodayTotalForAgent(lead.lastContactedBy);
       
       console.log(`\n📊 BUDGET CALCULATION:`);
-      console.log(`   Previous total (today): ${previousTotal.toFixed(2)} THB`);
-      console.log(`   This deal commission:   ${commissionValue.toFixed(2)} THB`);
+      console.log(`   💼 Previous total (today): ${previousTotal.toFixed(2)} THB`);
+      console.log(`   💰 This deal commission:   ${commissionValue.toFixed(2)} THB`);
       
       // Get Order Date
       const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
@@ -275,8 +296,8 @@ class PollingService {
       const shouldNotify = await this.notificationSettings.shouldNotify(agent);
       
       if (!shouldNotify) {
-        console.log(`\n🚫 Notification BLOCKED by group filter`);
-        console.log(`${'='.repeat(70)}\n`);
+        console.log(`\n🚫 NOTIFICATION BLOCKED by group filter`);
+        console.log(`${'═'.repeat(70)}\n`);
         return;
       }
       
@@ -285,9 +306,13 @@ class PollingService {
       const dailyBudget = settings.dailyBudget || 3600;
       
       console.log(`\n🔊 SOUND LOGIC:`);
-      console.log(`   Daily budget threshold: ${dailyBudget} THB`);
-      console.log(`   Previous total:         ${previousTotal.toFixed(2)} THB (${previousTotal < dailyBudget ? 'UNDER' : 'OVER'} budget)`);
-      console.log(`   New total:              ${newTotal.toFixed(2)} THB (${newTotal < dailyBudget ? 'UNDER' : 'OVER'} budget)`);
+      console.log(`   🎯 Daily budget threshold: ${dailyBudget.toFixed(2)} THB`);
+      console.log(`   📊 Previous total:         ${previousTotal.toFixed(2)} THB ${previousTotal < dailyBudget ? '(UNDER budget)' : '(OVER budget)'}`);
+      console.log(`   📊 New total:              ${newTotal.toFixed(2)} THB ${newTotal < dailyBudget ? '(UNDER budget)' : '(OVER budget)'}`);
+      
+      // Calculate percentage of budget
+      const budgetPercentage = (newTotal / dailyBudget * 100).toFixed(1);
+      console.log(`   📈 Budget completion:      ${budgetPercentage}%`);
       
       let soundType = 'default';
       let soundUrl = settings.defaultSound || null;
@@ -327,6 +352,12 @@ class PollingService {
       
       console.log(`   🔗 Sound URL: ${soundUrl || 'NONE'}`);
       
+      // 🔥 CRITICAL: Mark this lead as notified BEFORE sending
+      this.notifiedLeads.add(lead.id);
+      console.log(`\n✅ NOTIFICATION APPROVED`);
+      console.log(`   🆔 Tracking Lead ID: ${lead.id}`);
+      console.log(`   📝 Total tracked: ${this.notifiedLeads.size} deals`);
+      
       // Send notification via Socket.io
       const notification = {
         agent: {
@@ -340,6 +371,7 @@ class PollingService {
         soundUrl: soundUrl,
         dailyTotal: newTotal,
         dailyBudget: dailyBudget,
+        budgetPercentage: parseFloat(budgetPercentage),
         reachedBudget: reachedBudget,
         leadId: lead.id,
         timestamp: new Date().toISOString()
@@ -347,26 +379,27 @@ class PollingService {
       
       this.io.emit('new_deal', notification);
       
-      console.log(`\n✅ NOTIFICATION SENT`);
-      console.log(`   Event: new_deal`);
-      console.log(`   Agent: ${agent.name}`);
-      console.log(`   Commission: ${commissionValue.toFixed(2)} THB`);
-      console.log(`   Sound: ${soundType}`);
-      console.log(`   Daily Total: ${newTotal.toFixed(2)} THB`);
+      console.log(`\n📡 NOTIFICATION SENT`);
+      console.log(`   🎯 Event: new_deal`);
+      console.log(`   👤 Agent: ${agent.name}`);
+      console.log(`   💰 Commission: ${commissionValue.toFixed(2)} THB`);
+      console.log(`   🔊 Sound: ${soundType}`);
+      console.log(`   📊 Daily Total: ${newTotal.toFixed(2)} THB (${budgetPercentage}% of budget)`);
+      console.log(`   🏆 Reached Budget: ${reachedBudget ? 'YES' : 'NO'}`);
       
       // Sync SMS cache after deal
       console.log(`\n📱 Syncing SMS cache...`);
       await this.smsCache.forceSync(this.adversusAPI);
       console.log(`✅ SMS cache synced`);
       
-      console.log(`${'='.repeat(70)}\n`);
+      console.log(`${'═'.repeat(70)}\n`);
       
     } catch (error) {
-      console.error(`\n❌ ERROR PROCESSING DEAL:`, error);
-      console.error(`   Lead ID: ${lead.id}`);
-      console.error(`   Error message: ${error.message}`);
-      console.error(`   Stack: ${error.stack}`);
-      console.log(`${'='.repeat(70)}\n`);
+      console.error(`\n❌ ERROR PROCESSING DEAL`);
+      console.error(`   🆔 Lead ID: ${lead.id}`);
+      console.error(`   ❌ Error: ${error.message}`);
+      console.error(`   📍 Stack: ${error.stack}`);
+      console.log(`${'═'.repeat(70)}\n`);
     }
   }
 
@@ -400,7 +433,10 @@ class PollingService {
         waitingSeconds: Math.round((Date.now() - data.firstSeen) / 1000)
       });
     }
-    return pending;
+    return {
+      pending: pending,
+      notifiedCount: this.notifiedLeads.size
+    };
   }
 }
 
