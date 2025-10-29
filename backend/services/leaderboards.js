@@ -101,8 +101,11 @@ class LeaderboardService {
 
     switch (leaderboard.timePeriod) {
       case 'day':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        // 🔥 FIX: Use UTC methods to avoid timezone issues
+        // This ensures "today" is calculated in UTC, matching SMS timestamps
+        startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+        endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+        console.log(`📅 Day range (UTC): ${startDate.toISOString()} to ${endDate.toISOString()}`);
         break;
       
       case 'week':
