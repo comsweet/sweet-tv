@@ -1,4 +1,4 @@
-/* Display.css - Updated to support showing ALL agents */
+/* Display.css - TV Display with Auto-Wipe Animation */
 
 .display-container {
   min-height: 100vh;
@@ -51,7 +51,7 @@
 
 .leaderboards-grid.grid-1 {
   grid-template-columns: 1fr;
-  max-width: 1200px;
+  max-width: 1400px;
 }
 
 .leaderboards-grid.grid-2 {
@@ -71,9 +71,8 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
-  /* 🔥 IMPORTANT: Set max height and enable scrolling */
-  max-height: calc(100vh - 200px);
-  min-height: 500px;
+  height: calc(100vh - 200px);
+  min-height: 600px;
 }
 
 .leaderboard-header {
@@ -81,7 +80,6 @@
   margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 2px solid #e0e0e0;
-  /* 🔥 FIXED: Header should not scroll */
   flex-shrink: 0;
 }
 
@@ -97,12 +95,16 @@
   font-size: 1rem;
 }
 
-/* 🔥 NEW: Show agent count */
 .leaderboard-agent-count {
   margin: 0.5rem 0 0;
   color: #667eea;
   font-size: 1.1rem;
   font-weight: bold;
+}
+
+.page-indicator {
+  color: #764ba2;
+  font-size: 0.95rem;
 }
 
 /* No data state */
@@ -113,20 +115,77 @@
   font-size: 1.3rem;
 }
 
-/* 🔥 IMPORTANT: Leaderboard items container with scrolling */
-.leaderboard-items {
-  /* Enable vertical scrolling */
-  overflow-y: auto;
-  overflow-x: hidden;
-  
-  /* Take remaining space */
+/* 🔥 LEADERBOARD ITEMS CONTAINER */
+.leaderboard-items-container {
   flex: 1;
-  
-  /* Padding for scrollbar */
-  padding-right: 0.5rem;
-  
-  /* Smooth scrolling */
-  scroll-behavior: smooth;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 🔥 FROZEN SECTION - Top 3 always visible */
+.frozen-section {
+  flex-shrink: 0;
+  border-bottom: 3px solid rgba(102, 126, 234, 0.2);
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.05) 0%, transparent 100%);
+  border-radius: 10px;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.frozen-item {
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 🔥 WIPE CONTAINER - Scrollable area */
+.wipe-container {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.wipe-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s ease;
+}
+
+.wipe-content.wipe-active {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.wipe-content.wipe-exiting {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+/* 🔥 PAGE DOTS INDICATOR */
+.page-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0 0.5rem;
+  flex-shrink: 0;
+}
+
+.page-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+}
+
+.page-dot.active {
+  background: #667eea;
+  transform: scale(1.3);
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
 }
 
 /* Leaderboard Item */
@@ -137,10 +196,11 @@
   align-items: center;
   padding: 0.8rem 1rem;
   margin-bottom: 0.5rem;
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
   transition: all 0.3s ease;
-  border: 2px solid transparent;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .leaderboard-item-display:hover {
@@ -151,9 +211,10 @@
 
 /* First place styling */
 .leaderboard-item-display.first-place {
-  background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
-  border: 2px solid #ffc107;
-  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  border: 3px solid #ffd700;
+  box-shadow: 0 8px 30px rgba(255, 215, 0, 0.4);
+  transform: scale(1.02);
 }
 
 .leaderboard-item-display.first-place:hover {
@@ -294,18 +355,15 @@
   padding-right: 0.5rem;
 }
 
-/* Zero commission */
 .commission-display.zero {
   color: #dc3545;
   font-weight: bold;
 }
 
-/* Low commission (under threshold) */
 .commission-display.low {
   color: #fd7e14;
 }
 
-/* High commission (over threshold) */
 .commission-display.high {
   color: #27ae60;
   font-weight: bold;
@@ -386,34 +444,7 @@
   color: #7f8c8d;
 }
 
-/* 🔥 IMPROVED: Scrollbar styling */
-.leaderboard-items::-webkit-scrollbar {
-  width: 10px;
-}
-
-.leaderboard-items::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
-  margin: 5px;
-}
-
-.leaderboard-items::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 10px;
-  border: 2px solid #f1f1f1;
-}
-
-.leaderboard-items::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-}
-
-/* Firefox scrollbar */
-.leaderboard-items {
-  scrollbar-width: thin;
-  scrollbar-color: #667eea #f1f1f1;
-}
-
-/* Responsive */
+/* Responsive - mainly for testing, not needed for TV */
 @media (max-width: 1200px) {
   .leaderboards-grid.grid-4 {
     grid-template-columns: 1fr;
@@ -422,11 +453,6 @@
   
   .leaderboards-grid.grid-2 {
     grid-template-columns: 1fr;
-  }
-  
-  /* Increase max height for single column */
-  .leaderboard-card-display {
-    max-height: calc(100vh - 150px);
   }
 }
 
@@ -443,14 +469,12 @@
     font-size: 1.5rem;
   }
   
-  /* Adjust grid for mobile */
   .leaderboard-item-display {
     grid-template-columns: 40px 50px 1fr 100px;
     gap: 0.5rem;
     font-size: 0.9rem;
   }
   
-  /* Hide SMS box on mobile */
   .sms-box-display {
     display: none;
   }
@@ -476,17 +500,39 @@
   }
 }
 
-/* 🔥 UTILITY: Highlight for search/filter (future feature) */
-.leaderboard-item-display.highlighted {
-  animation: highlight 1s ease-in-out;
+/* 🔥 ANIMATIONS for smooth transitions */
+@keyframes wipeIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
-@keyframes highlight {
+@keyframes wipeOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+/* Pulse animation for active page dot */
+@keyframes pulse {
   0%, 100% {
-    background: #f8f9fa;
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
   }
   50% {
-    background: #d1ecf1;
-    border-color: #0dcaf0;
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
   }
+}
+
+.page-dot.active {
+  animation: pulse 2s ease-in-out infinite;
 }
