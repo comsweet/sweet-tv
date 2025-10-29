@@ -1,7 +1,7 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - WORKING VERSION
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - WITH USEMEMO
 // Top 3 frozen, resten wipes horizontally mellan grupper
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 const styles = {
   slide: {
@@ -305,10 +305,17 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const scrollableStats = stats.slice(frozenCount);
 
     const itemsPerPage = 10;
-    const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
-    const needsWipe = scrollableStats.length > itemsPerPage;
+    
+    // 🔥 MEMO these så de inte ändras varje render
+    const totalPages = useMemo(() => {
+      return Math.ceil(scrollableStats.length / itemsPerPage);
+    }, [scrollableStats.length]);
+    
+    const needsWipe = useMemo(() => {
+      return scrollableStats.length > itemsPerPage;
+    }, [scrollableStats.length]);
 
-    // 🔥 WIPE LOGIC - Simplified
+    // 🔥 WIPE LOGIC
     useEffect(() => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -320,6 +327,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         setIsTransitioning(false);
         return;
       }
+
+      console.log(`[${side}] 🎬 Starting wipe (${totalPages} pages)`);
 
       // Wipe var 12:e sekund
       intervalRef.current = setInterval(() => {
@@ -338,7 +347,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
           intervalRef.current = null;
         }
       };
-    }, [isActive, needsWipe, totalPages]);
+    }, [isActive, needsWipe, totalPages, side]);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
