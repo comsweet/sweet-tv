@@ -7,6 +7,8 @@ const path = require('path');
  * Sparar alla success leads i en fil istället för att hämta från Adversus varje gång.
  * Rolling window: Nuvarande månad + 7 dagar innan.
  * 
+ * 🔥 UPDATED: Synkar var 2:e minut (istället för 6 timmar) för real-time updates!
+ * 
  * Exempel:
  * - 24 november → Cachar: 24 okt - 30 nov
  * - 1 november → Cachar: 25 okt - 30 nov
@@ -15,6 +17,7 @@ const path = require('path');
  * - Drastiskt färre API calls
  * - Snabbare leaderboards
  * - "Denna vecka" fungerar alltid (även över månadsskifte)
+ * - Real-time updates (2 min sync)
  * 
  * 🔥 CONCURRENT SAFETY:
  * - Queue-baserad write hantering
@@ -57,7 +60,7 @@ class DealsCache {
     }
   }
 
-  // 🔥 NY: Process write queue (en operation i taget)
+  // 🔥 Process write queue (en operation i taget)
   async processWriteQueue() {
     if (this.isProcessing || this.writeQueue.length === 0) {
       return;
@@ -79,7 +82,7 @@ class DealsCache {
     this.isProcessing = false;
   }
 
-  // 🔥 NY: Queue a write operation
+  // 🔥 Queue a write operation
   async queueWrite(executeFn) {
     return new Promise((resolve, reject) => {
       this.writeQueue.push({
@@ -279,7 +282,7 @@ async syncDeals(adversusAPI) {
     });
   }
 
-  // Kolla om sync behövs
+  // 🔥 KRITISK FIX: Kolla om sync behövs (2 minuter istället för 6 timmar!)
   async needsSync() {
     const lastSync = await this.getLastSync();
     
@@ -289,15 +292,15 @@ async syncDeals(adversusAPI) {
     }
     
     const lastSyncDate = new Date(lastSync);
-    const hoursSinceSync = (Date.now() - lastSyncDate.getTime()) / (1000 * 60 * 60);
+    const minutesSinceSync = (Date.now() - lastSyncDate.getTime()) / (1000 * 60);
     
-    // Sync var 6:e timme
-    if (hoursSinceSync > 6) {
-      console.log(`⏰ Last sync was ${Math.round(hoursSinceSync)}h ago - needs sync`);
+    // 🔥 UPDATED: Sync var 2:e minut (samma som SMS cache!)
+    if (minutesSinceSync >= 2) {
+      console.log(`⏰ Last sync was ${Math.round(minutesSinceSync)} min ago - needs sync`);
       return true;
     }
     
-    console.log(`✅ Last sync was ${Math.round(hoursSinceSync)}h ago - cache is fresh`);
+    console.log(`✅ Last sync was ${Math.round(minutesSinceSync)} min ago - cache is fresh`);
     return false;
   }
 
@@ -351,7 +354,7 @@ async syncDeals(adversusAPI) {
       },
       totalCommission: deals.reduce((sum, d) => sum + d.commission, 0),
       uniqueAgents: new Set(deals.map(d => d.userId)).size,
-      queueLength: this.writeQueue.length // 🔥 NY: Visa queue status
+      queueLength: this.writeQueue.length // 🔥 Visa queue status
     };
   }
 
