@@ -1,5 +1,5 @@
 // frontend/src/pages/Slideshow.jsx
-// 🔥 SÄKER VERSION - Fixar deploy-problem
+// 🔥 KOMPLETT VERSION MED TV-SIZE CONTROL
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
@@ -10,8 +10,59 @@ import DualLeaderboardSlide from '../components/DualLeaderboardSlide';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
-// ⭐ LeaderboardSlide komponent med SMS-box
-const LeaderboardSlide = ({ leaderboard, stats, isActive }) => {
+// ==============================================
+// TV SIZE CONTROL COMPONENT
+// ==============================================
+const TVSizeControl = ({ currentSize, onSizeChange }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(false), 10000);
+    return () => clearTimeout(timer);
+  }, [currentSize]);
+
+  const sizes = [
+    { id: 'compact', label: 'Kompakt', icon: '📏' },
+    { id: 'normal', label: 'Normal', icon: '📐' },
+    { id: 'large', label: 'Stor', icon: '📊' },
+    { id: 'xlarge', label: 'Extra Stor', icon: '📺' }
+  ];
+
+  if (!isVisible) {
+    return (
+      <div className="tv-size-toggle" onClick={() => setIsVisible(true)}>
+        ⚙️
+      </div>
+    );
+  }
+
+  return (
+    <div className="tv-size-control">
+      <div className="tv-size-label">TV-storlek:</div>
+      {sizes.map(size => (
+        <button
+          key={size.id}
+          className={`tv-size-btn ${currentSize === size.id ? 'active' : ''}`}
+          onClick={() => {
+            onSizeChange(size.id);
+            localStorage.setItem('tv-slideshow-size', size.id);
+          }}
+        >
+          {size.icon} {size.label}
+        </button>
+      ))}
+      <button 
+        className="tv-size-close"
+        onClick={() => setIsVisible(false)}
+      >
+        ✕
+      </button>
+    </div>
+  );
+};
+
+// ⭐ LeaderboardSlide komponent med SMS-box OCH displaySize
+const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize }) => {
   const getTimePeriodLabel = (period) => {
     const labels = {
       day: 'Idag',
@@ -124,6 +175,11 @@ const Slideshow = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  
+  // 🔥 TV SIZE STATE
+  const [displaySize, setDisplaySize] = useState(() => {
+    return localStorage.getItem('tv-slideshow-size') || 'normal';
+  });
   
   const intervalRef = useRef(null);
   const progressIntervalRef = useRef(null);
@@ -307,7 +363,13 @@ const Slideshow = () => {
   }
 
   return (
-    <div className="slideshow-container" key={refreshKey}>
+    <div className={`slideshow-container size-${displaySize}`} key={refreshKey}>
+      {/* 🔥 TV SIZE CONTROL */}
+      <TVSizeControl 
+        currentSize={displaySize}
+        onSizeChange={setDisplaySize}
+      />
+
       <div className="slideshow-progress-bar">
         <div 
           className="slideshow-progress-fill"
@@ -345,6 +407,7 @@ const Slideshow = () => {
               leaderboard={slideData.leaderboard}
               stats={slideData.stats}
               isActive={isActive}
+              displaySize={displaySize}
             />
           );
         }
