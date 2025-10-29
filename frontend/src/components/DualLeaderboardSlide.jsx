@@ -1,7 +1,7 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - WITH GLOBAL INTERVAL
-import { useState, useEffect, useRef } from 'react';
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - WITH WINDOW EVENTS
+import { useState, useEffect } from 'react';
 
-// 🔥 GLOBAL intervals - överlever re-mounts
+// 🔥 GLOBAL intervals
 const wipeIntervals = {};
 
 const styles = {
@@ -293,11 +293,27 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
     const needsWipe = scrollableStats.length > itemsPerPage;
 
-    // 🔥 GLOBAL INTERVAL som överlever re-mounts
+    // 🔥 Lyssna på wipe events
+    useEffect(() => {
+      const handleWipe = (event) => {
+        if (event.detail.columnId !== columnId) return;
+        
+        console.log(`📨 [${side}] Mottog wipe event`);
+        setIsTransitioning(true);
+        setTimeout(() => {
+          setCurrentPage(prev => (prev + 1) % totalPages);
+          setIsTransitioning(false);
+        }, 1800);
+      };
+
+      window.addEventListener('leaderboard-wipe', handleWipe);
+      return () => window.removeEventListener('leaderboard-wipe', handleWipe);
+    }, [columnId, side, totalPages]);
+
+    // 🔥 Skapa global interval
     useEffect(() => {
       if (!needsWipe) return;
       
-      // Om intervallet redan finns, använd det
       if (wipeIntervals[columnId]) {
         console.log(`♻️ [${side}] Interval redan aktivt`);
         return;
@@ -306,23 +322,17 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       console.log(`✅ [${side}] Skapar nytt interval`);
       
       wipeIntervals[columnId] = setInterval(() => {
-        console.log(`🔥 [${side}] Interval tick!`);
-        setIsTransitioning(true);
-        setTimeout(() => {
-          setCurrentPage(prev => {
-            const next = (prev + 1) % totalPages;
-            console.log(`➡️ [${side}] Byter sida: ${prev} → ${next}`);
-            return next;
-          });
-          setIsTransitioning(false);
-        }, 1800);
+        console.log(`🔥 [${side}] Skickar wipe event`);
+        window.dispatchEvent(new CustomEvent('leaderboard-wipe', {
+          detail: { columnId }
+        }));
       }, 12000);
 
       return () => {
-        console.log(`🧹 [${side}] Cleanup (men interval finns kvar)`);
-        // VI RENSAR INTE intervallet här - det lever kvar
+        console.log(`🧹 [${side}] Cleanup`);
+        // Interval lever kvar
       };
-    }, [needsWipe, totalPages, columnId, side]);
+    }, [needsWipe, columnId, side]);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
