@@ -86,7 +86,7 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
                   <span>{item.dealCount} affärer</span>
                 </div>
                 
-                {/* 🔥 SMS BOX - NYTT! */}
+                {/* 🔥 SMS BOX */}
                 <div className={`sms-box-display ${getSMSBoxClass(smsSuccessRate)}`}>
                   <div className="sms-rate">
                     {smsSuccessRate.toFixed(2)}%
@@ -120,11 +120,15 @@ const Display = () => {
   const lastNotificationRef = useRef(null);
   const notificationTimeoutRef = useRef(null);
 
-  // Fetch leaderboards med silent mode
+  // 🔥 ENHANCED: Fetch leaderboards with better silent mode logging
   const fetchLeaderboards = async (silent = false) => {
     try {
       if (!silent) {
+        console.log('\n📊 === LOADING LEADERBOARDS (Initial) ===');
         setIsLoading(true);
+      } else {
+        console.log('\n🔄 === SILENT REFRESH STARTING ===');
+        console.log(`⏰ Time: ${new Date().toLocaleTimeString()}`);
       }
       
       // Steg 1: Hämta aktiva leaderboards
@@ -135,7 +139,7 @@ const Display = () => {
         console.log(`📊 Fetching stats for ${activeLeaderboards.length} leaderboards SEQUENTIALLY...`);
         setLoadingProgress({ current: 0, total: activeLeaderboards.length });
       } else {
-        console.log(`🔄 Silent refresh: Updating ${activeLeaderboards.length} leaderboards...`);
+        console.log(`📊 Updating ${activeLeaderboards.length} leaderboards...`);
       }
       
       const leaderboardsWithStats = [];
@@ -147,17 +151,26 @@ const Display = () => {
         if (!silent) {
           setLoadingProgress({ current: i + 1, total: activeLeaderboards.length });
           console.log(`📈 Loading leaderboard ${i + 1}/${activeLeaderboards.length}: "${lb.name}"`);
+        } else {
+          console.log(`   📈 Updating "${lb.name}"...`);
         }
         
         try {
           const statsResponse = await getLeaderboardStats2(lb.id);
+          const stats = statsResponse.data.stats || [];
+          
           leaderboardsWithStats.push({
             leaderboard: lb,
-            stats: statsResponse.data.stats || []
+            stats: stats
           });
           
           if (!silent) {
-            console.log(`✅ Loaded "${lb.name}" (${statsResponse.data.stats?.length || 0} agents)`);
+            console.log(`✅ Loaded "${lb.name}" (${stats.length} agents)`);
+          } else {
+            // 🔥 ENHANCED: Show stats summary in silent mode
+            const totalDeals = stats.reduce((sum, s) => sum + s.dealCount, 0);
+            const totalCommission = stats.reduce((sum, s) => sum + s.totalCommission, 0);
+            console.log(`   ✅ Updated "${lb.name}": ${stats.length} agents, ${totalDeals} deals, ${totalCommission.toLocaleString('sv-SE')} THB`);
           }
           
           // Delay mellan varje leaderboard
@@ -179,8 +192,10 @@ const Display = () => {
       
       if (!silent) {
         console.log(`✅ All ${leaderboardsWithStats.length} leaderboards loaded!`);
+        console.log('='.repeat(50) + '\n');
       } else {
-        console.log(`🔄 Silent refresh: Updated ${leaderboardsWithStats.length} leaderboards`);
+        console.log(`✅ Silent refresh complete: Updated ${leaderboardsWithStats.length} leaderboards`);
+        console.log('='.repeat(50) + '\n');
       }
       
       setLeaderboardsData(leaderboardsWithStats);
@@ -194,31 +209,35 @@ const Display = () => {
 
   useEffect(() => {
     // Initial fetch
+    console.log('🚀 Display component mounted - Starting initial load');
     fetchLeaderboards();
     
-    // AUTOMATIC REFRESH var 2:e minut (background update)
+    // 🔥 AUTOMATIC REFRESH var 2:e minut (background update)
+    console.log('⏰ Setting up auto-refresh: Every 2 minutes');
     refreshIntervalRef.current = setInterval(() => {
-      console.log('🔄 Auto-refresh: Updating leaderboard data...');
+      console.log('\n⏰ === AUTO-REFRESH TRIGGERED (2 minute interval) ===');
       fetchLeaderboards(true); // silent = true (no loading screen)
     }, 2 * 60 * 1000); // 2 minuter
 
     socketService.connect();
 
     const handleNewDeal = (notification) => {
-      console.log('🎉 New deal received:', notification);
+      console.log('\n🎉 === NEW DEAL RECEIVED ===');
+      console.log(`   Agent: ${notification.agent.name}`);
+      console.log(`   Commission: ${notification.commission} THB`);
+      console.log(`   Daily Total: ${notification.dailyTotal} THB`);
       
-      // 🔥 FIX: Deduplication logic - blocks ONLY exact duplicates
-      // (same agent + same commission within 2 seconds)
+      // 🔥 FIX: Deduplication logic
       const currentTime = Date.now();
       const notificationKey = `${notification.agent.userId}-${notification.commission}`;
       const lastKey = lastNotificationRef.current;
       const timeSinceLastNotification = currentTime - (notificationTimeoutRef.current || 0);
       
       // Block if SAME agent with SAME commission within 2 seconds
-      // Different agents will have different userIds → NOT blocked!
       if (lastKey === notificationKey && timeSinceLastNotification < 2000) {
         console.log('⚠️  DUPLICATE notification detected - IGNORING');
         console.log(`   Same agent (${notification.agent.name}) + same commission (${notification.commission} THB) within 2s`);
+        console.log('='.repeat(50) + '\n');
         return;
       }
       
@@ -229,24 +248,30 @@ const Display = () => {
       console.log(`✅ Notification ACCEPTED: ${notification.agent.name} - ${notification.commission} THB`);
       setCurrentNotification(notification);
       
-      // IMMEDIATE BACKGROUND UPDATE efter notification
+      // 🔥 IMMEDIATE BACKGROUND UPDATE efter notification (5 sekunder)
+      console.log('⏰ Scheduling silent refresh in 5 seconds...');
       setTimeout(() => {
-        console.log('🔄 Deal received: Refreshing leaderboard data...');
+        console.log('\n🔄 === DEAL-TRIGGERED REFRESH (5s after notification) ===');
         fetchLeaderboards(true);
       }, 5000);
+      
+      console.log('='.repeat(50) + '\n');
     };
 
     socketService.onNewDeal(handleNewDeal);
 
     return () => {
+      console.log('🧹 Display component unmounting - Cleaning up');
       socketService.offNewDeal(handleNewDeal);
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
+        console.log('⏰ Auto-refresh timer cleared');
       }
     };
   }, []);
 
   const handleNotificationComplete = () => {
+    console.log('🧹 Notification completed - Closing popup');
     setCurrentNotification(null);
   };
 
