@@ -325,12 +325,14 @@ const Display = () => {
   }, []);
 
   const handleNotificationComplete = () => {
-    console.log('🎉 Notification complete - triggering refresh now!');
+    console.log('🎉 DISPLAY Notification complete - triggering refresh now!');
+    console.log('🔍 About to call fetchLeaderboards...');
     setCurrentNotification(null);
     
-    // 🔥 Refresh EXAKT när popupen försvinner!
     fetchLeaderboards(true, true);
+    console.log('✅ fetchLeaderboards called!');
   };
+
 
   const getGridClass = () => {
     const count = leaderboardsData.length;
