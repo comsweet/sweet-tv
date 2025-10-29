@@ -1,39 +1,113 @@
 import { useState, useEffect, useRef } from 'react';
-import socketService from '../services/socket';
-import { getActiveLeaderboards, getLeaderboardStats2 } from '../services/api';
-import DealNotification from '../components/DealNotification.jsx';
-import '../components/DealNotification.css';
+import { getActiveLeaderboards, getLeaderboardData } from '../services/api';
+import socketService from '../services/socketService';
+import DealNotification from '../components/DealNotification';
 import './Display.css';
+import './DisplayTV.css'; // NY CSS FIL
 
-// 🔥 GLOBAL STATE for wipe management (persists across re-renders)
-const wipeState = {};
-const wipeIntervals = {};
+// ==============================================
+// TV SIZE CONTROL COMPONENT
+// ==============================================
+const TVSizeControl = ({ currentSize, onSizeChange }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  
+  useEffect(() => {
+    // Visa kontroller i 10 sekunder, sedan göm dem
+    const timer = setTimeout(() => setIsVisible(false), 10000);
+    return () => clearTimeout(timer);
+  }, [currentSize]); // Reset timer när storlek ändras
 
-const LeaderboardCard = ({ leaderboard, stats }) => {
-  const [, forceUpdate] = useState(0);
-  const leaderboardId = leaderboard.id;
+  const sizes = [
+    { id: 'compact', label: 'Kompakt', icon: '📏' },
+    { id: 'normal', label: 'Normal', icon: '📐' },
+    { id: 'large', label: 'Stor', icon: '📊' },
+    { id: 'xlarge', label: 'Extra Stor', icon: '📺' }
+  ];
 
-  // Initialize wipe state
-  if (!wipeState[leaderboardId]) {
-    wipeState[leaderboardId] = {
-      currentPage: 0,
-      isTransitioning: false
-    };
+  if (!isVisible) {
+    // Visa bara en liten knapp för att öppna menyn igen
+    return (
+      <div className="tv-size-toggle" onClick={() => setIsVisible(true)}>
+        ⚙️
+      </div>
+    );
   }
 
-  const getTimePeriodLabel = (period) => {
-    const labels = {
-      day: 'Idag',
-      week: 'Denna vecka',
-      month: 'Denna månad',
-      custom: 'Anpassat'
-    };
-    return labels[period] || period;
-  };
+  return (
+    <div className="tv-size-control">
+      <div className="tv-size-label">TV-storlek:</div>
+      {sizes.map(size => (
+        <button
+          key={size.id}
+          className={`tv-size-btn ${currentSize === size.id ? 'active' : ''}`}
+          onClick={() => {
+            onSizeChange(size.id);
+            localStorage.setItem('tv-display-size', size.id);
+          }}
+        >
+          {size.icon} {size.label}
+        </button>
+      ))}
+      <button 
+        className="tv-size-close"
+        onClick={() => setIsVisible(false)}
+      >
+        ✕
+      </button>
+    </div>
+  );
+};
 
-  const getCommissionClass = (commission, timePeriod) => {
-    if (commission === 0) return 'zero';
-    if (timePeriod === 'day') return commission < 3400 ? 'low' : 'high';
+// ==============================================
+// LEADERBOARD CARD WITH AUTO-SCROLL
+// ==============================================
+const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
+  const scrollContainerRef = useRef(null);
+  const scrollIntervalRef = useRef(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+  
+  const leaderboardId = leaderboard.id;
+  const timePeriod = leaderboard.timePeriod;
+
+  // Freeze #1 alltid
+  const topAgent = stats.length > 0 ? stats[0] : null;
+  const scrollableStats = stats.slice(1); // Alla utom #1
+
+  // Auto-scroll logic
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || scrollableStats.length <= 6) return; // Ingen scroll om <6 agenter
+
+    console.log(`🔄 [${leaderboard.name}] Auto-scroll enabled`);
+
+    let scrollDirection = 1; // 1 = ner, -1 = upp
+    let scrollPosition = 0;
+
+    scrollIntervalRef.current = setInterval(() => {
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      
+      // Scrolla ner eller upp
+      scrollPosition += scrollDirection * 1;
+      
+      // Byt riktning vid topp/botten
+      if (scrollPosition >= maxScroll) {
+        scrollDirection = -1; // Börja scrolla upp
+      } else if (scrollPosition <= 0) {
+        scrollDirection = 1; // Börja scrolla ner
+      }
+      
+      container.scrollTop = scrollPosition;
+    }, 50); // Uppdatera var 50ms för smooth scroll
+
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, [scrollableStats.length, leaderboard.name]);
+
+  const getCommissionClass = (commission) => {
+    if (timePeriod === 'day') return commission < 1200 ? 'low' : 'high';
     if (timePeriod === 'week') return commission < 18000 ? 'low' : 'high';
     return commission < 50000 ? 'low' : 'high';
   };
@@ -43,51 +117,6 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
     if (successRate >= 60) return 'sms-orange';
     return 'sms-red';
   };
-
-  // 🔥 WIPE LOGIC - samma som DualLeaderboardSlide
-  const frozenCount = 3; // Top 3 är alltid synliga
-  const itemsPerPage = 7; // 7 items passar perfekt för 1080p TV
-  
-  const topStats = stats.slice(0, frozenCount);
-  const scrollableStats = stats.slice(frozenCount);
-  const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
-  const needsWipe = scrollableStats.length > itemsPerPage;
-
-  // Listen to wipe events
-  useEffect(() => {
-    const handleWipe = (event) => {
-      if (event.detail.leaderboardId !== leaderboardId) return;
-      
-      wipeState[leaderboardId].isTransitioning = true;
-      forceUpdate(n => n + 1);
-      
-      setTimeout(() => {
-        wipeState[leaderboardId].currentPage = 
-          (wipeState[leaderboardId].currentPage + 1) % totalPages;
-        wipeState[leaderboardId].isTransitioning = false;
-        forceUpdate(n => n + 1);
-      }, 800);
-    };
-
-    window.addEventListener('leaderboard-wipe', handleWipe);
-    return () => window.removeEventListener('leaderboard-wipe', handleWipe);
-  }, [leaderboardId, totalPages]);
-
-  // Create interval ONCE for auto-wipe
-  useEffect(() => {
-    if (!needsWipe || wipeIntervals[leaderboardId]) return;
-
-    console.log(`✅ [${leaderboard.name}] Auto-wipe enabled: ${totalPages} pages × ${itemsPerPage} items/page`);
-    console.log(`   🔄 Will rotate every 12 seconds`);
-    
-    wipeIntervals[leaderboardId] = setInterval(() => {
-      window.dispatchEvent(new CustomEvent('leaderboard-wipe', {
-        detail: { leaderboardId }
-      }));
-    }, 12000); // 12 seconds per page
-
-    // NO CLEANUP - interval lives forever for TV display
-  }, [needsWipe, leaderboardId, totalPages, leaderboard.name]);
 
   const renderAgent = (item, index, isFrozen = false) => {
     if (!item) return null;
@@ -99,205 +128,122 @@ const LeaderboardCard = ({ leaderboard, stats }) => {
     return (
       <div 
         key={item.userId}
-        className={`leaderboard-item-display ${index === 0 && !isZeroDeals ? 'first-place' : ''} ${isZeroDeals ? 'zero-deals' : ''} ${isFrozen ? 'frozen-item' : ''}`}
+        className={`leaderboard-item-display ${index === 0 && isFrozen ? 'first-place frozen-top' : ''} ${isZeroDeals ? 'zero-deals' : ''}`}
       >
         <div className="rank-display">
-          {index === 0 && !isZeroDeals && '🥇'}
-          {index === 1 && !isZeroDeals && '🥈'}
-          {index === 2 && !isZeroDeals && '🥉'}
-          {(index > 2 || isZeroDeals) && `#${index + 1}`}
+          {index === 0 && isFrozen && '🥇'}
+          {index > 0 && `#${index + 1}`}
         </div>
         
         {item.agent.profileImage ? (
           <img 
             src={item.agent.profileImage} 
             alt={item.agent.name}
-            className="agent-avatar-display"
+            className="agent-image-display"
           />
         ) : (
-          <div className="agent-avatar-placeholder-display">
-            {item.agent.name?.charAt(0) || '?'}
+          <div className="agent-image-placeholder">
+            {item.agent.name.charAt(0).toUpperCase()}
           </div>
         )}
         
-        <div className="agent-info-display">
-          <h3 className={`agent-name-display ${isZeroDeals ? 'zero-deals' : ''}`}>
-            {item.agent.name}
-          </h3>
-        </div>
+        <div className="agent-name-display">{item.agent.name}</div>
         
-        <div className={`deals-column-display ${isZeroDeals ? 'zero' : ''}`}>
-          <span className="emoji">🎯</span>
-          <span>{item.dealCount} affärer</span>
-        </div>
-        
-        <div className={`sms-box-display ${getSMSBoxClass(smsSuccessRate)}`}>
-          <div className="sms-rate">
-            {smsSuccessRate.toFixed(2)}%
+        <div className="stats-display">
+          <div className="stat-item">
+            <span className="stat-label">Deals:</span>
+            <span className="stat-value">{item.dealCount}</span>
           </div>
-          <div className="sms-count">
-            ({uniqueSMS} SMS)
+          <div className="stat-item">
+            <span className="stat-label">SMS:</span>
+            <span className={`stat-value sms-box ${getSMSBoxClass(smsSuccessRate)}`}>
+              {uniqueSMS}
+            </span>
           </div>
-        </div>
-        
-        <div className={`commission-display ${getCommissionClass(item.totalCommission, leaderboard.timePeriod)}`}>
-          {item.totalCommission.toLocaleString('sv-SE')} THB
+          <div className={`commission-display ${getCommissionClass(item.totalCommission)}`}>
+            {item.totalCommission.toLocaleString()} THB
+          </div>
         </div>
       </div>
     );
   };
 
-  // Calculate current page items
-  const startIndex = wipeState[leaderboardId].currentPage * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
-  const currentPageItems = scrollableStats.slice(startIndex, endIndex);
-
-  // Display range for indicator
-  const displayStart = startIndex + frozenCount + 1;
-  const displayEnd = endIndex + frozenCount;
-
   return (
-    <div className="leaderboard-card-display">
+    <div className={`leaderboard-card-display size-${displaySize}`}>
       <div className="leaderboard-header">
         <h2>{leaderboard.name}</h2>
-        <p className="leaderboard-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
+        <p className="leaderboard-period">
+          {timePeriod === 'day' && '📅 Idag'}
+          {timePeriod === 'week' && '📅 Denna vecka'}
+          {timePeriod === 'month' && '📅 Denna månad'}
+        </p>
         <p className="leaderboard-agent-count">
-          👥 {stats.length} agenter
-          {needsWipe && (
-            <span className="page-indicator"> • Visar {displayStart}-{displayEnd}</span>
-          )}
+          👥 {stats.length} {stats.length === 1 ? 'säljare' : 'säljare'}
         </p>
       </div>
 
-      {stats.length === 0 ? (
-        <div className="no-data-display">Inga affärer än</div>
-      ) : (
-        <div className="leaderboard-items-container">
-          {/* 🔥 FROZEN SECTION - Top 3 alltid synliga */}
-          {topStats.length > 0 && (
-            <div className="frozen-section">
-              {topStats.map((item, index) => renderAgent(item, index, true))}
-            </div>
-          )}
-
-          {/* 🔥 WIPE SECTION - Resten roterar */}
-          {scrollableStats.length > 0 && (
-            <div className="wipe-container">
-              <div 
-                className={`wipe-content ${wipeState[leaderboardId].isTransitioning ? 'wipe-exiting' : 'wipe-active'}`}
-              >
-                {currentPageItems.map((item, pageIndex) => {
-                  const globalIndex = startIndex + frozenCount + pageIndex;
-                  return renderAgent(item, globalIndex, false);
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 🔥 PAGE INDICATOR */}
-          {needsWipe && totalPages > 1 && (
-            <div className="page-dots">
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <div 
-                  key={i}
-                  className={`page-dot ${i === wipeState[leaderboardId].currentPage ? 'active' : ''}`}
-                />
-              ))}
-            </div>
-          )}
+      <div className="leaderboard-list-display">
+        {/* FROZEN #1 */}
+        {topAgent && renderAgent(topAgent, 0, true)}
+        
+        {/* SCROLLABLE REST */}
+        <div 
+          ref={scrollContainerRef}
+          className="scrollable-agents"
+        >
+          {scrollableStats.map((item, idx) => renderAgent(item, idx + 1, false))}
         </div>
-      )}
+      </div>
     </div>
   );
 };
 
+// ==============================================
+// MAIN DISPLAY COMPONENT
+// ==============================================
 const Display = () => {
   const [leaderboardsData, setLeaderboardsData] = useState([]);
-  const [currentNotification, setCurrentNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
+  const [currentNotification, setCurrentNotification] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  
+  const [displaySize, setDisplaySize] = useState(() => {
+    return localStorage.getItem('tv-display-size') || 'normal';
+  });
+  const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
+
   const refreshIntervalRef = useRef(null);
   const dealRefreshTimeoutRef = useRef(null);
   const notifiedDealsRef = useRef(new Set());
   const lastNotificationTimeRef = useRef(0);
 
-  const fetchLeaderboards = async (silent = false, forceRefresh = false) => {
+  const fetchLeaderboards = async (silentRefresh = false, forceRefresh = false) => {
     try {
-      const timestamp = new Date().toLocaleTimeString();
+      if (!silentRefresh) setIsLoading(true);
       
-      if (!silent) {
-        console.log('\n📊 ═══════════════════════════════════════════');
-        console.log('📊 LOADING LEADERBOARDS (Initial)');
-        console.log(`⏰ Time: ${timestamp}`);
-        console.log('═══════════════════════════════════════════');
-        setIsLoading(true);
-      } else {
-        console.log('\n🔄 ═══════════════════════════════════════════');
-        console.log('🔄 SILENT REFRESH');
-        console.log(`⏰ Time: ${timestamp}`);
-        console.log(`🔑 Force Refresh: ${forceRefresh ? 'YES' : 'NO'}`);
-        console.log('═══════════════════════════════════════════');
-      }
+      console.log('\n🔄 ═══════════════════════════════════════════');
+      console.log(`🔄 ${silentRefresh ? 'SILENT' : 'FULL'} REFRESH`);
+      console.log('═══════════════════════════════════════════');
       
-      const response = await getActiveLeaderboards();
-      const activeLeaderboards = response.data;
+      const activeLeaderboards = await getActiveLeaderboards();
+      console.log(`📊 Found ${activeLeaderboards.length} active leaderboards`);
       
-      if (!silent) {
-        console.log(`📊 Fetching stats for ${activeLeaderboards.length} leaderboards...`);
-        setLoadingProgress({ current: 0, total: activeLeaderboards.length });
-      }
+      setLoadingProgress({ current: 0, total: activeLeaderboards.length });
       
-      const leaderboardsWithStats = [];
+      const leaderboardsWithStats = await Promise.all(
+        activeLeaderboards.map(async (lb, index) => {
+          console.log(`\n📥 [${index + 1}/${activeLeaderboards.length}] Fetching: ${lb.name}`);
+          const data = await getLeaderboardData(lb.id);
+          setLoadingProgress({ current: index + 1, total: activeLeaderboards.length });
+          console.log(`   ✅ ${data.stats.length} agents loaded`);
+          return {
+            leaderboard: data.leaderboard,
+            stats: data.stats
+          };
+        })
+      );
       
-      for (let i = 0; i < activeLeaderboards.length; i++) {
-        const lb = activeLeaderboards[i];
-        
-        if (!silent) {
-          setLoadingProgress({ current: i + 1, total: activeLeaderboards.length });
-          console.log(`   📈 [${i + 1}/${activeLeaderboards.length}] Loading "${lb.name}"`);
-        }
-        
-        try {
-          const statsResponse = await getLeaderboardStats2(lb.id);
-          const stats = statsResponse.data.stats || [];
-          
-          leaderboardsWithStats.push({
-            leaderboard: lb,
-            stats: stats
-          });
-          
-          const totalDeals = stats.reduce((sum, s) => sum + s.dealCount, 0);
-          const totalCommission = stats.reduce((sum, s) => sum + s.totalCommission, 0);
-          
-          console.log(`   ✅ ${silent ? 'Updated' : 'Loaded'} "${lb.name}"`);
-          console.log(`      - ${stats.length} agents (ALL VISIBLE with auto-wipe)`);
-          console.log(`      - ${totalDeals} deals, ${totalCommission.toLocaleString('sv-SE')} THB`);
-          
-          // Show wipe info
-          if (stats.length > 10) {
-            const frozenCount = 3;
-            const itemsPerPage = 7;
-            const scrollableCount = stats.length - frozenCount;
-            const totalPages = Math.ceil(scrollableCount / itemsPerPage);
-            console.log(`      - 🔄 Auto-wipe: Top ${frozenCount} frozen, ${scrollableCount} rotating (${totalPages} pages)`);
-          }
-          
-          if (i < activeLeaderboards.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-          
-        } catch (error) {
-          console.error(`   ❌ Error loading "${lb.name}":`, error);
-          leaderboardsWithStats.push({
-            leaderboard: lb,
-            stats: []
-          });
-        }
-      }
-      
-      console.log(`\n✅ ${silent ? 'Silent refresh complete' : 'All leaderboards loaded'}`);
+      console.log('\n✅ ═══════════════════════════════════════════');
+      console.log(`✅ ${silentRefresh ? 'Silent refresh complete' : 'All leaderboards loaded'}`);
       console.log('═══════════════════════════════════════════\n');
       
       setLeaderboardsData(leaderboardsWithStats);
@@ -315,7 +261,8 @@ const Display = () => {
   useEffect(() => {
     console.log('\n🚀 ═══════════════════════════════════════════');
     console.log('🚀 DISPLAY COMPONENT MOUNTED');
-    console.log('📺 TV MODE: Auto-wipe enabled for 10+ agents');
+    console.log('📺 TV MODE: Auto-scroll enabled');
+    console.log(`📏 Display size: ${displaySize}`);
     console.log('═══════════════════════════════════════════\n');
     
     fetchLeaderboards();
@@ -392,10 +339,16 @@ const Display = () => {
   };
 
   return (
-    <div className="display-container">
+    <div className={`display-container size-${displaySize}`}>
       <header className="display-header">
         <h1>🏆 Sweet TV Leaderboards</h1>
       </header>
+
+      {/* TV SIZE CONTROLS */}
+      <TVSizeControl 
+        currentSize={displaySize}
+        onSizeChange={setDisplaySize}
+      />
 
       {isLoading ? (
         <div className="loading-display">
@@ -418,6 +371,7 @@ const Display = () => {
               key={`${leaderboard.id}-${refreshKey}`}
               leaderboard={leaderboard}
               stats={stats}
+              displaySize={displaySize}
             />
           ))}
         </div>
