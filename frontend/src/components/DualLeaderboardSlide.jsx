@@ -1,7 +1,5 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - WITH USEMEMO
-// Top 3 frozen, resten wipes horizontally mellan grupper
-
-import { useState, useEffect, useRef, useMemo } from 'react';
+// 🔥 ALTERNATIV 8: WIPE TRANSITION - MINIMAL VERSION
+import { useState, useEffect, useRef } from 'react';
 
 const styles = {
   slide: {
@@ -251,7 +249,6 @@ const styles = {
 
 const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, rightStats, isActive }) => {
   if (!leftLeaderboard || !rightLeaderboard || !Array.isArray(leftStats) || !Array.isArray(rightStats)) {
-    console.error('❌ DualLeaderboardSlide: Missing required data');
     return null;
   }
 
@@ -266,75 +263,43 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
   };
 
   const getCommissionStyle = (commission, timePeriod) => {
-    if (!commission || commission === 0) {
-      return styles.commissionZero;
-    }
-
-    if (timePeriod === 'day') {
-      return commission < 3400 ? styles.commissionLow : styles.commissionHigh;
-    } else if (timePeriod === 'week') {
-      return commission < 18000 ? styles.commissionLow : styles.commissionHigh;
-    } else if (timePeriod === 'month') {
-      return commission < 50000 ? styles.commissionLow : styles.commissionHigh;
-    } else {
-      return commission < 50000 ? styles.commissionLow : styles.commissionHigh;
-    }
+    if (!commission || commission === 0) return styles.commissionZero;
+    if (timePeriod === 'day') return commission < 3400 ? styles.commissionLow : styles.commissionHigh;
+    if (timePeriod === 'week') return commission < 18000 ? styles.commissionLow : styles.commissionHigh;
+    return commission < 50000 ? styles.commissionLow : styles.commissionHigh;
   };
 
   const getSMSBoxStyle = (successRate) => {
-    if (successRate >= 75) {
-      return { box: styles.smsBoxGreen, text: styles.smsRateGreen };
-    } else if (successRate >= 60) {
-      return { box: styles.smsBoxOrange, text: styles.smsRateOrange };
-    } else {
-      return { box: styles.smsBoxRed, text: styles.smsRateRed };
-    }
+    if (successRate >= 75) return { box: styles.smsBoxGreen, text: styles.smsRateGreen };
+    if (successRate >= 60) return { box: styles.smsBoxOrange, text: styles.smsRateOrange };
+    return { box: styles.smsBoxRed, text: styles.smsRateRed };
   };
 
-  const LeaderboardColumn = ({ leaderboard, stats, side }) => {
+  const LeaderboardColumn = ({ leaderboard, stats }) => {
     if (!leaderboard || !Array.isArray(stats)) return null;
 
     const [currentPage, setCurrentPage] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const intervalRef = useRef(null);
+    const hasRunRef = useRef(false);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
-
     const frozenCount = 3;
     const topStats = stats.slice(0, frozenCount);
     const scrollableStats = stats.slice(frozenCount);
-
     const itemsPerPage = 10;
-    
-    // 🔥 MEMO these så de inte ändras varje render
-    const totalPages = useMemo(() => {
-      return Math.ceil(scrollableStats.length / itemsPerPage);
-    }, [scrollableStats.length]);
-    
-    const needsWipe = useMemo(() => {
-      return scrollableStats.length > itemsPerPage;
-    }, [scrollableStats.length]);
+    const totalPages = Math.ceil(scrollableStats.length / itemsPerPage);
+    const needsWipe = scrollableStats.length > itemsPerPage;
 
-    // 🔥 WIPE LOGIC
+    // EXTREM MINIMAL useEffect
     useEffect(() => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      if (hasRunRef.current) return;
+      if (!isActive || !needsWipe) return;
+      
+      hasRunRef.current = true;
 
-      if (!isActive || !needsWipe) {
-        setCurrentPage(0);
-        setIsTransitioning(false);
-        return;
-      }
-
-      console.log(`[${side}] 🎬 Starting wipe (${totalPages} pages)`);
-
-      // Wipe var 12:e sekund
       intervalRef.current = setInterval(() => {
         setIsTransitioning(true);
-        
-        // Efter 1.8s, byt sida
         setTimeout(() => {
           setCurrentPage(prev => (prev + 1) % totalPages);
           setIsTransitioning(false);
@@ -342,12 +307,9 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       }, 12000);
 
       return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
+        if (intervalRef.current) clearInterval(intervalRef.current);
       };
-    }, [isActive, needsWipe, totalPages, side]);
+    }, []);
 
     const renderItem = (item, index, isFrozen = false) => {
       if (!item || !item.agent) return null;
@@ -355,10 +317,8 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       const isZeroDeals = !item.dealCount || item.dealCount === 0;
       const isFirstPlace = index === 0 && !isZeroDeals;
       const commission = item.totalCommission || 0;
-      
       const uniqueSMS = item.uniqueSMS || 0;
       const smsSuccessRate = item.smsSuccessRate || 0;
-
       const smsStyles = getSMSBoxStyle(smsSuccessRate);
 
       const itemStyle = {
@@ -377,38 +337,27 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
               {index === 2 && !isZeroDeals && '🥉'}
               {(index > 2 || isZeroDeals) && `#${index + 1}`}
             </div>
-
             {item.agent.profileImage ? (
-              <img
-                src={item.agent.profileImage}
-                alt={item.agent.name || 'Agent'}
-                style={styles.avatar}
-              />
+              <img src={item.agent.profileImage} alt={item.agent.name || 'Agent'} style={styles.avatar} />
             ) : (
               <div style={styles.avatarPlaceholder}>
                 {(item.agent.name && item.agent.name.charAt(0)) || '?'}
               </div>
             )}
-
             <p style={{ ...styles.name, ...(isZeroDeals ? styles.nameZero : {}) }}>
               {item.agent.name || `Agent ${item.userId || '?'}`}
             </p>
           </div>
-
           <div style={styles.dealsSection}>
             <span>🎯</span>
             <span style={isZeroDeals ? styles.nameZero : {}}>{item.dealCount || 0}</span>
           </div>
-
           <div style={{ ...styles.smsBox, ...smsStyles.box }}>
             <div style={{ ...styles.smsRate, ...smsStyles.text }}>
               {smsSuccessRate.toFixed(2)}%
             </div>
-            <div style={styles.smsCount}>
-              ({uniqueSMS} SMS)
-            </div>
+            <div style={styles.smsCount}>({uniqueSMS} SMS)</div>
           </div>
-
           <div style={{ ...styles.commission, ...getCommissionStyle(commission, leaderboard.timePeriod) }}>
             {commission.toLocaleString('sv-SE')} THB
           </div>
@@ -419,20 +368,6 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     const startIndex = currentPage * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
     const currentPageItems = scrollableStats.slice(startIndex, endIndex);
-
-    const getWipeStyle = () => {
-      if (isTransitioning) {
-        return {
-          ...styles.wipeContent,
-          ...styles.wipeContentExiting
-        };
-      } else {
-        return {
-          ...styles.wipeContent,
-          ...styles.wipeContentActive
-        };
-      }
-    };
 
     return (
       <div style={styles.column}>
@@ -453,13 +388,12 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         {scrollableStats.length > 0 && (
           <>
             <div style={styles.wipeContainer}>
-              <div style={getWipeStyle()}>
+              <div style={isTransitioning ? { ...styles.wipeContent, ...styles.wipeContentExiting } : { ...styles.wipeContent, ...styles.wipeContentActive }}>
                 {currentPageItems.map((item, index) => 
                   renderItem(item, startIndex + index + frozenCount, false)
                 )}
               </div>
             </div>
-
             {needsWipe && (
               <div style={styles.pageIndicator}>
                 <span style={styles.pageIndicatorText}>
@@ -473,16 +407,11 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
     );
   };
 
-  const slideStyle = {
-    ...styles.slide,
-    ...(isActive ? styles.slideActive : {})
-  };
-
   return (
-    <div style={slideStyle}>
+    <div style={{ ...styles.slide, ...(isActive ? styles.slideActive : {}) }}>
       <div style={styles.container}>
-        <LeaderboardColumn leaderboard={leftLeaderboard} stats={leftStats} side="left" />
-        <LeaderboardColumn leaderboard={rightLeaderboard} stats={rightStats} side="right" />
+        <LeaderboardColumn leaderboard={leftLeaderboard} stats={leftStats} />
+        <LeaderboardColumn leaderboard={rightLeaderboard} stats={rightStats} />
       </div>
     </div>
   );
