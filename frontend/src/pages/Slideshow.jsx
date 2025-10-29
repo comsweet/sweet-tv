@@ -1,6 +1,6 @@
 // frontend/src/pages/Slideshow.jsx
 // 🔥 AUTO-SCROLL VERSION - Visar ALLA agenter med smooth scroll
-console.log('🔥🔥🔥 SLIDESHOW.JSX LOADED - VERSION: EVENT-DRIVEN-v3');
+console.log('🔥🔥🔥 SLIDESHOW.JSX LOADED - VERSION: EVENT-DRIVEN-v4-DELAY');
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
@@ -376,7 +376,7 @@ const Slideshow = () => {
       if (notification && notification.agent && notification.agent.name) {
         setCurrentNotification(notification);
         
-        // Refresh kommer triggas automatiskt från handleNotificationComplete efter 10 sek!
+        // Refresh kommer triggas automatiskt från handleNotificationComplete efter 10+5 sekunder!
       }
     };
 
@@ -435,12 +435,16 @@ const Slideshow = () => {
   }, [leaderboardsData, slideshow, currentIndex]);
 
   const handleNotificationComplete = () => {
-    console.log('🎉 SLIDESHOW Notification complete - triggering refresh now!');
-    console.log('🔍 About to call fetchSlideshowData...');
+    console.log('🎉 Notification complete - waiting 5 seconds before refresh...');
     setCurrentNotification(null);
-  
-    fetchSlideshowData(true);
-    console.log('✅ fetchSlideshowData called!');
+    
+    // 🔥 Vänta 5 sekunder innan refresh - ger backend tid att spara dealen!
+    const REFRESH_DELAY = 5000; // 5 sekunder
+    
+    setTimeout(() => {
+      console.log('⏰ 5 seconds passed - triggering refresh NOW!');
+      fetchSlideshowData(true);
+    }, REFRESH_DELAY);
   };
 
   if (isLoading) {
