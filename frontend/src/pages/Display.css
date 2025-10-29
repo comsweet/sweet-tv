@@ -152,7 +152,7 @@
 
 /* 🔥 AUTO-SCROLL ANIMATION - 30 sekunder cycle */
 .scroll-content.scrolling {
-  animation: autoScroll 30s ease-in-out infinite;
+  animation: autoScroll 90s ease-in-out infinite;
 }
 
 @keyframes autoScroll {
