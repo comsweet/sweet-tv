@@ -93,8 +93,6 @@ const DealNotification = ({ notification, onComplete }) => {
       onComplete();
       console.log('✅ onComplete called successfully!');  // 🔥 NY RAD!
     }, 10000);
-      onComplete();
-    }, 10000);
 
     return () => {
       console.log('🧹 Component unmounting');
