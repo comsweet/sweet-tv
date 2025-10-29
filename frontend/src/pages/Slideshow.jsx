@@ -1,5 +1,6 @@
 // frontend/src/pages/Slideshow.jsx
 // 🔥 AUTO-SCROLL VERSION - Visar ALLA agenter med smooth scroll
+console.log('🔥🔥🔥 SLIDESHOW.JSX LOADED - VERSION: EVENT-DRIVEN-v3');
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
