@@ -98,7 +98,7 @@ const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
   // Auto-scroll logic
   useEffect(() => {
     const container = scrollContainerRef.current;
-    if (!container || scrollableStats.length <= 6) return; // Ingen scroll om <6 agenter
+    if (!container || scrollableStats.length <= 6) return; // Ingen scroll om ≤6 agenter
 
     console.log(`🔄 [${leaderboard.name}] Auto-scroll enabled`);
 
@@ -142,37 +142,41 @@ const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
       >
         <div className="rank-display">
           {index === 0 && isFrozen && '🥇'}
-          {index > 0 && `#${index + 1}`}
+          {index === 1 && !isFrozen && '🥈'}
+          {index === 2 && !isFrozen && '🥉'}
+          {(index > 2 || (index > 0 && isFrozen)) && `#${index + 1}`}
         </div>
         
         {item.agent?.profileImage ? (
           <img 
             src={item.agent.profileImage} 
             alt={item.agent?.name || 'Agent'}
-            className="agent-image-display"
+            className="agent-avatar-display"
           />
         ) : (
-          <div className="agent-image-placeholder">
+          <div className="agent-avatar-placeholder-display">
             {(item.agent?.name || 'A').charAt(0).toUpperCase()}
           </div>
         )}
         
-        <div className="agent-name-display">{item.agent?.name || 'Unknown'}</div>
+        <div className="agent-info-display">
+          <h3 className={`agent-name-display ${isZeroDeals ? 'zero-deals' : ''}`}>
+            {item.agent?.name || 'Unknown'}
+          </h3>
+        </div>
         
-        <div className="stats-display">
-          <div className="stat-item">
-            <span className="stat-label">Deals:</span>
-            <span className="stat-value">{item.dealCount}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">SMS:</span>
-            <span className={`stat-value sms-box ${getSMSBoxClass(smsSuccessRate)}`}>
-              {uniqueSMS}
-            </span>
-          </div>
-          <div className={`commission-display ${getCommissionClass(item.totalCommission, leaderboard.timePeriod)}`}>
-            {item.totalCommission.toLocaleString('sv-SE')} THB
-          </div>
+        <div className={`deals-column-display ${isZeroDeals ? 'zero' : ''}`}>
+          <span className="emoji">🎯</span>
+          <span>{item.dealCount}</span>
+        </div>
+        
+        <div className={`sms-box-display ${getSMSBoxClass(smsSuccessRate)}`}>
+          <div className="sms-rate">{smsSuccessRate}%</div>
+          <div className="sms-count">{uniqueSMS} SMS</div>
+        </div>
+        
+        <div className={`commission-display ${getCommissionClass(item.totalCommission, leaderboard.timePeriod)}`}>
+          {item.totalCommission.toLocaleString('sv-SE')} THB
         </div>
       </div>
     );
@@ -190,18 +194,28 @@ const LeaderboardCard = ({ leaderboard, stats, displaySize }) => {
         </p>
       </div>
 
-      <div className="leaderboard-list-display">
-        {/* FROZEN #1 */}
-        {topAgent && renderAgent(topAgent, 0, true)}
-        
-        {/* SCROLLABLE REST */}
-        <div 
-          ref={scrollContainerRef}
-          className="scrollable-agents"
-        >
-          {scrollableStats.map((item, idx) => renderAgent(item, idx + 1, false))}
+      {stats.length === 0 ? (
+        <div className="no-data-display">
+          Inga agenter att visa
         </div>
-      </div>
+      ) : (
+        <div className="leaderboard-items-container">
+          {/* FROZEN #1 */}
+          {topAgent && (
+            <div className="frozen-section">
+              {renderAgent(topAgent, 0, true)}
+            </div>
+          )}
+          
+          {/* SCROLLABLE REST */}
+          <div 
+            ref={scrollContainerRef}
+            className="scrollable-agents"
+          >
+            {scrollableStats.map((item, idx) => renderAgent(item, idx + 1, false))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -265,6 +279,10 @@ const Display = () => {
             console.log(`   ✅ Loaded "${lb.name}"`);
             console.log(`      - ${stats.length} agents`);
             console.log(`      - ${totalDeals} deals, ${totalCommission.toLocaleString('sv-SE')} THB`);
+            
+            if (stats.length > 6) {
+              console.log(`      - 🔄 Auto-scroll enabled (${stats.length} agents)`);
+            }
           }
           
           if (i < activeLeaderboards.length - 1 && !silent) {
