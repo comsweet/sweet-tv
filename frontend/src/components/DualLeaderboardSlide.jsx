@@ -1,7 +1,8 @@
-// 🔥 ALTERNATIV 8: WIPE TRANSITION - WITH WINDOW EVENTS
+// 🔥 ALTERNATIV 8: FINAL SOLUTION - Never cleanup intervals
 import { useState, useEffect } from 'react';
 
-// 🔥 GLOBAL intervals
+// 🔥 GLOBAL state som ALDRIG rensas
+const wipeState = {};
 const wipeIntervals = {};
 
 const styles = {
@@ -281,9 +282,17 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
   const LeaderboardColumn = ({ leaderboard, stats, side }) => {
     if (!leaderboard || !Array.isArray(stats)) return null;
 
-    const [currentPage, setCurrentPage] = useState(0);
-    const [isTransitioning, setIsTransitioning] = useState(false);
     const columnId = `${leaderboard.id}-${side}`;
+    
+    // 🔥 Hämta state från global objekt
+    if (!wipeState[columnId]) {
+      wipeState[columnId] = {
+        currentPage: 0,
+        isTransitioning: false
+      };
+    }
+
+    const [, forceUpdate] = useState(0);
 
     const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
     const frozenCount = 3;
@@ -298,40 +307,33 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       const handleWipe = (event) => {
         if (event.detail.columnId !== columnId) return;
         
-        console.log(`📨 [${side}] Mottog wipe event`);
-        setIsTransitioning(true);
+        wipeState[columnId].isTransitioning = true;
+        forceUpdate(n => n + 1);
+        
         setTimeout(() => {
-          setCurrentPage(prev => (prev + 1) % totalPages);
-          setIsTransitioning(false);
+          wipeState[columnId].currentPage = (wipeState[columnId].currentPage + 1) % totalPages;
+          wipeState[columnId].isTransitioning = false;
+          forceUpdate(n => n + 1);
         }, 1800);
       };
 
       window.addEventListener('leaderboard-wipe', handleWipe);
       return () => window.removeEventListener('leaderboard-wipe', handleWipe);
-    }, [columnId, side, totalPages]);
+    }, [columnId, totalPages]);
 
-    // 🔥 Skapa global interval
+    // 🔥 Skapa interval EN GÅNG
     useEffect(() => {
-      if (!needsWipe) return;
-      
-      if (wipeIntervals[columnId]) {
-        console.log(`♻️ [${side}] Interval redan aktivt`);
-        return;
-      }
+      if (!needsWipe || wipeIntervals[columnId]) return;
 
-      console.log(`✅ [${side}] Skapar nytt interval`);
+      console.log(`✅ [${side}] Skapar interval`);
       
       wipeIntervals[columnId] = setInterval(() => {
-        console.log(`🔥 [${side}] Skickar wipe event`);
         window.dispatchEvent(new CustomEvent('leaderboard-wipe', {
           detail: { columnId }
         }));
       }, 12000);
 
-      return () => {
-        console.log(`🧹 [${side}] Cleanup`);
-        // Interval lever kvar
-      };
+      // 🔥 INGET CLEANUP - intervallet lever för evigt
     }, [needsWipe, columnId, side]);
 
     const renderItem = (item, index, isFrozen = false) => {
@@ -388,7 +390,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
       );
     };
 
-    const startIndex = currentPage * itemsPerPage;
+    const startIndex = wipeState[columnId].currentPage * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, scrollableStats.length);
     const currentPageItems = scrollableStats.slice(startIndex, endIndex);
 
@@ -411,7 +413,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
         {scrollableStats.length > 0 && (
           <>
             <div style={styles.wipeContainer}>
-              <div style={isTransitioning ? { ...styles.wipeContent, ...styles.wipeContentExiting } : { ...styles.wipeContent, ...styles.wipeContentActive }}>
+              <div style={wipeState[columnId].isTransitioning ? { ...styles.wipeContent, ...styles.wipeContentExiting } : { ...styles.wipeContent, ...styles.wipeContentActive }}>
                 {currentPageItems.map((item, index) => 
                   renderItem(item, startIndex + index + frozenCount, false)
                 )}
@@ -420,7 +422,7 @@ const DualLeaderboardSlide = ({ leftLeaderboard, rightLeaderboard, leftStats, ri
             {needsWipe && (
               <div style={styles.pageIndicator}>
                 <span style={styles.pageIndicatorText}>
-                  ➡️ Sida {currentPage + 1} av {totalPages}
+                  ➡️ Sida {wipeState[columnId].currentPage + 1} av {totalPages}
                 </span>
               </div>
             )}
