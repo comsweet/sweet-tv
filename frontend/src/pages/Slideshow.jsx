@@ -105,30 +105,7 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
         content.classList.remove('scrolling');
       }
     };
-  }, [isActive, stats.length, refreshKey]);  // 🔥 FIX: Lägg till refreshKey här!
-
-  // 🔥 SEPARAT useEffect: Force reset när refreshKey ändras
-  useEffect(() => {
-    const content = scrollContentRef.current;
-    if (!content) return;
-    
-    console.log(`🔄 RefreshKey changed to ${refreshKey} - resetting animation`);
-    
-    // Remove scrolling class
-    content.classList.remove('scrolling');
-    
-    // Force reflow to ensure CSS reset
-    void content.offsetHeight;
-    
-    // Re-add scrolling class if conditions are met
-    if (isActive && stats.length > 1) {
-      // Small delay to ensure DOM update
-      setTimeout(() => {
-        content.classList.add('scrolling');
-        console.log(`✅ Animation restarted for slide`);
-      }, 50);
-    }
-  }, [refreshKey]);
+  }, [isActive, stats.length, refreshKey]);
 
   const getTimePeriodLabel = (period) => {
     const labels = {
@@ -365,9 +342,7 @@ const Slideshow = () => {
       if (notification && notification.agent && notification.agent.name) {
         setCurrentNotification(notification);
         
-        setTimeout(() => {
-          fetchSlideshowData(true);
-        }, 5000);
+        // Refresh kommer triggas automatiskt från handleNotificationComplete efter 10 sek!
       }
     };
 
@@ -426,7 +401,11 @@ const Slideshow = () => {
   }, [leaderboardsData, slideshow, currentIndex]);
 
   const handleNotificationComplete = () => {
+    console.log('🎉 Notification complete - triggering refresh now!');
     setCurrentNotification(null);
+    
+    // 🔥 Refresh EXAKT när popupen försvinner!
+    fetchSlideshowData(true);
   };
 
   if (isLoading) {
@@ -492,7 +471,7 @@ const Slideshow = () => {
         } else {
           return (
             <LeaderboardSlide
-              key={`slide-${index}-${refreshKey}-${isActive}`}
+              key={`single-${slideData.leaderboard.id}-${refreshKey}`}
               leaderboard={slideData.leaderboard}
               stats={slideData.stats}
               isActive={isActive}
