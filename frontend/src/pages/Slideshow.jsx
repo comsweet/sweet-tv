@@ -107,6 +107,29 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
     };
   }, [isActive, stats.length, refreshKey]);  // 🔥 FIX: Lägg till refreshKey här!
 
+  // 🔥 SEPARAT useEffect: Force reset när refreshKey ändras
+  useEffect(() => {
+    const content = scrollContentRef.current;
+    if (!content) return;
+    
+    console.log(`🔄 RefreshKey changed to ${refreshKey} - resetting animation`);
+    
+    // Remove scrolling class
+    content.classList.remove('scrolling');
+    
+    // Force reflow to ensure CSS reset
+    void content.offsetHeight;
+    
+    // Re-add scrolling class if conditions are met
+    if (isActive && stats.length > 1) {
+      // Small delay to ensure DOM update
+      setTimeout(() => {
+        content.classList.add('scrolling');
+        console.log(`✅ Animation restarted for slide`);
+      }, 50);
+    }
+  }, [refreshKey]);
+
   const getTimePeriodLabel = (period) => {
     const labels = {
       day: 'Idag',
@@ -469,7 +492,7 @@ const Slideshow = () => {
         } else {
           return (
             <LeaderboardSlide
-              key={`single-${slideData.leaderboard.id}-${refreshKey}`}
+              key={`slide-${index}-${refreshKey}-${isActive}`}
               leaderboard={slideData.leaderboard}
               stats={slideData.stats}
               isActive={isActive}
