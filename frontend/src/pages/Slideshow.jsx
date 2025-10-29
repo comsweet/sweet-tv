@@ -402,11 +402,12 @@ const Slideshow = () => {
   }, [leaderboardsData, slideshow, currentIndex]);
 
   const handleNotificationComplete = () => {
-    console.log('🎉 Notification complete - triggering refresh now!');
+    console.log('🎉 SLIDESHOW Notification complete - triggering refresh now!');
+    console.log('🔍 About to call fetchSlideshowData...');
     setCurrentNotification(null);
-    
-    // 🔥 Refresh EXAKT när popupen försvinner!
+  
     fetchSlideshowData(true);
+    console.log('✅ fetchSlideshowData called!');
   };
 
   if (isLoading) {
