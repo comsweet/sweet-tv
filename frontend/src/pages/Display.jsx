@@ -214,9 +214,9 @@ const Display = () => {
       const lastKey = lastNotificationRef.current;
       const timeSinceLastNotification = currentTime - (notificationTimeoutRef.current || 0);
       
-      // Block if SAME agent with SAME commission within 10 seconds
+      // Block if SAME agent with SAME commission within 2 seconds
       // Different agents will have different userIds → NOT blocked!
-      if (lastKey === notificationKey && timeSinceLastNotification < 10000) {
+      if (lastKey === notificationKey && timeSinceLastNotification < 2000) {
         console.log('⚠️  DUPLICATE notification detected - IGNORING');
         console.log(`   Same agent (${notification.agent.name}) + same commission (${notification.commission} THB) within 2s`);
         return;
