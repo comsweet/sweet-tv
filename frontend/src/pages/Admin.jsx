@@ -73,10 +73,8 @@ const Admin = () => {
   const [editingSlideshow, setEditingSlideshow] = useState(null);
   const [slideshowForm, setSlideshowForm] = useState({
     name: '',
-    type: 'single',
     slides: [],
     duration: 30, // Fallback duration
-    dualSlides: [],
     active: true
   });
 
@@ -451,10 +449,8 @@ const Admin = () => {
     setEditingSlideshow(null);
     setSlideshowForm({
       name: '',
-      type: 'single',
       slides: [],
       duration: 30,
-      dualSlides: [],
       active: true
     });
     setShowSlideshowModal(true);
@@ -462,7 +458,7 @@ const Admin = () => {
 
   const handleEditSlideshow = (slideshow) => {
     setEditingSlideshow(slideshow);
-    
+
     // Konvertera gamla formatet till nya om nödvändigt
     let slides = [];
     if (slideshow.slides && slideshow.slides.length > 0) {
@@ -473,13 +469,11 @@ const Admin = () => {
         duration: slideshow.duration || 30
       }));
     }
-    
+
     setSlideshowForm({
       name: slideshow.name,
-      type: slideshow.type,
       slides: slides,
       duration: slideshow.duration || 30,
-      dualSlides: slideshow.dualSlides || [],
       active: slideshow.active
     });
     setShowSlideshowModal(true);
@@ -492,32 +486,17 @@ const Admin = () => {
         return;
       }
 
-      if (slideshowForm.type === 'single') {
-        if (!slideshowForm.slides || slideshowForm.slides.length === 0) {
-          alert('Lägg till minst en slide!');
-          return;
-        }
-        
-        const invalidSlides = slideshowForm.slides.filter(
-          slide => !slide.leaderboardId
-        );
-        if (invalidSlides.length > 0) {
-          alert('Alla slides måste ha en leaderboard vald!');
-          return;
-        }
-      } else if (slideshowForm.type === 'dual') {
-        if (!slideshowForm.dualSlides || slideshowForm.dualSlides.length === 0) {
-          alert('Lägg till minst en dual slide!');
-          return;
-        }
-        
-        const invalidDualSlides = slideshowForm.dualSlides.filter(
-          slide => !slide.left || !slide.right
-        );
-        if (invalidDualSlides.length > 0) {
-          alert('Alla dual slides måste ha både vänster och höger leaderboard!');
-          return;
-        }
+      if (!slideshowForm.slides || slideshowForm.slides.length === 0) {
+        alert('Lägg till minst en slide!');
+        return;
+      }
+
+      const invalidSlides = slideshowForm.slides.filter(
+        slide => !slide.leaderboardId
+      );
+      if (invalidSlides.length > 0) {
+        alert('Alla slides måste ha en leaderboard vald!');
+        return;
       }
 
       if (editingSlideshow) {
@@ -616,44 +595,6 @@ const Admin = () => {
     setSlideshowForm(prev => ({ ...prev, slides: newSlides }));
   };
 
-  // ⭐ DUAL SLIDE MANAGEMENT
-  const handleAddDualSlide = () => {
-    setSlideshowForm(prev => ({
-      ...prev,
-      dualSlides: [
-        ...prev.dualSlides,
-        { left: null, right: null, duration: 30 }
-      ]
-    }));
-  };
-
-  const handleRemoveDualSlide = (index) => {
-    setSlideshowForm(prev => ({
-      ...prev,
-      dualSlides: prev.dualSlides.filter((_, i) => i !== index)
-    }));
-  };
-
-  const handleUpdateDualSlide = (index, field, value) => {
-    setSlideshowForm(prev => ({
-      ...prev,
-      dualSlides: prev.dualSlides.map((slide, i) => 
-        i === index ? { ...slide, [field]: value } : slide
-      )
-    }));
-  };
-
-  const handleReorderDualSlide = (index, direction) => {
-    const newSlides = [...slideshowForm.dualSlides];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
-    if (targetIndex < 0 || targetIndex >= newSlides.length) return;
-    
-    [newSlides[index], newSlides[targetIndex]] = 
-    [newSlides[targetIndex], newSlides[index]];
-    
-    setSlideshowForm(prev => ({ ...prev, dualSlides: newSlides }));
-  };
 
   // 🎨 HELPER FUNCTIONS FOR UI
   const formatDuration = (seconds) => {
@@ -666,11 +607,7 @@ const Admin = () => {
   };
 
   const getTotalSlideshowDuration = (slideshow) => {
-    if (slideshow.type === 'dual') {
-      return slideshow.dualSlides?.reduce((sum, slide) => sum + (slide.duration || 30), 0) || 0;
-    } else {
-      return slideshow.slides?.reduce((sum, slide) => sum + (slide.duration || slideshow.duration || 30), 0) || 0;
-    }
+    return slideshow.slides?.reduce((sum, slide) => sum + (slide.duration || slideshow.duration || 30), 0) || 0;
   };
 
   // 🔐 LOGIN FORM
@@ -1095,39 +1032,15 @@ const Admin = () => {
 
                     <div className="slideshow-card-body">
                       <div className="slideshow-info">
-                        <span className="info-label">Typ:</span>
+                        <span className="info-label">Slides:</span>
                         <span className="info-value">
-                          {ss.type === 'single' ? '📊 Single' : '📊📊 Dual'}
+                          {ss.slides?.length || ss.leaderboards?.length || 0}
                         </span>
                       </div>
-
-                      {ss.type === 'single' && (
-                        <>
-                          <div className="slideshow-info">
-                            <span className="info-label">Slides:</span>
-                            <span className="info-value">
-                              {ss.slides?.length || ss.leaderboards?.length || 0}
-                            </span>
-                          </div>
-                          <div className="slideshow-info">
-                            <span className="info-label">⏱️ Total tid:</span>
-                            <span className="info-value">{formatDuration(totalDuration)}</span>
-                          </div>
-                        </>
-                      )}
-
-                      {ss.type === 'dual' && (
-                        <>
-                          <div className="slideshow-info">
-                            <span className="info-label">Dual Slides:</span>
-                            <span className="info-value">{ss.dualSlides?.length || 0}</span>
-                          </div>
-                          <div className="slideshow-info">
-                            <span className="info-label">⏱️ Total tid:</span>
-                            <span className="info-value">{formatDuration(totalDuration)}</span>
-                          </div>
-                        </>
-                      )}
+                      <div className="slideshow-info">
+                        <span className="info-label">⏱️ Total tid:</span>
+                        <span className="info-value">{formatDuration(totalDuration)}</span>
+                      </div>
 
                       <div className="slideshow-info slideshow-url-info">
                         <span className="info-label">🔗 URL:</span>
@@ -1286,28 +1199,10 @@ const Admin = () => {
               />
             </div>
 
-            {/* TYPE */}
-            <div className="form-group">
-              <label>Typ:</label>
-              <select
-                value={slideshowForm.type}
-                onChange={(e) => setSlideshowForm({ 
-                  ...slideshowForm, 
-                  type: e.target.value,
-                  slides: [],
-                  dualSlides: []
-                })}
-              >
-                <option value="single">📊 Single (En leaderboard åt gången)</option>
-                <option value="dual">📊📊 Dual (Två leaderboards sida vid sida)</option>
-              </select>
-            </div>
-
             {/* ============================================ */}
-            {/* SINGLE MODE */}
+            {/* SLIDESHOW CONFIG */}
             {/* ============================================ */}
-            {slideshowForm.type === 'single' && (
-              <div className="slideshow-config-section">
+            <div className="slideshow-config-section">
                 <div className="form-group">
                   <label>⏱️ Fallback Duration (sekunder):</label>
                   <input
@@ -1469,183 +1364,6 @@ const Admin = () => {
                   )}
                 </div>
               </div>
-            )}
-
-            {/* ============================================ */}
-            {/* DUAL MODE */}
-            {/* ============================================ */}
-            {slideshowForm.type === 'dual' && (
-              <div className="slideshow-config-section">
-                <div className="form-group">
-                  <div className="section-header-inline">
-                    <label>📊📊 Dual Slides:</label>
-                    <button 
-                      onClick={handleAddDualSlide}
-                      className="btn-secondary btn-sm"
-                    >
-                      ➕ Lägg till dual slide
-                    </button>
-                  </div>
-
-                  {slideshowForm.dualSlides.length === 0 ? (
-                    <div className="empty-state-box">
-                      <p>Inga dual slides än. Klicka "Lägg till dual slide" för att skapa!</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="slides-list">
-                        {slideshowForm.dualSlides.map((slide, index) => {
-                          const leftLb = leaderboards.find(lb => lb.id === slide.left);
-                          const rightLb = leaderboards.find(lb => lb.id === slide.right);
-                          
-                          return (
-                            <div key={index} className="slide-config-card dual-slide">
-                              <div className="slide-config-header">
-                                <div className="slide-number">
-                                  <span className="slide-badge">#{index + 1}</span>
-                                  <h4>Dual Slide {index + 1}</h4>
-                                </div>
-                                <div className="slide-actions">
-                                  <button 
-                                    onClick={() => handleReorderDualSlide(index, 'up')}
-                                    disabled={index === 0}
-                                    className="btn-icon"
-                                    title="Flytta upp"
-                                  >
-                                    ▲
-                                  </button>
-                                  <button 
-                                    onClick={() => handleReorderDualSlide(index, 'down')}
-                                    disabled={index === slideshowForm.dualSlides.length - 1}
-                                    className="btn-icon"
-                                    title="Flytta ner"
-                                  >
-                                    ▼
-                                  </button>
-                                  <button 
-                                    onClick={() => handleRemoveDualSlide(index)}
-                                    className="btn-icon btn-danger"
-                                    title="Ta bort"
-                                  >
-                                    🗑️
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="slide-config-body dual-config">
-                                <div className="dual-selectors">
-                                  {/* Left Leaderboard */}
-                                  <div className="dual-selector-box">
-                                    <label>📊 Vänster:</label>
-                                    <select
-                                      value={slide.left || ''}
-                                      onChange={(e) => handleUpdateDualSlide(index, 'left', e.target.value)}
-                                      className={!slide.left ? 'select-error' : ''}
-                                    >
-                                      <option value="">Välj leaderboard...</option>
-                                      {leaderboards
-                                        .filter(lb => lb.id !== slide.right)
-                                        .map(lb => (
-                                          <option key={lb.id} value={lb.id}>
-                                            {lb.name}
-                                          </option>
-                                        ))
-                                      }
-                                    </select>
-                                    {leftLb && (
-                                      <div className="lb-meta-badges">
-                                        <span className="meta-badge">
-                                          {leftLb.userGroups?.length === 0 ? '👥 Alla' : `👥 ${leftLb.userGroups.length}`}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="dual-separator">⇄</div>
-
-                                  {/* Right Leaderboard */}
-                                  <div className="dual-selector-box">
-                                    <label>📊 Höger:</label>
-                                    <select
-                                      value={slide.right || ''}
-                                      onChange={(e) => handleUpdateDualSlide(index, 'right', e.target.value)}
-                                      className={!slide.right ? 'select-error' : ''}
-                                    >
-                                      <option value="">Välj leaderboard...</option>
-                                      {leaderboards
-                                        .filter(lb => lb.id !== slide.left)
-                                        .map(lb => (
-                                          <option key={lb.id} value={lb.id}>
-                                            {lb.name}
-                                          </option>
-                                        ))
-                                      }
-                                    </select>
-                                    {rightLb && (
-                                      <div className="lb-meta-badges">
-                                        <span className="meta-badge">
-                                          {rightLb.userGroups?.length === 0 ? '👥 Alla' : `👥 ${rightLb.userGroups.length}`}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Duration */}
-                                <div className="form-group">
-                                  <label>⏱️ Visningstid:</label>
-                                  <div className="duration-input-group">
-                                    <input
-                                      type="number"
-                                      min="10"
-                                      max="300"
-                                      value={slide.duration}
-                                      onChange={(e) => handleUpdateDualSlide(index, 'duration', parseInt(e.target.value))}
-                                      className="duration-input"
-                                    />
-                                    <span className="duration-unit">sekunder</span>
-                                    <span className="duration-display">
-                                      ({formatDuration(slide.duration)})
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Auto-scroll info */}
-                                {(slide.left || slide.right) && (
-                                  <div className="slide-info-box">
-                                    <span className="info-icon">ℹ️</span>
-                                    <span className="info-text">
-                                      Auto-scroll aktiveras automatiskt om någon leaderboard har fler än 18 agenter
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Summary */}
-                      <div className="slideshow-summary">
-                        <h4>📊 Sammanfattning</h4>
-                        <div className="summary-stats">
-                          <div className="summary-stat">
-                            <span className="stat-label">Dual Slides:</span>
-                            <span className="stat-value">{slideshowForm.dualSlides.length}</span>
-                          </div>
-                          <div className="summary-stat">
-                            <span className="stat-label">Total tid:</span>
-                            <span className="stat-value">
-                              {formatDuration(slideshowForm.dualSlides.reduce((sum, s) => sum + (s.duration || 0), 0))}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* ACTIVE CHECKBOX */}
             <div className="form-group">
