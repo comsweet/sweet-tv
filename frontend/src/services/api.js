@@ -30,11 +30,11 @@ export const getLeaderboardStats = (startDate, endDate) =>
 
 // Adversus
 export const syncGroupsFromAdversus = () => api.post('/agents/sync-groups');
-export const getAdversusUserGroups = () => api.get('/adversus/user-groups');
-export const getAdversusUsers = () => api.get('/adversus/users');
+export const getAdversusUserGroups = () => api.get('/agents/adversus/groups');
+export const getAdversusUsers = () => api.get('/agents/adversus/users');
 
-// 🔥 NY: Groups (KORREKT METOD - från user.group.id)
-export const getAvailableGroups = () => api.get('/groups/available');
+// Groups
+export const getAvailableGroups = () => api.get('/agents/available-groups');
 
 // Polling
 export const triggerManualPoll = () => api.post('/poll/trigger');

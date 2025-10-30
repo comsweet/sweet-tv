@@ -15,6 +15,12 @@ const notificationSettings = require('../services/notificationSettings');
 const multer = require('multer');
 const path = require('path');
 
+// Import modular routes
+const agentsRouter = require('./modules/agents');
+
+// Use modular routes
+router.use('/agents', agentsRouter);
+
 // Multer upload med Cloudinary (max 5MB, med filetype validation)
 const upload = multer({ 
   storage: imageStorage,
