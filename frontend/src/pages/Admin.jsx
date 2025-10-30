@@ -27,14 +27,31 @@ const Admin = () => {
     setIsLoggingIn(true);
     setLoginError('');
 
-    const correctPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+    try {
+      // Send password to backend for verification
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/auth/admin-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password })
+      });
 
-    if (password === correctPassword) {
-      localStorage.setItem('sweetTvAdminAuth', 'true');
-      setIsAuthenticated(true);
-      setPassword('');
-    } else {
-      setLoginError('Felaktigt lösenord');
+      const data = await response.json();
+
+      if (data.success) {
+        localStorage.setItem('sweetTvAdminAuth', 'true');
+        setIsAuthenticated(true);
+        setPassword('');
+        console.log('✅ Admin login successful');
+      } else {
+        setLoginError(data.error || 'Felaktigt lösenord');
+        console.log('❌ Login failed:', data.error);
+      }
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      setLoginError('Kunde inte ansluta till servern');
     }
 
     setIsLoggingIn(false);
