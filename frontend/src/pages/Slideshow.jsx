@@ -86,11 +86,11 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
     }
 
     // 🔥 DYNAMISK SCROLL-HASTIGHET: 50 pixels per sekund
-    const SCROLL_SPEED = 35; // px/s (justera för snabbare/långsammare)
+    const SCROLL_SPEED = 25; // px/s (justera för snabbare/långsammare)
     const scrollDuration = scrollDistance / SCROLL_SPEED;
     
     // Total animation duration inkl. pauser (lägg till 20% för pauser)
-    const totalDuration = scrollDuration * 1.2;
+    const totalDuration = scrollDuration * 1.1;
 
     // Sätt CSS variables för animation
     container.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
