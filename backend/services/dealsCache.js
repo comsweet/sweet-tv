@@ -99,9 +99,27 @@ class DealsCache {
   async getCache() {
     try {
       const data = await fs.readFile(this.cacheFile, 'utf8');
-      return JSON.parse(data).deals;
+      const parsed = JSON.parse(data);
+      return parsed.deals || [];
     } catch (error) {
-      console.error('Error reading cache:', error);
+      if (error.code === 'ENOENT') {
+        console.log('📝 No cache file found, starting fresh');
+        return [];
+      }
+
+      console.error('❌ Error reading cache:', error.message);
+      console.error('🔧 Cache file corrupted, resetting to empty array');
+
+      // If JSON is corrupted, backup the old file and start fresh
+      try {
+        const backupFile = `${this.cacheFile}.backup-${Date.now()}`;
+        await fs.rename(this.cacheFile, backupFile);
+        console.log(`💾 Backed up corrupted cache to: ${backupFile}`);
+      } catch (backupError) {
+        console.error('⚠️  Could not backup corrupted file:', backupError.message);
+      }
+
+      // Return empty array to start fresh
       return [];
     }
   }
