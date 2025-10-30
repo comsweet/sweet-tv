@@ -74,8 +74,25 @@ export const deleteSound = (id) => api.delete(`/sounds/${id}`);
 export const updateSound = (id, data) => api.put(`/sounds/${id}`, data);
 export const linkAgentToSound = (soundId, userId) => 
   api.post(`/sounds/${soundId}/link-agent`, { userId });
-export const unlinkAgentFromSound = (soundId, userId) => 
+export const unlinkAgentFromSound = (soundId, userId) =>
   api.post(`/sounds/${soundId}/unlink-agent`, { userId });
 export const getSoundForAgent = (userId) => api.get(`/sounds/agent/${userId}`);
+
+// Deals Cache Management
+export const getDealsCacheStats = () => api.get('/deals/stats');
+export const syncDealsManually = () => api.post('/deals/sync');
+export const cleanOldDeals = () => api.post('/deals/clean');
+export const clearDealsCache = () => api.delete('/deals/database');
+
+// SMS Cache Management
+export const getSMSCacheStats = () => api.get('/sms/stats');
+export const syncSMSManually = () => api.post('/sms/sync');
+export const cleanOldSMS = () => api.post('/sms/clean');
+export const clearSMSCache = () => api.delete('/sms/cache');
+
+// Auto-Refresh Settings
+export const getAutoRefreshSettings = () => api.get('/auto-refresh/settings');
+export const updateAutoRefreshSettings = (data) => api.post('/auto-refresh/settings', data);
+export const resetAutoRefreshSettings = () => api.post('/auto-refresh/settings/reset');
 
 export default api;
