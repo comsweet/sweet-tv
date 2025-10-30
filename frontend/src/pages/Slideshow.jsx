@@ -1,6 +1,7 @@
 // frontend/src/pages/Slideshow.jsx
 // 🔥 AUTO-SCROLL VERSION - Visar ALLA agenter med smooth scroll
-console.log('🔥🔥🔥 SLIDESHOW.JSX LOADED - VERSION: EVENT-DRIVEN-v4-DELAY');
+// ⭐ UPDATED: Stöd för individuell duration per slide
+console.log('🔥🔥🔥 SLIDESHOW.JSX LOADED - VERSION: INDIVIDUAL-DURATION');
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
@@ -271,6 +272,7 @@ const Slideshow = () => {
       console.log('✅ Slideshow data received:', {
         type: slideshowData.type,
         leaderboards: slideshowData.leaderboards?.length || 0,
+        slides: slideshowData.slides?.length || 0,
         dualSlides: slideshowData.dualSlides?.length || 0
       });
       
@@ -301,7 +303,7 @@ const Slideshow = () => {
               rightStats: rightStatsRes.data.stats || []
             });
             
-            console.log(`   ✅ Dual slide ${i + 1} loaded`);
+            console.log(`   ✅ Dual slide ${i + 1} loaded (${dualSlide.duration}s)`);
             
             if (i < slideshowData.dualSlides.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 2000));
@@ -317,9 +319,19 @@ const Slideshow = () => {
         console.log('📊 Processing SINGLE slides...');
         const leaderboardsWithStats = [];
         
-        for (let i = 0; i < slideshowData.leaderboards.length; i++) {
-          const lbId = slideshowData.leaderboards[i];
-          console.log(`   📈 Loading leaderboard ${i + 1}/${slideshowData.leaderboards.length} (ID: ${lbId})`);
+        // ⭐ NYTT: Stöd för både slides (nya formatet) och leaderboards (gamla formatet)
+        const slidesConfig = slideshowData.slides || 
+          (slideshowData.leaderboards || []).map(lbId => ({
+            leaderboardId: lbId,
+            duration: slideshowData.duration || 30
+          }));
+        
+        for (let i = 0; i < slidesConfig.length; i++) {
+          const slideConfig = slidesConfig[i];
+          const lbId = slideConfig.leaderboardId || slideConfig;
+          const slideDuration = slideConfig.duration || slideshowData.duration || 30;
+          
+          console.log(`   📈 Loading leaderboard ${i + 1}/${slidesConfig.length} (ID: ${lbId}, Duration: ${slideDuration}s)`);
           
           try {
             const statsResponse = await getLeaderboardStats2(lbId);
@@ -328,13 +340,14 @@ const Slideshow = () => {
             leaderboardsWithStats.push({
               type: 'single',
               leaderboard: statsResponse.data.leaderboard,
-              stats: stats
+              stats: stats,
+              duration: slideDuration // ⭐ VIKTIGT: Lägg till duration här!
             });
             
             const totalDeals = stats.reduce((sum, s) => sum + (s.dealCount || 0), 0);
-            console.log(`   ✅ Loaded "${statsResponse.data.leaderboard.name}": ${stats.length} agents, ${totalDeals} deals`);
+            console.log(`   ✅ Loaded "${statsResponse.data.leaderboard.name}": ${stats.length} agents, ${totalDeals} deals, ${slideDuration}s`);
             
-            if (i < slideshowData.leaderboards.length - 1) {
+            if (i < slidesConfig.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 2000));
             }
           } catch (error) {
@@ -400,7 +413,11 @@ const Slideshow = () => {
     if (leaderboardsData.length === 0 || !slideshow) return;
 
     const currentSlide = leaderboardsData[currentIndex];
+    
+    // ⭐ UPPDATERAT: Använd slide-specifik duration om den finns
     const duration = (currentSlide?.duration || slideshow.duration || 15) * 1000;
+    
+    console.log(`⏱️  Slide ${currentIndex + 1} duration: ${duration / 1000}s`);
     
     setProgress(0);
     
