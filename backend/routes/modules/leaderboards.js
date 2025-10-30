@@ -112,12 +112,37 @@ router.get('/:id/stats', async (req, res) => {
     // Filter by user groups if specified
     let filteredLeads = leads;
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
-      const allowedUserIds = adversusUsers
-        .filter(u => u.group && leaderboard.userGroups.includes(parseInt(u.group.id)))
-        .map(u => u.id);
+      // Normalize userGroups to strings for comparison
+      const normalizedGroups = leaderboard.userGroups.map(g => String(g));
 
-      filteredLeads = leads.filter(lead => allowedUserIds.includes(lead.lastContactedBy));
-      console.log(`🔍 Filtered ${leads.length} → ${filteredLeads.length} deals by groups: ${leaderboard.userGroups.join(', ')}`);
+      console.log(`🔍 Filtering by user groups: ${normalizedGroups.join(', ')}`);
+
+      // Find all users in the selected groups
+      const allowedUserIds = adversusUsers
+        .filter(u => {
+          if (!u.group || !u.group.id) {
+            return false;
+          }
+          const userGroupId = String(u.group.id);
+          const isAllowed = normalizedGroups.includes(userGroupId);
+
+          if (isAllowed) {
+            console.log(`  ✅ User ${u.id} (${u.name || 'Unknown'}) in group ${userGroupId} - INCLUDED`);
+          }
+
+          return isAllowed;
+        })
+        .map(u => String(u.id)); // Convert user IDs to strings
+
+      console.log(`  📋 Found ${allowedUserIds.length} users in selected groups`);
+
+      // Filter deals by these user IDs (normalize lead.lastContactedBy to string)
+      filteredLeads = leads.filter(lead => {
+        const leadUserId = String(lead.lastContactedBy);
+        return allowedUserIds.includes(leadUserId);
+      });
+
+      console.log(`🔍 Filtered ${leads.length} → ${filteredLeads.length} deals by groups: ${normalizedGroups.join(', ')}`);
     }
 
     // Calculate stats
