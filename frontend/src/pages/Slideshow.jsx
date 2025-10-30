@@ -6,7 +6,7 @@ console.log('🔥🔥🔥 SLIDESHOW.JSX LOADED - VERSION: INDIVIDUAL-DURATION');
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
-import { getSlideshow, getLeaderboardStats2 } from '../services/api';
+import { getSlideshow, getLeaderboardStats2, getAutoRefreshSettings } from '../services/api';
 import DealNotification from '../components/DealNotification';
 import '../components/DealNotification.css';
 import './Slideshow.css';
@@ -249,12 +249,20 @@ const Slideshow = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
-  
+
   // 🔥 TV SIZE STATE
   const [displaySize, setDisplaySize] = useState(() => {
     return localStorage.getItem('tv-slideshow-size') || 'normal';
   });
-  
+
+  // ⚡ AUTO-REFRESH SETTINGS
+  const [autoRefreshSettings, setAutoRefreshSettings] = useState({
+    refreshInterval: 5000,
+    showIndicator: true,
+    enabled: true
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const intervalRef = useRef(null);
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
@@ -344,20 +352,35 @@ const Slideshow = () => {
     }
   };
 
+  // ⚡ Load auto-refresh settings on mount
+  useEffect(() => {
+    const loadAutoRefreshSettings = async () => {
+      try {
+        const response = await getAutoRefreshSettings();
+        setAutoRefreshSettings(response.data.settings);
+        console.log('⚡ Auto-refresh settings loaded:', response.data.settings);
+      } catch (error) {
+        console.error('❌ Error loading auto-refresh settings:', error);
+        // Use defaults if loading fails
+      }
+    };
+    loadAutoRefreshSettings();
+  }, []);
+
   useEffect(() => {
     fetchSlideshowData();
-    
+
     refreshIntervalRef.current = setInterval(() => {
       fetchSlideshowData(true);
     }, 2 * 60 * 1000);
-    
+
     socketService.connect();
 
     const handleNewDeal = (notification) => {
       if (notification && notification.agent && notification.agent.name) {
         setCurrentNotification(notification);
-        
-        // Refresh kommer triggas automatiskt från handleNotificationComplete efter 10+5 sekunder!
+
+        // Refresh kommer triggas automatiskt från handleNotificationComplete efter konfigurerbar delay!
       }
     };
 
@@ -420,16 +443,32 @@ const Slideshow = () => {
   }, [leaderboardsData, slideshow, currentIndex]);
 
   const handleNotificationComplete = () => {
-    console.log('🎉 Notification complete - waiting 5 seconds before refresh...');
+    console.log('🎉 Notification complete - checking auto-refresh settings...');
     setCurrentNotification(null);
-    
-    // 🔥 Vänta 5 sekunder innan refresh - ger backend tid att spara dealen!
-    const REFRESH_DELAY = 5000; // 5 sekunder
-    
+
+    // ⚡ Check if auto-refresh is enabled
+    if (!autoRefreshSettings.enabled) {
+      console.log('⏸️ Auto-refresh is disabled - skipping refresh');
+      return;
+    }
+
+    const delay = autoRefreshSettings.refreshInterval || 5000;
+    console.log(`⏰ Waiting ${delay}ms before refresh...`);
+
+    // ⚡ Show indicator if enabled
+    if (autoRefreshSettings.showIndicator) {
+      setIsRefreshing(true);
+    }
+
     setTimeout(() => {
-      console.log('⏰ 5 seconds passed - triggering refresh NOW!');
+      console.log(`⏰ ${delay}ms passed - triggering refresh NOW!`);
       fetchSlideshowData(true);
-    }, REFRESH_DELAY);
+
+      // Hide indicator after refresh
+      if (autoRefreshSettings.showIndicator) {
+        setTimeout(() => setIsRefreshing(false), 1000);
+      }
+    }, delay);
   };
 
   if (isLoading) {
@@ -457,13 +496,21 @@ const Slideshow = () => {
   return (
     <div className={`slideshow-container size-${displaySize}`} key={refreshKey}>
       {/* 🔥 TV SIZE CONTROL */}
-      <TVSizeControl 
+      <TVSizeControl
         currentSize={displaySize}
         onSizeChange={setDisplaySize}
       />
 
+      {/* ⚡ AUTO-REFRESH INDICATOR */}
+      {isRefreshing && autoRefreshSettings.showIndicator && (
+        <div className="auto-refresh-indicator">
+          <div className="refresh-spinner"></div>
+          <span>Uppdaterar...</span>
+        </div>
+      )}
+
       <div className="slideshow-progress-bar">
-        <div 
+        <div
           className="slideshow-progress-fill"
           style={{ width: `${progress}%` }}
         />

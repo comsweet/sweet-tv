@@ -13,6 +13,7 @@ const soundsRouter = require('./modules/sounds');
 const statsRouter = require('./modules/stats');
 const notificationsRouter = require('./modules/notifications');
 const smsRouter = require('./modules/sms');
+const autoRefreshRouter = require('./modules/autoRefresh');
 
 // Mount all modular routes
 router.use('/agents', agentsRouter);
@@ -24,6 +25,7 @@ router.use('/sounds', soundsRouter);
 router.use('/stats', statsRouter);
 router.use('/notification-settings', notificationsRouter);
 router.use('/sms', smsRouter);
+router.use('/auto-refresh', autoRefreshRouter);
 
 // ==================== CORE ENDPOINTS ====================
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import AdminDashboard from '../components/AdminDashboard';
 import AdminCacheManagement from '../components/AdminCacheManagement';
+import AdminAutoRefreshSettings from '../components/AdminAutoRefreshSettings';
 import AdminAgents from '../components/AdminAgents';
 import AdminGroups from '../components/AdminGroups';
 import AdminLeaderboards from '../components/AdminLeaderboards';
@@ -157,6 +158,12 @@ const Admin = () => {
         >
           📊 Statistik
         </button>
+        <button
+          className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          ⚙️ Settings
+        </button>
       </div>
 
       <div className="admin-content">
@@ -169,6 +176,7 @@ const Admin = () => {
         {activeTab === 'sounds' && <AdminSounds />}
         {activeTab === 'notifications' && <NotificationSettingsAdmin />}
         {activeTab === 'stats' && <AdminStats />}
+        {activeTab === 'settings' && <AdminAutoRefreshSettings />}
       </div>
     </div>
   );
