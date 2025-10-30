@@ -63,17 +63,26 @@ class NotificationSettings {
   async updateSettings(newSettings) {
     try {
       const currentSettings = await this.getSettings();
+
+      // Normalize all group IDs to strings to avoid type conflicts
+      if (newSettings.enabledGroups) {
+        newSettings.enabledGroups = [...new Set(newSettings.enabledGroups.map(id => String(id)))];
+      }
+      if (newSettings.disabledGroups) {
+        newSettings.disabledGroups = [...new Set(newSettings.disabledGroups.map(id => String(id)))];
+      }
+
       const updatedSettings = {
         ...currentSettings,
         ...newSettings,
         lastUpdated: new Date().toISOString()
       };
-      
+
       await fs.writeFile(
-        this.settingsFile, 
+        this.settingsFile,
         JSON.stringify(updatedSettings, null, 2)
       );
-      
+
       console.log('✅ Updated notification settings:', updatedSettings);
       return updatedSettings;
     } catch (error) {
@@ -100,22 +109,25 @@ class NotificationSettings {
       }
     }
 
+    // Normalize groupId to string for comparison
+    const normalizedGroupId = String(groupId);
+
     if (settings.mode === 'whitelist') {
       // Whitelist mode: Endast tillåtna groups
-      const allowed = settings.enabledGroups.includes(groupId);
+      const allowed = settings.enabledGroups.includes(normalizedGroupId);
       if (!allowed) {
-        console.log(`🚫 Group ${groupId} (${agent.name}) not in whitelist, blocking notification`);
+        console.log(`🚫 Group ${normalizedGroupId} (${agent.name}) not in whitelist, blocking notification`);
       } else {
-        console.log(`✅ Group ${groupId} (${agent.name}) is whitelisted, allowing notification`);
+        console.log(`✅ Group ${normalizedGroupId} (${agent.name}) is whitelisted, allowing notification`);
       }
       return allowed;
     } else {
       // Blacklist mode (default): Alla utom blockerade
-      const blocked = settings.disabledGroups.includes(groupId);
+      const blocked = settings.disabledGroups.includes(normalizedGroupId);
       if (blocked) {
-        console.log(`🚫 Group ${groupId} (${agent.name}) is blacklisted, blocking notification`);
+        console.log(`🚫 Group ${normalizedGroupId} (${agent.name}) is blacklisted, blocking notification`);
       } else {
-        console.log(`✅ Group ${groupId} (${agent.name}) not blacklisted, allowing notification`);
+        console.log(`✅ Group ${normalizedGroupId} (${agent.name}) not blacklisted, allowing notification`);
       }
       return !blocked;
     }
@@ -123,45 +135,49 @@ class NotificationSettings {
 
   async blockGroup(groupId) {
     const settings = await this.getSettings();
-    
-    if (!settings.disabledGroups.includes(groupId)) {
-      settings.disabledGroups.push(groupId);
+    const normalizedGroupId = String(groupId);
+
+    if (!settings.disabledGroups.includes(normalizedGroupId)) {
+      settings.disabledGroups.push(normalizedGroupId);
       await this.updateSettings(settings);
-      console.log(`🚫 Blocked group: ${groupId}`);
+      console.log(`🚫 Blocked group: ${normalizedGroupId}`);
     }
-    
+
     return settings;
   }
 
   async unblockGroup(groupId) {
     const settings = await this.getSettings();
+    const normalizedGroupId = String(groupId);
     settings.disabledGroups = settings.disabledGroups.filter(
-      id => id !== groupId
+      id => String(id) !== normalizedGroupId
     );
     await this.updateSettings(settings);
-    console.log(`✅ Unblocked group: ${groupId}`);
+    console.log(`✅ Unblocked group: ${normalizedGroupId}`);
     return settings;
   }
 
   async enableGroup(groupId) {
     const settings = await this.getSettings();
-    
-    if (!settings.enabledGroups.includes(groupId)) {
-      settings.enabledGroups.push(groupId);
+    const normalizedGroupId = String(groupId);
+
+    if (!settings.enabledGroups.includes(normalizedGroupId)) {
+      settings.enabledGroups.push(normalizedGroupId);
       await this.updateSettings(settings);
-      console.log(`✅ Enabled group: ${groupId}`);
+      console.log(`✅ Enabled group: ${normalizedGroupId}`);
     }
-    
+
     return settings;
   }
 
   async disableGroup(groupId) {
     const settings = await this.getSettings();
+    const normalizedGroupId = String(groupId);
     settings.enabledGroups = settings.enabledGroups.filter(
-      id => id !== groupId
+      id => String(id) !== normalizedGroupId
     );
     await this.updateSettings(settings);
-    console.log(`🚫 Disabled group: ${groupId}`);
+    console.log(`🚫 Disabled group: ${normalizedGroupId}`);
     return settings;
   }
 
