@@ -276,10 +276,17 @@ class AdversusAPI {
       includeMeta: true,
       ...params
     };
-    
+
+    console.log('👥 Fetching all groups...');
     const response = await this.request('/groups', defaultParams);
-    
+    console.log(`   ✅ Got ${response.groups?.length || 0} groups\n`);
+
     return response;
+  }
+
+  // Alias for clarity - same as getUserGroups
+  async getGroups(params = {}) {
+    return await this.getUserGroups(params);
   }
 }
 
