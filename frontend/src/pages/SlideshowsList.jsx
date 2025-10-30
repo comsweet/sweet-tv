@@ -75,28 +75,20 @@ const SlideshowsList = () => {
             onClick={() => handleSelectSlideshow(slideshow.id)}
           >
             <div className="slideshow-card-icon">
-              {slideshow.type === 'dual' ? '⚡' : '📊'}
+              📊
             </div>
-            
+
             <div className="slideshow-card-info">
               <h2>{slideshow.name}</h2>
-              
+
               <div className="slideshow-card-meta">
                 <span className="slideshow-type">
-                  {slideshow.type === 'single' ? 'Single Slideshow' : 'Dual Slideshow'}
+                  Slideshow
                 </span>
-                
-                {slideshow.type === 'single' && (
-                  <span className="slideshow-detail">
-                    📈 {slideshow.leaderboards?.length || 0} leaderboards
-                  </span>
-                )}
-                
-                {slideshow.type === 'dual' && (
-                  <span className="slideshow-detail">
-                    ⚡ {slideshow.dualSlides?.length || 0} dual slides
-                  </span>
-                )}
+
+                <span className="slideshow-detail">
+                  📈 {slideshow.slides?.length || slideshow.leaderboards?.length || 0} slides
+                </span>
               </div>
             </div>
 
