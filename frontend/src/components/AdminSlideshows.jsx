@@ -71,7 +71,8 @@ const AdminSlideshows = () => {
   };
 
   const getSlideshowUrl = (id) => {
-    return `${window.location.origin}/slideshow/${id}`;
+    // Use hash-based routing (HashRouter requires #)
+    return `${window.location.origin}/#/slideshow/${id}`;
   };
 
   const handleCopySlideshowUrl = (id) => {
@@ -81,7 +82,8 @@ const AdminSlideshows = () => {
   };
 
   const handleOpenSlideshow = (id) => {
-    window.open(`/slideshow/${id}`, '_blank');
+    // Use hash-based routing for consistency
+    window.open(`/#/slideshow/${id}`, '_blank');
   };
 
   if (isLoading) {
