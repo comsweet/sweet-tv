@@ -1,6 +1,8 @@
 // 🎯 REFAKTORERAD ADMIN.JSX - Modulär arkitektur med separata komponenter
 
 import { useState } from 'react';
+import AdminDashboard from '../components/AdminDashboard';
+import AdminCacheManagement from '../components/AdminCacheManagement';
 import AdminAgents from '../components/AdminAgents';
 import AdminGroups from '../components/AdminGroups';
 import AdminLeaderboards from '../components/AdminLeaderboards';
@@ -19,7 +21,7 @@ const Admin = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState('');
 
-  const [activeTab, setActiveTab] = useState('agents');
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   // 🔐 AUTHENTICATION
   const handleLogin = async (e) => {
@@ -60,7 +62,7 @@ const Admin = () => {
   const handleLogout = () => {
     localStorage.removeItem('sweetTvAdminAuth');
     setIsAuthenticated(false);
-    setActiveTab('agents');
+    setActiveTab('dashboard');
   };
 
   // 🔐 LOGIN FORM
@@ -101,6 +103,18 @@ const Admin = () => {
       </div>
 
       <div className="admin-tabs">
+        <button
+          className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          📊 Dashboard
+        </button>
+        <button
+          className={`tab ${activeTab === 'cache' ? 'active' : ''}`}
+          onClick={() => setActiveTab('cache')}
+        >
+          🗂️ Cache Management
+        </button>
         <button
           className={`tab ${activeTab === 'agents' ? 'active' : ''}`}
           onClick={() => setActiveTab('agents')}
@@ -146,6 +160,8 @@ const Admin = () => {
       </div>
 
       <div className="admin-content">
+        {activeTab === 'dashboard' && <AdminDashboard />}
+        {activeTab === 'cache' && <AdminCacheManagement />}
         {activeTab === 'agents' && <AdminAgents />}
         {activeTab === 'groups' && <AdminGroups />}
         {activeTab === 'leaderboards' && <AdminLeaderboards />}
