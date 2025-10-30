@@ -10,14 +10,37 @@ router.get('/', async (req, res) => {
   try {
     const settings = await notificationSettings.getSettings();
 
-    // Get available groups from Adversus
+    // Get available groups from user.group.id ONLY (not membersOf!)
     let availableGroups = [];
     try {
-      const groupsResult = await adversusAPI.getGroups();
-      availableGroups = groupsResult.groups || [];
-      console.log(`✅ Loaded ${availableGroups.length} groups for notification settings`);
+      const usersResult = await adversusAPI.getUsers();
+      const users = usersResult.users || [];
+
+      console.log(`📊 Processing ${users.length} users for notification groups`);
+
+      // Extract unique groups from user.group.id ONLY
+      const groupsMap = new Map();
+
+      users.forEach(user => {
+        if (user.group && user.group.id) {
+          const groupId = String(user.group.id);
+          const groupName = user.group.name || `Group ${groupId}`;
+
+          if (!groupsMap.has(groupId)) {
+            groupsMap.set(groupId, {
+              id: groupId,
+              name: groupName
+            });
+          }
+        }
+      });
+
+      availableGroups = Array.from(groupsMap.values())
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      console.log(`✅ Found ${availableGroups.length} unique groups for notification settings`);
     } catch (error) {
-      console.error('⚠️ Failed to load Adversus groups:', error.message);
+      console.error('⚠️ Failed to load groups:', error.message);
     }
 
     res.json({

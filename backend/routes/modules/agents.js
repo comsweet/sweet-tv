@@ -160,24 +160,47 @@ router.get('/adversus/groups', async (req, res) => {
 });
 
 // Get available groups with agent counts
+// IMPORTANT: Only uses user.group.id (NOT membersOf/teams)
 router.get('/available-groups', async (req, res) => {
   try {
-    const result = await adversusAPI.getUserGroups();
-    const groupsResult = result.groups || [];
     const usersResult = await adversusAPI.getUsers();
     const users = usersResult.users || [];
 
-    const groupsWithCounts = groupsResult.map(group => {
-      const agentCount = users.filter(u => u.group && String(u.group.id) === String(group.id)).length;
-      return {
-        id: group.id,
-        name: group.name,
-        agentCount
-      };
+    console.log(`📊 Processing ${users.length} users for group extraction`);
+
+    // Extract unique groups from user.group.id ONLY (not membersOf!)
+    const groupsMap = new Map();
+
+    users.forEach(user => {
+      // Only use user.group.id, ignore membersOf completely
+      if (user.group && user.group.id) {
+        const groupId = String(user.group.id);
+        const groupName = user.group.name || `Group ${groupId}`;
+
+        if (!groupsMap.has(groupId)) {
+          groupsMap.set(groupId, {
+            id: groupId,
+            name: groupName,
+            agentCount: 0
+          });
+        }
+
+        // Increment agent count for this group
+        const group = groupsMap.get(groupId);
+        group.agentCount++;
+      }
     });
+
+    // Convert map to array and sort by name
+    const groupsWithCounts = Array.from(groupsMap.values())
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    console.log(`✅ Found ${groupsWithCounts.length} unique groups from user.group.id`);
+    console.log(`📋 Groups:`, groupsWithCounts.map(g => `${g.name} (${g.agentCount})`).join(', '));
 
     res.json({ groups: groupsWithCounts });
   } catch (error) {
+    console.error('❌ Error fetching available groups:', error);
     res.status(500).json({ error: error.message });
   }
 });
