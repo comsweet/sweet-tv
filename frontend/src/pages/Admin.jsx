@@ -5,7 +5,7 @@ import AdminAgents from '../components/AdminAgents';
 import AdminGroups from '../components/AdminGroups';
 import AdminLeaderboards from '../components/AdminLeaderboards';
 import AdminSlideshows from '../components/AdminSlideshows';
-import AdminSounds from './AdminSounds';
+import AdminSounds from '../components/AdminSounds';
 import AdminStats from '../components/AdminStats';
 import NotificationSettingsAdmin from '../components/NotificationSettingsAdmin';
 import './Admin.css';
