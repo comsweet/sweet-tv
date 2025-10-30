@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const notificationSettings = require('../../services/notificationSettings');
+const adversusAPI = require('../../services/adversusAPI');
 
 // ==================== NOTIFICATION SETTINGS ====================
 
@@ -8,7 +9,22 @@ const notificationSettings = require('../../services/notificationSettings');
 router.get('/', async (req, res) => {
   try {
     const settings = await notificationSettings.getSettings();
-    res.json(settings);
+
+    // Get available groups from Adversus
+    let availableGroups = [];
+    try {
+      const groupsResult = await adversusAPI.getGroups();
+      availableGroups = groupsResult.groups || [];
+      console.log(`✅ Loaded ${availableGroups.length} groups for notification settings`);
+    } catch (error) {
+      console.error('⚠️ Failed to load Adversus groups:', error.message);
+    }
+
+    res.json({
+      success: true,
+      settings,
+      availableGroups
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
