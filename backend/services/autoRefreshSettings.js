@@ -3,7 +3,16 @@ const path = require('path');
 
 class AutoRefreshSettings {
   constructor() {
-    this.settingsFile = path.join(__dirname, '../data/auto-refresh-settings.json');
+    const isRender = process.env.RENDER === 'true';
+
+    this.dbPath = isRender
+      ? '/var/data'
+      : path.join(__dirname, '../data');
+
+    this.settingsFile = path.join(this.dbPath, 'auto-refresh-settings.json');
+
+    console.log(`⚡ Auto-refresh settings path: ${this.dbPath}`);
+
     this.defaultSettings = {
       refreshInterval: 5000, // 5 seconds after deal popup
       showIndicator: true,   // Show update indicator during refresh
@@ -21,11 +30,13 @@ class AutoRefreshSettings {
       return { ...this.defaultSettings, ...settings };
     } catch (error) {
       if (error.code === 'ENOENT') {
-        // File doesn't exist, create with defaults
-        await this.updateSettings(this.defaultSettings);
+        // File doesn't exist, return defaults (don't create yet to avoid recursion)
+        console.log('⚡ Auto-refresh settings file not found, using defaults');
         return this.defaultSettings;
       }
-      throw error;
+      console.error('❌ Error reading auto-refresh settings:', error);
+      // Return defaults on any error
+      return this.defaultSettings;
     }
   }
 
@@ -34,7 +45,17 @@ class AutoRefreshSettings {
    */
   async updateSettings(newSettings) {
     try {
-      const currentSettings = await this.getSettings();
+      // Read current settings directly from file to avoid recursion
+      let currentSettings = { ...this.defaultSettings };
+      try {
+        const data = await fs.readFile(this.settingsFile, 'utf8');
+        currentSettings = JSON.parse(data);
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          console.error('❌ Error reading current settings:', error);
+        }
+      }
+
       const updatedSettings = { ...currentSettings, ...newSettings };
 
       // Validate refreshInterval
