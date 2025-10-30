@@ -586,7 +586,7 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
       
       // 🔥 FIX: Använd multiDeals field ID 74126
       const multiDealsField = lead.resultData?.find(f => f.id === 74126);
-      const multiDealsValue = parseInt(multiDealsField?.value || '1');
+      const multiDealsValue = parseInt(multiDealsField?.value || '1') || 1;
       
       stats[userId].totalCommission += commission;
       stats[userId].dealCount += multiDealsValue;  // ✅ ANVÄND multiDealsValue
@@ -636,10 +636,10 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
         // ✅ RETURNERA KOMPLETT OBJEKT MED SMS-DATA
         return {
           userId: stat.userId,
-          dealCount: stat.dealCount,
-          totalCommission: stat.totalCommission,
-          uniqueSMS: smsData.uniqueSMS,           // 📱 NY!
-          smsSuccessRate: smsData.successRate,    // 📱 NY!
+          dealCount: stat.dealCount || 0,
+          totalCommission: stat.totalCommission || 0,
+          uniqueSMS: smsData.uniqueSMS || 0,
+          smsSuccessRate: smsData.successRate || 0,
           agent: {
             id: stat.userId,
             userId: stat.userId,
