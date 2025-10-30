@@ -1,7 +1,7 @@
-/* 🎨 FÖRBÄTTRAD ADMIN.CSS - Matchar Slideshow.jsx funktionalitet */
+/* 🎨 ADMIN.CSS - KOMPLETT MED ALLA SLIDE MANAGEMENT KLASSER */
 
 /* ============================================ */
-/* BASE STYLES */
+/* BASE & EXISTING STYLES */
 /* ============================================ */
 
 .admin-container {
@@ -27,10 +27,6 @@
   font-size: 2rem;
 }
 
-/* ============================================ */
-/* LOGIN FORM */
-/* ============================================ */
-
 .login-form {
   max-width: 400px;
   margin: 10rem auto;
@@ -54,10 +50,6 @@
   margin-bottom: 1rem;
   border: 1px solid #fcc;
 }
-
-/* ============================================ */
-/* TABS */
-/* ============================================ */
 
 .admin-tabs {
   display: flex;
@@ -91,10 +83,6 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
 }
-
-/* ============================================ */
-/* CONTENT AREA */
-/* ============================================ */
 
 .admin-content {
   background: white;
@@ -166,11 +154,6 @@
   transform: translateY(-2px);
 }
 
-.btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-}
-
 .btn-icon {
   padding: 0.4rem 0.8rem;
   font-size: 0.9rem;
@@ -188,16 +171,6 @@
   cursor: not-allowed;
 }
 
-.btn-icon.btn-danger {
-  background: #fee;
-  color: #e74c3c;
-}
-
-.btn-icon.btn-danger:hover {
-  background: #e74c3c;
-  color: white;
-}
-
 /* ============================================ */
 /* SECTION HEADER */
 /* ============================================ */
@@ -213,20 +186,6 @@
   margin: 0;
   color: #2c3e50;
   font-size: 1.5rem;
-}
-
-.section-header-inline {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.section-header-inline label {
-  margin: 0;
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 1.1rem;
 }
 
 /* ============================================ */
@@ -264,18 +223,6 @@
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.select-error {
-  border-color: #e74c3c !important;
-}
-
-.form-hint {
-  display: block;
-  margin-top: 0.5rem;
-  color: #7f8c8d;
-  font-size: 0.85rem;
-  font-style: italic;
 }
 
 .checkbox-label {
@@ -348,40 +295,6 @@
   max-width: 900px;
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #ecf0f1;
-}
-
-.modal-header h2 {
-  margin: 0;
-  color: #2c3e50;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: #7f8c8d;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s;
-}
-
-.modal-close:hover {
-  background: #fee;
-  color: #e74c3c;
-}
-
 .modal h2 {
   margin-top: 0;
   margin-bottom: 2rem;
@@ -398,41 +311,19 @@
 }
 
 /* ============================================ */
-/* SLIDESHOW CONFIG SECTION */
+/* 🔥 CRITICAL: SLIDE MANAGEMENT CLASSES */
 /* ============================================ */
 
-.slideshow-config-section {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 2px solid #ecf0f1;
-}
-
-.empty-state-box {
-  text-align: center;
-  padding: 3rem;
-  background: #f8f9fa;
-  border: 2px dashed #ddd;
-  border-radius: 12px;
-  color: #7f8c8d;
-}
-
-.empty-state-box p {
-  margin: 0;
-  font-size: 1rem;
-}
-
-/* ============================================ */
-/* SLIDES LIST */
-/* ============================================ */
-
-.slides-list {
+/* Container for list of slides */
+.dual-slides-list {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  margin-top: 1.5rem;
+  margin-top: 1rem;
 }
 
-.slide-config-card {
+/* Individual slide card */
+.dual-slide-config {
   border: 2px solid #ecf0f1;
   border-radius: 12px;
   padding: 1.5rem;
@@ -440,12 +331,13 @@
   transition: all 0.3s ease;
 }
 
-.slide-config-card:hover {
+.dual-slide-config:hover {
   border-color: #667eea;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
 }
 
-.slide-config-header {
+/* Slide header with title and buttons */
+.dual-slide-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -454,50 +346,94 @@
   border-bottom: 2px solid #f8f9fa;
 }
 
-.slide-number {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.slide-badge {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.slide-number h4 {
+.dual-slide-header h4 {
   margin: 0;
   color: #2c3e50;
   font-size: 1.1rem;
 }
 
-.slide-actions {
+/* Container for leaderboard selectors */
+.dual-slide-selectors {
   display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Individual selector box */
+.dual-selector {
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
-.slide-config-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+.dual-selector label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.95rem;
 }
 
-/* ============================================ */
-/* LEADERBOARD META BADGES */
-/* ============================================ */
+.dual-selector select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #ecf0f1;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
 
-.lb-meta-badges {
+.dual-selector select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* 🔥 CRITICAL: Duration input section */
+.dual-duration {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.dual-duration label {
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.dual-duration input {
+  width: 150px;
+  padding: 0.5rem;
+  border: 2px solid #ecf0f1;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.dual-duration input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.dual-duration small {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+/* Info badges for leaderboard meta */
+.lb-info {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
 }
 
-.meta-badge {
+.info-badge {
   background: #f0f4ff;
   color: #667eea;
   padding: 0.4rem 0.8rem;
@@ -506,36 +442,8 @@
   font-weight: 500;
 }
 
-/* ============================================ */
-/* DURATION INPUT */
-/* ============================================ */
-
-.duration-input-group {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.duration-input {
-  width: 120px;
-}
-
-.duration-unit {
-  color: #7f8c8d;
-  font-size: 0.9rem;
-}
-
-.duration-display {
-  color: #667eea;
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-/* ============================================ */
-/* SLIDE PREVIEW */
-/* ============================================ */
-
-.slide-preview {
+/* Preview info box */
+.dual-slide-info {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -543,124 +451,18 @@
   background: #f0fdf4;
   border: 1px solid #86efac;
   border-radius: 8px;
+  margin-top: 1rem;
 }
 
-.preview-icon {
-  font-size: 1.2rem;
-}
-
-.preview-text {
-  color: #15803d;
+.info-label {
+  color: #7f8c8d;
+  font-weight: 500;
   font-size: 0.9rem;
 }
 
-.preview-text strong {
-  color: #166534;
-  font-weight: 700;
-}
-
-/* ============================================ */
-/* DUAL SLIDE SPECIFIC */
-/* ============================================ */
-
-.dual-config {
-  gap: 2rem;
-}
-
-.dual-selectors {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 1rem;
-  align-items: start;
-}
-
-.dual-selector-box {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.dual-selector-box label {
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 0.95rem;
-}
-
-.dual-separator {
-  font-size: 2rem;
-  color: #667eea;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 2rem;
-}
-
-/* ============================================ */
-/* SLIDE INFO BOX */
-/* ============================================ */
-
-.slide-info-box {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem;
-  background: #eff6ff;
-  border: 1px solid #93c5fd;
-  border-radius: 8px;
-}
-
-.info-icon {
-  font-size: 1.2rem;
-}
-
 .info-text {
-  color: #1e40af;
-  font-size: 0.85rem;
-  line-height: 1.4;
-}
-
-/* ============================================ */
-/* SLIDESHOW SUMMARY */
-/* ============================================ */
-
-.slideshow-summary {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%);
-  border-radius: 12px;
-  border: 2px solid #667eea;
-}
-
-.slideshow-summary h4 {
-  margin: 0 0 1rem 0;
-  color: #2c3e50;
-  font-size: 1.1rem;
-}
-
-.summary-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1.5rem;
-}
-
-.summary-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.stat-label {
-  color: #7f8c8d;
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.stat-value {
-  color: #667eea;
-  font-size: 1.5rem;
-  font-weight: 700;
+  color: #15803d;
+  font-size: 0.9rem;
 }
 
 /* ============================================ */
@@ -785,12 +587,6 @@ input:checked + .toggle-slider:before {
   padding: 0.75rem 0;
 }
 
-.info-label {
-  color: #7f8c8d;
-  font-weight: 500;
-  font-size: 0.9rem;
-}
-
 .info-value {
   color: #2c3e50;
   font-weight: 600;
@@ -805,7 +601,7 @@ input:checked + .toggle-slider:before {
   border-radius: 8px;
 }
 
-.slideshow-url-input {
+.slideshow-url {
   width: 100%;
   padding: 0.5rem;
   border: 1px solid #ddd;
@@ -813,6 +609,7 @@ input:checked + .toggle-slider:before {
   font-size: 0.85rem;
   font-family: 'Courier New', monospace;
   background: white;
+  word-break: break-all;
 }
 
 .leaderboard-card-footer,
@@ -827,6 +624,10 @@ input:checked + .toggle-slider:before {
 /* ============================================ */
 /* AGENTS LIST */
 /* ============================================ */
+
+.agents-section {
+  width: 100%;
+}
 
 .agents-list {
   display: flex;
@@ -856,6 +657,7 @@ input:checked + .toggle-slider:before {
   height: 60px;
   border-radius: 50%;
   object-fit: cover;
+  flex-shrink: 0;
 }
 
 .agent-list-avatar-placeholder {
@@ -870,6 +672,7 @@ input:checked + .toggle-slider:before {
 
 .agent-list-info {
   flex: 1;
+  min-width: 0;
 }
 
 .agent-list-name {
@@ -884,6 +687,10 @@ input:checked + .toggle-slider:before {
   flex-wrap: wrap;
   color: #7f8c8d;
   font-size: 0.9rem;
+}
+
+.agent-list-upload {
+  flex-shrink: 0;
 }
 
 .upload-button-small {
@@ -905,8 +712,12 @@ input:checked + .toggle-slider:before {
 }
 
 /* ============================================ */
-/* GROUPS GRID */
+/* GROUPS */
 /* ============================================ */
+
+.groups-section {
+  width: 100%;
+}
 
 .groups-grid {
   display: grid;
@@ -978,8 +789,12 @@ input:checked + .toggle-slider:before {
 }
 
 /* ============================================ */
-/* STATS TABLE */
+/* STATS */
 /* ============================================ */
+
+.stats-section {
+  width: 100%;
+}
 
 .stats-header {
   display: flex;
@@ -988,6 +803,10 @@ input:checked + .toggle-slider:before {
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
+}
+
+.stats-header h2 {
+  margin: 0;
 }
 
 .date-picker {
@@ -1128,19 +947,7 @@ input:checked + .toggle-slider:before {
     padding: 1.5rem;
   }
 
-  .dual-selectors {
-    grid-template-columns: 1fr;
-  }
-
-  .dual-separator {
-    transform: rotate(90deg);
-  }
-
   .form-row {
-    grid-template-columns: 1fr;
-  }
-
-  .summary-stats {
     grid-template-columns: 1fr;
   }
 
@@ -1163,6 +970,16 @@ input:checked + .toggle-slider:before {
     flex-direction: column;
     gap: 0.5rem;
   }
+
+  .dual-duration {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .dual-duration input {
+    width: 100%;
+  }
 }
 
 /* ============================================ */
@@ -1180,7 +997,7 @@ input:checked + .toggle-slider:before {
   }
 }
 
-.slide-config-card,
+.dual-slide-config,
 .leaderboard-card,
 .slideshow-card,
 .agent-list-item {
