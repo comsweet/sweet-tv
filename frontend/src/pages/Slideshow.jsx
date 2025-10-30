@@ -176,24 +176,31 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
             {item.agent ? item.agent.name : 'Unknown'}
           </h3>
         </div>
-        
-        <div className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
-          <span className="emoji">🎯</span>
-          <span>{item.dealCount || 0} affärer</span>
-        </div>
-        
-        <div className={`slideshow-sms-box ${getSMSBoxClass(smsSuccessRate)}`}>
-          <div className="sms-rate">
-            {smsSuccessRate.toFixed(2)}%
+
+        {/* Conditional rendering based on visibleColumns */}
+        {leaderboard.visibleColumns?.deals !== false && (
+          <div className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
+            <span className="emoji">🎯</span>
+            <span>{item.dealCount || 0} affärer</span>
           </div>
-          <div className="sms-count">
-            ({uniqueSMS} SMS)
+        )}
+
+        {leaderboard.visibleColumns?.sms !== false && (
+          <div className={`slideshow-sms-box ${getSMSBoxClass(smsSuccessRate)}`}>
+            <div className="sms-rate">
+              {smsSuccessRate.toFixed(2)}%
+            </div>
+            <div className="sms-count">
+              ({uniqueSMS} SMS)
+            </div>
           </div>
-        </div>
-        
-        <div className={`slideshow-commission ${getCommissionClass(item.totalCommission || 0, leaderboard.timePeriod)}`}>
-          {(item.totalCommission || 0).toLocaleString('sv-SE')} THB
-        </div>
+        )}
+
+        {leaderboard.visibleColumns?.commission !== false && (
+          <div className={`slideshow-commission ${getCommissionClass(item.totalCommission || 0, leaderboard.timePeriod)}`}>
+            {(item.totalCommission || 0).toLocaleString('sv-SE')} THB
+          </div>
+        )}
       </div>
     );
   };
