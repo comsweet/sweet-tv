@@ -2,7 +2,7 @@
 class LeaderboardCache {
   constructor() {
     this.cache = new Map();
-    this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+    this.cacheTimeout = 30 * 1000; // 30 seconds - uppdateras snabbt för slideshow
   }
 
   // Generate cache key

@@ -9,6 +9,7 @@ const smsCache = require('../services/smsCache');
 const leaderboardCache = require('../services/leaderboardCache');
 const soundSettings = require('../services/soundSettings');
 const soundLibrary = require('../services/soundLibrary');
+const bonusTiers = require('../services/bonusTiers');
 const { cloudinary, imageStorage, soundStorage } = require('../config/cloudinary');
 const notificationSettings = require('../services/notificationSettings');
 const multer = require('multer');
@@ -633,13 +634,26 @@ router.get('/leaderboards/:id/stats', async (req, res) => {
           console.error(`⚠️ Failed to get SMS stats for user ${stat.userId}:`, error.message);
         }
         
-        // ✅ RETURNERA KOMPLETT OBJEKT MED SMS-DATA
+        // 🎯 Beräkna bonus tier
+        const bonusTierInfo = bonusTiers.calculateTierForCommission(stat.totalCommission || 0);
+
+        // ✅ RETURNERA KOMPLETT OBJEKT MED SMS-DATA OCH BONUS TIER
         return {
           userId: stat.userId,
           dealCount: stat.dealCount || 0,
           totalCommission: stat.totalCommission || 0,
           uniqueSMS: smsData.uniqueSMS || 0,
           smsSuccessRate: smsData.successRate || 0,
+          bonusTier: {
+            name: bonusTierInfo.name,
+            threshold: bonusTierInfo.threshold,
+            bonus: bonusTierInfo.bonus,
+            color: bonusTierInfo.color,
+            icon: bonusTierInfo.icon,
+            nextTier: bonusTierInfo.nextTier ? bonusTierInfo.nextTier.name : null,
+            progressToNext: bonusTierInfo.progressToNext,
+            remainingToNext: bonusTierInfo.remainingToNext
+          },
           agent: {
             id: stat.userId,
             userId: stat.userId,
@@ -1453,11 +1467,88 @@ router.delete('/sms/cache', async (req, res) => {
   try {
     await smsCache.saveCache([]);
     console.log('✅ Cleared sms-cache.json');
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Cleared SMS cache'
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== BONUS TIERS ====================
+
+// Get all bonus tiers
+router.get('/bonus-tiers', async (req, res) => {
+  try {
+    const tiers = bonusTiers.getTiers();
+    res.json({ success: true, tiers });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get single bonus tier
+router.get('/bonus-tiers/:id', async (req, res) => {
+  try {
+    const tier = bonusTiers.getTier(req.params.id);
+    if (!tier) {
+      return res.status(404).json({ error: 'Bonus tier not found' });
+    }
+    res.json({ success: true, tier });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create bonus tier
+router.post('/bonus-tiers', async (req, res) => {
+  try {
+    const tier = await bonusTiers.addTier(req.body);
+
+    // Invalidate leaderboard cache since bonus calculations will change
+    leaderboardCache.clear();
+
+    res.json({ success: true, tier });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update bonus tier
+router.put('/bonus-tiers/:id', async (req, res) => {
+  try {
+    const tier = await bonusTiers.updateTier(req.params.id, req.body);
+
+    // Invalidate leaderboard cache
+    leaderboardCache.clear();
+
+    res.json({ success: true, tier });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete bonus tier
+router.delete('/bonus-tiers/:id', async (req, res) => {
+  try {
+    await bonusTiers.deleteTier(req.params.id);
+
+    // Invalidate leaderboard cache
+    leaderboardCache.clear();
+
+    res.json({ success: true, message: 'Bonus tier deleted' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get bonus tiers stats
+router.get('/bonus-tiers/stats/summary', async (req, res) => {
+  try {
+    const stats = await bonusTiers.getTiersStats();
+    res.json({ success: true, stats });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

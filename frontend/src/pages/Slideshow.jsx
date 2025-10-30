@@ -8,7 +8,6 @@ import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
 import { getSlideshow, getLeaderboardStats2 } from '../services/api';
 import DealNotification from '../components/DealNotification';
-import DualLeaderboardSlide from '../components/DualLeaderboardSlide';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -280,43 +279,7 @@ const Slideshow = () => {
         setSlideshow(slideshowData);
       }
       
-      if (slideshowData.type === 'dual' && slideshowData.dualSlides) {
-        console.log('📊 Processing DUAL slides...');
-        const dualSlidesData = [];
-        
-        for (let i = 0; i < slideshowData.dualSlides.length; i++) {
-          const dualSlide = slideshowData.dualSlides[i];
-          console.log(`   📈 Loading dual slide ${i + 1}/${slideshowData.dualSlides.length}`);
-          
-          try {
-            const [leftStatsRes, rightStatsRes] = await Promise.all([
-              getLeaderboardStats2(dualSlide.left),
-              getLeaderboardStats2(dualSlide.right)
-            ]);
-            
-            dualSlidesData.push({
-              type: 'dual',
-              duration: dualSlide.duration,
-              leftLeaderboard: leftStatsRes.data.leaderboard,
-              rightLeaderboard: rightStatsRes.data.leaderboard,
-              leftStats: leftStatsRes.data.stats || [],
-              rightStats: rightStatsRes.data.stats || []
-            });
-            
-            console.log(`   ✅ Dual slide ${i + 1} loaded (${dualSlide.duration}s)`);
-            
-            if (i < slideshowData.dualSlides.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-          } catch (error) {
-            console.error(`   ❌ Error loading dual slide ${i + 1}:`, error.message);
-          }
-        }
-        
-        console.log(`✅ Setting ${dualSlidesData.length} dual slides to state...`);
-        setLeaderboardsData(dualSlidesData);
-      } else {
-        console.log('📊 Processing SINGLE slides...');
+      console.log('📊 Processing slides...');
         const leaderboardsWithStats = [];
         
         // ⭐ NYTT: Stöd för både slides (nya formatet) och leaderboards (gamla formatet)
@@ -338,7 +301,6 @@ const Slideshow = () => {
             const stats = statsResponse.data.stats || [];
             
             leaderboardsWithStats.push({
-              type: 'single',
               leaderboard: statsResponse.data.leaderboard,
               stats: stats,
               duration: slideDuration // ⭐ VIKTIGT: Lägg till duration här!
@@ -354,10 +316,9 @@ const Slideshow = () => {
             console.error(`   ❌ Error loading leaderboard ${lbId}:`, error.message);
           }
         }
-        
-        console.log(`✅ Setting ${leaderboardsWithStats.length} single slides to state...`);
+
+        console.log(`✅ Setting ${leaderboardsWithStats.length} slides to state...`);
         setLeaderboardsData(leaderboardsWithStats);
-      }
       
       console.log(`🔑 Updating refreshKey from ${refreshKey} to ${refreshKey + 1}`);
       setRefreshKey(prev => prev + 1);
@@ -512,30 +473,17 @@ const Slideshow = () => {
 
       {leaderboardsData.map((slideData, index) => {
         const isActive = index === currentIndex;
-        
-        if (slideData.type === 'dual') {
-          return (
-            <DualLeaderboardSlide
-              key={`dual-${index}-${refreshKey}`}
-              leftLeaderboard={slideData.leftLeaderboard}
-              rightLeaderboard={slideData.rightLeaderboard}
-              leftStats={slideData.leftStats}
-              rightStats={slideData.rightStats}
-              isActive={isActive}
-            />
-          );
-        } else {
-          return (
-            <LeaderboardSlide
-              key={`single-${slideData.leaderboard.id}-${refreshKey}`}
-              leaderboard={slideData.leaderboard}
-              stats={slideData.stats}
-              isActive={isActive}
-              displaySize={displaySize}
-              refreshKey={refreshKey}
-            />
-          );
-        }
+
+        return (
+          <LeaderboardSlide
+            key={`slide-${slideData.leaderboard.id}-${refreshKey}`}
+            leaderboard={slideData.leaderboard}
+            stats={slideData.stats}
+            isActive={isActive}
+            displaySize={displaySize}
+            refreshKey={refreshKey}
+          />
+        );
       })}
 
       {currentNotification && (
