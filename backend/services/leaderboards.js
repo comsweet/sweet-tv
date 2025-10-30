@@ -51,7 +51,7 @@ class LeaderboardService {
 
   async addLeaderboard(leaderboard) {
     const leaderboards = await this.getLeaderboards();
-    
+
     const newLeaderboard = {
       id: Date.now().toString(),
       name: leaderboard.name,
@@ -59,24 +59,34 @@ class LeaderboardService {
       timePeriod: leaderboard.timePeriod || 'month',
       customStartDate: leaderboard.customStartDate || null,
       customEndDate: leaderboard.customEndDate || null,
+      visibleColumns: leaderboard.visibleColumns || {
+        sms: true,
+        commission: true,
+        deals: true
+      },
       active: leaderboard.active !== undefined ? leaderboard.active : true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    
+
     leaderboards.push(newLeaderboard);
     await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards }, null, 2));
     console.log(`💾 Saved leaderboard "${newLeaderboard.name}" to persistent disk`);
     return newLeaderboard;
   }
 
+  // Alias for consistency with routes
+  async createLeaderboard(leaderboard) {
+    return await this.addLeaderboard(leaderboard);
+  }
+
   async updateLeaderboard(id, updates) {
     const leaderboards = await this.getLeaderboards();
     const index = leaderboards.findIndex(lb => lb.id === id);
-    
+
     if (index !== -1) {
-      leaderboards[index] = { 
-        ...leaderboards[index], 
+      leaderboards[index] = {
+        ...leaderboards[index],
         ...updates,
         updatedAt: new Date().toISOString()
       };
@@ -84,12 +94,17 @@ class LeaderboardService {
       console.log(`💾 Updated leaderboard "${leaderboards[index].name}" on persistent disk`);
       return leaderboards[index];
     }
-    return null;
+    throw new Error(`Leaderboard with id ${id} not found`);
   }
 
   async deleteLeaderboard(id) {
     const leaderboards = await this.getLeaderboards();
     const filtered = leaderboards.filter(lb => lb.id !== id);
+
+    if (filtered.length === leaderboards.length) {
+      throw new Error(`Leaderboard with id ${id} not found`);
+    }
+
     await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards: filtered }, null, 2));
     console.log(`🗑️  Deleted leaderboard from persistent disk`);
     return true;
