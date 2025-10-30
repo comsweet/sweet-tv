@@ -73,6 +73,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
   const [slideshowForm, setSlideshowForm] = useState({
     name: '',
     type: 'single',
+    slides: [], // ⭐ NYTT
     leaderboards: [],
     duration: 30,
     dualSlides: [],
@@ -450,6 +451,7 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
     setSlideshowForm({
       name: '',
       type: 'single',
+      slides: [], // ⭐ NYTT
       leaderboards: [],
       duration: 30,
       dualSlides: [],
@@ -460,50 +462,58 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
 
   const handleEditSlideshow = (slideshow) => {
     setEditingSlideshow(slideshow);
+    
+    // ⭐ Konvertera gamla formatet till nya om nödvändigt
+    let slides = [];
+    if (slideshow.slides && slideshow.slides.length > 0) {
+      slides = slideshow.slides;
+    } else if (slideshow.leaderboards && slideshow.leaderboards.length > 0) {
+      slides = slideshow.leaderboards.map(lbId => ({
+        leaderboardId: lbId,
+        duration: slideshow.duration || 30
+      }));
+    }
+    
     setSlideshowForm({
       name: slideshow.name,
       type: slideshow.type,
+      slides: slides,
       leaderboards: slideshow.leaderboards || [],
-      duration: slideshow.duration,
+      duration: slideshow.duration || 30,
       dualSlides: slideshow.dualSlides || [],
       active: slideshow.active
     });
     setShowSlideshowModal(true);
   };
 
-  const handleSaveSlideshow = async () => {
+    const handleSaveSlideshow = async () => {
     try {
       if (!slideshowForm.name.trim()) {
         alert('Namn krävs!');
         return;
       }
-
-      if (slideshowForm.type === 'single' && slideshowForm.leaderboards.length === 0) {
-        alert('Välj minst en leaderboard!');
-        return;
-      }
-
-      if (slideshowForm.type === 'dual' && slideshowForm.dualSlides.length === 0) {
-        alert('Lägg till minst en dual slide!');
-        return;
-      }
-
-      if (slideshowForm.type === 'dual') {
-        const invalidSlides = slideshowForm.dualSlides.filter(
-          slide => !slide.left || !slide.right
+  
+      if (slideshowForm.type === 'single') {
+        if (!slideshowForm.slides || slideshowForm.slides.length === 0) {
+          alert('Lägg till minst en slide!');
+          return;
+        }
+        
+        const invalidSlides = slideshowForm.slides.filter(
+          slide => !slide.leaderboardId
         );
         if (invalidSlides.length > 0) {
-          alert('Alla dual slides måste ha både vänster och höger leaderboard!');
+          alert('Alla slides måste ha en leaderboard vald!');
           return;
         }
       }
 
-      if (editingSlideshow) {
+       if (editingSlideshow) {
         await updateSlideshow(editingSlideshow.id, slideshowForm);
       } else {
         await createSlideshow(slideshowForm);
       }
-
+  
       setShowSlideshowModal(false);
       fetchData();
     } catch (error) {
@@ -511,7 +521,6 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
       alert('Fel: ' + error.message);
     }
   };
-
   const handleDeleteSlideshow = async (id) => {
     if (!confirm('Säker på att du vill radera denna slideshow?')) return;
 
@@ -591,6 +600,45 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
         i === index ? { ...slide, [field]: value } : slide
       )
     }));
+  };
+
+  // ⭐ NYA FUNKTIONER FÖR SLIDE MANAGEMENT
+  const handleAddSlideToSingle = () => {
+    setSlideshowForm(prev => ({
+      ...prev,
+      slides: [
+        ...prev.slides,
+        { leaderboardId: null, duration: 30 }
+      ]
+    }));
+  };
+  
+  const handleRemoveSlideFromSingle = (index) => {
+    setSlideshowForm(prev => ({
+      ...prev,
+      slides: prev.slides.filter((_, i) => i !== index)
+    }));
+  };
+  
+  const handleUpdateSlide = (index, field, value) => {
+    setSlideshowForm(prev => ({
+      ...prev,
+      slides: prev.slides.map((slide, i) => 
+        i === index ? { ...slide, [field]: value } : slide
+      )
+    }));
+  };
+  
+  const handleReorderSlide = (index, direction) => {
+    const newSlides = [...slideshowForm.slides];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    if (targetIndex < 0 || targetIndex >= newSlides.length) return;
+    
+    [newSlides[index], newSlides[targetIndex]] = 
+    [newSlides[targetIndex], newSlides[index]];
+    
+    setSlideshowForm(prev => ({ ...prev, slides: newSlides }));
   };
 
   const handleSyncGroups = async () => {
@@ -1246,69 +1294,171 @@ const [isAuthenticated, setIsAuthenticated] = useState(() => {
             </div>
 
             {/* SINGLE MODE */}
-            {slideshowForm.type === 'single' && (
-              <>
-                <div className="form-group">
-                  <label>Duration per leaderboard (sekunder):</label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="300"
-                    value={slideshowForm.duration}
-                    onChange={(e) => setSlideshowForm({ ...slideshowForm, duration: parseInt(e.target.value) })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Välj Leaderboards:</label>
-                  <div className="checkbox-group">
-                    {leaderboards.map(lb => (
-                      <label key={lb.id} className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={slideshowForm.leaderboards.includes(lb.id)}
-                          onChange={() => handleLeaderboardToggle(lb.id)}
-                        />
-                        <span>{lb.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {slideshowForm.leaderboards.length > 0 && (
-                  <div className="form-group">
-                    <label>Ordning (dra för att ändra):</label>
-                    <div className="leaderboard-order-list">
-                      {slideshowForm.leaderboards.map((lbId, index) => {
-                        const lb = leaderboards.find(l => l.id === lbId);
-                        return (
-                          <div key={lbId} className="order-item">
-                            <span className="order-number">{index + 1}.</span>
-                            <span className="order-name">{lb?.name || 'Unknown'}</span>
-                            <div className="order-controls">
-                              <button 
-                                onClick={() => handleReorderLeaderboard(index, 'up')}
-                                disabled={index === 0}
-                                className="btn-icon"
-                              >
-                                ▲
-                              </button>
-                              <button 
-                                onClick={() => handleReorderLeaderboard(index, 'down')}
-                                disabled={index === slideshowForm.leaderboards.length - 1}
-                                className="btn-icon"
-                              >
-                                ▼
-                              </button>
+      {slideshowForm.type === 'single' && (
+        <>
+          <div className="form-group">
+            <label>Fallback Duration (sekunder):</label>
+            <input
+              type="number"
+              min="10"
+              max="300"
+              value={slideshowForm.duration}
+              onChange={(e) => setSlideshowForm({ ...slideshowForm, duration: parseInt(e.target.value) })}
+            />
+            <small style={{ color: '#7f8c8d', display: 'block', marginTop: '0.5rem' }}>
+              Används som standard om ingen slide-specifik duration är satt
+            </small>
+          </div>
+      
+          <div className="form-group">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <label>Slides (Leaderboards med individuella tider):</label>
+              <button 
+                onClick={handleAddSlideToSingle}
+                className="btn-secondary"
+                style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              >
+                ➕ Lägg till slide
+              </button>
+            </div>
+      
+            {slideshowForm.slides.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem', background: '#f8f9fa', borderRadius: '8px' }}>
+                <p style={{ color: '#7f8c8d' }}>Inga slides än. Klicka "Lägg till slide" för att skapa!</p>
+              </div>
+            ) : (
+              <div className="dual-slides-list">
+                {slideshowForm.slides.map((slide, index) => {
+                  const selectedLb = leaderboards.find(lb => lb.id === slide.leaderboardId);
+                  
+                  return (
+                    <div key={index} className="dual-slide-config">
+                      <div className="dual-slide-header">
+                        <h4>Slide {index + 1}</h4>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          {/* Reorder buttons */}
+                          <button 
+                            onClick={() => handleReorderSlide(index, 'up')}
+                            disabled={index === 0}
+                            className="btn-icon"
+                            style={{ 
+                              padding: '0.3rem 0.6rem', 
+                              fontSize: '0.9rem',
+                              opacity: index === 0 ? 0.3 : 1,
+                              cursor: index === 0 ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            ▲
+                          </button>
+                          <button 
+                            onClick={() => handleReorderSlide(index, 'down')}
+                            disabled={index === slideshowForm.slides.length - 1}
+                            className="btn-icon"
+                            style={{ 
+                              padding: '0.3rem 0.6rem', 
+                              fontSize: '0.9rem',
+                              opacity: index === slideshowForm.slides.length - 1 ? 0.3 : 1,
+                              cursor: index === slideshowForm.slides.length - 1 ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            ▼
+                          </button>
+                          {/* Remove button */}
+                          <button 
+                            onClick={() => handleRemoveSlideFromSingle(index)}
+                            className="btn-danger"
+                            style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+      
+                      <div className="dual-slide-selectors">
+                        {/* Leaderboard Selection */}
+                        <div className="dual-selector">
+                          <label>Leaderboard:</label>
+                          <select
+                            value={slide.leaderboardId || ''}
+                            onChange={(e) => handleUpdateSlide(index, 'leaderboardId', e.target.value)}
+                          >
+                            <option value="">Välj leaderboard...</option>
+                            {leaderboards.map(lb => (
+                              <option key={lb.id} value={lb.id}>
+                                {lb.name}
+                              </option>
+                            ))}
+                          </select>
+                          {selectedLb && (
+                            <div className="lb-info">
+                              <span className="info-badge">
+                                {selectedLb.timePeriod === 'day' && '📅 Dag'}
+                                {selectedLb.timePeriod === 'week' && '📅 Vecka'}
+                                {selectedLb.timePeriod === 'month' && '📅 Månad'}
+                                {selectedLb.timePeriod === 'custom' && '📅 Anpassad'}
+                              </span>
+                              <span className="info-badge">
+                                {selectedLb.userGroups?.length === 0 ? 'Alla agenter' : `${selectedLb.userGroups.length} grupper`}
+                              </span>
                             </div>
-                          </div>
-                        );
-                      })}
+                          )}
+                        </div>
+                      </div>
+      
+                      {/* Duration for this slide */}
+                      <div className="dual-duration">
+                        <label>⏱️ Visningstid (sekunder):</label>
+                        <input
+                          type="number"
+                          min="10"
+                          max="600"
+                          value={slide.duration}
+                          onChange={(e) => handleUpdateSlide(index, 'duration', parseInt(e.target.value))}
+                          style={{ width: '150px' }}
+                        />
+                        <small style={{ color: '#7f8c8d', marginLeft: '1rem' }}>
+                          {slide.duration < 60 
+                            ? `${slide.duration} sekunder`
+                            : `${Math.floor(slide.duration / 60)} min ${slide.duration % 60} sek`
+                          }
+                        </small>
+                      </div>
+      
+                      {/* Preview info */}
+                      {selectedLb && (
+                        <div className="dual-slide-info">
+                          <span className="info-label">📊 Preview:</span>
+                          <span className="info-text">
+                            "{selectedLb.name}" visas i {slide.duration} sekunder
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
-              </>
+                  );
+                })}
+              </div>
             )}
+      
+            {/* Total time summary */}
+            {slideshowForm.slides.length > 0 && (
+              <div style={{ 
+                marginTop: '1rem', 
+                padding: '1rem', 
+                background: '#e8f5e9', 
+                borderRadius: '8px',
+                border: '1px solid #4caf50'
+              }}>
+                <strong>📊 Sammanfattning:</strong>
+                <div style={{ marginTop: '0.5rem' }}>
+                  <span>• {slideshowForm.slides.length} slides totalt</span><br/>
+                  <span>• Total tid: {slideshowForm.slides.reduce((sum, s) => sum + (s.duration || 0), 0)} sekunder 
+                    ({Math.floor(slideshowForm.slides.reduce((sum, s) => sum + (s.duration || 0), 0) / 60)} min)</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
             {/* DUAL MODE */}
             {slideshowForm.type === 'dual' && (
