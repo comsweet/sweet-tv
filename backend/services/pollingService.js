@@ -221,12 +221,7 @@ class PollingService {
       const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
       const orderDate = orderDateField?.value || lead.lastUpdatedTime;
       console.log(`📅 Order Date:             ${orderDate}`);
-      
-      // Calculate today's total BEFORE adding this deal
-      const previousTotal = await this.dealsCache.getTodayTotalForAgent(agent.userId);
-      console.log(`\n💰 AGENT'S TODAY TOTAL:`);
-      console.log(`   Before this deal:      ${previousTotal.toFixed(2)} THB`);
-      
+
       // Create deal object
       const deal = {
         leadId: lead.id,
@@ -237,28 +232,35 @@ class PollingService {
         orderDate: orderDate,
         status: lead.status
       };
-      
-      // Add to cache
-      await this.dealsCache.addDeal(deal);
-      
+
+      // ⚡ ATOMIC OPERATION: Add to cache and get previousTotal/newTotal atomically
+      // This prevents race conditions when multiple deals arrive simultaneously
+      const result = await this.dealsCache.addDeal(deal);
+
+      if (!result) {
+        console.log('❌ Deal already in cache or failed to add');
+        return;
+      }
+
+      const { previousTotal, newTotal } = result;
+
+      console.log(`\n💰 AGENT'S TODAY TOTAL (ATOMIC):`);
+      console.log(`   Before this deal:      ${previousTotal.toFixed(2)} THB`);
+      console.log(`   After this deal:       ${newTotal.toFixed(2)} THB`);
+
       // 🔥🔥🔥 CRITICAL: Reset SMS cache so it syncs on next request!
       await this.smsCache.resetLastSync();
       console.log(`📱 Reset SMS cache - will sync on next request`);
-      
+
       // Remove from pending if it was there
       if (this.pendingDeals.has(lead.id)) {
         console.log(`   ✅ Removed from pending queue (commission received)`);
         this.pendingDeals.delete(lead.id);
       }
-      
+
       // Clear leaderboard cache so new stats are recalculated
       this.leaderboardCache.clear();
-      
-      // Calculate new total AFTER adding deal
-      const newTotal = previousTotal + commissionValue;
-      
-      console.log(`   After this deal:       ${newTotal.toFixed(2)} THB`);
-      
+
       // Count multiDeals
       const multiDealsCount = parseInt(multiDeals);
       console.log(`   🎯 Deal count:         ${multiDealsCount} deal(s)`);
