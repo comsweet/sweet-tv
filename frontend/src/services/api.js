@@ -115,4 +115,10 @@ export const updateCampaignBonusTier = (id, data) => api.put(`/campaign-bonus-ti
 export const deleteCampaignBonusTier = (id) => api.delete(`/campaign-bonus-tiers/${id}`);
 export const calculateCampaignBonus = (data) => api.post('/campaign-bonus-tiers/calculate', data);
 
+// Thresholds (Color Coding)
+export const getThresholds = () => api.get('/thresholds');
+export const getThresholdsForPeriod = (timePeriod) => api.get(`/thresholds/${timePeriod}`);
+export const updateThresholds = (timePeriod, data) => api.put(`/thresholds/${timePeriod}`, data);
+export const resetThresholds = () => api.post('/thresholds/reset');
+
 export default api;

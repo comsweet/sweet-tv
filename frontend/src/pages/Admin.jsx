@@ -11,6 +11,7 @@ import AdminSlideshows from '../components/AdminSlideshows';
 import AdminSounds from '../components/AdminSounds';
 import AdminStats from '../components/AdminStats';
 import AdminCampaignBonusTiers from '../components/AdminCampaignBonusTiers';
+import AdminThresholds from '../components/AdminThresholds';
 import NotificationSettingsAdmin from '../components/NotificationSettingsAdmin';
 import './Admin.css';
 
@@ -166,6 +167,12 @@ const Admin = () => {
           💰 Kampanjbonus
         </button>
         <button
+          className={`tab ${activeTab === 'thresholds' ? 'active' : ''}`}
+          onClick={() => setActiveTab('thresholds')}
+        >
+          🎨 Tröskelvärden
+        </button>
+        <button
           className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}
         >
@@ -184,6 +191,7 @@ const Admin = () => {
         {activeTab === 'notifications' && <NotificationSettingsAdmin />}
         {activeTab === 'stats' && <AdminStats />}
         {activeTab === 'campaignBonus' && <AdminCampaignBonusTiers />}
+        {activeTab === 'thresholds' && <AdminThresholds />}
         {activeTab === 'settings' && <AdminAutoRefreshSettings />}
       </div>
     </div>

@@ -487,6 +487,14 @@
   font-size: 1.2rem;
 }
 
+.slideshow-campaign-bonus.bonus-black {
+  color: #2c3e50;
+}
+
+.slideshow-campaign-bonus.bonus-red {
+  color: #e74c3c;
+}
+
 /* User Group Badge - NORMAL */
 .user-group-badge {
   margin-left: 0.5rem;
