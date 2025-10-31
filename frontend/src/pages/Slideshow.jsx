@@ -324,6 +324,59 @@ const Slideshow = () => {
     }
   };
 
+  // ⚡ NEW: Optimistic update from Socket.io event (instant!)
+  const applyOptimisticUpdate = (notification) => {
+    console.log('\n⚡ ═══════════════════════════════════════════');
+    console.log('⚡ applyOptimisticUpdate - Instant leaderboard update');
+    console.log(`⏰ Time: ${new Date().toLocaleTimeString()}`);
+
+    if (!notification || !notification.agent) {
+      console.log('❌ No notification data');
+      return;
+    }
+
+    const userId = notification.agent.userId || notification.agent.id;
+    const newCommission = parseFloat(notification.commission || 0);
+    const multiDeals = parseInt(notification.multiDeals || '1');
+
+    console.log(`💰 Agent ${userId} (${notification.agent.name}): +${newCommission} THB, +${multiDeals} deals`);
+
+    // Update all leaderboards in slideshow
+    setLeaderboardsData(prevData => {
+      return prevData.map(leaderboardSlide => {
+        const stats = [...leaderboardSlide.stats];
+
+        // Find agent in this leaderboard
+        const agentIndex = stats.findIndex(s => String(s.userId) === String(userId));
+
+        if (agentIndex === -1) {
+          console.log(`  ℹ️ Agent ${userId} not in this leaderboard - skipping`);
+          return leaderboardSlide;
+        }
+
+        // Update agent's stats optimistically
+        stats[agentIndex] = {
+          ...stats[agentIndex],
+          totalCommission: (stats[agentIndex].totalCommission || 0) + newCommission,
+          dealCount: (stats[agentIndex].dealCount || 0) + multiDeals
+        };
+
+        console.log(`  ✅ Updated ${notification.agent.name}: ${stats[agentIndex].totalCommission} THB, ${stats[agentIndex].dealCount} deals`);
+
+        // Re-sort by commission (this makes agents jump up/down in ranking instantly!)
+        stats.sort((a, b) => b.totalCommission - a.totalCommission);
+
+        return {
+          ...leaderboardSlide,
+          stats: stats
+        };
+      });
+    });
+
+    console.log('⚡ Optimistic update complete - stats updated INSTANTLY!');
+    console.log('═══════════════════════════════════════════\n');
+  };
+
   const fetchSlideshowData = async (silent = false) => {
     console.log('\n🔥 ═══════════════════════════════════════════');
     console.log(`🔥 fetchSlideshowData CALLED! silent=${silent}`);
@@ -437,9 +490,14 @@ const Slideshow = () => {
 
     const handleNewDeal = (notification) => {
       if (notification && notification.agent && notification.agent.name) {
+        // Show popup notification
         setCurrentNotification(notification);
 
-        // Refresh kommer triggas automatiskt från handleNotificationComplete efter konfigurerbar delay!
+        // ⚡ INSTANT UPDATE: Apply optimistic update immediately using Socket.io data
+        applyOptimisticUpdate(notification);
+
+        // Full refresh kommer triggas automatiskt från handleNotificationComplete efter konfigurerbar delay
+        // Detta säkerställer att vi har korrekt data (SMS stats etc.) efter den optimistiska uppdateringen
       }
     };
 
