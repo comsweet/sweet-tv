@@ -64,8 +64,8 @@ class DealsCache {
     while (this.writeQueue.length > 0) {
       const operation = this.writeQueue.shift();
       try {
-        await operation.execute();
-        operation.resolve();
+        const result = await operation.execute();
+        operation.resolve(result);  // 🔥 CRITICAL FIX: Propagate return value!
       } catch (error) {
         console.error('❌ Queue operation failed:', error);
         operation.reject(error);
