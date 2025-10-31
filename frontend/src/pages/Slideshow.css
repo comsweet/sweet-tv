@@ -2,7 +2,7 @@
 
 .slideshow-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: linear-gradient(135deg, #005A9C 0%, #003d6b 100%);
   position: relative;
   overflow: hidden;
 }
@@ -94,7 +94,7 @@
 }
 
 .tv-size-btn.active {
-  background: #667eea;
+  background: #00B2E3;
   border-color: white;
   font-weight: bold;
 }
@@ -128,7 +128,7 @@
 
 .slideshow-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(90deg, #00B2E3 0%, #005A9C 100%);
   transition: width 0.1s linear;
 }
 
@@ -263,13 +263,13 @@
 }
 
 @keyframes autoScroll {
-  0%, 3% {
+  0%, 1% {
     transform: translateY(0);
   }
-  48%, 52% {
+  49%, 51% {
     transform: translateY(var(--scroll-distance, 0));
   }
-  97%, 100% {
+  99%, 100% {
     transform: translateY(0);
   }
 }
@@ -331,7 +331,7 @@
   height: 45px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid rgba(102, 126, 234, 0.3);
+  border: 2px solid rgba(0, 178, 227, 0.3);
   flex-shrink: 0;
 }
 
@@ -339,7 +339,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   color: white;
   font-size: 1.1rem;
   font-weight: bold;
