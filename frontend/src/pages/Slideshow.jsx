@@ -366,9 +366,19 @@ const Slideshow = () => {
         // Re-sort by commission (this makes agents jump up/down in ranking instantly!)
         stats.sort((a, b) => b.totalCommission - a.totalCommission);
 
+        // 🔥 CRITICAL: Create completely new objects to force React re-render
+        // This ensures that even if agents switch positions (like #2 becoming #1),
+        // React will detect the change and re-render the frozen #1 section
+        const refreshedStats = stats.map(stat => ({...stat}));
+
+        // Log the new #1 to verify ranking changed
+        if (refreshedStats.length > 0) {
+          console.log(`  🥇 New #1: ${refreshedStats[0].agent?.name} with ${refreshedStats[0].totalCommission} THB`);
+        }
+
         return {
           ...leaderboardSlide,
-          stats: stats
+          stats: refreshedStats
         };
       });
     });
