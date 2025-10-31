@@ -100,9 +100,9 @@ class DealsCache {
   }
 
   async getCache() {
-    // ⚡ Return in-memory cache if available (always up-to-date, no race condition)
+    // ⚡ Return COPY of in-memory cache if available (prevents reference issues)
     if (this.inMemoryCache !== null) {
-      return this.inMemoryCache;
+      return [...this.inMemoryCache];  // Return a copy, not the same reference!
     }
 
     // Otherwise, read from disk and populate in-memory cache
@@ -110,7 +110,7 @@ class DealsCache {
       const data = await fs.readFile(this.cacheFile, 'utf8');
       const parsed = JSON.parse(data);
       this.inMemoryCache = parsed.deals || [];
-      return this.inMemoryCache;
+      return [...this.inMemoryCache];  // Return a copy
     } catch (error) {
       if (error.code === 'ENOENT') {
         console.log('📝 No cache file found, starting fresh');
@@ -138,12 +138,10 @@ class DealsCache {
 
   async _saveCache(deals) {
     try {
-      // ⚡ Update in-memory cache FIRST (synchronous, no race condition)
-      this.inMemoryCache = deals;
-
-      // Then write to disk asynchronously (for persistence)
+      // Write to disk for persistence
+      // NOTE: Do NOT update in-memory cache here - it's already updated in addDeal()/saveCache()
       await fs.writeFile(this.cacheFile, JSON.stringify({ deals }, null, 2));
-      console.log(`💾 Saved ${deals.length} deals to cache (disk + memory)`);
+      console.log(`💾 Saved ${deals.length} deals to disk`);
     } catch (error) {
       console.error('Error saving cache:', error);
       throw error;
