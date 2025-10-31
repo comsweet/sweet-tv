@@ -1,0 +1,325 @@
+/* ==================== ADMIN AGENTS - COMPACT TABLE LAYOUT ==================== */
+
+.admin-agents-compact {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Header */
+.agents-header {
+  margin-bottom: 1.5rem;
+}
+
+.agents-header h2 {
+  margin: 0 0 1rem;
+  color: #2c3e50;
+  font-size: 1.3rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 250px;
+  padding: 0.6rem 1rem;
+  border: 2px solid #e1e8ed;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.search-input::placeholder {
+  color: #adb5bd;
+}
+
+.btn-primary {
+  padding: 0.7rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Sync Message */
+.sync-message {
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+}
+
+.sync-message.success {
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.sync-message.error {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+/* No Agents */
+.no-agents {
+  text-align: center;
+  padding: 3rem;
+  color: #7f8c8d;
+  font-size: 1rem;
+}
+
+/* Table */
+.agents-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.agents-table thead {
+  background: #f8f9fa;
+  border-bottom: 2px solid #e1e8ed;
+}
+
+.agents-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #2c3e50;
+  white-space: nowrap;
+}
+
+.agents-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e1e8ed;
+  vertical-align: middle;
+}
+
+.agents-table tbody tr {
+  transition: background 0.2s ease;
+}
+
+.agents-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+/* Avatar Cell */
+.avatar-cell {
+  text-align: center;
+}
+
+.agent-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e9ecef;
+}
+
+.agent-avatar-placeholder {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0 auto;
+}
+
+/* Name Cell */
+.name-cell strong {
+  display: block;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.user-id {
+  display: block;
+  color: #adb5bd;
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+}
+
+/* Email Cell */
+.email-cell {
+  color: #495057;
+}
+
+.no-data {
+  color: #adb5bd;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+/* Group Cell */
+.group-cell {
+  text-align: center;
+}
+
+.group-badge {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  background: #d1ecf1;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0c5460;
+}
+
+.no-group {
+  color: #e74c3c;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Actions Cell */
+.actions-cell {
+  text-align: center;
+}
+
+.action-btn {
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: #f8f9fa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  margin: 0 0.2rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn:hover {
+  transform: scale(1.1);
+}
+
+.action-btn.upload {
+  background: #667eea;
+  color: white;
+}
+
+.action-btn.upload:hover {
+  background: #5568d3;
+  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+}
+
+.action-btn.delete {
+  background: #fee;
+}
+
+.action-btn.delete:hover {
+  background: #e74c3c;
+  box-shadow: 0 3px 10px rgba(231, 76, 60, 0.3);
+}
+
+.action-btn.link {
+  background: #d4edda;
+}
+
+.action-btn.link:hover {
+  background: #28a745;
+  color: white;
+  box-shadow: 0 3px 10px rgba(40, 167, 69, 0.3);
+}
+
+/* Loading */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  font-size: 1.2rem;
+  color: #7f8c8d;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-agents-compact {
+    padding: 1rem;
+  }
+
+  .agents-table {
+    font-size: 0.85rem;
+  }
+
+  .agents-table th,
+  .agents-table td {
+    padding: 0.5rem;
+  }
+
+  /* Hide email on mobile */
+  .agents-table th:nth-child(3),
+  .agents-table td:nth-child(3) {
+    display: none;
+  }
+
+  .agent-avatar,
+  .agent-avatar-placeholder {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  .action-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .agents-table {
+    font-size: 0.8rem;
+  }
+
+  /* Hide group on very small screens */
+  .agents-table th:nth-child(4),
+  .agents-table td:nth-child(4) {
+    display: none;
+  }
+}

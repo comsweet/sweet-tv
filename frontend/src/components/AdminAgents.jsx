@@ -8,6 +8,7 @@ import {
   getAdversusUsers
 } from '../services/api';
 import axios from 'axios';
+import './AdminAgents.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -17,6 +18,7 @@ const AdminAgents = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncingGroups, setIsSyncingGroups] = useState(false);
   const [syncGroupsMessage, setSyncGroupsMessage] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchAgents();
@@ -156,21 +158,45 @@ const AdminAgents = () => {
     }
   };
 
+  // Filter agents by search query
+  const getFilteredAgents = () => {
+    if (!searchQuery.trim()) return agents;
+
+    const query = searchQuery.toLowerCase();
+    return agents.filter(agent =>
+      agent.name.toLowerCase().includes(query) ||
+      agent.email?.toLowerCase().includes(query) ||
+      agent.groupName?.toLowerCase().includes(query) ||
+      String(agent.userId).includes(query)
+    );
+  };
+
+  const filteredAgents = getFilteredAgents();
+
   if (isLoading) {
     return <div className="loading">Laddar agenter...</div>;
   }
 
   return (
-    <div className="agents-section">
-      <div className="section-header">
-        <h2>Agenter från Adversus ({agents.length})</h2>
-        <button
-          onClick={handleSyncGroups}
-          className="btn-primary"
-          disabled={isSyncingGroups}
-        >
-          {isSyncingGroups ? '⏳ Synkar...' : '🔄 Synka Groups'}
-        </button>
+    <div className="admin-agents-compact">
+      <div className="agents-header">
+        <h2>👤 Agenter från Adversus ({filteredAgents.length}{filteredAgents.length !== agents.length ? ` av ${agents.length}` : ''})</h2>
+        <div className="header-actions">
+          <input
+            type="text"
+            placeholder="🔍 Sök agent, email, grupp..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+          <button
+            onClick={handleSyncGroups}
+            className="btn-primary"
+            disabled={isSyncingGroups}
+          >
+            {isSyncingGroups ? '⏳ Synkar...' : '🔄 Synka Groups'}
+          </button>
+        </div>
       </div>
 
       {syncGroupsMessage && (
@@ -179,63 +205,81 @@ const AdminAgents = () => {
         </div>
       )}
 
-      <div className="agents-list">
-        {agents.map(agent => (
-          <div key={agent.userId} className="agent-list-item">
-            {agent.profileImage ? (
-              <img src={agent.profileImage} alt={agent.name} className="agent-list-avatar" />
-            ) : (
-              <div className="agent-list-avatar-placeholder">
-                {agent.name?.charAt(0) || '?'}
-              </div>
-            )}
+      {filteredAgents.length === 0 ? (
+        <div className="no-agents">
+          {searchQuery ? `Inga agenter hittades för "${searchQuery}"` : 'Inga agenter hittades'}
+        </div>
+      ) : (
+        <table className="agents-table">
+          <thead>
+            <tr>
+              <th style={{ width: '80px' }}>Bild</th>
+              <th>Namn</th>
+              <th>Email</th>
+              <th>Grupp</th>
+              <th style={{ width: '150px' }}>Åtgärder</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredAgents.map(agent => (
+              <tr key={agent.userId}>
+                <td className="avatar-cell">
+                  {agent.profileImage ? (
+                    <img src={agent.profileImage} alt={agent.name} className="agent-avatar" />
+                  ) : (
+                    <div className="agent-avatar-placeholder">
+                      {agent.name?.charAt(0) || '?'}
+                    </div>
+                  )}
+                </td>
+                <td className="name-cell">
+                  <strong>{agent.name}</strong>
+                  <span className="user-id">#{agent.userId}</span>
+                </td>
+                <td className="email-cell">
+                  {agent.email || <span className="no-data">Ingen email</span>}
+                </td>
+                <td className="group-cell">
+                  {agent.groupId ? (
+                    <span className="group-badge">{agent.groupName || `Group ${agent.groupId}`}</span>
+                  ) : (
+                    <span className="no-group">⚠️ Ingen grupp</span>
+                  )}
+                </td>
+                <td className="actions-cell">
+                  <label className="action-btn upload" title="Ladda upp bild">
+                    📸
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png"
+                      onChange={(e) => handleImageUpload(agent.userId, e)}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
 
-            <div className="agent-list-info">
-              <h3 className="agent-list-name">{agent.name}</h3>
-              <div className="agent-list-meta">
-                <span>🆔 {agent.userId}</span>
-                {agent.email && <span>📧 {agent.email}</span>}
-                {agent.groupId && (
-                  <span>👥 {agent.groupName || `Group ${agent.groupId}`}</span>
-                )}
-                {!agent.groupId && (
-                  <span style={{ color: '#e74c3c' }}>⚠️ No group</span>
-                )}
-              </div>
-            </div>
+                  {agent.profileImage && (
+                    <button
+                      className="action-btn delete"
+                      onClick={() => handleDeleteImage(agent.userId, agent.name)}
+                      title="Ta bort profilbild"
+                    >
+                      🗑️
+                    </button>
+                  )}
 
-            <div className="agent-list-actions">
-              <label className="action-button" title="Ladda upp bild">
-                📸
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload(agent.userId, e)}
-                  style={{ display: 'none' }}
-                />
-              </label>
-
-              {agent.profileImage && (
-                <button
-                  className="action-button danger"
-                  onClick={() => handleDeleteImage(agent.userId, agent.name)}
-                  title="Ta bort profilbild"
-                >
-                  🗑️
-                </button>
-              )}
-
-              <button
-                className="action-button primary"
-                onClick={() => handleCreateUploadLink(agent.userId, agent.name)}
-                title="Skapa upload-länk (1h)"
-              >
-                🔗
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+                  <button
+                    className="action-btn link"
+                    onClick={() => handleCreateUploadLink(agent.userId, agent.name)}
+                    title="Skapa upload-länk (1h)"
+                  >
+                    🔗
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 };

@@ -140,8 +140,8 @@ router.post('/:userId/create-upload-token', async (req, res) => {
       { expiresIn: '1h' }
     );
 
-    // Create upload URL
-    const uploadUrl = `${req.protocol}://${req.get('host')}/upload/${token}`;
+    // Create upload URL (with hash for HashRouter)
+    const uploadUrl = `${req.protocol}://${req.get('host')}/#/upload/${token}`;
 
     res.json({
       token,
