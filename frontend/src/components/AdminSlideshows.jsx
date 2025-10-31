@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSlideshows } from '../hooks/useSlideshows';
 import { getLeaderboards } from '../services/api';
+import './AdminSlideshows.css';
 
 const AdminSlideshows = () => {
   const {
@@ -71,7 +72,6 @@ const AdminSlideshows = () => {
   };
 
   const getSlideshowUrl = (id) => {
-    // Use hash-based routing (HashRouter requires #)
     return `${window.location.origin}/#/slideshow/${id}`;
   };
 
@@ -82,7 +82,6 @@ const AdminSlideshows = () => {
   };
 
   const handleOpenSlideshow = (id) => {
-    // Use hash-based routing for consistency
     window.open(`/#/slideshow/${id}`, '_blank');
   };
 
@@ -91,87 +90,94 @@ const AdminSlideshows = () => {
   }
 
   return (
-    <div className="slideshows-section">
-      <div className="section-header">
-        <h2>Slideshows ({slideshows.length})</h2>
+    <div className="admin-slideshows-compact">
+      <div className="slideshows-header">
+        <h2>📺 Slideshows ({slideshows.length})</h2>
         <button onClick={openAddModal} className="btn-primary">
           ➕ Skapa Slideshow
         </button>
       </div>
 
-      <div className="slideshows-list">
-        {slideshows.map(ss => {
-          const totalDuration = getTotalSlideshowDuration(ss);
+      {slideshows.length === 0 ? (
+        <div className="no-slideshows">
+          Inga slideshows skapade än. Klicka på "Skapa Slideshow" för att komma igång!
+        </div>
+      ) : (
+        <table className="slideshows-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Namn</th>
+              <th>Slides</th>
+              <th>Total tid</th>
+              <th>URL</th>
+              <th>Åtgärder</th>
+            </tr>
+          </thead>
+          <tbody>
+            {slideshows.map(ss => {
+              const totalDuration = getTotalSlideshowDuration(ss);
+              const slideCount = ss.slides?.length || ss.leaderboards?.length || 0;
 
-          return (
-            <div key={ss.id} className="slideshow-card">
-              <div className="slideshow-card-header">
-                <div className="slideshow-name-container">
-                  <h3>{ss.name}</h3>
-                  <div className="slideshow-status">
-                    <label className="toggle-switch">
+              return (
+                <tr key={ss.id} className={ss.active ? 'row-active' : 'row-inactive'}>
+                  <td className="status-cell">
+                    <label className="toggle-switch-compact">
                       <input
                         type="checkbox"
                         checked={ss.active}
                         onChange={() => toggleSlideshowActive(ss)}
                       />
-                      <span className="toggle-slider"></span>
+                      <span className="toggle-slider-compact"></span>
                     </label>
-                    <span className={ss.active ? 'status-active' : 'status-inactive'}>
-                      {ss.active ? 'Aktiv' : 'Inaktiv'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="slideshow-card-body">
-                <div className="slideshow-info">
-                  <span className="info-label">Slides:</span>
-                  <span className="info-value">
-                    {ss.slides?.length || ss.leaderboards?.length || 0}
-                  </span>
-                </div>
-                <div className="slideshow-info">
-                  <span className="info-label">⏱️ Total tid:</span>
-                  <span className="info-value">{formatDuration(totalDuration)}</span>
-                </div>
-
-                <div className="slideshow-info slideshow-url-info">
-                  <span className="info-label">🔗 URL:</span>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: 1 }}>
-                    <input
-                      type="text"
-                      value={getSlideshowUrl(ss.id)}
-                      readOnly
-                      className="slideshow-url-input"
-                      onClick={(e) => e.target.select()}
-                    />
+                  </td>
+                  <td className="name-cell">
+                    <strong>{ss.name}</strong>
+                  </td>
+                  <td className="slides-cell">
+                    <span className="slides-count">{slideCount}</span>
+                  </td>
+                  <td className="duration-cell">
+                    <span className="duration-badge">{formatDuration(totalDuration)}</span>
+                  </td>
+                  <td className="url-cell">
                     <button
                       onClick={() => handleCopySlideshowUrl(ss.id)}
-                      className="btn-icon"
+                      className="btn-copy"
                       title="Kopiera URL"
                     >
                       📋
                     </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="slideshow-card-footer">
-                <button onClick={() => handleOpenSlideshow(ss.id)} className="btn-primary">
-                  🚀 Öppna
-                </button>
-                <button onClick={() => openEditModal(ss)} className="btn-secondary">
-                  ✏️ Redigera
-                </button>
-                <button onClick={() => handleDelete(ss.id)} className="btn-danger">
-                  🗑️ Ta bort
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                  </td>
+                  <td className="actions-cell">
+                    <button
+                      onClick={() => handleOpenSlideshow(ss.id)}
+                      className="btn-open"
+                      title="Öppna"
+                    >
+                      🚀
+                    </button>
+                    <button
+                      onClick={() => openEditModal(ss)}
+                      className="btn-edit"
+                      title="Redigera"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => handleDelete(ss.id)}
+                      className="btn-delete"
+                      title="Ta bort"
+                    >
+                      🗑️
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
 
       {/* MODAL */}
       {showModal && (

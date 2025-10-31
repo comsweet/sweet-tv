@@ -178,35 +178,53 @@ class DealsCache {
   }
 
   async addDeal(deal) {
-    // ⚡ INSTANT UPDATE: Update in-memory cache IMMEDIATELY (before queueWrite)
-    // This prevents race conditions where getTodayTotalForAgent() is called
-    // before writeQueue has processed
-    const allDeals = await this.getCache();
-
-    const exists = allDeals.find(d => d.leadId === deal.leadId);
-    if (exists) {
-      console.log('Deal already in cache, skipping:', deal.leadId);
-      return null;
-    }
-
-    const newDeal = {
-      leadId: deal.leadId,
-      userId: deal.userId,
-      campaignId: deal.campaignId,
-      commission: parseFloat(deal.commission),
-      multiDeals: deal.multiDeals || '0',
-      orderDate: deal.orderDate,
-      status: deal.status,
-      syncedAt: new Date().toISOString()
-    };
-
-    // ⚡ Update in-memory cache SYNCHRONOUSLY
-    allDeals.push(newDeal);
-    this.inMemoryCache = allDeals;
-    console.log(`⚡ In-memory cache updated instantly with deal ${deal.leadId}`);
-
-    // Then queue the disk write (async, for persistence)
+    // ⚡ CRITICAL: Entire operation must be ATOMIC to prevent race conditions
+    // Queue this operation so only ONE addDeal runs at a time
+    // Also calculate previousTotal INSIDE the queue for atomicity
     return this.queueWrite(async () => {
+      // Read current cache state INSIDE the queue (atomic read)
+      const allDeals = await this.getCache();
+
+      const exists = allDeals.find(d => d.leadId === deal.leadId);
+      if (exists) {
+        console.log('Deal already in cache, skipping:', deal.leadId);
+        return null;
+      }
+
+      // Calculate previousTotal ATOMICALLY (before adding this deal)
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+      const todayDeals = allDeals.filter(d => {
+        const dealDate = new Date(d.orderDate);
+        return dealDate >= startOfDay &&
+               dealDate <= endOfDay &&
+               String(d.userId) === String(deal.userId);
+      });
+
+      const previousTotal = todayDeals.reduce((sum, d) => sum + parseFloat(d.commission || 0), 0);
+
+      const newDeal = {
+        leadId: deal.leadId,
+        userId: deal.userId,
+        campaignId: deal.campaignId,
+        commission: parseFloat(deal.commission),
+        multiDeals: deal.multiDeals || '0',
+        orderDate: deal.orderDate,
+        status: deal.status,
+        syncedAt: new Date().toISOString()
+      };
+
+      // Update in-memory cache (atomic write)
+      allDeals.push(newDeal);
+      this.inMemoryCache = allDeals;
+
+      const newTotal = previousTotal + newDeal.commission;
+
+      console.log(`⚡ [ATOMIC] Deal ${deal.leadId} added: ${previousTotal.toFixed(2)} → ${newTotal.toFixed(2)} THB`);
+
+      // Write to disk for persistence
       await this._saveCache(allDeals);
 
       // 🔥🔥🔥 CRITICAL: Flag to PREVENT sync (use cache instead!)
@@ -219,9 +237,15 @@ class DealsCache {
           this.needsImmediateSync = false;
         }
       }, 60000);
-      
+
       console.log(`💾 Added deal ${newDeal.leadId} to cache (needsImmediateSync = true for 60s)`);
-      return newDeal;
+
+      // Return both the deal and the totals for atomic operation
+      return {
+        deal: newDeal,
+        previousTotal,
+        newTotal
+      };
     });
   }
 

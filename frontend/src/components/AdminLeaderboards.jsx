@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLeaderboards } from '../hooks/useLeaderboards';
 import { getAvailableGroups } from '../services/api';
 import { useState } from 'react';
+import './AdminLeaderboards.css';
 
 const AdminLeaderboards = () => {
   const {
@@ -58,82 +59,100 @@ const AdminLeaderboards = () => {
     }
   };
 
+  const getPeriodLabel = (timePeriod) => {
+    const labels = {
+      day: 'Dag',
+      week: 'Vecka',
+      month: 'Månad',
+      custom: 'Anpassad'
+    };
+    return labels[timePeriod] || timePeriod;
+  };
+
+  const getVisibleColumnsLabel = (visibleColumns) => {
+    const cols = [];
+    if (visibleColumns.deals) cols.push('🎯');
+    if (visibleColumns.sms) cols.push('📱');
+    if (visibleColumns.commission) cols.push('💰');
+    return cols.length > 0 ? cols.join(' ') : '-';
+  };
+
   if (isLoading) {
     return <div className="loading">Laddar leaderboards...</div>;
   }
 
   return (
-    <div className="leaderboards-section">
-      <div className="section-header">
-        <h2>Leaderboards ({leaderboards.length})</h2>
+    <div className="admin-leaderboards-compact">
+      <div className="leaderboards-header">
+        <h2>📊 Leaderboards ({leaderboards.length})</h2>
         <button onClick={openAddModal} className="btn-primary">
           ➕ Skapa Leaderboard
         </button>
       </div>
 
-      <div className="leaderboards-list">
-        {leaderboards.map(lb => (
-          <div key={lb.id} className="leaderboard-card">
-            <div className="leaderboard-card-header">
-              <h3>{lb.name}</h3>
-              <div className="leaderboard-status">
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={lb.active}
-                    onChange={() => toggleLeaderboardActive(lb)}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-                <span className={lb.active ? 'status-active' : 'status-inactive'}>
-                  {lb.active ? 'Aktiv' : 'Inaktiv'}
-                </span>
-              </div>
-            </div>
-
-            <div className="leaderboard-card-body">
-              <div className="leaderboard-info">
-                <span className="info-label">Period:</span>
-                <span className="info-value">
-                  {lb.timePeriod === 'day' && 'Dag'}
-                  {lb.timePeriod === 'week' && 'Vecka'}
-                  {lb.timePeriod === 'month' && 'Månad'}
-                  {lb.timePeriod === 'custom' && 'Anpassad'}
-                </span>
-              </div>
-
-              <div className="leaderboard-info">
-                <span className="info-label">User Groups:</span>
-                <span className="info-value">
-                  {lb.userGroups?.length === 0 ? 'Alla agenter' : `${lb.userGroups.length} grupper`}
-                </span>
-              </div>
-
-              {lb.timePeriod === 'custom' && (
-                <>
-                  <div className="leaderboard-info">
-                    <span className="info-label">Start:</span>
-                    <span className="info-value">{lb.customStartDate}</span>
-                  </div>
-                  <div className="leaderboard-info">
-                    <span className="info-label">Slut:</span>
-                    <span className="info-value">{lb.customEndDate}</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="leaderboard-card-footer">
-              <button onClick={() => openEditModal(lb)} className="btn-secondary">
-                ✏️ Redigera
-              </button>
-              <button onClick={() => handleDelete(lb.id)} className="btn-danger">
-                🗑️ Ta bort
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      {leaderboards.length === 0 ? (
+        <div className="no-leaderboards">
+          Inga leaderboards skapade än. Klicka på "Skapa Leaderboard" för att komma igång!
+        </div>
+      ) : (
+        <table className="leaderboards-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Namn</th>
+              <th>Period</th>
+              <th>Grupper</th>
+              <th>Kolumner</th>
+              <th>Åtgärder</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leaderboards.map(lb => (
+              <tr key={lb.id} className={lb.active ? 'row-active' : 'row-inactive'}>
+                <td className="status-cell">
+                  <label className="toggle-switch-compact">
+                    <input
+                      type="checkbox"
+                      checked={lb.active}
+                      onChange={() => toggleLeaderboardActive(lb)}
+                    />
+                    <span className="toggle-slider-compact"></span>
+                  </label>
+                </td>
+                <td className="name-cell">
+                  <strong>{lb.name}</strong>
+                  {lb.timePeriod === 'custom' && (
+                    <div className="date-range">
+                      {lb.customStartDate} → {lb.customEndDate}
+                    </div>
+                  )}
+                </td>
+                <td className="period-cell">
+                  <span className="period-badge">{getPeriodLabel(lb.timePeriod)}</span>
+                </td>
+                <td className="groups-cell">
+                  {lb.userGroups?.length === 0 ? (
+                    <span className="groups-all">Alla agenter</span>
+                  ) : (
+                    <span className="groups-count">{lb.userGroups.length} grupper</span>
+                  )}
+                </td>
+                <td className="columns-cell">
+                  <span className="columns-icons">{getVisibleColumnsLabel(lb.visibleColumns)}</span>
+                </td>
+                <td className="actions-cell">
+                  <button onClick={() => openEditModal(lb)} className="btn-edit" title="Redigera">
+                    ✏️
+                  </button>
+                  <button onClick={() => handleDelete(lb.id)} className="btn-delete" title="Ta bort">
+                    🗑️
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       {/* MODAL */}
       {showModal && (
