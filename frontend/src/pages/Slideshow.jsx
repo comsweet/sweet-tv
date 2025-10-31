@@ -520,33 +520,44 @@ const Slideshow = () => {
   useEffect(() => {
     if (leaderboardsData.length === 0 || !slideshow) return;
 
+    // 🔥 FIX: Only run on mount and when data changes, NOT when currentIndex changes
+    if (leaderboardsData.length <= 1) {
+      console.log('⏭️  Only 1 slide, no rotation needed');
+      return;
+    }
+
     const currentSlide = leaderboardsData[currentIndex];
-    
+
     // ⭐ UPPDATERAT: Använd slide-specifik duration om den finns
     const duration = (currentSlide?.duration || slideshow.duration || 15) * 1000;
-    
-    console.log(`⏱️  Slide ${currentIndex + 1} duration: ${duration / 1000}s`);
-    
+
+    console.log(`⏱️  Slide ${currentIndex + 1}/${leaderboardsData.length} - duration: ${duration / 1000}s`);
+
     setProgress(0);
-    
+
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
     }
-    
+
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
-    
+
     progressIntervalRef.current = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) return 0;
         return prev + (100 / (duration / 100));
       });
     }, 100);
-    
+
     intervalRef.current = setInterval(() => {
+      console.log(`⏰ Interval fired! Switching from slide ${currentIndex + 1} to next slide`);
       setProgress(0);
-      setCurrentIndex((prev) => (prev + 1) % leaderboardsData.length);
+      setCurrentIndex((prev) => {
+        const next = (prev + 1) % leaderboardsData.length;
+        console.log(`   ↪️  Next index: ${next + 1}/${leaderboardsData.length}`);
+        return next;
+      });
     }, duration);
 
     return () => {
@@ -557,7 +568,7 @@ const Slideshow = () => {
         clearInterval(progressIntervalRef.current);
       }
     };
-  }, [leaderboardsData, slideshow, currentIndex]);
+  }, [leaderboardsData.length, slideshow, currentIndex]);  // 🔥 Use .length instead of full array!
 
   const handleNotificationComplete = () => {
     console.log('🎉 Notification complete - checking auto-refresh settings...');
