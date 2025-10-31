@@ -480,11 +480,11 @@ const Slideshow = () => {
   useEffect(() => {
     fetchSlideshowData();
 
-    // 🔄 Regular refresh every 2 minutes (silent, preserves scroll)
+    // 🔄 Regular refresh every 20 seconds (silent, preserves scroll)
     refreshIntervalRef.current = setInterval(() => {
-      console.log('⏰ 2-minute interval - refreshing stats silently');
+      console.log('⏰ 20-second interval - refreshing stats silently');
       refreshStatsOnly();
-    }, 2 * 60 * 1000);
+    }, 20 * 1000);
 
     socketService.connect();
 

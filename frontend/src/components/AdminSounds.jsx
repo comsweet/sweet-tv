@@ -27,6 +27,7 @@ const AdminSounds = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [playingSound, setPlayingSound] = useState(null);
   const [expandedRows, setExpandedRows] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -290,6 +291,39 @@ const AdminSounds = () => {
     }
   };
 
+  // Helper: Get agent initials
+  const getAgentInitials = (name) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 3); // Max 3 letters
+  };
+
+  // Helper: Filter sounds by search query
+  const getFilteredSounds = () => {
+    if (!searchQuery.trim()) return sounds;
+
+    const query = searchQuery.toLowerCase();
+    return sounds.filter(sound => {
+      // Search in sound name
+      if (sound.name.toLowerCase().includes(query)) return true;
+
+      // Search in linked agent names
+      if (sound.linkedAgents && sound.linkedAgents.length > 0) {
+        return sound.linkedAgents.some(userId => {
+          const agent = agents.find(a => String(a.userId) === String(userId));
+          return agent && agent.name.toLowerCase().includes(query);
+        });
+      }
+
+      return false;
+    });
+  };
+
+  const filteredSounds = getFilteredSounds();
+
   if (isLoading) {
     return <div className="loading">Laddar ljud...</div>;
   }
@@ -370,10 +404,21 @@ const AdminSounds = () => {
 
       {/* Table Section - Compact */}
       <div className="sounds-table-section">
-        <h3>🎵 Ljudbibliotek ({sounds.length})</h3>
+        <div className="table-header">
+          <h3>🎵 Ljudbibliotek ({filteredSounds.length}{filteredSounds.length !== sounds.length ? ` av ${sounds.length}` : ''})</h3>
+          <input
+            type="text"
+            placeholder="🔍 Sök ljud eller agent..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
 
-        {sounds.length === 0 ? (
-          <div className="no-sounds">Inga ljud uppladdade än</div>
+        {filteredSounds.length === 0 ? (
+          <div className="no-sounds">
+            {searchQuery ? `Inga ljud hittades för "${searchQuery}"` : 'Inga ljud uppladdade än'}
+          </div>
         ) : (
           <table className="sounds-table">
             <thead>
@@ -382,12 +427,12 @@ const AdminSounds = () => {
                 <th>Namn</th>
                 <th style={{ width: '80px' }}>Längd</th>
                 <th style={{ width: '100px' }}>Typ</th>
-                <th style={{ width: '100px' }}>Agenter</th>
+                <th style={{ width: '150px' }}>Kopplade agenter</th>
                 <th style={{ width: '120px' }}>Åtgärder</th>
               </tr>
             </thead>
             <tbody>
-              {sounds.map(sound => {
+              {filteredSounds.map(sound => {
                 const isDefault = settings.defaultSound === sound.url;
                 const isMilestone = settings.milestoneSound === sound.url;
                 const isPlaying = playingSound === sound.url;
@@ -418,7 +463,27 @@ const AdminSounds = () => {
                         {!isDefault && !isMilestone && <span className="badge badge-none">-</span>}
                       </td>
                       <td className="sound-agents">
-                        <span className="agent-count">{linkedCount}</span>
+                        {linkedCount === 0 ? (
+                          <span className="no-agents-text">Inga agenter</span>
+                        ) : (
+                          <div className="agent-initials-list">
+                            {sound.linkedAgents.slice(0, 3).map(userId => {
+                              const agent = agents.find(a => String(a.userId) === String(userId));
+                              if (!agent) return null;
+                              const initials = getAgentInitials(agent.name);
+                              return (
+                                <span key={userId} className="agent-initial" title={agent.name}>
+                                  {initials}
+                                </span>
+                              );
+                            })}
+                            {linkedCount > 3 && (
+                              <span className="agent-more" title={`${linkedCount - 3} fler agenter`}>
+                                +{linkedCount - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="sound-actions">
                         <button

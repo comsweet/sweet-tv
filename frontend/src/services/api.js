@@ -23,6 +23,18 @@ export const uploadProfileImage = (userId, file) => {
     }
   });
 };
+export const deleteProfileImage = (userId) => api.delete(`/agents/${userId}/profile-image`);
+export const createUploadToken = (userId) => api.post(`/agents/${userId}/create-upload-token`);
+export const uploadWithToken = (token, file) => {
+  const formData = new FormData();
+  formData.append('token', token);
+  formData.append('image', file);
+  return api.post('/agents/upload-with-token', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};
 
 // Stats
 export const getLeaderboardStats = (startDate, endDate) => 
