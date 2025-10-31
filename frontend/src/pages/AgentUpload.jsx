@@ -15,10 +15,19 @@ const AgentUpload = () => {
   useEffect(() => {
     // Decode JWT to get agent name (without verification - just for display)
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const base64 = token.split('.')[1];
+      // Properly decode UTF-8 characters (handles ÅÄÖ)
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const payload = JSON.parse(jsonPayload);
       setAgentName(payload.agentName || 'Agent');
       setIsLoading(false);
     } catch (err) {
+      console.error('Token decode error:', err);
       setError('Ogiltig länk');
       setIsLoading(false);
     }
