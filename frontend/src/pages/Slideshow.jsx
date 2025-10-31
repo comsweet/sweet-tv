@@ -6,7 +6,7 @@ console.log('🔥🔥🔥 SLIDESHOW.JSX LOADED - VERSION: INDIVIDUAL-DURATION');
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
-import { getSlideshow, getLeaderboardStats2, getAutoRefreshSettings } from '../services/api';
+import { getSlideshow, getLeaderboardStats2, getAutoRefreshSettings, getThresholdsForPeriod } from '../services/api';
 import DealNotification from '../components/DealNotification';
 import '../components/DealNotification.css';
 import './Slideshow.css';
@@ -66,6 +66,25 @@ const TVSizeControl = ({ currentSize, onSizeChange }) => {
 const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKey }) => {
   const scrollContainerRef = useRef(null);
   const scrollContentRef = useRef(null);
+  const [thresholds, setThresholds] = useState(null);
+
+  // Fetch thresholds when leaderboard changes
+  useEffect(() => {
+    const fetchThresholds = async () => {
+      try {
+        const response = await getThresholdsForPeriod(leaderboard.timePeriod || 'day');
+        setThresholds(response.data);
+      } catch (error) {
+        console.error('Error fetching thresholds:', error);
+        // Use defaults if fetch fails
+        setThresholds({
+          total: { green: leaderboard.timePeriod === 'day' ? 3000 : leaderboard.timePeriod === 'week' ? 15000 : 50000 },
+          sms: { green: 75, orange: 60 }
+        });
+      }
+    };
+    fetchThresholds();
+  }, [leaderboard.timePeriod]);
 
   useEffect(() => {
     if (!isActive || stats.length <= 1) return;
@@ -118,23 +137,31 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
     return labels[period] || period;
   };
 
-  const getCommissionClass = (commission, timePeriod) => {
+  // Color functions using dynamic thresholds
+  const getCommissionClass = (commission) => {
+    if (!thresholds) return 'zero';
     if (!commission || commission === 0) return 'zero';
-    if (timePeriod === 'day') return commission < 3400 ? 'low' : 'high';
-    if (timePeriod === 'week') return commission < 18000 ? 'low' : 'high';
-    return commission < 50000 ? 'low' : 'high';
+    if (commission >= thresholds.total.green) return 'high';
+    return 'low';
   };
 
   const getSMSBoxClass = (successRate) => {
-    if (successRate >= 75) return 'sms-green';
-    if (successRate >= 60) return 'sms-orange';
+    if (!thresholds) return 'sms-red';
+    if (successRate >= thresholds.sms.green) return 'sms-green';
+    if (successRate >= thresholds.sms.orange) return 'sms-orange';
     return 'sms-red';
   };
 
   const getTotalClass = (total) => {
+    if (!thresholds) return 'total-red';
     if (total === 0) return 'total-red';
-    if (total >= 50000) return 'total-green';
+    if (total >= thresholds.total.green) return 'total-green';
     return 'total-orange';
+  };
+
+  const getCampaignBonusClass = (bonus) => {
+    if (!bonus || bonus === 0) return 'bonus-red';
+    return 'bonus-black';
   };
 
   const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
@@ -222,14 +249,14 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
 
       case 'commission':
         return (
-          <div key="commission" className={`slideshow-commission ${getCommissionClass(item.totalCommission || 0, leaderboard.timePeriod)}`}>
+          <div key="commission" className={`slideshow-commission ${getCommissionClass(item.totalCommission || 0)}`}>
             {(item.totalCommission || 0).toLocaleString('sv-SE')} THB
           </div>
         );
 
       case 'campaignBonus':
         return (
-          <div key="campaignBonus" className="slideshow-campaign-bonus">
+          <div key="campaignBonus" className={`slideshow-campaign-bonus ${getCampaignBonusClass(item.campaignBonus || 0)}`}>
             <span className="emoji">💰</span>
             <span>{(item.campaignBonus || 0).toLocaleString('sv-SE')} THB</span>
           </div>
