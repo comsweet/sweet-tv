@@ -170,6 +170,31 @@ router.get('/:id/stats', async (req, res) => {
       stats[userId].dealCount += multiDealsValue;
     });
 
+    // 🔥 ADD ALL AGENTS FROM SELECTED USER GROUPS (even with 0 deals)
+    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
+      const normalizedGroups = leaderboard.userGroups.map(g => String(g));
+
+      // Find all users in selected groups
+      const usersInSelectedGroups = adversusUsers.filter(u => {
+        if (!u.group || !u.group.id) return false;
+        const userGroupId = String(u.group.id);
+        return normalizedGroups.includes(userGroupId);
+      });
+
+      // Add any missing users with 0 deals
+      usersInSelectedGroups.forEach(user => {
+        const userId = String(user.id);
+        if (!stats[userId]) {
+          stats[userId] = {
+            userId: userId,
+            totalCommission: 0,
+            dealCount: 0
+          };
+          console.log(`  ➕ Added agent ${user.name || userId} with 0 deals from group ${user.group.id}`);
+        }
+      });
+    }
+
     // Build complete stats array with SMS and bonus tier data
     const statsArray = await Promise.all(
       Object.values(stats).map(async (stat) => {

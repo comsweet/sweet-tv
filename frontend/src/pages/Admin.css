@@ -6,7 +6,7 @@
 
 .admin-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   padding: 2rem;
 }
 
@@ -80,7 +80,7 @@
 }
 
 .admin-tabs button.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   color: white;
 }
 
@@ -120,13 +120,13 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   color: white;
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 178, 227, 0.4);
 }
 
 .btn-primary:disabled {
@@ -221,8 +221,8 @@
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #00B2E3;
+  box-shadow: 0 0 0 3px rgba(0, 178, 227, 0.1);
 }
 
 .checkbox-label {
@@ -332,8 +332,8 @@
 }
 
 .dual-slide-config:hover {
-  border-color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+  border-color: #00B2E3;
+  box-shadow: 0 4px 12px rgba(0, 178, 227, 0.1);
 }
 
 /* Slide header with title and buttons */
@@ -384,8 +384,8 @@
 
 .dual-selector select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #00B2E3;
+  box-shadow: 0 0 0 3px rgba(0, 178, 227, 0.1);
 }
 
 /* 🔥 CRITICAL: Duration input section */
@@ -416,8 +416,8 @@
 
 .dual-duration input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #00B2E3;
+  box-shadow: 0 0 0 3px rgba(0, 178, 227, 0.1);
 }
 
 .dual-duration small {
@@ -434,8 +434,8 @@
 }
 
 .info-badge {
-  background: #f0f4ff;
-  color: #667eea;
+  background: #e6f3f9;
+  color: #005A9C;
   padding: 0.4rem 0.8rem;
   border-radius: 6px;
   font-size: 0.85rem;
@@ -487,8 +487,8 @@
 
 .leaderboard-card:hover,
 .slideshow-card:hover {
-  border-color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  border-color: #00B2E3;
+  box-shadow: 0 4px 12px rgba(0, 178, 227, 0.15);
   transform: translateY(-2px);
 }
 
@@ -649,8 +649,8 @@ input:checked + .toggle-slider:before {
 }
 
 .group-card:hover {
-  border-color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  border-color: #00B2E3;
+  box-shadow: 0 4px 12px rgba(0, 178, 227, 0.15);
   transform: translateY(-2px);
 }
 
@@ -695,7 +695,7 @@ input:checked + .toggle-slider:before {
 .stat-value {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #667eea;
+  color: #005A9C;
 }
 
 .stat-label {
@@ -792,7 +792,7 @@ input:checked + .toggle-slider:before {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   color: white;
   font-weight: bold;
 }
