@@ -107,4 +107,12 @@ export const getAutoRefreshSettings = () => api.get('/auto-refresh/settings');
 export const updateAutoRefreshSettings = (data) => api.post('/auto-refresh/settings', data);
 export const resetAutoRefreshSettings = () => api.post('/auto-refresh/settings/reset');
 
+// Campaign Bonus Tiers
+export const getCampaignBonusTiers = () => api.get('/campaign-bonus-tiers');
+export const getCampaignBonusTier = (id) => api.get(`/campaign-bonus-tiers/${id}`);
+export const createCampaignBonusTier = (data) => api.post('/campaign-bonus-tiers', data);
+export const updateCampaignBonusTier = (id, data) => api.put(`/campaign-bonus-tiers/${id}`, data);
+export const deleteCampaignBonusTier = (id) => api.delete(`/campaign-bonus-tiers/${id}`);
+export const calculateCampaignBonus = (data) => api.post('/campaign-bonus-tiers/calculate', data);
+
 export default api;

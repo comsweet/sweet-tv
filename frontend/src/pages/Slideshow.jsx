@@ -201,6 +201,13 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
             {(item.totalCommission || 0).toLocaleString('sv-SE')} THB
           </div>
         )}
+
+        {leaderboard.visibleColumns?.campaignBonus !== false && (
+          <div className="slideshow-campaign-bonus">
+            <span className="emoji">💰</span>
+            <span>{(item.campaignBonus || 0).toLocaleString('sv-SE')} THB</span>
+          </div>
+        )}
       </div>
     );
   };

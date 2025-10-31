@@ -10,6 +10,7 @@ import AdminLeaderboards from '../components/AdminLeaderboards';
 import AdminSlideshows from '../components/AdminSlideshows';
 import AdminSounds from '../components/AdminSounds';
 import AdminStats from '../components/AdminStats';
+import AdminCampaignBonusTiers from '../components/AdminCampaignBonusTiers';
 import NotificationSettingsAdmin from '../components/NotificationSettingsAdmin';
 import './Admin.css';
 
@@ -159,6 +160,12 @@ const Admin = () => {
           📊 Statistik
         </button>
         <button
+          className={`tab ${activeTab === 'campaignBonus' ? 'active' : ''}`}
+          onClick={() => setActiveTab('campaignBonus')}
+        >
+          💰 Kampanjbonus
+        </button>
+        <button
           className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}
         >
@@ -176,6 +183,7 @@ const Admin = () => {
         {activeTab === 'sounds' && <AdminSounds />}
         {activeTab === 'notifications' && <NotificationSettingsAdmin />}
         {activeTab === 'stats' && <AdminStats />}
+        {activeTab === 'campaignBonus' && <AdminCampaignBonusTiers />}
         {activeTab === 'settings' && <AdminAutoRefreshSettings />}
       </div>
     </div>
