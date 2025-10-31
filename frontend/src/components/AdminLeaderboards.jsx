@@ -74,6 +74,7 @@ const AdminLeaderboards = () => {
     if (visibleColumns.deals) cols.push('🎯');
     if (visibleColumns.sms) cols.push('📱');
     if (visibleColumns.commission) cols.push('💰');
+    if (visibleColumns.campaignBonus) cols.push('💸');
     return cols.length > 0 ? cols.join(' ') : '-';
   };
 
@@ -246,6 +247,14 @@ const AdminLeaderboards = () => {
                     onChange={() => toggleColumn('commission')}
                   />
                   <span>💰 Provision</span>
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.visibleColumns.campaignBonus}
+                    onChange={() => toggleColumn('campaignBonus')}
+                  />
+                  <span>💸 Kampanjbonus</span>
                 </label>
               </div>
             </div>

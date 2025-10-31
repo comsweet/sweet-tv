@@ -470,6 +470,23 @@
   font-weight: bold;
 }
 
+/* Campaign Bonus - NORMAL */
+.slideshow-campaign-bonus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1.15rem;
+  font-weight: bold;
+  color: #f39c12;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.slideshow-campaign-bonus .emoji {
+  font-size: 1.2rem;
+}
+
 /* ==================================================
    SIZE MODE: COMPACT
    ================================================== */
@@ -535,6 +552,15 @@
 
 .size-compact .slideshow-commission {
   font-size: 0.95rem;
+}
+
+.size-compact .slideshow-campaign-bonus {
+  font-size: 0.95rem;
+  gap: 0.4rem;
+}
+
+.size-compact .slideshow-campaign-bonus .emoji {
+  font-size: 1rem;
 }
 
 /* ==================================================
@@ -604,6 +630,15 @@
   font-size: 1.4rem;
 }
 
+.size-large .slideshow-campaign-bonus {
+  font-size: 1.4rem;
+  gap: 0.6rem;
+}
+
+.size-large .slideshow-campaign-bonus .emoji {
+  font-size: 1.5rem;
+}
+
 /* ==================================================
    SIZE MODE: EXTRA LARGE
    ================================================== */
@@ -669,6 +704,15 @@
 
 .size-xlarge .slideshow-commission {
   font-size: 1.75rem;
+}
+
+.size-xlarge .slideshow-campaign-bonus {
+  font-size: 1.75rem;
+  gap: 0.7rem;
+}
+
+.size-xlarge .slideshow-campaign-bonus .emoji {
+  font-size: 1.9rem;
 }
 
 /* Animations */
