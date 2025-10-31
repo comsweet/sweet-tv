@@ -131,6 +131,12 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
     return 'sms-red';
   };
 
+  const getTotalClass = (total) => {
+    if (total === 0) return 'total-red';
+    if (total >= 50000) return 'total-green';
+    return 'total-orange';
+  };
+
   const totalDeals = stats.reduce((sum, stat) => sum + (stat.dealCount || 0), 0);
 
   // Separera #1 från resten
@@ -174,19 +180,37 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
         <div className="slideshow-info">
           <h3 className={`slideshow-name ${isZeroDeals ? 'zero-deals' : ''}`}>
             {item.agent ? item.agent.name : 'Unknown'}
+            {item.agent && item.agent.groupName && (
+              <span className="user-group-badge">[{item.agent.groupName}]</span>
+            )}
           </h3>
         </div>
 
-        {/* Conditional rendering based on visibleColumns */}
-        {leaderboard.visibleColumns?.deals !== false && (
-          <div className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
+        {/* Render columns in configured order */}
+        {renderColumnsInOrder(item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate)}
+      </div>
+    );
+  };
+
+  // Function to render a specific column
+  const renderColumn = (columnName, item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate) => {
+    // Check if column is visible
+    if (leaderboard.visibleColumns?.[columnName] === false) {
+      return null;
+    }
+
+    switch (columnName) {
+      case 'deals':
+        return (
+          <div key="deals" className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
             <span className="emoji">🎯</span>
             <span>{item.dealCount || 0} affärer</span>
           </div>
-        )}
+        );
 
-        {leaderboard.visibleColumns?.sms !== false && (
-          <div className={`slideshow-sms-box ${getSMSBoxClass(smsSuccessRate)}`}>
+      case 'sms':
+        return (
+          <div key="sms" className={`slideshow-sms-box ${getSMSBoxClass(smsSuccessRate)}`}>
             <div className="sms-rate">
               {smsSuccessRate.toFixed(2)}%
             </div>
@@ -194,21 +218,41 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
               ({uniqueSMS} SMS)
             </div>
           </div>
-        )}
+        );
 
-        {leaderboard.visibleColumns?.commission !== false && (
-          <div className={`slideshow-commission ${getCommissionClass(item.totalCommission || 0, leaderboard.timePeriod)}`}>
+      case 'commission':
+        return (
+          <div key="commission" className={`slideshow-commission ${getCommissionClass(item.totalCommission || 0, leaderboard.timePeriod)}`}>
             {(item.totalCommission || 0).toLocaleString('sv-SE')} THB
           </div>
-        )}
+        );
 
-        {leaderboard.visibleColumns?.campaignBonus !== false && (
-          <div className="slideshow-campaign-bonus">
+      case 'campaignBonus':
+        return (
+          <div key="campaignBonus" className="slideshow-campaign-bonus">
             <span className="emoji">💰</span>
             <span>{(item.campaignBonus || 0).toLocaleString('sv-SE')} THB</span>
           </div>
-        )}
-      </div>
+        );
+
+      case 'total':
+        return (
+          <div key="total" className={`slideshow-total ${getTotalClass((item.totalCommission || 0) + (item.campaignBonus || 0))}`}>
+            <span className="emoji">💎</span>
+            <span>{((item.totalCommission || 0) + (item.campaignBonus || 0)).toLocaleString('sv-SE')} THB</span>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // Function to render columns in configured order
+  const renderColumnsInOrder = (item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate) => {
+    const columnOrder = leaderboard.columnOrder || ['deals', 'sms', 'commission', 'campaignBonus', 'total'];
+    return columnOrder.map(columnName =>
+      renderColumn(columnName, item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate)
     );
   };
 

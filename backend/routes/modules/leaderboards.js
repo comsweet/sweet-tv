@@ -323,7 +323,8 @@ router.get('/:id/stats', async (req, res) => {
             userId: stat.userId,
             name: agentName,
             email: adversusUser?.email || '',
-            profileImage: localAgent?.profileImage || null
+            profileImage: localAgent?.profileImage || null,
+            groupName: adversusUser?.group?.name || null
           }
         };
       })

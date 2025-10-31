@@ -19,6 +19,7 @@ const AdminLeaderboards = () => {
     toggleLeaderboardActive,
     toggleGroup,
     toggleColumn,
+    moveColumn,
     closeModal
   } = useLeaderboards();
 
@@ -75,6 +76,7 @@ const AdminLeaderboards = () => {
     if (visibleColumns.sms) cols.push('📱');
     if (visibleColumns.commission) cols.push('💰');
     if (visibleColumns.campaignBonus) cols.push('💸');
+    if (visibleColumns.total) cols.push('💎');
     return cols.length > 0 ? cols.join(' ') : '-';
   };
 
@@ -256,7 +258,59 @@ const AdminLeaderboards = () => {
                   />
                   <span>💸 Kampanjbonus</span>
                 </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.visibleColumns.total}
+                    onChange={() => toggleColumn('total')}
+                  />
+                  <span>💎 Total (Provision + Bonus)</span>
+                </label>
               </div>
+            </div>
+
+            {/* Column Order */}
+            <div className="form-group">
+              <label>Kolumnordning (Rank & Agent alltid först):</label>
+              <div className="column-order-list">
+                {form.columnOrder.map((colName, index) => {
+                  const columnLabels = {
+                    deals: '🎯 Affärer',
+                    sms: '📱 SMS',
+                    commission: '💰 Provision',
+                    campaignBonus: '💸 Kampanjbonus',
+                    total: '💎 Total'
+                  };
+
+                  return (
+                    <div key={colName} className="column-order-item">
+                      <span className="column-position">#{index + 1}</span>
+                      <span className="column-name">{columnLabels[colName]}</span>
+                      <div className="column-order-controls">
+                        <button
+                          type="button"
+                          className="btn-move"
+                          onClick={() => moveColumn(colName, 'up')}
+                          disabled={index === 0}
+                          title="Flytta upp"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-move"
+                          onClick={() => moveColumn(colName, 'down')}
+                          disabled={index === form.columnOrder.length - 1}
+                          title="Flytta ner"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <small>Använd pilarna för att ändra ordningen som kolumnerna visas på slideshow.</small>
             </div>
 
             <div className="form-group">
