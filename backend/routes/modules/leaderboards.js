@@ -6,7 +6,8 @@ const leaderboardService = require('../../services/leaderboards');
 const dealsCache = require('../../services/dealsCache');
 const smsCache = require('../../services/smsCache');
 const leaderboardCache = require('../../services/leaderboardCache');
-const bonusTiers = require('../../services/bonusTiers');
+const campaignCache = require('../../services/campaignCache');
+const campaignBonusTiers = require('../../services/campaignBonusTiers');
 
 // ==================== LEADERBOARDS ====================
 
@@ -195,7 +196,98 @@ router.get('/:id/stats', async (req, res) => {
       });
     }
 
-    // Build complete stats array with SMS and bonus tier data
+    // ==================== CAMPAIGN BONUS CALCULATION ====================
+    // Beräkna campaign bonus per agent, per dag, per kampanj-grupp
+    console.log(`💰 Calculating campaign bonus for ${Object.keys(stats).length} agents...`);
+
+    const campaignBonusPerAgent = {};
+
+    // Gruppera deals per agent
+    for (const deal of cachedDeals) {
+      const userId = String(deal.userId);
+
+      // Skip if not in filtered leads
+      if (!stats[userId]) continue;
+
+      if (!campaignBonusPerAgent[userId]) {
+        campaignBonusPerAgent[userId] = {};
+      }
+
+      // Get campaign group
+      let campaignGroup = 'Unknown';
+      try {
+        const campaignInfo = await campaignCache.getCampaignInfo(deal.campaignId, adversusAPI);
+        campaignGroup = campaignInfo.group;
+      } catch (error) {
+        console.error(`⚠️ Failed to get campaign group for ${deal.campaignId}:`, error.message);
+      }
+
+      // Extract date (YYYY-MM-DD) from orderDate
+      const dealDate = new Date(deal.orderDate).toISOString().split('T')[0];
+
+      // Initialize structure: agent -> date -> campaignGroup -> deals[]
+      if (!campaignBonusPerAgent[userId][dealDate]) {
+        campaignBonusPerAgent[userId][dealDate] = {};
+      }
+
+      if (!campaignBonusPerAgent[userId][dealDate][campaignGroup]) {
+        campaignBonusPerAgent[userId][dealDate][campaignGroup] = {
+          deals: [],
+          totalDeals: 0
+        };
+      }
+
+      // Add deal
+      const multiDeals = parseInt(deal.multiDeals || '1');
+      campaignBonusPerAgent[userId][dealDate][campaignGroup].deals.push({
+        leadId: deal.leadId,
+        multiDeals: multiDeals,
+        commission: deal.commission
+      });
+      campaignBonusPerAgent[userId][dealDate][campaignGroup].totalDeals += multiDeals;
+    }
+
+    // Calculate bonus for each agent
+    for (const userId in campaignBonusPerAgent) {
+      let totalBonus = 0;
+      const bonusDetails = [];
+
+      for (const date in campaignBonusPerAgent[userId]) {
+        for (const campaignGroup in campaignBonusPerAgent[userId][date]) {
+          const groupData = campaignBonusPerAgent[userId][date][campaignGroup];
+          const dealsCount = groupData.totalDeals;
+
+          // Calculate bonus for this group on this date
+          const bonus = campaignBonusTiers.calculateBonusForDeals(campaignGroup, dealsCount);
+
+          if (bonus > 0) {
+            totalBonus += bonus;
+            bonusDetails.push({
+              date,
+              campaignGroup,
+              deals: dealsCount,
+              bonus
+            });
+          }
+        }
+      }
+
+      // Add to stats
+      stats[userId].campaignBonus = totalBonus;
+      stats[userId].campaignBonusDetails = bonusDetails;
+    }
+
+    // Ensure all agents have campaignBonus field (even if 0)
+    for (const userId in stats) {
+      if (!stats[userId].campaignBonus) {
+        stats[userId].campaignBonus = 0;
+        stats[userId].campaignBonusDetails = [];
+      }
+    }
+
+    console.log(`✅ Campaign bonus calculated for ${Object.keys(campaignBonusPerAgent).length} agents`);
+
+    // Build complete stats array with SMS and campaign bonus data
     const statsArray = await Promise.all(
       Object.values(stats).map(async (stat) => {
         const adversusUser = adversusUsers.find(u => String(u.id) === String(stat.userId));
@@ -218,25 +310,14 @@ router.get('/:id/stats', async (req, res) => {
           console.error(`⚠️ Failed to get SMS stats for user ${stat.userId}:`, error.message);
         }
 
-        // Calculate bonus tier
-        const bonusTierInfo = bonusTiers.calculateTierForCommission(stat.totalCommission || 0);
-
         return {
           userId: stat.userId,
           dealCount: stat.dealCount || 0,
           totalCommission: stat.totalCommission || 0,
           uniqueSMS: smsData.uniqueSMS || 0,
           smsSuccessRate: smsData.successRate || 0,
-          bonusTier: {
-            name: bonusTierInfo.name,
-            threshold: bonusTierInfo.threshold,
-            bonus: bonusTierInfo.bonus,
-            color: bonusTierInfo.color,
-            icon: bonusTierInfo.icon,
-            nextTier: bonusTierInfo.nextTier ? bonusTierInfo.nextTier.name : null,
-            progressToNext: bonusTierInfo.progressToNext,
-            remainingToNext: bonusTierInfo.remainingToNext
-          },
+          campaignBonus: stat.campaignBonus || 0,
+          campaignBonusDetails: stat.campaignBonusDetails || [],
           agent: {
             id: stat.userId,
             userId: stat.userId,
