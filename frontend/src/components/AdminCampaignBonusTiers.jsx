@@ -14,8 +14,7 @@ const AdminCampaignBonusTiers = () => {
     enabled: true,
     tiers: [
       { deals: 3, bonusPerDeal: 300 }
-    ],
-    maxDeals: 8
+    ]
   });
 
   useEffect(() => {
@@ -41,8 +40,7 @@ const AdminCampaignBonusTiers = () => {
       enabled: true,
       tiers: [
         { deals: 3, bonusPerDeal: 300 }
-      ],
-      maxDeals: 8
+      ]
     });
     setShowCreateForm(true);
   };
@@ -52,8 +50,7 @@ const AdminCampaignBonusTiers = () => {
     setFormData({
       campaignGroup: tier.campaignGroup,
       enabled: tier.enabled,
-      tiers: [...tier.tiers],
-      maxDeals: tier.maxDeals
+      tiers: [...tier.tiers]
     });
     setShowCreateForm(true);
   };
@@ -150,8 +147,8 @@ const AdminCampaignBonusTiers = () => {
         <ul>
           <li>Bonus beräknas per kampanj-grupp, per dag</li>
           <li>Retroaktiv bonus: När agent når nästa nivå får de högre bonus för ALLA deals den dagen</li>
-          <li>Exempel: Om trappan är [3→300, 4→350] och agent gör 4 deals får de 4×350 = 1400 THB</li>
-          <li>Max deals sätter en gräns för hur många deals som räknas</li>
+          <li>Exempel: Om trappan är [3→300, 4→350, 8→500] och agent gör 4 deals får de 4×350 = 1400 THB</li>
+          <li>Efter sista tier fortsätter bonusen: 10 deals med tier 8→500 = 10×500 = 5000 THB</li>
         </ul>
       </div>
 
@@ -202,10 +199,6 @@ const AdminCampaignBonusTiers = () => {
                     </tbody>
                   </table>
                 </div>
-
-                <div className="tier-max">
-                  <strong>Max deals per dag:</strong> {tier.maxDeals}
-                </div>
               </div>
             </div>
           ))
@@ -238,16 +231,6 @@ const AdminCampaignBonusTiers = () => {
                 />
                 Aktiverad
               </label>
-            </div>
-
-            <div className="form-group">
-              <label>Max Deals per Dag *</label>
-              <input
-                type="number"
-                value={formData.maxDeals}
-                onChange={(e) => setFormData({ ...formData, maxDeals: parseInt(e.target.value) || 0 })}
-                min="1"
-              />
             </div>
 
             <div className="form-group">

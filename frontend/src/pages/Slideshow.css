@@ -282,7 +282,7 @@
 /* NORMAL Leaderboard items (default) */
 .slideshow-item {
   display: grid;
-  grid-template-columns: 45px 45px 1fr 120px 110px 140px;
+  grid-template-columns: 45px 45px 1fr 120px 110px 140px 140px;
   align-items: center;
   gap: 0.7rem;
   padding: 0.5rem 1rem;
@@ -510,7 +510,7 @@
 .size-compact .slideshow-item {
   padding: 0.35rem 0.7rem;
   margin-bottom: 0.35rem;
-  grid-template-columns: 35px 38px 1fr 95px 95px 120px;
+  grid-template-columns: 35px 38px 1fr 95px 95px 120px 120px;
   gap: 0.5rem;
 }
 
@@ -586,7 +586,7 @@
 .size-large .slideshow-item {
   padding: 0.7rem 1.3rem;
   margin-bottom: 0.7rem;
-  grid-template-columns: 55px 60px 1fr 145px 135px 170px;
+  grid-template-columns: 55px 60px 1fr 145px 135px 170px 170px;
   gap: 1rem;
 }
 
@@ -662,7 +662,7 @@
 .size-xlarge .slideshow-item {
   padding: 1rem 1.6rem;
   margin-bottom: 1rem;
-  grid-template-columns: 70px 75px 1fr 170px 160px 200px;
+  grid-template-columns: 70px 75px 1fr 170px 160px 200px 200px;
   gap: 1.3rem;
 }
 
@@ -764,7 +764,7 @@
   }
   
   .slideshow-item {
-    grid-template-columns: 40px 40px 1fr 100px 90px 120px;
+    grid-template-columns: 40px 40px 1fr 100px 90px 120px 120px;
     gap: 0.5rem;
     font-size: 0.9rem;
   }
