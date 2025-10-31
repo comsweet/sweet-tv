@@ -23,8 +23,11 @@ export const useLeaderboards = () => {
     visibleColumns: {
       sms: true,
       commission: true,
-      deals: true
-    }
+      deals: true,
+      campaignBonus: true,
+      total: true
+    },
+    columnOrder: ['deals', 'sms', 'commission', 'campaignBonus', 'total']
   });
 
   const fetchLeaderboards = async () => {
@@ -49,8 +52,11 @@ export const useLeaderboards = () => {
       visibleColumns: {
         sms: true,
         commission: true,
-        deals: true
-      }
+        deals: true,
+        campaignBonus: true,
+        total: true
+      },
+      columnOrder: ['deals', 'sms', 'commission', 'campaignBonus', 'total']
     });
     setShowModal(true);
   };
@@ -67,8 +73,11 @@ export const useLeaderboards = () => {
       visibleColumns: leaderboard.visibleColumns || {
         sms: true,
         commission: true,
-        deals: true
-      }
+        deals: true,
+        campaignBonus: true,
+        total: true
+      },
+      columnOrder: leaderboard.columnOrder || ['deals', 'sms', 'commission', 'campaignBonus', 'total']
     });
     setShowModal(true);
   };
@@ -140,6 +149,30 @@ export const useLeaderboards = () => {
     }));
   };
 
+  const moveColumn = (columnName, direction) => {
+    setForm(prev => {
+      const currentOrder = [...prev.columnOrder];
+      const currentIndex = currentOrder.indexOf(columnName);
+
+      if (currentIndex === -1) return prev;
+
+      if (direction === 'up' && currentIndex > 0) {
+        // Swap with previous
+        [currentOrder[currentIndex - 1], currentOrder[currentIndex]] =
+        [currentOrder[currentIndex], currentOrder[currentIndex - 1]];
+      } else if (direction === 'down' && currentIndex < currentOrder.length - 1) {
+        // Swap with next
+        [currentOrder[currentIndex], currentOrder[currentIndex + 1]] =
+        [currentOrder[currentIndex + 1], currentOrder[currentIndex]];
+      }
+
+      return {
+        ...prev,
+        columnOrder: currentOrder
+      };
+    });
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setEditingLeaderboard(null);
@@ -159,6 +192,7 @@ export const useLeaderboards = () => {
     toggleLeaderboardActive,
     toggleGroup,
     toggleColumn,
+    moveColumn,
     closeModal
   };
 };
