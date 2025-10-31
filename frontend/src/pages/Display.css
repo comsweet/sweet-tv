@@ -289,46 +289,61 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.5rem;
-  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
   font-weight: bold;
-  min-width: 100px;
+  min-width: 110px;
+  min-height: 50px;
+  border: 3px solid;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  justify-content: center;
+}
+
+.sms-box-display:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
 .sms-rate {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .sms-count {
-  font-size: 0.85rem;
-  color: #000;
-  font-weight: bold;
-  margin-top: 2px;
+  font-size: 0.9rem;
+  color: #2c3e50;
+  font-weight: 700;
+  margin-top: 3px;
 }
 
 /* SMS färgkodning */
 .sms-box-display.sms-green {
-  background-color: #d4edda;
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.3) 0%, rgba(39, 174, 96, 0.25) 100%);
+  border-color: #27ae60;
 }
 
 .sms-box-display.sms-green .sms-rate {
-  color: #155724;
+  color: #1e8449;
 }
 
 .sms-box-display.sms-orange {
-  background-color: #fff3cd;
+  background: linear-gradient(135deg, rgba(243, 156, 18, 0.35) 0%, rgba(230, 126, 34, 0.3) 100%);
+  border-color: #e67e22;
 }
 
 .sms-box-display.sms-orange .sms-rate {
-  color: #856404;
+  color: #d35400;
 }
 
 .sms-box-display.sms-red {
-  background-color: #f8d7da;
+  background: linear-gradient(135deg, rgba(231, 76, 60, 0.35) 0%, rgba(192, 57, 43, 0.3) 100%);
+  border-color: #c0392b;
 }
 
 .sms-box-display.sms-red .sms-rate {
-  color: #721c24;
+  color: #a93226;
 }
 
 /* Commission Display */
