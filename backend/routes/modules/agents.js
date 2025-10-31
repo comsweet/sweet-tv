@@ -4,6 +4,10 @@ const adversusAPI = require('../../services/adversusAPI');
 const database = require('../../services/database');
 const multer = require('multer');
 const { cloudinary, imageStorage } = require('../../config/cloudinary');
+const jwt = require('jsonwebtoken');
+
+// JWT Secret - I produktion: använd environment variable!
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Multer upload med Cloudinary (max 5MB)
 const upload = multer({
@@ -73,6 +77,124 @@ router.post('/:userId/profile-image', upload.single('image'), async (req, res) =
     res.json({ imageUrl });
   } catch (error) {
     console.error('Error uploading profile image:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🔐 Delete profile image
+router.delete('/:userId/profile-image', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+
+    // Get agent to find old image URL
+    const agents = await database.getAgents();
+    const agent = agents.find(a => a.userId === userId);
+
+    if (agent && agent.profileImage && agent.profileImage.includes('cloudinary')) {
+      // Delete from Cloudinary
+      const publicId = agent.profileImage.split('/').pop().split('.')[0];
+      await cloudinary.uploader.destroy(publicId);
+    }
+
+    // Remove from database
+    await database.updateAgent(userId, {
+      profileImage: null
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting profile image:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🔐 Create upload token (1h validity) - För coaches att skapa länk
+router.post('/:userId/create-upload-token', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+
+    // Verify agent exists
+    const agents = await database.getAgents();
+    const agent = agents.find(a => a.userId === userId);
+
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    // Get agent name from Adversus
+    let agentName = `Agent ${userId}`;
+    try {
+      const adversusUsers = await adversusAPI.getUsers();
+      const adversusUser = adversusUsers.users.find(u => u.id === userId);
+      if (adversusUser) {
+        agentName = adversusUser.name || `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim();
+      }
+    } catch (err) {
+      console.warn('Could not fetch agent name from Adversus:', err.message);
+    }
+
+    // Create JWT token (expires in 1h)
+    const token = jwt.sign(
+      { userId, agentName },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // Create upload URL
+    const uploadUrl = `${req.protocol}://${req.get('host')}/upload/${token}`;
+
+    res.json({
+      token,
+      uploadUrl,
+      expiresIn: '1h',
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    });
+  } catch (error) {
+    console.error('Error creating upload token:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🔐 Upload with token (public endpoint, no auth required)
+router.post('/upload-with-token', upload.single('image'), async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: 'No token provided' });
+    }
+
+    // Verify JWT token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token has expired' });
+      }
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const userId = decoded.userId;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image provided' });
+    }
+
+    const imageUrl = req.file.path;
+
+    // Update agent profile image
+    await database.updateAgent(userId, {
+      profileImage: imageUrl
+    });
+
+    res.json({
+      success: true,
+      imageUrl,
+      message: 'Profile image uploaded successfully'
+    });
+  } catch (error) {
+    console.error('Error uploading with token:', error);
     res.status(500).json({ error: error.message });
   }
 });

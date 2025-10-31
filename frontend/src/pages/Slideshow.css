@@ -263,13 +263,13 @@
 }
 
 @keyframes autoScroll {
-  0%, 10% {
+  0%, 3% {
     transform: translateY(0);
   }
-  45%, 55% {
+  48%, 52% {
     transform: translateY(var(--scroll-distance, 0));
   }
-  90%, 100% {
+  97%, 100% {
     transform: translateY(0);
   }
 }

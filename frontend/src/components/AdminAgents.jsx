@@ -3,6 +3,8 @@ import {
   getAgents,
   createAgent,
   uploadProfileImage,
+  deleteProfileImage,
+  createUploadToken,
   getAdversusUsers
 } from '../services/api';
 import axios from 'axios';
@@ -80,6 +82,45 @@ const AdminAgents = () => {
     } catch (error) {
       console.error('Error uploading image:', error);
       alert('Fel vid uppladdning: ' + error.message);
+    }
+  };
+
+  const handleDeleteImage = async (userId, agentName) => {
+    if (!confirm(`Ta bort profilbild för ${agentName}?`)) return;
+
+    try {
+      await deleteProfileImage(userId);
+
+      setAgents(prevAgents => prevAgents.map(agent =>
+        String(agent.userId) === String(userId)
+          ? { ...agent, profileImage: null }
+          : agent
+      ));
+
+      alert('Profilbild borttagen!');
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      alert('Fel vid borttagning: ' + error.message);
+    }
+  };
+
+  const handleCreateUploadLink = async (userId, agentName) => {
+    try {
+      const response = await createUploadToken(userId);
+      const uploadUrl = response.data.uploadUrl;
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(uploadUrl);
+
+      alert(
+        `✅ Upload-länk skapad för ${agentName}!\n\n` +
+        `Länken är kopierad till urklipp och giltig i 1 timme.\n\n` +
+        `Länk: ${uploadUrl}\n\n` +
+        `Skicka denna länk till agenten så de kan ladda upp sin profilbild.`
+      );
+    } catch (error) {
+      console.error('Error creating upload link:', error);
+      alert('Fel vid skapande av länk: ' + error.message);
     }
   };
 
@@ -163,8 +204,8 @@ const AdminAgents = () => {
               </div>
             </div>
 
-            <div className="agent-list-upload">
-              <label className="upload-button-small">
+            <div className="agent-list-actions">
+              <label className="action-button" title="Ladda upp bild">
                 📸
                 <input
                   type="file"
@@ -173,6 +214,24 @@ const AdminAgents = () => {
                   style={{ display: 'none' }}
                 />
               </label>
+
+              {agent.profileImage && (
+                <button
+                  className="action-button danger"
+                  onClick={() => handleDeleteImage(agent.userId, agent.name)}
+                  title="Ta bort profilbild"
+                >
+                  🗑️
+                </button>
+              )}
+
+              <button
+                className="action-button primary"
+                onClick={() => handleCreateUploadLink(agent.userId, agent.name)}
+                title="Skapa upload-länk (1h)"
+              >
+                🔗
+              </button>
             </div>
           </div>
         ))}
