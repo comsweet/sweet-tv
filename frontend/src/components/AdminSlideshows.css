@@ -1,0 +1,620 @@
+/* ==================== ADMIN SLIDESHOWS - COMPACT LAYOUT ==================== */
+
+.admin-slideshows-compact {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Header */
+.slideshows-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.slideshows-header h2 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.3rem;
+}
+
+.btn-primary {
+  padding: 0.7rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Empty State */
+.no-slideshows {
+  text-align: center;
+  padding: 3rem;
+  color: #7f8c8d;
+  font-size: 1rem;
+}
+
+/* Table */
+.slideshows-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.slideshows-table thead {
+  background: #f8f9fa;
+  border-bottom: 2px solid #e1e8ed;
+}
+
+.slideshows-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #2c3e50;
+  white-space: nowrap;
+}
+
+.slideshows-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e1e8ed;
+  vertical-align: middle;
+}
+
+.slideshows-table tbody tr {
+  transition: background 0.2s ease;
+}
+
+.slideshows-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.row-active {
+  /* Active row styling */
+}
+
+.row-inactive {
+  opacity: 0.6;
+}
+
+/* Status Cell */
+.status-cell {
+  width: 70px;
+  text-align: center;
+}
+
+.toggle-switch-compact {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle-switch-compact input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider-compact {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.toggle-slider-compact:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch-compact input:checked + .toggle-slider-compact {
+  background-color: #667eea;
+}
+
+.toggle-switch-compact input:checked + .toggle-slider-compact:before {
+  transform: translateX(20px);
+}
+
+/* Name Cell */
+.name-cell strong {
+  color: #2c3e50;
+}
+
+/* Slides Cell */
+.slides-cell {
+  text-align: center;
+}
+
+.slides-count {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  background: #e9ecef;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+/* Duration Cell */
+.duration-cell {
+  text-align: center;
+}
+
+.duration-badge {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  background: #d1ecf1;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0c5460;
+}
+
+/* URL Cell */
+.url-cell {
+  text-align: center;
+  width: 70px;
+}
+
+.btn-copy {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f8f9fa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-copy:hover {
+  background: #667eea;
+  transform: scale(1.05);
+}
+
+/* Actions Cell */
+.actions-cell {
+  width: 130px;
+  text-align: center;
+}
+
+.actions-cell button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f8f9fa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin: 0 0.2rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-open:hover {
+  background: #28a745;
+  transform: scale(1.05);
+}
+
+.btn-edit:hover {
+  background: #667eea;
+  transform: scale(1.05);
+}
+
+.btn-delete:hover {
+  background: #e74c3c;
+  transform: scale(1.05);
+}
+
+/* ==================== MODAL ==================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal.large-modal {
+  max-width: 800px;
+}
+
+.modal h2 {
+  margin: 0 0 1.5rem;
+  color: #2c3e50;
+  font-size: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e1e8ed;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #7f8c8d;
+}
+
+/* Section Header Inline */
+.section-header-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-header-inline label {
+  margin-bottom: 0;
+}
+
+.btn-secondary {
+  padding: 0.7rem 1.5rem;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+/* Empty State Box */
+.empty-state-box {
+  text-align: center;
+  padding: 2rem;
+  background: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  color: #7f8c8d;
+}
+
+.empty-state-box p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Slides List */
+.slides-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.slide-config-card {
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #f8f9fa;
+}
+
+.slide-config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.slide-number {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.slide-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  background: #667eea;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.slide-number h4 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.slide-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #dee2e6;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+  transform: scale(1.05);
+}
+
+.btn-icon.btn-danger:hover:not(:disabled) {
+  background: #e74c3c;
+  border-color: #e74c3c;
+}
+
+.btn-icon:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.slide-config-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.select-error {
+  border-color: #e74c3c !important;
+}
+
+.lb-meta-badges {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.meta-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  background: #e9ecef;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: #495057;
+}
+
+.duration-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.duration-input {
+  width: 100px !important;
+}
+
+.duration-unit {
+  font-size: 0.85rem;
+  color: #7f8c8d;
+}
+
+.duration-display {
+  font-size: 0.85rem;
+  color: #495057;
+  font-weight: 500;
+}
+
+/* Slideshow Summary */
+.slideshow-summary {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.slideshow-summary h4 {
+  margin: 0 0 0.75rem;
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.summary-stats {
+  display: flex;
+  gap: 2rem;
+}
+
+.summary-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+/* Checkbox Label */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  font-size: 0.95rem;
+  color: #2c3e50;
+}
+
+/* Modal Actions */
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e1e8ed;
+}
+
+/* ==================== LOADING STATE ==================== */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  font-size: 1.2rem;
+  color: #7f8c8d;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 768px) {
+  .admin-slideshows-compact {
+    padding: 1rem;
+  }
+
+  .slideshows-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .slideshows-table {
+    font-size: 0.85rem;
+  }
+
+  .slideshows-table th,
+  .slideshows-table td {
+    padding: 0.5rem;
+  }
+
+  /* Hide duration on mobile */
+  .slideshows-table th:nth-child(4),
+  .slideshows-table td:nth-child(4) {
+    display: none;
+  }
+
+  .modal {
+    padding: 1.5rem;
+  }
+
+  .slide-config-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .summary-stats {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .slideshows-table {
+    font-size: 0.8rem;
+  }
+
+  /* Hide slides count on very small screens */
+  .slideshows-table th:nth-child(3),
+  .slideshows-table td:nth-child(3) {
+    display: none;
+  }
+
+  .actions-cell button {
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+  }
+}
