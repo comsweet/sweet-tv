@@ -118,14 +118,21 @@ class CampaignCache {
     try {
       console.log(`🔍 Fetching campaign ${campaignId} from Adversus...`);
       const response = await adversusAPI.request(`/campaigns/${campaignId}`);
-      const campaign = response.campaigns?.[0];
+
+      // Response is an array: [{ id, settings: { name, ... } }]
+      let campaign = null;
+      if (Array.isArray(response)) {
+        campaign = response[0];
+      } else if (response.campaigns && Array.isArray(response.campaigns)) {
+        campaign = response.campaigns[0];
+      }
 
       if (!campaign) {
         console.log(`⚠️  Campaign ${campaignId} not found in Adversus`);
         return { name: 'Unknown', group: 'Unknown', fetchedAt: null };
       }
 
-      const campaignName = campaign.settings?.name || campaign.name || 'Unknown';
+      const campaignName = campaign.settings?.name || campaign.settings?.navn || campaign.name || 'Unknown';
       const campaignGroup = this.parseCampaignGroup(campaignName);
 
       const campaignInfo = {

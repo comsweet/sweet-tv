@@ -81,9 +81,9 @@ class CampaignBonusTiersService {
         tiers: [
           { deals: 3, bonusPerDeal: 300 },
           { deals: 4, bonusPerDeal: 350 },
-          { deals: 5, bonusPerDeal: 400 }
+          { deals: 5, bonusPerDeal: 400 },
+          { deals: 8, bonusPerDeal: 500 }
         ],
-        maxDeals: 8,
         createdAt: new Date().toISOString()
       },
       {
@@ -95,7 +95,6 @@ class CampaignBonusTiersService {
           { deals: 7, bonusPerDeal: 300 },
           { deals: 10, bonusPerDeal: 350 }
         ],
-        maxDeals: 10,
         createdAt: new Date().toISOString()
       },
       {
@@ -105,9 +104,9 @@ class CampaignBonusTiersService {
         tiers: [
           { deals: 3, bonusPerDeal: 200 },
           { deals: 4, bonusPerDeal: 250 },
-          { deals: 5, bonusPerDeal: 300 }
+          { deals: 5, bonusPerDeal: 300 },
+          { deals: 6, bonusPerDeal: 350 }
         ],
-        maxDeals: 6,
         createdAt: new Date().toISOString()
       }
     ];
@@ -146,7 +145,6 @@ class CampaignBonusTiersService {
       campaignGroup: tierData.campaignGroup,
       enabled: tierData.enabled !== undefined ? tierData.enabled : true,
       tiers: tierData.tiers || [],
-      maxDeals: parseInt(tierData.maxDeals) || 0,
       createdAt: new Date().toISOString()
     };
 
@@ -206,10 +204,10 @@ class CampaignBonusTiersService {
    * @returns {number} - Total bonus amount
    *
    * Exempel:
-   * - Tiers: [3→300, 4→350, 5→400], maxDeals: 8
+   * - Tiers: [3→300, 4→350, 5→400, 8→500]
    * - dealsCount: 4 → 4 * 350 = 1400 THB
-   * - dealsCount: 6 → 6 * 400 = 2400 THB
-   * - dealsCount: 9 → 8 * 400 = 3200 THB (capped at maxDeals)
+   * - dealsCount: 6 → 6 * 400 = 2400 THB (använder tier 5)
+   * - dealsCount: 10 → 10 * 500 = 5000 THB (fortsätter med tier 8)
    */
   calculateBonusForDeals(campaignGroup, dealsCount) {
     const tierConfig = this.getTierForCampaignGroup(campaignGroup);
@@ -218,13 +216,10 @@ class CampaignBonusTiersService {
       return 0;
     }
 
-    // Cap at maxDeals
-    const effectiveDeals = Math.min(dealsCount, tierConfig.maxDeals);
-
     // Find applicable tier (highest tier where deals >= tier.deals)
     let applicableTier = null;
     for (const tier of tierConfig.tiers) {
-      if (effectiveDeals >= tier.deals) {
+      if (dealsCount >= tier.deals) {
         applicableTier = tier;
       } else {
         break;
@@ -235,8 +230,9 @@ class CampaignBonusTiersService {
       return 0;
     }
 
-    // Retroaktiv bonus: bonusPerDeal * effectiveDeals
-    return applicableTier.bonusPerDeal * effectiveDeals;
+    // Retroaktiv bonus: bonusPerDeal * dealsCount
+    // Ingen maxDeals-gräns - bonusen fortsätter efter sista tier
+    return applicableTier.bonusPerDeal * dealsCount;
   }
 
   /**
@@ -246,10 +242,9 @@ class CampaignBonusTiersService {
     const tierConfig = this.getTierForCampaignGroup(campaignGroup);
 
     if (!tierConfig) {
-      return { bonus: 0, tier: null, nextTier: null, maxReached: false };
+      return { bonus: 0, tier: null, nextTier: null };
     }
 
-    const effectiveDeals = Math.min(dealsCount, tierConfig.maxDeals);
     const bonus = this.calculateBonusForDeals(campaignGroup, dealsCount);
 
     // Find current and next tier
@@ -257,7 +252,7 @@ class CampaignBonusTiersService {
     let nextTier = null;
 
     for (let i = 0; i < tierConfig.tiers.length; i++) {
-      if (effectiveDeals >= tierConfig.tiers[i].deals) {
+      if (dealsCount >= tierConfig.tiers[i].deals) {
         currentTier = tierConfig.tiers[i];
         nextTier = tierConfig.tiers[i + 1] || null;
       }
@@ -266,10 +261,7 @@ class CampaignBonusTiersService {
     return {
       bonus,
       currentTier,
-      nextTier,
-      maxReached: dealsCount >= tierConfig.maxDeals,
-      effectiveDeals,
-      maxDeals: tierConfig.maxDeals
+      nextTier
     };
   }
 
