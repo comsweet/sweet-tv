@@ -327,6 +327,7 @@ class PollingService {
           profileImage: agent.profileImage
         },
         commission: commissionValue,
+        multiDeals: multiDeals,
         totalToday: newTotal,
         reachedBudget: reachedBudget,
         soundType: soundType,
