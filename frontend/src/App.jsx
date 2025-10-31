@@ -3,6 +3,7 @@ import Display from './pages/Display'
 import Admin from './pages/Admin'
 import Slideshow from './pages/Slideshow'
 import SlideshowsList from './pages/SlideshowsList'
+import AgentUpload from './pages/AgentUpload'
 import './App.css'
 
 function App() {
@@ -20,9 +21,12 @@ function App() {
         
         {/* Specifik slideshow */}
         <Route path="/slideshow/:id" element={<Slideshow />} />
-        
+
         {/* Display (om du någonsin behöver den) */}
         <Route path="/display" element={<Display />} />
+
+        {/* Agent upload (publik sida med JWT token) */}
+        <Route path="/upload/:token" element={<AgentUpload />} />
       </Routes>
     </Router>
   )
