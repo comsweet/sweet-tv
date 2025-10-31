@@ -267,6 +267,63 @@ const Slideshow = () => {
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
 
+  // 🔄 NEW: Silent stats refresh without affecting scroll
+  const refreshStatsOnly = async () => {
+    console.log('\n🔄 ═══════════════════════════════════════════');
+    console.log('🔄 refreshStatsOnly CALLED - Silent stats update');
+    console.log(`⏰ Time: ${new Date().toLocaleTimeString()}`);
+    console.log('═══════════════════════════════════════════');
+
+    try {
+      // Get slideshow config
+      const slideshowResponse = await getSlideshow(id);
+      const slideshowData = slideshowResponse.data;
+
+      const leaderboardsWithStats = [];
+
+      const slidesConfig = slideshowData.slides ||
+        (slideshowData.leaderboards || []).map(lbId => ({
+          leaderboardId: lbId,
+          duration: slideshowData.duration || 30
+        }));
+
+      for (let i = 0; i < slidesConfig.length; i++) {
+        const slideConfig = slidesConfig[i];
+        const lbId = slideConfig.leaderboardId || slideConfig;
+        const slideDuration = slideConfig.duration || slideshowData.duration || 30;
+
+        try {
+          const statsResponse = await getLeaderboardStats2(lbId);
+          const stats = statsResponse.data.stats || [];
+
+          leaderboardsWithStats.push({
+            leaderboard: statsResponse.data.leaderboard,
+            stats: stats,
+            duration: slideDuration
+          });
+
+          const totalDeals = stats.reduce((sum, s) => sum + (s.dealCount || 0), 0);
+          console.log(`   🔄 Refreshed "${statsResponse.data.leaderboard.name}": ${stats.length} agents, ${totalDeals} deals`);
+
+          if (i < slidesConfig.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } catch (error) {
+          console.error(`   ❌ Error refreshing leaderboard ${lbId}:`, error.message);
+        }
+      }
+
+      // Update ONLY the leaderboardsData state - do NOT touch refreshKey!
+      setLeaderboardsData(leaderboardsWithStats);
+
+      console.log('✅ Stats refreshed silently - scroll position preserved');
+      console.log('═══════════════════════════════════════════\n');
+
+    } catch (error) {
+      console.error('❌ Error refreshing stats:', error);
+    }
+  };
+
   const fetchSlideshowData = async (silent = false) => {
     console.log('\n🔥 ═══════════════════════════════════════════');
     console.log(`🔥 fetchSlideshowData CALLED! silent=${silent}`);
@@ -370,8 +427,10 @@ const Slideshow = () => {
   useEffect(() => {
     fetchSlideshowData();
 
+    // 🔄 Regular refresh every 2 minutes (silent, preserves scroll)
     refreshIntervalRef.current = setInterval(() => {
-      fetchSlideshowData(true);
+      console.log('⏰ 2-minute interval - refreshing stats silently');
+      refreshStatsOnly();
     }, 2 * 60 * 1000);
 
     socketService.connect();
@@ -453,16 +512,18 @@ const Slideshow = () => {
     }
 
     const delay = autoRefreshSettings.refreshInterval || 5000;
-    console.log(`⏰ Waiting ${delay}ms before refresh...`);
+    console.log(`⏰ Waiting ${delay}ms before silent refresh...`);
 
     // ⚡ Show indicator if enabled
     if (autoRefreshSettings.showIndicator) {
       setIsRefreshing(true);
     }
 
-    setTimeout(() => {
-      console.log(`⏰ ${delay}ms passed - triggering refresh NOW!`);
-      fetchSlideshowData(true);
+    setTimeout(async () => {
+      console.log(`⏰ ${delay}ms passed - triggering SILENT refresh (scroll preserved)!`);
+
+      // Use refreshStatsOnly instead of fetchSlideshowData to preserve scroll
+      await refreshStatsOnly();
 
       // Hide indicator after refresh
       if (autoRefreshSettings.showIndicator) {
