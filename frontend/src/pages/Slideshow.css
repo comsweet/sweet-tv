@@ -510,34 +510,27 @@
 /* Total Column - NORMAL */
 .slideshow-total {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.5rem;
   padding: 0.5rem 0.8rem;
   border-radius: 10px;
   min-height: 48px;
   border: 3px solid;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
-}
-
-.slideshow-total:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
 }
 
 .slideshow-total .emoji {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   line-height: 1;
-  margin-bottom: 0.15rem;
 }
 
 .slideshow-total span:last-child {
-  font-size: 1rem;
+  font-size: 1.15rem;
   font-weight: 800;
   line-height: 1.1;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  white-space: nowrap;
 }
 
 .slideshow-total.total-green {
@@ -651,15 +644,15 @@
 .size-compact .slideshow-total {
   padding: 0.3rem 0.5rem;
   min-height: 36px;
+  gap: 0.4rem;
 }
 
 .size-compact .slideshow-total .emoji {
-  font-size: 0.85rem;
-  margin-bottom: 0.1rem;
+  font-size: 1rem;
 }
 
 .size-compact .slideshow-total span:last-child {
-  font-size: 0.8rem;
+  font-size: 0.95rem;
 }
 
 /* ==================================================
@@ -746,15 +739,15 @@
 .size-large .slideshow-total {
   padding: 0.6rem 0.9rem;
   min-height: 52px;
+  gap: 0.6rem;
 }
 
 .size-large .slideshow-total .emoji {
-  font-size: 1.2rem;
-  margin-bottom: 0.2rem;
+  font-size: 1.4rem;
 }
 
 .size-large .slideshow-total span:last-child {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
 }
 
 /* ==================================================
@@ -841,15 +834,15 @@
 .size-xlarge .slideshow-total {
   padding: 0.8rem 1.1rem;
   min-height: 65px;
+  gap: 0.7rem;
 }
 
 .size-xlarge .slideshow-total .emoji {
-  font-size: 1.5rem;
-  margin-bottom: 0.25rem;
+  font-size: 1.7rem;
 }
 
 .size-xlarge .slideshow-total span:last-child {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
 }
 
 /* Animations */
