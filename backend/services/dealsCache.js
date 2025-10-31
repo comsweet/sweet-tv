@@ -12,20 +12,23 @@ const path = require('path');
 class DealsCache {
   constructor() {
     const isRender = process.env.RENDER === 'true';
-    
-    this.dbPath = isRender 
+
+    this.dbPath = isRender
       ? '/var/data'
       : path.join(__dirname, '../data');
-    
+
     this.cacheFile = path.join(this.dbPath, 'deals-cache.json');
     this.lastSyncFile = path.join(this.dbPath, 'last-sync.json');
-    
+
     console.log(`💾 Deals cache path: ${this.dbPath} (isRender: ${isRender})`);
-    
+
     this.writeQueue = [];
     this.isProcessing = false;
     this.needsImmediateSync = false;
-    
+
+    // ⚡ IN-MEMORY CACHE: Prevents race conditions with writeQueue
+    this.inMemoryCache = null;
+
     this.initCache();
   }
 
@@ -97,13 +100,21 @@ class DealsCache {
   }
 
   async getCache() {
+    // ⚡ Return in-memory cache if available (always up-to-date, no race condition)
+    if (this.inMemoryCache !== null) {
+      return this.inMemoryCache;
+    }
+
+    // Otherwise, read from disk and populate in-memory cache
     try {
       const data = await fs.readFile(this.cacheFile, 'utf8');
       const parsed = JSON.parse(data);
-      return parsed.deals || [];
+      this.inMemoryCache = parsed.deals || [];
+      return this.inMemoryCache;
     } catch (error) {
       if (error.code === 'ENOENT') {
         console.log('📝 No cache file found, starting fresh');
+        this.inMemoryCache = [];
         return [];
       }
 
@@ -120,14 +131,19 @@ class DealsCache {
       }
 
       // Return empty array to start fresh
+      this.inMemoryCache = [];
       return [];
     }
   }
 
   async _saveCache(deals) {
     try {
+      // ⚡ Update in-memory cache FIRST (synchronous, no race condition)
+      this.inMemoryCache = deals;
+
+      // Then write to disk asynchronously (for persistence)
       await fs.writeFile(this.cacheFile, JSON.stringify({ deals }, null, 2));
-      console.log(`💾 Saved ${deals.length} deals to cache`);
+      console.log(`💾 Saved ${deals.length} deals to cache (disk + memory)`);
     } catch (error) {
       console.error('Error saving cache:', error);
       throw error;
@@ -135,6 +151,10 @@ class DealsCache {
   }
 
   async saveCache(deals) {
+    // ⚡ Update in-memory cache IMMEDIATELY (synchronous)
+    this.inMemoryCache = deals;
+
+    // Then queue disk write (asynchronous)
     return this.queueWrite(async () => {
       await this._saveCache(deals);
     });
@@ -160,32 +180,40 @@ class DealsCache {
   }
 
   async addDeal(deal) {
+    // ⚡ INSTANT UPDATE: Update in-memory cache IMMEDIATELY (before queueWrite)
+    // This prevents race conditions where getTodayTotalForAgent() is called
+    // before writeQueue has processed
+    const allDeals = await this.getCache();
+
+    const exists = allDeals.find(d => d.leadId === deal.leadId);
+    if (exists) {
+      console.log('Deal already in cache, skipping:', deal.leadId);
+      return null;
+    }
+
+    const newDeal = {
+      leadId: deal.leadId,
+      userId: deal.userId,
+      campaignId: deal.campaignId,
+      commission: parseFloat(deal.commission),
+      multiDeals: deal.multiDeals || '0',
+      orderDate: deal.orderDate,
+      status: deal.status,
+      syncedAt: new Date().toISOString()
+    };
+
+    // ⚡ Update in-memory cache SYNCHRONOUSLY
+    allDeals.push(newDeal);
+    this.inMemoryCache = allDeals;
+    console.log(`⚡ In-memory cache updated instantly with deal ${deal.leadId}`);
+
+    // Then queue the disk write (async, for persistence)
     return this.queueWrite(async () => {
-      const allDeals = await this.getCache();
-      
-      const exists = allDeals.find(d => d.leadId === deal.leadId);
-      if (exists) {
-        console.log('Deal already in cache, skipping:', deal.leadId);
-        return null;
-      }
-      
-      const newDeal = {
-        leadId: deal.leadId,
-        userId: deal.userId,
-        campaignId: deal.campaignId,
-        commission: parseFloat(deal.commission),
-        multiDeals: deal.multiDeals || '0',
-        orderDate: deal.orderDate,
-        status: deal.status,
-        syncedAt: new Date().toISOString()
-      };
-      
-      allDeals.push(newDeal);
       await this._saveCache(allDeals);
-      
+
       // 🔥🔥🔥 CRITICAL: Flag to PREVENT sync (use cache instead!)
       this.needsImmediateSync = true;
-      
+
       // 🔥 Auto-clear flag after 60 seconds (safety fallback)
       setTimeout(() => {
         if (this.needsImmediateSync) {
