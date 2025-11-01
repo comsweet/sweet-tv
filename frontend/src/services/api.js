@@ -12,7 +12,7 @@ const api = axios.create({
 // Add JWT token to all requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('sweetTvToken'); // Changed from 'auth_token' to 'sweetTvToken'
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -29,7 +29,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       // Token expired or invalid - redirect to login
-      localStorage.removeItem('auth_token');
+      localStorage.removeItem('sweetTvToken'); // Changed from 'auth_token'
       localStorage.removeItem('auth_user');
 
       // Only redirect if not already on login page
