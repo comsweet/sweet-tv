@@ -5,7 +5,7 @@ const postgres = require('../../services/postgres');
 const soundSettings = require('../../services/soundSettings');
 const soundLibrary = require('../../services/soundLibrary');
 const { cloudinary, soundStorage } = require('../../config/cloudinary');
-const { authenticateToken } = require('../../middleware/auth');
+const { optionalAuth } = require('../../middleware/auth');
 const multer = require('multer');
 
 // Multer upload config for sounds (max 2MB)
@@ -35,39 +35,40 @@ router.get('/settings', async (req, res) => {
 });
 
 // Update sound settings
-router.put('/settings', authenticateToken, async (req, res) => {
+router.put('/settings', optionalAuth, async (req, res) => {
   try {
     const oldSettings = await soundSettings.getSettings();
     const settings = await soundSettings.updateSettings(req.body);
 
-    // Audit log for changes
-    const changes = [];
-    if (oldSettings.defaultSound !== settings.defaultSound) {
-      changes.push(`Default sound: ${oldSettings.defaultSound} → ${settings.defaultSound}`);
+    // Audit log for changes (optional - only if user is authenticated)
+    if (req.user && req.user.id) {
+      try {
+        if (oldSettings.defaultSound !== settings.defaultSound) {
+          await postgres.createAuditLog({
+            userId: req.user.id,
+            action: 'UPDATE_DEFAULT_SOUND',
+            resourceType: 'sound_settings',
+            resourceId: null,
+            details: { oldSound: oldSettings.defaultSound, newSound: settings.defaultSound },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+          });
+        }
 
-      await postgres.createAuditLog({
-        userId: req.user.id,
-        action: 'UPDATE_DEFAULT_SOUND',
-        resourceType: 'sound_settings',
-        resourceId: null,
-        details: { oldSound: oldSettings.defaultSound, newSound: settings.defaultSound },
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent']
-      });
-    }
-
-    if (oldSettings.dailyBudgetSound !== settings.dailyBudgetSound) {
-      changes.push(`Daily budget sound: ${oldSettings.dailyBudgetSound} → ${settings.dailyBudgetSound}`);
-
-      await postgres.createAuditLog({
-        userId: req.user.id,
-        action: 'UPDATE_DAILY_BUDGET_SOUND',
-        resourceType: 'sound_settings',
-        resourceId: null,
-        details: { oldSound: oldSettings.dailyBudgetSound, newSound: settings.dailyBudgetSound },
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent']
-      });
+        if (oldSettings.dailyBudgetSound !== settings.dailyBudgetSound) {
+          await postgres.createAuditLog({
+            userId: req.user.id,
+            action: 'UPDATE_DAILY_BUDGET_SOUND',
+            resourceType: 'sound_settings',
+            resourceId: null,
+            details: { oldSound: oldSettings.dailyBudgetSound, newSound: settings.dailyBudgetSound },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+          });
+        }
+      } catch (logError) {
+        console.error('Failed to create audit log:', logError.message);
+      }
     }
 
     res.json(settings);
@@ -102,7 +103,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Upload new sound
-router.post('/upload', authenticateToken, uploadSound.single('sound'), async (req, res) => {
+router.post('/upload', optionalAuth, uploadSound.single('sound'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -119,16 +120,22 @@ router.post('/upload', authenticateToken, uploadSound.single('sound'), async (re
       duration: null
     });
 
-    // Audit log
-    await postgres.createAuditLog({
-      userId: req.user.id,
-      action: 'UPLOAD_SOUND',
-      resourceType: 'sound',
-      resourceId: sound.id,
-      details: { fileName: originalName, url: soundUrl },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
-    });
+    // Audit log (optional - only if user is authenticated)
+    if (req.user && req.user.id) {
+      try {
+        await postgres.createAuditLog({
+          userId: req.user.id,
+          action: 'UPLOAD_SOUND',
+          resourceType: 'sound',
+          resourceId: sound.id,
+          details: { fileName: originalName, url: soundUrl },
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent']
+        });
+      } catch (logError) {
+        console.error('Failed to create audit log:', logError.message);
+      }
+    }
 
     res.json(sound);
   } catch (error) {

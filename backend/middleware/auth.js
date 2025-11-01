@@ -71,6 +71,39 @@ const ROLES = {
   TV_USER: 'tv-user'
 };
 
+// Optional authentication - tries to authenticate but doesn't fail if no token
+const optionalAuth = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+      // No token, continue without user
+      return next();
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Get user from database
+    const user = await postgres.getUserById(decoded.userId);
+
+    if (user && user.active) {
+      // Attach user to request
+      req.user = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      };
+    }
+
+    next();
+  } catch (error) {
+    // If token is invalid, just continue without user
+    next();
+  }
+};
+
 // Middleware presets
 const requireSuperAdmin = requireRole([ROLES.SUPERADMIN]);
 const requireAdmin = requireRole([ROLES.SUPERADMIN, ROLES.ADMIN]);
@@ -78,6 +111,7 @@ const requireAnyAuth = requireRole([ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.TV_USER
 
 module.exports = {
   authenticateToken,
+  optionalAuth,
   requireRole,
   requireSuperAdmin,
   requireAdmin,
