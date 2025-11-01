@@ -20,6 +20,7 @@ export const useLeaderboards = () => {
     customStartDate: '',
     customEndDate: '',
     active: true,
+    sortBy: 'commission',
     visibleColumns: {
       sms: true,
       commission: true,
@@ -49,6 +50,7 @@ export const useLeaderboards = () => {
       customStartDate: '',
       customEndDate: '',
       active: true,
+      sortBy: 'commission',
       visibleColumns: {
         sms: true,
         commission: true,
@@ -70,6 +72,7 @@ export const useLeaderboards = () => {
       customStartDate: leaderboard.customStartDate || '',
       customEndDate: leaderboard.customEndDate || '',
       active: leaderboard.active,
+      sortBy: leaderboard.sortBy || 'commission',
       visibleColumns: leaderboard.visibleColumns || {
         sms: true,
         commission: true,
