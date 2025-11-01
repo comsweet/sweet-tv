@@ -343,6 +343,84 @@ class PostgresService {
 
     return result.rowCount;
   }
+
+  // ==================== TV ACCESS CODES ====================
+
+  async createTVAccessCode({ code, createdBy, createdByEmail, expiresInMinutes = 5, ipAddress }) {
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + expiresInMinutes);
+
+    const result = await this.query(
+      'INSERT INTO tv_access_codes (code, created_by, created_by_email, expires_at, ip_address) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [code, createdBy, createdByEmail, expiresAt, ipAddress]
+    );
+
+    return result.rows[0];
+  }
+
+  async getTVAccessCode(code) {
+    const result = await this.query(
+      'SELECT * FROM tv_access_codes WHERE code = $1',
+      [code]
+    );
+
+    return result.rows[0];
+  }
+
+  async validateTVAccessCode(code, ipAddress) {
+    const accessCode = await this.getTVAccessCode(code);
+
+    if (!accessCode) {
+      return { valid: false, reason: 'Code not found' };
+    }
+
+    if (accessCode.used) {
+      return { valid: false, reason: 'Code already used' };
+    }
+
+    if (new Date(accessCode.expires_at) < new Date()) {
+      return { valid: false, reason: 'Code expired' };
+    }
+
+    // Mark as used
+    await this.query(
+      'UPDATE tv_access_codes SET used = true, used_at = CURRENT_TIMESTAMP, ip_address = $1 WHERE code = $2',
+      [ipAddress, code]
+    );
+
+    return { valid: true, accessCode };
+  }
+
+  async getActiveTVAccessCodes() {
+    const result = await this.query(
+      'SELECT * FROM tv_access_codes WHERE used = false AND expires_at > CURRENT_TIMESTAMP ORDER BY created_at DESC',
+      []
+    );
+
+    return result.rows;
+  }
+
+  async getAllTVAccessCodes({ limit = 100, offset = 0 }) {
+    const result = await this.query(
+      'SELECT * FROM tv_access_codes ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+      [limit, offset]
+    );
+
+    return result.rows;
+  }
+
+  async deleteExpiredTVAccessCodes() {
+    const result = await this.query(
+      'DELETE FROM tv_access_codes WHERE expires_at < CURRENT_TIMESTAMP',
+      []
+    );
+
+    return result.rowCount;
+  }
+
+  async deleteTVAccessCode(code) {
+    await this.query('DELETE FROM tv_access_codes WHERE code = $1', [code]);
+  }
 }
 
 // Create singleton instance

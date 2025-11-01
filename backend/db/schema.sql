@@ -54,6 +54,19 @@ CREATE TABLE IF NOT EXISTS api_requests (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- TV Access Codes (for TV slideshow access without user accounts)
+CREATE TABLE IF NOT EXISTS tv_access_codes (
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(6) UNIQUE NOT NULL,
+  created_by INTEGER REFERENCES users(id),
+  created_by_email VARCHAR(255),
+  expires_at TIMESTAMP NOT NULL,
+  used BOOLEAN DEFAULT false,
+  used_at TIMESTAMP,
+  ip_address VARCHAR(45),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
@@ -61,6 +74,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_type ON audit_logs(resource_t
 CREATE INDEX IF NOT EXISTS idx_api_requests_endpoint ON api_requests(endpoint);
 CREATE INDEX IF NOT EXISTS idx_api_requests_created_at ON api_requests(created_at);
 CREATE INDEX IF NOT EXISTS idx_agents_user_id ON agents(user_id);
+CREATE INDEX IF NOT EXISTS idx_tv_access_codes_code ON tv_access_codes(code);
+CREATE INDEX IF NOT EXISTS idx_tv_access_codes_expires_at ON tv_access_codes(expires_at);
 
 -- Update timestamp trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()

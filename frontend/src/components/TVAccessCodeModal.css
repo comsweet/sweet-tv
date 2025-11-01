@@ -1,0 +1,156 @@
+/* TVAccessCodeModal.css - Brand colors: #005A9C (primary), #00B2E3 (accent) */
+
+.tv-access-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.tv-access-modal {
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+  padding: 60px 50px;
+  width: 100%;
+  max-width: 550px;
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tv-access-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.tv-access-header h1 {
+  color: #005A9C;
+  font-size: 42px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  letter-spacing: -1px;
+}
+
+.tv-access-header p {
+  color: #666;
+  font-size: 18px;
+  margin: 0;
+}
+
+.tv-access-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.code-inputs {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.code-inputs input {
+  width: 70px;
+  height: 80px;
+  border: 3px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 36px;
+  font-weight: 700;
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  transition: all 0.2s;
+  color: #005A9C;
+}
+
+.code-inputs input:focus {
+  outline: none;
+  border-color: #00B2E3;
+  box-shadow: 0 0 0 4px rgba(0, 178, 227, 0.1);
+  transform: scale(1.05);
+}
+
+.code-inputs input.error {
+  border-color: #f44336;
+  animation: shake 0.4s;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+
+.code-inputs input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.tv-access-error {
+  background: #fee;
+  color: #c33;
+  padding: 14px 20px;
+  border-radius: 10px;
+  font-size: 15px;
+  text-align: center;
+  border: 2px solid #fcc;
+  font-weight: 600;
+}
+
+.tv-access-validating {
+  text-align: center;
+  color: #00B2E3;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.tv-access-help {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.tv-access-help p {
+  color: #999;
+  font-size: 14px;
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .tv-access-modal {
+    padding: 40px 30px;
+  }
+
+  .tv-access-header h1 {
+    font-size: 32px;
+  }
+
+  .tv-access-header p {
+    font-size: 16px;
+  }
+
+  .code-inputs {
+    gap: 8px;
+  }
+
+  .code-inputs input {
+    width: 50px;
+    height: 60px;
+    font-size: 28px;
+  }
+}

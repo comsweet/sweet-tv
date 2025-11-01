@@ -1,6 +1,7 @@
-// 🎯 REFAKTORERAD ADMIN.JSX - Modulär arkitektur med separata komponenter
+// 🎯 REFAKTORERAD ADMIN.JSX - Modulär arkitektur med JWT Authentication
 
-import { useState } from 'react';
+import { useState, useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
 import AdminDashboard from '../components/AdminDashboard';
 import AdminCacheManagement from '../components/AdminCacheManagement';
 import AdminAutoRefreshSettings from '../components/AdminAutoRefreshSettings';
@@ -13,96 +14,36 @@ import AdminStats from '../components/AdminStats';
 import AdminCampaignBonusTiers from '../components/AdminCampaignBonusTiers';
 import AdminThresholds from '../components/AdminThresholds';
 import NotificationSettingsAdmin from '../components/NotificationSettingsAdmin';
+import AdminAuditLogs from '../components/AdminAuditLogs';
+import AdminAPIMonitoring from '../components/AdminAPIMonitoring';
+import AdminTVCodes from '../components/AdminTVCodes';
+import AdminChangePassword from '../components/AdminChangePassword';
+import AdminUserManagement from '../components/AdminUserManagement';
 import './Admin.css';
 
 const Admin = () => {
-  // 🔐 AUTHENTICATION STATE
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('sweetTvAdminAuth') === 'true';
-  });
-  const [password, setPassword] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [loginError, setLoginError] = useState('');
-
+  const { user, logout, isSuperAdmin } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('dashboard');
-
-  // 🔐 AUTHENTICATION
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    setLoginError('');
-
-    try {
-      // Send password to backend for verification
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/auth/admin-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ password })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        localStorage.setItem('sweetTvAdminAuth', 'true');
-        setIsAuthenticated(true);
-        setPassword('');
-        console.log('✅ Admin login successful');
-      } else {
-        setLoginError(data.error || 'Felaktigt lösenord');
-        console.log('❌ Login failed:', data.error);
-      }
-    } catch (error) {
-      console.error('❌ Login error:', error);
-      setLoginError('Kunde inte ansluta till servern');
-    }
-
-    setIsLoggingIn(false);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('sweetTvAdminAuth');
-    setIsAuthenticated(false);
-    setActiveTab('dashboard');
-  };
-
-  // 🔐 LOGIN FORM
-  if (!isAuthenticated) {
-    return (
-      <div className="login-container">
-        <div className="login-box">
-          <h1>🏆 Sweet TV Admin</h1>
-          <form onSubmit={handleLogin}>
-            <div className="form-group">
-              <label>Lösenord:</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Ange admin-lösenord"
-                autoFocus
-              />
-            </div>
-            {loginError && <div className="login-error">{loginError}</div>}
-            <button type="submit" className="btn-primary" disabled={isLoggingIn}>
-              {isLoggingIn ? 'Loggar in...' : 'Logga in'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   // 📊 MAIN ADMIN INTERFACE
   return (
     <div className="admin-container">
       <div className="admin-header">
-        <h1>🏆 Sweet TV Admin Panel</h1>
-        <button onClick={handleLogout} className="btn-logout">
-          Logga ut
-        </button>
+        <h1 style={{ margin: 0 }}>🏆 Sweet TV Admin Panel</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{
+            fontSize: '14px',
+            color: '#fff',
+            background: 'rgba(255,255,255,0.2)',
+            padding: '8px 16px',
+            borderRadius: '20px'
+          }}>
+            <strong>{user?.name}</strong> · {user?.role}
+          </div>
+          <button onClick={logout} className="btn-logout">
+            🚪 Logga ut
+          </button>
+        </div>
       </div>
 
       <div className="admin-tabs">
@@ -116,7 +57,7 @@ const Admin = () => {
           className={`tab ${activeTab === 'cache' ? 'active' : ''}`}
           onClick={() => setActiveTab('cache')}
         >
-          🗂️ Cache Management
+          🗂️ Cache
         </button>
         <button
           className={`tab ${activeTab === 'agents' ? 'active' : ''}`}
@@ -152,7 +93,7 @@ const Admin = () => {
           className={`tab ${activeTab === 'notifications' ? 'active' : ''}`}
           onClick={() => setActiveTab('notifications')}
         >
-          🔔 Notifikationer
+          🔔 Notis
         </button>
         <button
           className={`tab ${activeTab === 'stats' ? 'active' : ''}`}
@@ -164,7 +105,7 @@ const Admin = () => {
           className={`tab ${activeTab === 'campaignBonus' ? 'active' : ''}`}
           onClick={() => setActiveTab('campaignBonus')}
         >
-          💰 Kampanjbonus
+          💰 Bonus
         </button>
         <button
           className={`tab ${activeTab === 'thresholds' ? 'active' : ''}`}
@@ -172,6 +113,42 @@ const Admin = () => {
         >
           🎨 Tröskelvärden
         </button>
+        <button
+          className={`tab ${activeTab === 'tvCodes' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tvCodes')}
+        >
+          🔑 TV Koder
+        </button>
+        <button
+          className={`tab ${activeTab === 'auditLogs' ? 'active' : ''}`}
+          onClick={() => setActiveTab('auditLogs')}
+        >
+          📋 Audit Logs
+        </button>
+        <button
+          className={`tab ${activeTab === 'apiMonitoring' ? 'active' : ''}`}
+          onClick={() => setActiveTab('apiMonitoring')}
+        >
+          📈 API Monitor
+        </button>
+        <button
+          className={`tab ${activeTab === 'changePassword' ? 'active' : ''}`}
+          onClick={() => setActiveTab('changePassword')}
+        >
+          🔒 Byt Lösenord
+        </button>
+        {isSuperAdmin && (
+          <button
+            className={`tab ${activeTab === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveTab('users')}
+            style={{
+              background: activeTab === 'users' ? 'linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%)' : 'rgba(156, 39, 176, 0.1)',
+              color: activeTab === 'users' ? 'white' : '#9c27b0'
+            }}
+          >
+            👥 Användare
+          </button>
+        )}
         <button
           className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}
@@ -192,6 +169,11 @@ const Admin = () => {
         {activeTab === 'stats' && <AdminStats />}
         {activeTab === 'campaignBonus' && <AdminCampaignBonusTiers />}
         {activeTab === 'thresholds' && <AdminThresholds />}
+        {activeTab === 'tvCodes' && <AdminTVCodes />}
+        {activeTab === 'auditLogs' && <AdminAuditLogs />}
+        {activeTab === 'apiMonitoring' && <AdminAPIMonitoring />}
+        {activeTab === 'changePassword' && <AdminChangePassword />}
+        {activeTab === 'users' && isSuperAdmin && <AdminUserManagement />}
         {activeTab === 'settings' && <AdminAutoRefreshSettings />}
       </div>
     </div>

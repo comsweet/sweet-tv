@@ -16,6 +16,8 @@ const notificationsRouter = require('./modules/notifications');
 const smsRouter = require('./modules/sms');
 const autoRefreshRouter = require('./modules/autoRefresh');
 const thresholdsRouter = require('./modules/thresholds');
+const monitoringRouter = require('./modules/monitoring');
+const tvCodesRouter = require('./modules/tvCodes');
 
 // Mount all modular routes
 router.use('/auth', authRouter);
@@ -30,6 +32,8 @@ router.use('/notification-settings', notificationsRouter);
 router.use('/sms', smsRouter);
 router.use('/auto-refresh', autoRefreshRouter);
 router.use('/thresholds', thresholdsRouter);
+router.use('/monitoring', monitoringRouter);
+router.use('/tv-codes', tvCodesRouter);
 
 // ==================== CORE ENDPOINTS ====================
 
