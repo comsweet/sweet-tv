@@ -1,6 +1,8 @@
 // 🎯 REFAKTORERAD ADMIN.JSX - Modulär arkitektur med separata komponenter
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import AdminDashboard from '../components/AdminDashboard';
 import AdminCacheManagement from '../components/AdminCacheManagement';
 import AdminAutoRefreshSettings from '../components/AdminAutoRefreshSettings';
@@ -13,95 +15,32 @@ import AdminStats from '../components/AdminStats';
 import AdminCampaignBonusTiers from '../components/AdminCampaignBonusTiers';
 import AdminThresholds from '../components/AdminThresholds';
 import NotificationSettingsAdmin from '../components/NotificationSettingsAdmin';
+import AdminUserManagement from '../components/AdminUserManagement';
+import AdminChangePassword from '../components/AdminChangePassword';
 import './Admin.css';
 
 const Admin = () => {
-  // 🔐 AUTHENTICATION STATE
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('sweetTvAdminAuth') === 'true';
-  });
-  const [password, setPassword] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [loginError, setLoginError] = useState('');
-
+  const { user, logout, isSuperAdmin } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // 🔐 AUTHENTICATION
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    setLoginError('');
-
-    try {
-      // Send password to backend for verification
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/auth/admin-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ password })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        localStorage.setItem('sweetTvAdminAuth', 'true');
-        setIsAuthenticated(true);
-        setPassword('');
-        console.log('✅ Admin login successful');
-      } else {
-        setLoginError(data.error || 'Felaktigt lösenord');
-        console.log('❌ Login failed:', data.error);
-      }
-    } catch (error) {
-      console.error('❌ Login error:', error);
-      setLoginError('Kunde inte ansluta till servern');
-    }
-
-    setIsLoggingIn(false);
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
-
-  const handleLogout = () => {
-    localStorage.removeItem('sweetTvAdminAuth');
-    setIsAuthenticated(false);
-    setActiveTab('dashboard');
-  };
-
-  // 🔐 LOGIN FORM
-  if (!isAuthenticated) {
-    return (
-      <div className="login-container">
-        <div className="login-box">
-          <h1>🏆 Sweet TV Admin</h1>
-          <form onSubmit={handleLogin}>
-            <div className="form-group">
-              <label>Lösenord:</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Ange admin-lösenord"
-                autoFocus
-              />
-            </div>
-            {loginError && <div className="login-error">{loginError}</div>}
-            <button type="submit" className="btn-primary" disabled={isLoggingIn}>
-              {isLoggingIn ? 'Loggar in...' : 'Logga in'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   // 📊 MAIN ADMIN INTERFACE
   return (
     <div className="admin-container">
       <div className="admin-header">
-        <h1>🏆 Sweet TV Admin Panel</h1>
+        <div>
+          <h1>🏆 Sweet TV Admin Panel</h1>
+          <p className="user-info">
+            👤 {user?.name} ({user?.email}) - <strong>{user?.role}</strong>
+          </p>
+        </div>
         <button onClick={handleLogout} className="btn-logout">
-          Logga ut
+          🚪 Logga ut
         </button>
       </div>
 
@@ -178,6 +117,23 @@ const Admin = () => {
         >
           ⚙️ Settings
         </button>
+
+        {/* Superadmin only */}
+        {isSuperAdmin() && (
+          <button
+            className={`tab ${activeTab === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveTab('users')}
+          >
+            👥 Användare
+          </button>
+        )}
+
+        <button
+          className={`tab ${activeTab === 'password' ? 'active' : ''}`}
+          onClick={() => setActiveTab('password')}
+        >
+          🔒 Byt Lösenord
+        </button>
       </div>
 
       <div className="admin-content">
@@ -193,6 +149,8 @@ const Admin = () => {
         {activeTab === 'campaignBonus' && <AdminCampaignBonusTiers />}
         {activeTab === 'thresholds' && <AdminThresholds />}
         {activeTab === 'settings' && <AdminAutoRefreshSettings />}
+        {activeTab === 'users' && isSuperAdmin() && <AdminUserManagement />}
+        {activeTab === 'password' && <AdminChangePassword />}
       </div>
     </div>
   );

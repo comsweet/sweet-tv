@@ -9,6 +9,59 @@ const api = axios.create({
   }
 });
 
+// Add JWT token to all requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Handle 401 Unauthorized responses
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // Token expired or invalid - redirect to login
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+
+      // Only redirect if not already on login page
+      if (!window.location.hash.includes('/login')) {
+        window.location.hash = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// ==================== AUTHENTICATION ====================
+
+export const login = (email, password) => api.post('/auth/login', { email, password });
+export const logout = () => api.post('/auth/logout');
+export const getCurrentUser = () => api.get('/auth/me');
+export const changePassword = (currentPassword, newPassword) =>
+  api.post('/auth/change-password', { currentPassword, newPassword });
+
+// User Management (Superadmin only)
+export const getUsers = () => api.get('/auth/users');
+export const createUser = (data) => api.post('/auth/users', data);
+export const updateUser = (id, data) => api.put(`/auth/users/${id}`, data);
+export const deleteUser = (id) => api.delete(`/auth/users/${id}`);
+
+// Audit Logs
+export const getAuditLogs = (params) => api.get('/audit/logs', { params });
+
+// API Monitoring
+export const getApiStats = (params) => api.get('/audit/api-stats', { params });
+
+
 // Agents
 export const getAgents = () => api.get('/agents');
 export const createAgent = (data) => api.post('/agents', data);

@@ -1,4 +1,7 @@
 import { HashRouter as Router, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import Login from './pages/Login'
 import Display from './pages/Display'
 import Admin from './pages/Admin'
 import Slideshow from './pages/Slideshow'
@@ -9,25 +12,65 @@ import './App.css'
 function App() {
   return (
     <Router>
-      <Routes>
-        {/* Startsida = Slideshow-lista */}
-        <Route path="/" element={<SlideshowsList />} />
-        
-        {/* Admin */}
-        <Route path="/admin" element={<Admin />} />
-        
-        {/* Slideshow-lista (samma som startsida) */}
-        <Route path="/slideshow" element={<SlideshowsList />} />
-        
-        {/* Specifik slideshow */}
-        <Route path="/slideshow/:id" element={<Slideshow />} />
+      <AuthProvider>
+        <Routes>
+          {/* Login */}
+          <Route path="/login" element={<Login />} />
 
-        {/* Display (om du någonsin behöver den) */}
-        <Route path="/display" element={<Display />} />
+          {/* Agent upload (publik sida med JWT token) */}
+          <Route path="/upload/:token" element={<AgentUpload />} />
 
-        {/* Agent upload (publik sida med JWT token) */}
-        <Route path="/upload/:token" element={<AgentUpload />} />
-      </Routes>
+          {/* Startsida = Slideshow-lista (kräver inloggning) */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <SlideshowsList />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin (kräver admin eller superadmin) */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+                <Admin />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Slideshow-lista (kräver inloggning) */}
+          <Route
+            path="/slideshow"
+            element={
+              <ProtectedRoute>
+                <SlideshowsList />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Specifik slideshow (kräver inloggning) */}
+          <Route
+            path="/slideshow/:id"
+            element={
+              <ProtectedRoute>
+                <Slideshow />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Display (kräver inloggning) */}
+          <Route
+            path="/display"
+            element={
+              <ProtectedRoute>
+                <Display />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </AuthProvider>
     </Router>
   )
 }

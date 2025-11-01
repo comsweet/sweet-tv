@@ -27,6 +27,12 @@
   font-size: 2rem;
 }
 
+.admin-header .user-info {
+  margin: 8px 0 0 0;
+  color: #7f8c8d;
+  font-size: 0.9rem;
+}
+
 .login-form {
   max-width: 400px;
   margin: 10rem auto;
