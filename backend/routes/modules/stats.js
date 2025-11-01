@@ -213,7 +213,10 @@ router.get('/leaderboard', async (req, res) => {
           groupName: adversusUser?.group?.name || null
         }
       };
-    }).sort((a, b) => b.totalCommission - a.totalCommission);
+    })
+    // Admin stats endpoint always sorts by total commission (default)
+    // Individual leaderboards have configurable sorting
+    .sort((a, b) => b.totalCommission - a.totalCommission);
 
     console.log(`📈 Leaderboard with ${leaderboard.length} agents`);
 

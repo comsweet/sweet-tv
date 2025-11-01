@@ -186,6 +186,18 @@ const AdminLeaderboards = () => {
               </select>
             </div>
 
+            <div className="form-group">
+              <label>Ranking baserad på:</label>
+              <select
+                value={form.sortBy}
+                onChange={(e) => setForm({ ...form, sortBy: e.target.value })}
+              >
+                <option value="commission">💰 Provision</option>
+                <option value="total">💎 Total (Provision + Kampanjbonus)</option>
+                <option value="dealCount">🎯 Antal Affärer</option>
+              </select>
+            </div>
+
             {form.timePeriod === 'custom' && (
               <div className="form-row">
                 <div className="form-group">

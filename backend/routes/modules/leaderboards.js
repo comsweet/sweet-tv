@@ -330,8 +330,21 @@ router.get('/:id/stats', async (req, res) => {
       })
     );
 
-    // Sort by commission DESC
-    statsArray.sort((a, b) => b.totalCommission - a.totalCommission);
+    // Sort based on leaderboard.sortBy configuration
+    const sortBy = leaderboard.sortBy || 'commission';
+
+    if (sortBy === 'total') {
+      // Sort by total (commission + campaign bonus)
+      statsArray.sort((a, b) =>
+        ((b.totalCommission + b.campaignBonus) - (a.totalCommission + a.campaignBonus))
+      );
+    } else if (sortBy === 'dealCount') {
+      // Sort by deal count
+      statsArray.sort((a, b) => b.dealCount - a.dealCount);
+    } else {
+      // Default: sort by commission
+      statsArray.sort((a, b) => b.totalCommission - a.totalCommission);
+    }
 
     const response = {
       leaderboard: leaderboard,
