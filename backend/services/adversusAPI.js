@@ -1,4 +1,5 @@
 const axios = require('axios');
+const postgres = require('./postgres');
 
 class AdversusAPI {
   constructor() {
@@ -40,9 +41,12 @@ class AdversusAPI {
     // Vänta på både rate limit OCH concurrent slot
     await this.waitForConcurrentSlot();
     await this.waitForRateLimit();
-    
+
     this.activeRequests++;
-    
+
+    const startTime = Date.now();
+    let statusCode = 0;
+
     try {
       const response = await axios.get(`${this.baseURL}${endpoint}`, {
         headers: {
@@ -52,15 +56,49 @@ class AdversusAPI {
         params,
         timeout: 30000 // 30s timeout
       });
-      
+
+      statusCode = response.status;
+      const responseTime = Date.now() - startTime;
+
+      // Log successful request
+      try {
+        await postgres.logApiRequest({
+          endpoint,
+          method: 'GET',
+          statusCode,
+          responseTime,
+          userId: null,
+          ipAddress: null
+        });
+      } catch (logError) {
+        console.error('Failed to log API request:', logError.message);
+      }
+
       return response.data;
     } catch (error) {
+      statusCode = error.response?.status || 500;
+      const responseTime = Date.now() - startTime;
+
+      // Log failed request
+      try {
+        await postgres.logApiRequest({
+          endpoint,
+          method: 'GET',
+          statusCode,
+          responseTime,
+          userId: null,
+          ipAddress: null
+        });
+      } catch (logError) {
+        console.error('Failed to log API request:', logError.message);
+      }
+
       if (error.response?.status === 429) {
         console.error('⏰ Rate limit exceeded - backing off');
         await new Promise(resolve => setTimeout(resolve, 5000));
         throw new Error('RATE_LIMIT_EXCEEDED');
       }
-      
+
       console.error('❌ API Error:', error.message);
       throw error;
     } finally {
