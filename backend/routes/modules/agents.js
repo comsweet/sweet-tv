@@ -113,24 +113,33 @@ router.post('/:userId/create-upload-token', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
 
-    // Verify agent exists
-    const agents = await database.getAgents();
-    const agent = agents.find(a => a.userId === userId);
-
-    if (!agent) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
-
-    // Get agent name from Adversus
+    // Get agent name from Adversus (required)
     let agentName = `Agent ${userId}`;
     try {
       const adversusUsers = await adversusAPI.getUsers();
       const adversusUser = adversusUsers.users.find(u => u.id === userId);
       if (adversusUser) {
         agentName = adversusUser.name || `${adversusUser.firstname || ''} ${adversusUser.lastname || ''}`.trim();
+      } else {
+        return res.status(404).json({ error: 'Agent not found in Adversus' });
       }
     } catch (err) {
-      console.warn('Could not fetch agent name from Adversus:', err.message);
+      console.error('Error fetching agent from Adversus:', err);
+      return res.status(500).json({ error: 'Could not verify agent in Adversus' });
+    }
+
+    // Create agent in database if doesn't exist
+    const agents = await database.getAgents();
+    const agent = agents.find(a => a.userId === userId);
+
+    if (!agent) {
+      console.log(`Creating agent entry for userId ${userId} (${agentName})`);
+      await database.addAgent({
+        userId,
+        name: agentName,
+        email: null,
+        profileImage: null
+      });
     }
 
     // Create JWT token (expires in 1h)
