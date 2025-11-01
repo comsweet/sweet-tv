@@ -113,6 +113,7 @@ router.post('/upload', optionalAuth, uploadSound.single('sound'), async (req, re
     const originalName = req.file.originalname;
 
     console.log(`🎵 Uploaded sound to Cloudinary: ${soundUrl}`);
+    console.log(`👤 User authenticated:`, req.user ? `Yes (${req.user.email})` : 'No');
 
     const sound = await soundLibrary.addSound({
       name: originalName,
@@ -122,6 +123,7 @@ router.post('/upload', optionalAuth, uploadSound.single('sound'), async (req, re
 
     // Audit log (optional - only if user is authenticated)
     if (req.user && req.user.id) {
+      console.log(`📝 Creating audit log for user ${req.user.id}...`);
       try {
         await postgres.createAuditLog({
           userId: req.user.id,
@@ -132,9 +134,12 @@ router.post('/upload', optionalAuth, uploadSound.single('sound'), async (req, re
           ipAddress: req.ip,
           userAgent: req.headers['user-agent']
         });
+        console.log(`✅ Audit log created successfully`);
       } catch (logError) {
-        console.error('Failed to create audit log:', logError.message);
+        console.error('❌ Failed to create audit log:', logError.message);
       }
+    } else {
+      console.log(`⚠️ No user authenticated - skipping audit log`);
     }
 
     res.json(sound);

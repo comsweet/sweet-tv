@@ -87,6 +87,9 @@ const AdminAuditLogs = () => {
       case 'DELETE_USER':
       case 'DELETE_TV_CODE': return '#f44336';
       case 'CHANGE_PASSWORD': return '#9c27b0';
+      case 'UPLOAD_SOUND': return '#00bcd4';
+      case 'UPDATE_DEFAULT_SOUND':
+      case 'UPDATE_DAILY_BUDGET_SOUND': return '#ff5722';
       default: return '#607d8b';
     }
   };
