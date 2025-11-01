@@ -1,112 +1,129 @@
 const fs = require('fs').promises;
 const path = require('path');
+const postgres = require('./postgres');
 
 class DatabaseService {
   constructor() {
-    // PERSISTENT DISK på Render!
-    // Check if we're on Render and use persistent disk
+    // PERSISTENT DISK på Render för filer (bilder, ljud)
     const isRender = process.env.RENDER === 'true';
-    
-    this.dbPath = isRender 
+
+    this.dbPath = isRender
       ? '/var/data'  // Render persistent disk
       : path.join(__dirname, '../data'); // Local development
-    
-    this.agentsFile = path.join(this.dbPath, 'agents.json');
-    
-    console.log(`💾 Database path: ${this.dbPath} (isRender: ${isRender})`);
-    
+
+    console.log(`💾 File storage path: ${this.dbPath} (isRender: ${isRender})`);
+    console.log(`🐘 Using PostgreSQL for agents, users, and audit logs`);
+
     this.initDatabase();
   }
 
   async initDatabase() {
     try {
+      // Create directory for files (profile images, sounds)
       await fs.mkdir(this.dbPath, { recursive: true });
+      console.log('✅ File storage directory ready');
 
-      // Skapa agents.json
-      try {
-        await fs.access(this.agentsFile);
-        console.log('✅ agents.json exists');
-      } catch {
-        await fs.writeFile(this.agentsFile, JSON.stringify({ agents: [] }, null, 2));
-        console.log('📝 Created agents.json');
-      }
+      // Initialize Postgres connection
+      await postgres.init();
     } catch (error) {
-      console.error('Error initializing database:', error);
+      console.error('❌ Error initializing database:', error);
     }
   }
 
-  // ==================== AGENTS ====================
+  // ==================== AGENTS (Now using Postgres) ====================
 
   async getAgents() {
-    const data = await fs.readFile(this.agentsFile, 'utf8');
-    return JSON.parse(data).agents;
+    const agents = await postgres.getAgents();
+    // Convert snake_case to camelCase for backward compatibility
+    return agents.map(agent => ({
+      userId: agent.user_id,
+      name: agent.name,
+      email: agent.email,
+      profileImage: agent.profile_image,
+      groupId: agent.group_id,
+      groupName: agent.group_name,
+      customSound: agent.custom_sound,
+      preferCustomSound: agent.prefer_custom_sound,
+      createdAt: agent.created_at,
+      updatedAt: agent.updated_at
+    }));
   }
 
   async getAgent(userId) {
-    const agents = await this.getAgents();
-    // Normalize userId to number for comparison
     const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-    return agents.find(agent => agent.userId === userIdNum);
+    const agent = await postgres.getAgent(userIdNum);
+
+    if (!agent) return null;
+
+    // Convert to camelCase
+    return {
+      userId: agent.user_id,
+      name: agent.name,
+      email: agent.email,
+      profileImage: agent.profile_image,
+      groupId: agent.group_id,
+      groupName: agent.group_name,
+      customSound: agent.custom_sound,
+      preferCustomSound: agent.prefer_custom_sound,
+      createdAt: agent.created_at,
+      updatedAt: agent.updated_at
+    };
   }
 
   async addAgent(agent) {
-    const agents = await this.getAgents();
-    
-    // Konvertera userId till number för consistency med Adversus API
     const userId = typeof agent.userId === 'string' ? parseInt(agent.userId, 10) : agent.userId;
-    
-    const existingIndex = agents.findIndex(a => a.userId === userId);
-    
-    // Default sound preferences
+
     const agentData = {
-      ...agent,
-      userId: userId,  // Använd normalized userId (NUMBER)
-      customSound: agent.customSound || null,
-      preferCustomSound: agent.preferCustomSound !== undefined ? 
-        agent.preferCustomSound : 
-        false,
+      userId: userId,
+      name: agent.name,
+      email: agent.email || null,
       profileImage: agent.profileImage || null,
-      createdAt: agent.createdAt || new Date().toISOString()
+      groupId: agent.groupId || null,
+      groupName: agent.groupName || null
     };
-    
-    if (existingIndex !== -1) {
-      // Agent finns redan, uppdatera
-      agents[existingIndex] = { ...agents[existingIndex], ...agentData };
-      await fs.writeFile(this.agentsFile, JSON.stringify({ agents }, null, 2));
-      console.log(`💾 Updated existing agent ${userId} on persistent disk`);
-      return agents[existingIndex];
-    } else {
-      // Ny agent
-      agents.push(agentData);
-      await fs.writeFile(this.agentsFile, JSON.stringify({ agents }, null, 2));
-      console.log(`💾 Added new agent ${userId} to persistent disk`);
-      return agentData;
-    }
+
+    const result = await postgres.createAgent(agentData);
+
+    console.log(`💾 Added/Updated agent ${userId} in PostgreSQL`);
+
+    // Return in camelCase format
+    return {
+      userId: result.user_id,
+      name: result.name,
+      email: result.email,
+      profileImage: result.profile_image,
+      groupId: result.group_id,
+      groupName: result.group_name,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at
+    };
   }
 
   async updateAgent(userId, updates) {
-    const agents = await this.getAgents();
-    // Normalize userId to number
     const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-    
-    const index = agents.findIndex(a => a.userId === userIdNum);
-    
-    if (index !== -1) {
-      agents[index] = { ...agents[index], ...updates };
-      await fs.writeFile(this.agentsFile, JSON.stringify({ agents }, null, 2));
-      console.log(`💾 Updated agent ${userIdNum} on persistent disk`);
-      return agents[index];
-    }
-    return null;
+
+    const result = await postgres.updateAgent(userIdNum, updates);
+
+    if (!result) return null;
+
+    console.log(`💾 Updated agent ${userIdNum} in PostgreSQL`);
+
+    return {
+      userId: result.user_id,
+      name: result.name,
+      email: result.email,
+      profileImage: result.profile_image,
+      groupId: result.group_id,
+      groupName: result.group_name,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at
+    };
   }
 
   async deleteAgent(userId) {
-    const agents = await this.getAgents();
-    // Normalize userId to number
     const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-    const filtered = agents.filter(a => a.userId !== userIdNum);
-    await fs.writeFile(this.agentsFile, JSON.stringify({ agents: filtered }, null, 2));
-    console.log(`🗑️  Deleted agent ${userIdNum} from persistent disk`);
+    await postgres.deleteAgent(userIdNum);
+    console.log(`🗑️  Deleted agent ${userIdNum} from PostgreSQL`);
     return true;
   }
 }

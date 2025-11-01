@@ -4,6 +4,7 @@ const router = express.Router();
 // ==================== MODULAR ROUTES ====================
 // All endpoints are now organized in separate modules for better maintainability
 
+const authRouter = require('./modules/auth');
 const agentsRouter = require('./modules/agents');
 const leaderboardsRouter = require('./modules/leaderboards');
 const slideshowsRouter = require('./modules/slideshows');
@@ -17,6 +18,7 @@ const autoRefreshRouter = require('./modules/autoRefresh');
 const thresholdsRouter = require('./modules/thresholds');
 
 // Mount all modular routes
+router.use('/auth', authRouter);
 router.use('/agents', agentsRouter);
 router.use('/leaderboards', leaderboardsRouter);
 router.use('/slideshows', slideshowsRouter);
@@ -40,7 +42,8 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Admin authentication
+// DEPRECATED: Old admin authentication (kept for backward compatibility)
+// Use /api/auth/login instead
 router.post('/auth/admin-login', (req, res) => {
   try {
     const { password } = req.body;
@@ -48,15 +51,15 @@ router.post('/auth/admin-login', (req, res) => {
     if (!process.env.ADMIN_PASSWORD) {
       return res.status(500).json({
         success: false,
-        error: 'Admin password not configured on server'
+        error: 'Admin password not configured on server. Please use /api/auth/login with email and password instead.'
       });
     }
 
     if (password === process.env.ADMIN_PASSWORD) {
-      console.log('✅ Admin login successful');
+      console.log('⚠️  Legacy admin login used - please migrate to /api/auth/login');
       res.json({
         success: true,
-        message: 'Authentication successful'
+        message: 'Authentication successful (legacy method)'
       });
     } else {
       console.log('❌ Admin login failed - invalid password');
