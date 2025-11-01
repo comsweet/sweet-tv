@@ -231,7 +231,7 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
         return (
           <div key="deals" className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
             <span className="emoji">🎯</span>
-            <span>{item.dealCount || 0} affärer</span>
+            <span>{item.dealCount || 0}</span>
           </div>
         );
 
