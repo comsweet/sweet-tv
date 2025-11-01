@@ -10,11 +10,12 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
     return stat.totalCommission || 0;
   };
 
-  // Find max value for percentage calculation
+  // Use goalValue if set, otherwise use max value
   const maxValue = Math.max(...stats.map(s => getTotalValue(s)), 1);
+  const goalValue = leaderboard.goalValue || maxValue;
 
   const getProgressPercentage = (value) => {
-    return Math.min((value / maxValue) * 95, 95); // Max 95% to leave space for finish line
+    return Math.min((value / goalValue) * 90, 90); // Max 90% to leave space for finish
   };
 
   const getRankIcon = (index) => {
@@ -32,11 +33,18 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
     return value.toLocaleString('sv-SE');
   };
 
+  const getGoalLabel = () => {
+    if (leaderboard.goalLabel) {
+      return leaderboard.goalLabel;
+    }
+    return 'Race mot målet!';
+  };
+
   const getGoalText = () => {
     if (leaderboard.sortBy === 'dealCount') {
-      return `${maxValue} affärer`;
+      return `${goalValue} affärer`;
     }
-    return `${maxValue.toLocaleString('sv-SE')} THB`;
+    return `${goalValue.toLocaleString('sv-SE')} THB`;
   };
 
   const renderRocket = (stat, index) => {
@@ -46,77 +54,83 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
     const isLeader = index === 0;
 
     return (
-      <div key={stat.userId || stat.groupName || index} className="rocket-lane">
-        <div className="rocket-info">
-          <span className="rocket-rank">{getRankIcon(index)}</span>
-
-          <div className="rocket-participant">
-            {!isGroup && stat.agent?.profileImage ? (
-              <img
-                src={stat.agent.profileImage}
-                alt={stat.agent?.name || stat.groupName || 'Unknown'}
-                className="rocket-avatar"
-              />
-            ) : (
-              <div className="rocket-avatar-placeholder">
-                {isGroup ? '👥' : (stat.agent?.name || stat.groupName || '?').charAt(0)}
-              </div>
-            )}
-
-            <div className="rocket-name-section">
-              <div className="rocket-name">
-                {isGroup ? stat.groupName : stat.agent?.name || 'Unknown'}
-              </div>
-              {isGroup && (
-                <div className="rocket-meta">{stat.agentCount} agenter</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="rocket-track">
+      <div key={stat.userId || stat.groupName || index} className="rocket-column">
+        <div className="rocket-trail">
           <div
-            className={`rocket ${isLeader ? 'rocket-leader' : ''}`}
-            style={{ left: `${percentage}%` }}
+            className={`rocket-fill ${isLeader ? 'leader-fill' : ''}`}
+            style={{ height: `${percentage}%` }}
           >
-            <div className="rocket-body">🚀</div>
-            <div className="rocket-flame">🔥</div>
-            <div className="rocket-value">{formatValue(stat)}</div>
+            <div className="rocket-shine"></div>
           </div>
 
-          {isLeader && percentage > 70 && (
-            <div className="rocket-sparkles">✨✨✨</div>
+          <div
+            className={`rocket-sprite ${isLeader ? 'leader-rocket' : ''}`}
+            style={{ bottom: `${percentage}%` }}
+          >
+            <div className="rocket-flame">🔥</div>
+            <div className="rocket-body">🚀</div>
+            {isLeader && <div className="rocket-crown">👑</div>}
+          </div>
+
+          {percentage > 60 && isLeader && (
+            <div className="rocket-sparkle" style={{ bottom: `${percentage - 10}%` }}>✨</div>
           )}
         </div>
 
-        {stat.gapToLeader !== undefined && stat.gapToLeader > 0 && (
-          <div className="rocket-gap">
-            📏 {leaderboard.sortBy === 'dealCount'
-              ? `${stat.gapToLeader} affärer`
-              : `${stat.gapToLeader.toLocaleString('sv-SE')} THB`} bakom
+        <div className="rocket-value-display">{formatValue(stat)}</div>
+
+        <div className="rocket-participant-info">
+          <span className="rocket-rank-badge">{getRankIcon(index)}</span>
+
+          {!isGroup && stat.agent?.profileImage ? (
+            <img
+              src={stat.agent.profileImage}
+              alt={stat.agent?.name || stat.groupName || 'Unknown'}
+              className="rocket-avatar-img"
+            />
+          ) : (
+            <div className="rocket-avatar-circle">
+              {isGroup ? '👥' : (stat.agent?.name || stat.groupName || '?').charAt(0)}
+            </div>
+          )}
+
+          <div className="rocket-name-text">
+            {isGroup ? stat.groupName : stat.agent?.name || 'Unknown'}
           </div>
-        )}
+
+          {isGroup && (
+            <div className="rocket-meta-text">{stat.agentCount} agenter</div>
+          )}
+
+          {stat.gapToLeader !== undefined && stat.gapToLeader > 0 && (
+            <div className="rocket-gap-text">
+              -{leaderboard.sortBy === 'dealCount'
+                ? `${stat.gapToLeader}`
+                : `${stat.gapToLeader.toLocaleString('sv-SE')}`}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="rocket-race-layout">
-      <div className="rocket-race-header">
-        <h2>🏁 Race mot målet!</h2>
-        <div className="rocket-goal">
-          <span className="goal-label">Mål:</span>
-          <span className="goal-value">{getGoalText()}</span>
+    <div className="rocket-race-vertical">
+      <div className="rocket-race-title">
+        <h2>{getGoalLabel()}</h2>
+        <div className="rocket-goal-info">
+          <span className="goal-icon">🎯</span>
+          <span className="goal-text">{getGoalText()}</span>
         </div>
       </div>
 
-      <div className="rocket-race-track">
-        {stats.map((stat, index) => renderRocket(stat, index))}
-      </div>
-
-      <div className="finish-line">
+      <div className="finish-zone">
         <div className="finish-flag">🏁</div>
         <div className="finish-text">MÅLGÅNG</div>
+      </div>
+
+      <div className="rocket-columns-container">
+        {stats.map((stat, index) => renderRocket(stat, index))}
       </div>
     </div>
   );

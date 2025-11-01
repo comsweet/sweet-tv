@@ -10,11 +10,12 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
     return stat.totalCommission || 0;
   };
 
-  // Find max value for percentage calculation
+  // Use goalValue if set, otherwise use max value
   const maxValue = Math.max(...stats.map(s => getTotalValue(s)), 1);
+  const goalValue = leaderboard.goalValue || maxValue;
 
   const getProgressPercentage = (value) => {
-    return Math.min((value / maxValue) * 95, 95); // Max 95% to leave space for finish line
+    return Math.min((value / goalValue) * 95, 95);
   };
 
   const getRankIcon = (index) => {
@@ -32,17 +33,25 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
     return value.toLocaleString('sv-SE');
   };
 
+  const getGoalLabel = () => {
+    if (leaderboard.goalLabel) {
+      return leaderboard.goalLabel;
+    }
+    return 'Löpar-Race till Målet!';
+  };
+
   const getGoalText = () => {
     if (leaderboard.sortBy === 'dealCount') {
-      return `${maxValue} affärer`;
+      return `${goalValue} affärer`;
     }
-    return `${maxValue.toLocaleString('sv-SE')} THB`;
+    return `${goalValue.toLocaleString('sv-SE')} THB`;
   };
 
   const getRunnerIcon = (index) => {
-    if (index === 0) return '🏃‍♂️'; // Leader - running
-    if (index === 1 || index === 2) return '🏃'; // Close behind
-    return '🚶'; // Walking
+    // Use better running emoji
+    if (index === 0) return '🏃‍♂️';
+    if (index === 1 || index === 2) return '🏃';
+    return '🚶';
   };
 
   const renderRunner = (stat, index) => {
@@ -58,13 +67,11 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
 
           <div className="race-participant">
             {!isGroup && stat.agent?.profileImage ? (
-              <div className="race-avatar-wrapper">
-                <img
-                  src={stat.agent.profileImage}
-                  alt={stat.agent?.name || stat.groupName || 'Unknown'}
-                  className="race-avatar"
-                />
-              </div>
+              <img
+                src={stat.agent.profileImage}
+                alt={stat.agent?.name || stat.groupName || 'Unknown'}
+                className="race-avatar"
+              />
             ) : (
               <div className="race-avatar-placeholder">
                 {isGroup ? '👥' : (stat.agent?.name || stat.groupName || '?').charAt(0)}
@@ -118,7 +125,7 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
   return (
     <div className="race-layout">
       <div className="race-header">
-        <h2>🏁 Löpar-Race till Målet!</h2>
+        <h2>{getGoalLabel()}</h2>
         <div className="race-goal">
           <span className="goal-label">Målgång:</span>
           <span className="goal-value">{getGoalText()}</span>

@@ -35,7 +35,10 @@ export const useLeaderboards = () => {
     visualizationMode: 'table', // 'table' | 'cards' | 'progress' | 'rocket' | 'race'
     showGraphs: false,
     showGap: true,
-    showMiniStats: false
+    showMiniStats: false,
+    // Goal configuration
+    goalValue: null, // null = auto
+    goalLabel: ''
   });
 
   const fetchLeaderboards = async () => {
@@ -72,7 +75,10 @@ export const useLeaderboards = () => {
       visualizationMode: 'table',
       showGraphs: false,
       showGap: true,
-      showMiniStats: false
+      showMiniStats: false,
+      // Goal configuration
+      goalValue: null,
+      goalLabel: ''
     });
     setShowModal(true);
   };
@@ -101,7 +107,10 @@ export const useLeaderboards = () => {
       visualizationMode: leaderboard.visualizationMode || 'table',
       showGraphs: leaderboard.showGraphs !== undefined ? leaderboard.showGraphs : false,
       showGap: leaderboard.showGap !== undefined ? leaderboard.showGap : true,
-      showMiniStats: leaderboard.showMiniStats !== undefined ? leaderboard.showMiniStats : false
+      showMiniStats: leaderboard.showMiniStats !== undefined ? leaderboard.showMiniStats : false,
+      // Goal configuration
+      goalValue: leaderboard.goalValue || null,
+      goalLabel: leaderboard.goalLabel || ''
     });
     setShowModal(true);
   };
