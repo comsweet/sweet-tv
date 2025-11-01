@@ -25,10 +25,10 @@ const AdminDashboard = () => {
       const dealsData = dealsResponse.data;
       const smsData = smsResponse.data;
 
-      // Calculate success rate: (total deals / unique SMS) * 100
+      // Calculate success rate: (total deals / total SMS) * 100
       const totalDeals = dealsData?.totalDeals || 0;
-      const uniqueSMS = smsData?.uniqueSMS || 0;
-      const successRate = uniqueSMS > 0 ? (totalDeals / uniqueSMS * 100) : 0;
+      const totalSMS = smsData?.totalSMS || 0;
+      const successRate = totalSMS > 0 ? (totalDeals / totalSMS * 100) : 0;
 
       // Add calculated values to SMS stats
       const enhancedSmsStats = {
@@ -153,7 +153,7 @@ const AdminDashboard = () => {
                   <div className="stat-value">{smsStats?.successRate?.toFixed(1) || 0}%</div>
                   <div className="stat-label">Success Rate</div>
                   <div className="stat-hint" style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
-                    {smsStats?.totalDeals || 0} deals / {smsStats?.uniqueSMS || 0} unique SMS
+                    {smsStats?.totalDeals || 0} deals / {smsStats?.totalSMS || 0} total SMS
                   </div>
                 </div>
               </div>
@@ -181,27 +181,6 @@ const AdminDashboard = () => {
               <span className="info-label">📅 Date Range:</span>
               <span className="info-value">{smsStats?.rollingWindow || 'N/A'}</span>
             </div>
-
-            {smsStats?.statusBreakdown && (
-              <div className="stat-breakdown">
-                <div className="breakdown-item success">
-                  <span className="breakdown-label">✅ Success</span>
-                  <span className="breakdown-value">{smsStats.statusBreakdown.success || 0}</span>
-                </div>
-                <div className="breakdown-item failed">
-                  <span className="breakdown-label">❌ Failed</span>
-                  <span className="breakdown-value">{smsStats.statusBreakdown.failed || 0}</span>
-                </div>
-                <div className="breakdown-item pending">
-                  <span className="breakdown-label">⏳ Other</span>
-                  <span className="breakdown-value">
-                    {Object.entries(smsStats.statusBreakdown)
-                      .filter(([key]) => key !== 'success' && key !== 'failed')
-                      .reduce((sum, [, val]) => sum + val, 0)}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
