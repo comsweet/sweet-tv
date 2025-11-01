@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSlideshows } from '../services/api';
+import TVAccessCodeModal from '../components/TVAccessCodeModal';
 import './SlideshowsList.css';
 
 /**
@@ -11,6 +12,11 @@ const SlideshowsList = () => {
   const [slideshows, setSlideshows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+
+  // 🔑 TV ACCESS CODE STATE
+  const [hasAccess, setHasAccess] = useState(() => {
+    return sessionStorage.getItem('tvAccessGranted') === 'true';
+  });
 
   useEffect(() => {
     loadSlideshows();
@@ -36,6 +42,11 @@ const SlideshowsList = () => {
   const handleSelectSlideshow = (slideshowId) => {
     navigate(`/slideshow/${slideshowId}`);
   };
+
+  // 🔑 Show access code modal if not granted
+  if (!hasAccess) {
+    return <TVAccessCodeModal onAccessGranted={() => setHasAccess(true)} />;
+  }
 
   if (isLoading) {
     return (

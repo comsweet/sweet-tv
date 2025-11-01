@@ -8,7 +8,6 @@ import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
 import { getSlideshow, getLeaderboardStats2, getAutoRefreshSettings, getThresholdsForPeriod } from '../services/api';
 import DealNotification from '../components/DealNotification';
-import TVAccessCodeModal from '../components/TVAccessCodeModal';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -328,11 +327,6 @@ const Slideshow = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
-
-  // 🔑 TV ACCESS CODE STATE
-  const [hasAccess, setHasAccess] = useState(() => {
-    return sessionStorage.getItem('tvAccessGranted') === 'true';
-  });
 
   // 🔥 TV SIZE STATE
   const [displaySize, setDisplaySize] = useState(() => {
@@ -694,11 +688,6 @@ const Slideshow = () => {
       }
     }, delay);
   };
-
-  // 🔑 Show access code modal if not granted
-  if (!hasAccess) {
-    return <TVAccessCodeModal onAccessGranted={() => setHasAccess(true)} />;
-  }
 
   if (isLoading) {
     return (
