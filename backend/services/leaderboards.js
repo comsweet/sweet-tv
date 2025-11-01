@@ -64,6 +64,15 @@ class LeaderboardService {
         commission: true,
         deals: true
       },
+      columnOrder: leaderboard.columnOrder || ['deals', 'sms', 'commission', 'campaignBonus', 'total'],
+      sortBy: leaderboard.sortBy || 'commission',
+      // NEW: Enhanced display options
+      displayMode: leaderboard.displayMode || 'individual', // 'individual' | 'groups'
+      topN: leaderboard.topN || null, // null = show all, otherwise limit to top N
+      visualizationMode: leaderboard.visualizationMode || 'table', // 'table' | 'cards' | 'progress' | 'rocket' | 'race'
+      showGraphs: leaderboard.showGraphs !== undefined ? leaderboard.showGraphs : false,
+      showGap: leaderboard.showGap !== undefined ? leaderboard.showGap : true,
+      showMiniStats: leaderboard.showMiniStats !== undefined ? leaderboard.showMiniStats : false,
       active: leaderboard.active !== undefined ? leaderboard.active : true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()

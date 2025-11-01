@@ -28,7 +28,14 @@ export const useLeaderboards = () => {
       campaignBonus: true,
       total: true
     },
-    columnOrder: ['deals', 'sms', 'commission', 'campaignBonus', 'total']
+    columnOrder: ['deals', 'sms', 'commission', 'campaignBonus', 'total'],
+    // NEW: Enhanced display options
+    displayMode: 'individual', // 'individual' | 'groups'
+    topN: null, // null = show all
+    visualizationMode: 'table', // 'table' | 'cards' | 'progress' | 'rocket' | 'race'
+    showGraphs: false,
+    showGap: true,
+    showMiniStats: false
   });
 
   const fetchLeaderboards = async () => {
@@ -58,7 +65,14 @@ export const useLeaderboards = () => {
         campaignBonus: true,
         total: true
       },
-      columnOrder: ['deals', 'sms', 'commission', 'campaignBonus', 'total']
+      columnOrder: ['deals', 'sms', 'commission', 'campaignBonus', 'total'],
+      // NEW: Enhanced display options
+      displayMode: 'individual',
+      topN: null,
+      visualizationMode: 'table',
+      showGraphs: false,
+      showGap: true,
+      showMiniStats: false
     });
     setShowModal(true);
   };
@@ -80,7 +94,14 @@ export const useLeaderboards = () => {
         campaignBonus: true,
         total: true
       },
-      columnOrder: leaderboard.columnOrder || ['deals', 'sms', 'commission', 'campaignBonus', 'total']
+      columnOrder: leaderboard.columnOrder || ['deals', 'sms', 'commission', 'campaignBonus', 'total'],
+      // NEW: Enhanced display options
+      displayMode: leaderboard.displayMode || 'individual',
+      topN: leaderboard.topN || null,
+      visualizationMode: leaderboard.visualizationMode || 'table',
+      showGraphs: leaderboard.showGraphs !== undefined ? leaderboard.showGraphs : false,
+      showGap: leaderboard.showGap !== undefined ? leaderboard.showGap : true,
+      showMiniStats: leaderboard.showMiniStats !== undefined ? leaderboard.showMiniStats : false
     });
     setShowModal(true);
   };

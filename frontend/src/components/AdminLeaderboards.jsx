@@ -187,6 +187,17 @@ const AdminLeaderboards = () => {
             </div>
 
             <div className="form-group">
+              <label>Visa per:</label>
+              <select
+                value={form.displayMode}
+                onChange={(e) => setForm({ ...form, displayMode: e.target.value })}
+              >
+                <option value="individual">👤 Individuella agenter</option>
+                <option value="groups">👥 User Groups (aggregerat)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
               <label>Ranking baserad på:</label>
               <select
                 value={form.sortBy}
@@ -195,6 +206,35 @@ const AdminLeaderboards = () => {
                 <option value="commission">💰 Provision</option>
                 <option value="total">💎 Total (Provision + Kampanjbonus)</option>
                 <option value="dealCount">🎯 Antal Affärer</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Visa top N (tom = alla):</label>
+              <select
+                value={form.topN || ''}
+                onChange={(e) => setForm({ ...form, topN: e.target.value ? parseInt(e.target.value) : null })}
+              >
+                <option value="">Alla</option>
+                <option value="3">Top 3</option>
+                <option value="5">Top 5</option>
+                <option value="10">Top 10</option>
+                <option value="15">Top 15</option>
+                <option value="20">Top 20</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Visualiseringsläge:</label>
+              <select
+                value={form.visualizationMode}
+                onChange={(e) => setForm({ ...form, visualizationMode: e.target.value })}
+              >
+                <option value="table">📋 Klassisk Tabell</option>
+                <option value="cards">🎴 Card Layout</option>
+                <option value="progress">📊 Progress Bars</option>
+                <option value="rocket">🚀 Raket-Race</option>
+                <option value="race">🏃 Löpar-Race</option>
               </select>
             </div>
 
@@ -323,6 +363,36 @@ const AdminLeaderboards = () => {
                 })}
               </div>
               <small>Använd pilarna för att ändra ordningen som kolumnerna visas på slideshow.</small>
+            </div>
+
+            <div className="form-group">
+              <label>Visuella element:</label>
+              <div className="checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.showGraphs}
+                    onChange={(e) => setForm({ ...form, showGraphs: e.target.checked })}
+                  />
+                  <span>📈 Visa grafer och diagram</span>
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.showGap}
+                    onChange={(e) => setForm({ ...form, showGap: e.target.checked })}
+                  />
+                  <span>📏 Visa gap till ledare</span>
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.showMiniStats}
+                    onChange={(e) => setForm({ ...form, showMiniStats: e.target.checked })}
+                  />
+                  <span>📊 Visa team mini-stats</span>
+                </label>
+              </div>
             </div>
 
             <div className="form-group">
