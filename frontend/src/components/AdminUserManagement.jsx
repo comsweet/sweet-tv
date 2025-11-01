@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const AdminUserManagement = () => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -110,22 +110,39 @@ const AdminUserManagement = () => {
   return (
     <div className="admin-section">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2 style={{ color: '#005A9C', margin: 0 }}>👥 Användarhantering</h2>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          style={{
-            padding: '10px 20px',
-            background: showCreateForm ? '#666' : 'linear-gradient(135deg, #005A9C 0%, #00B2E3 100%)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '600'
-          }}
-        >
-          {showCreateForm ? '✕ Avbryt' : '+ Skapa Användare'}
-        </button>
+        <div>
+          <h2 style={{ color: '#005A9C', margin: 0 }}>👥 Användarhantering</h2>
+          {!isSuperAdmin && (
+            <div style={{
+              fontSize: '13px',
+              color: '#ff9800',
+              marginTop: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span>👁️</span>
+              <span>Läsläge - endast superadmins kan redigera användare</span>
+            </div>
+          )}
+        </div>
+        {isSuperAdmin && (
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            style={{
+              padding: '10px 20px',
+              background: showCreateForm ? '#666' : 'linear-gradient(135deg, #005A9C 0%, #00B2E3 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600'
+            }}
+          >
+            {showCreateForm ? '✕ Avbryt' : '+ Skapa Användare'}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -153,7 +170,7 @@ const AdminUserManagement = () => {
       )}
 
       {/* Create User Form */}
-      {showCreateForm && (
+      {isSuperAdmin && showCreateForm && (
         <div style={{
           background: 'white',
           padding: '24px',
@@ -338,7 +355,9 @@ const AdminUserManagement = () => {
                 <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Roll</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Status</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Skapad</th>
-                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Actions</th>
+                {isSuperAdmin && (
+                  <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Actions</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -387,28 +406,14 @@ const AdminUserManagement = () => {
                   <td style={{ padding: '12px', fontSize: '13px', color: '#666' }}>
                     {formatDate(user.created_at)}
                   </td>
-                  <td style={{ padding: '12px' }}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        onClick={() => toggleUserActive(user.id, user.active)}
-                        style={{
-                          padding: '6px 12px',
-                          background: user.active ? '#ff9800' : '#4caf50',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '13px'
-                        }}
-                      >
-                        {user.active ? 'Inaktivera' : 'Aktivera'}
-                      </button>
-                      {user.id !== currentUser?.id && (
+                  {isSuperAdmin && (
+                    <td style={{ padding: '12px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <button
-                          onClick={() => deleteUser(user.id, user.email)}
+                          onClick={() => toggleUserActive(user.id, user.active)}
                           style={{
                             padding: '6px 12px',
-                            background: '#f44336',
+                            background: user.active ? '#ff9800' : '#4caf50',
                             color: 'white',
                             border: 'none',
                             borderRadius: '4px',
@@ -416,11 +421,27 @@ const AdminUserManagement = () => {
                             fontSize: '13px'
                           }}
                         >
-                          Ta bort
+                          {user.active ? 'Inaktivera' : 'Aktivera'}
                         </button>
-                      )}
-                    </div>
-                  </td>
+                        {user.id !== currentUser?.id && (
+                          <button
+                            onClick={() => deleteUser(user.id, user.email)}
+                            style={{
+                              padding: '6px 12px',
+                              background: '#f44336',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '13px'
+                            }}
+                          >
+                            Ta bort
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

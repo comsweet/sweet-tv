@@ -43,11 +43,8 @@ const Admin = () => {
     { id: 'cache', icon: '🗂️', label: 'Cache', section: 'system' },
     { id: 'settings', icon: '⚙️', label: 'Settings', section: 'system' },
     { id: 'changePassword', icon: '🔒', label: 'Byt Lösenord', section: 'account' },
+    { id: 'users', icon: '👤', label: 'Användare', section: 'account', superadmin: isSuperAdmin },
   ];
-
-  if (isSuperAdmin) {
-    menuItems.push({ id: 'users', icon: '👥', label: 'Användare', section: 'account', superadmin: true });
-  }
 
   const renderMenuItem = (item) => (
     <div
@@ -71,17 +68,19 @@ const Admin = () => {
 
   return (
     <div className="admin-layout">
+      {/* Toggle Button - Fixed/Sticky */}
+      <button
+        className="sidebar-toggle"
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        title={sidebarCollapsed ? 'Expandera meny' : 'Kollapsa meny'}
+      >
+        {sidebarCollapsed ? '→' : '←'}
+      </button>
+
       {/* Sidebar */}
       <div className={`admin-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           {!sidebarCollapsed && <h2>Sweet TV</h2>}
-          <button
-            className="sidebar-toggle"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            title={sidebarCollapsed ? 'Expandera meny' : 'Kollapsa meny'}
-          >
-            {sidebarCollapsed ? '→' : '←'}
-          </button>
         </div>
 
         <div className="sidebar-content">
@@ -140,7 +139,7 @@ const Admin = () => {
           {activeTab === 'auditLogs' && <AdminAuditLogs />}
           {activeTab === 'apiMonitoring' && <AdminAPIMonitoring />}
           {activeTab === 'changePassword' && <AdminChangePassword />}
-          {activeTab === 'users' && isSuperAdmin && <AdminUserManagement />}
+          {activeTab === 'users' && <AdminUserManagement />}
           {activeTab === 'settings' && <AdminAutoRefreshSettings />}
         </div>
       </div>
