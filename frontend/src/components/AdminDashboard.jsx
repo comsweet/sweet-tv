@@ -135,12 +135,11 @@ const AdminDashboard = () => {
               <div className="stat-item large">
                 <div className="stat-icon">✅</div>
                 <div className="stat-content">
-                  <div className="stat-value">
-                    {smsStats?.totalSMS > 0
-                      ? ((smsStats.statusBreakdown?.success || 0) / smsStats.totalSMS * 100).toFixed(1)
-                      : 0}%
-                  </div>
+                  <div className="stat-value">{smsStats?.successRate?.toFixed(1) || 0}%</div>
                   <div className="stat-label">Success Rate</div>
+                  <div className="stat-hint" style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
+                    {smsStats?.totalDeals || 0} deals / {smsStats?.uniqueSMS || 0} unique SMS
+                  </div>
                 </div>
               </div>
             </div>
@@ -228,47 +227,6 @@ const AdminDashboard = () => {
             <p className="footer-text">
               💡 Navigate to Cache Management to manually sync or clear caches
             </p>
-          </div>
-        </div>
-
-        {/* QUICK ACTIONS */}
-        <div className="dashboard-card actions-card">
-          <div className="card-header">
-            <h2>⚡ Quick Actions</h2>
-          </div>
-
-          <div className="quick-actions">
-            <a href="/#/admin" onClick={(e) => { e.preventDefault(); window.location.hash = '/admin'; }} className="action-link">
-              <div className="action-icon">👥</div>
-              <div className="action-content">
-                <div className="action-title">Manage Agents</div>
-                <div className="action-desc">Add, edit or sync agents</div>
-              </div>
-            </a>
-
-            <a href="/#/admin" onClick={(e) => { e.preventDefault(); window.location.hash = '/admin'; }} className="action-link">
-              <div className="action-icon">📊</div>
-              <div className="action-content">
-                <div className="action-title">Leaderboards</div>
-                <div className="action-desc">Create and manage leaderboards</div>
-              </div>
-            </a>
-
-            <a href="/#/admin" onClick={(e) => { e.preventDefault(); window.location.hash = '/admin'; }} className="action-link">
-              <div className="action-icon">🎬</div>
-              <div className="action-content">
-                <div className="action-title">Slideshows</div>
-                <div className="action-desc">Configure slideshow displays</div>
-              </div>
-            </a>
-
-            <a href="/#/admin" onClick={(e) => { e.preventDefault(); window.location.hash = '/admin'; }} className="action-link">
-              <div className="action-icon">🗂️</div>
-              <div className="action-content">
-                <div className="action-title">Cache Management</div>
-                <div className="action-desc">Sync and clear cache data</div>
-              </div>
-            </a>
           </div>
         </div>
       </div>

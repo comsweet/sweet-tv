@@ -68,17 +68,19 @@ const Admin = () => {
 
   return (
     <div className="admin-layout">
+      {/* Toggle Button - Fixed at middle of sidebar edge */}
+      <button
+        className={`sidebar-toggle ${sidebarCollapsed ? 'collapsed' : ''}`}
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        title={sidebarCollapsed ? 'Expandera meny' : 'Kollapsa meny'}
+      >
+        {sidebarCollapsed ? '→' : '←'}
+      </button>
+
       {/* Sidebar */}
       <div className={`admin-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           {!sidebarCollapsed && <h2>Sweet TV</h2>}
-          <button
-            className="sidebar-toggle"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            title={sidebarCollapsed ? 'Expandera meny' : 'Kollapsa meny'}
-          >
-            {sidebarCollapsed ? '→' : '←'}
-          </button>
         </div>
 
         <div className="sidebar-content">

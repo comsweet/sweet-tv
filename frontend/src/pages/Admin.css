@@ -45,28 +45,36 @@
   color: white;
 }
 
-/* Toggle Button - Part of sidebar header */
+/* Toggle Button - Fixed at middle of sidebar edge */
 .sidebar-toggle {
-  background: rgba(0, 178, 227, 0.2);
-  border: 1px solid rgba(0, 178, 227, 0.4);
+  position: fixed;
+  left: 245px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #00B2E3;
+  border: none;
   color: white;
   width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  height: 48px;
+  border-radius: 0 8px 8px 0;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: bold;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
-  flex-shrink: 0;
+  transition: all 0.3s;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
+  z-index: 101;
+}
+
+.sidebar-toggle.collapsed {
+  left: 55px;
 }
 
 .sidebar-toggle:hover {
-  background: rgba(0, 178, 227, 0.3);
-  border-color: #00B2E3;
-  transform: scale(1.1);
+  background: #0099cc;
+  box-shadow: 2px 0 12px rgba(0, 178, 227, 0.4);
 }
 
 /* Sidebar Content */
