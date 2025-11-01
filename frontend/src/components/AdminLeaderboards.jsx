@@ -238,6 +238,33 @@ const AdminLeaderboards = () => {
               </select>
             </div>
 
+            {/* Goal settings for race modes */}
+            {(form.visualizationMode === 'rocket' || form.visualizationMode === 'race' || form.visualizationMode === 'progress') && (
+              <>
+                <div className="form-group">
+                  <label>Mål-rubrik (valfri):</label>
+                  <input
+                    type="text"
+                    value={form.goalLabel}
+                    onChange={(e) => setForm({ ...form, goalLabel: e.target.value })}
+                    placeholder="T.ex. 'Race mot 100k!' eller 'Spring till målet!'"
+                  />
+                  <small>Lämna tom för att använda standardtext</small>
+                </div>
+
+                <div className="form-group">
+                  <label>Målvärde (valfri):</label>
+                  <input
+                    type="number"
+                    value={form.goalValue || ''}
+                    onChange={(e) => setForm({ ...form, goalValue: e.target.value ? parseInt(e.target.value) : null })}
+                    placeholder="T.ex. 100000"
+                  />
+                  <small>Lämna tom för att använda högsta värde automatiskt</small>
+                </div>
+              </>
+            )}
+
             {form.timePeriod === 'custom' && (
               <div className="form-row">
                 <div className="form-group">

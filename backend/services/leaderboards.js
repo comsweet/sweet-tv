@@ -73,6 +73,9 @@ class LeaderboardService {
       showGraphs: leaderboard.showGraphs !== undefined ? leaderboard.showGraphs : false,
       showGap: leaderboard.showGap !== undefined ? leaderboard.showGap : true,
       showMiniStats: leaderboard.showMiniStats !== undefined ? leaderboard.showMiniStats : false,
+      // Goal configuration for race modes
+      goalValue: leaderboard.goalValue || null, // null = auto (max value), number = custom goal
+      goalLabel: leaderboard.goalLabel || '', // e.g., "Race mot 100k!"
       active: leaderboard.active !== undefined ? leaderboard.active : true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
