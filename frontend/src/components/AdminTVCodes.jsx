@@ -142,7 +142,6 @@ const AdminTVCodes = () => {
         <p style={{ margin: '8px 0 0 0' }}>
           Generera en 6-siffrig kod som TV-skärmar kan använda för att få tillgång till slideshows.
           Koden är giltig i 1-10 minuter och kan endast användas en gång.
-          Detta ersätter behovet av TV-user accounts.
         </p>
       </div>
 
