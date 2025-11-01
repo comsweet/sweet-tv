@@ -454,7 +454,7 @@ class SMSCache {
     }
 
     const lastSync = await this.getLastSync();
-    const { startDate, endDate, startDateFormatted, endDateFormatted } = this.getRollingWindow();
+    const { startDateFormatted, endDateFormatted } = this.getRollingWindow();
 
     // Count unique agents
     const uniqueAgents = new Set(this.cache.map(sms => sms.userId));
@@ -474,31 +474,9 @@ class SMSCache {
     });
     const uniqueSMS = uniqueReceiverDates.size;
 
-    // Get total deals from deals cache to calculate success rate
-    let totalDeals = 0;
-    let successRate = 0;
-    try {
-      const dealsCache = require('./dealsCache');
-      await dealsCache._ensureInitialized();
-      const deals = await dealsCache.getDealsInRange(startDate, endDate);
-
-      // Calculate total deals (including multiDeals)
-      totalDeals = deals.reduce((sum, deal) => {
-        const multiDeals = parseInt(deal.multiDeals) || 1;
-        return sum + multiDeals;
-      }, 0);
-
-      // Calculate success rate: (total deals / unique SMS) * 100
-      successRate = uniqueSMS > 0 ? ((totalDeals / uniqueSMS) * 100) : 0;
-    } catch (error) {
-      console.error('Failed to calculate success rate:', error.message);
-    }
-
     return {
       totalSMS: this.cache.length,
       uniqueSMS: uniqueSMS,
-      totalDeals: totalDeals,
-      successRate: parseFloat(successRate.toFixed(1)),
       uniqueAgents: uniqueAgents.size,
       statusBreakdown: statusCounts,
       rollingWindow: `${startDateFormatted} to ${endDateFormatted}`,

@@ -22,8 +22,23 @@ const AdminDashboard = () => {
         getSMSCacheStats()
       ]);
 
-      setDealsStats(dealsResponse.data);
-      setSmsStats(smsResponse.data);
+      const dealsData = dealsResponse.data;
+      const smsData = smsResponse.data;
+
+      // Calculate success rate: (total deals / unique SMS) * 100
+      const totalDeals = dealsData?.totalDeals || 0;
+      const uniqueSMS = smsData?.uniqueSMS || 0;
+      const successRate = uniqueSMS > 0 ? (totalDeals / uniqueSMS * 100) : 0;
+
+      // Add calculated values to SMS stats
+      const enhancedSmsStats = {
+        ...smsData,
+        totalDeals: totalDeals,
+        successRate: parseFloat(successRate.toFixed(1))
+      };
+
+      setDealsStats(dealsData);
+      setSmsStats(enhancedSmsStats);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
