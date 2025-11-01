@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './Login.css';
 
@@ -8,8 +7,8 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
   const { login } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,20 +16,10 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const result = await login(email, password);
-
-      if (result.success) {
-        // Redirect based on role
-        if (result.user.role === 'tv-user') {
-          navigate('/slideshows');
-        } else {
-          navigate('/admin');
-        }
-      } else {
-        setError(result.error || 'Login failed');
-      }
+      await login(email, password);
+      // Navigation happens in AuthContext after successful login
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError(err.message || 'Inloggningen misslyckades. Kontrollera email och lösenord.');
     } finally {
       setIsLoading(false);
     }
@@ -38,38 +27,38 @@ const Login = () => {
 
   return (
     <div className="login-container">
-      <div className="login-box">
+      <div className="login-card">
         <div className="login-header">
-          <h1>📺 Sweet TV</h1>
-          <p>Logga in för att fortsätta</p>
+          <h1>Sweet TV</h1>
+          <p className="company-name">Sweet Communication Co., Ltd</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           {error && (
             <div className="login-error">
-              ⚠️ {error}
+              {error}
             </div>
           )}
 
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
-              id="email"
               type="email"
+              id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="din.email@example.com"
+              placeholder="din.email@sweet-communication.com"
               required
-              autoFocus
               disabled={isLoading}
+              autoFocus
             />
           </div>
 
           <div className="form-group">
             <label htmlFor="password">Lösenord</label>
             <input
-              id="password"
               type="password"
+              id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -83,12 +72,12 @@ const Login = () => {
             className="login-button"
             disabled={isLoading}
           >
-            {isLoading ? '⏳ Loggar in...' : '🔐 Logga in'}
+            {isLoading ? 'Loggar in...' : 'Logga in'}
           </button>
         </form>
 
         <div className="login-footer">
-          <p>Sweet Communication AB</p>
+          <p>Säker inloggning med JWT</p>
         </div>
       </div>
     </div>

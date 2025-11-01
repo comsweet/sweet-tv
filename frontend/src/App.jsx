@@ -1,4 +1,4 @@
-import { HashRouter as Router, Routes, Route } from 'react-router-dom'
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
@@ -14,53 +14,27 @@ function App() {
     <Router>
       <AuthProvider>
         <Routes>
-          {/* Login */}
+          {/* Login page */}
           <Route path="/login" element={<Login />} />
 
-          {/* Agent upload (publik sida med JWT token) */}
+          {/* Agent upload (public sida med JWT token) */}
           <Route path="/upload/:token" element={<AgentUpload />} />
 
-          {/* Startsida = Slideshow-lista (kräver inloggning) */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <SlideshowsList />
-              </ProtectedRoute>
-            }
-          />
+          {/* Slideshow pages (public - ingen auth krävs nu, TV codes används istället) */}
+          <Route path="/slideshow" element={<SlideshowsList />} />
+          <Route path="/slideshow/:id" element={<Slideshow />} />
 
-          {/* Admin (kräver admin eller superadmin) */}
+          {/* Protected Admin route (kräver admin eller superadmin) */}
           <Route
             path="/admin"
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+              <ProtectedRoute requireAdmin={true}>
                 <Admin />
               </ProtectedRoute>
             }
           />
 
-          {/* Slideshow-lista (kräver inloggning) */}
-          <Route
-            path="/slideshow"
-            element={
-              <ProtectedRoute>
-                <SlideshowsList />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Specifik slideshow (kräver inloggning) */}
-          <Route
-            path="/slideshow/:id"
-            element={
-              <ProtectedRoute>
-                <Slideshow />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Display (kräver inloggning) */}
+          {/* Display (om du någonsin behöver den) */}
           <Route
             path="/display"
             element={
@@ -69,6 +43,12 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Root redirect */}
+          <Route path="/" element={<Navigate to="/slideshow" replace />} />
+
+          {/* 404 - redirect to slideshow list */}
+          <Route path="*" element={<Navigate to="/slideshow" replace />} />
         </Routes>
       </AuthProvider>
     </Router>

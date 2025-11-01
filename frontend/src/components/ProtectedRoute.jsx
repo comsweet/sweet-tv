@@ -1,56 +1,37 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { isAuthenticated, loading, user, hasRole } = useAuth();
+const ProtectedRoute = ({ children, requireAdmin = false, requireSuperAdmin = false }) => {
+  const { user, isLoading } = useAuth();
 
-  // Show loading state while checking auth
-  if (loading) {
+  if (isLoading) {
     return (
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        fontSize: '1.5rem'
+        background: 'linear-gradient(135deg, #005A9C 0%, #00B2E3 100%)',
+        color: 'white',
+        fontSize: '18px'
       }}>
-        ⏳ Laddar...
+        Laddar...
       </div>
     );
   }
 
-  // Not authenticated - redirect to login
-  if (!isAuthenticated) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Authenticated but wrong role - show access denied
-  if (allowedRoles && !hasRole(allowedRoles)) {
-    return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        padding: '20px',
-        textAlign: 'center'
-      }}>
-        <h1 style={{ fontSize: '4rem', margin: '0' }}>🚫</h1>
-        <h2 style={{ marginTop: '20px' }}>Access Denied</h2>
-        <p style={{ color: '#7f8c8d' }}>
-          Du har inte behörighet att se denna sida.
-        </p>
-        <p style={{ color: '#95a5a6', fontSize: '0.9rem', marginTop: '10px' }}>
-          Din roll: <strong>{user?.role}</strong>
-          <br />
-          Krävs: <strong>{allowedRoles.join(' eller ')}</strong>
-        </p>
-      </div>
-    );
+  if (requireSuperAdmin && user.role !== 'superadmin') {
+    return <Navigate to="/admin" replace />;
   }
 
-  // All checks passed - render children
+  if (requireAdmin && user.role !== 'admin' && user.role !== 'superadmin') {
+    return <Navigate to="/slideshow" replace />;
+  }
+
   return children;
 };
 

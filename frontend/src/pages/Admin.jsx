@@ -1,7 +1,6 @@
-// 🎯 REFAKTORERAD ADMIN.JSX - Modulär arkitektur med separata komponenter
+// 🎯 REFAKTORERAD ADMIN.JSX - Modulär arkitektur med JWT Authentication
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AdminDashboard from '../components/AdminDashboard';
 import AdminCacheManagement from '../components/AdminCacheManagement';
@@ -15,33 +14,36 @@ import AdminStats from '../components/AdminStats';
 import AdminCampaignBonusTiers from '../components/AdminCampaignBonusTiers';
 import AdminThresholds from '../components/AdminThresholds';
 import NotificationSettingsAdmin from '../components/NotificationSettingsAdmin';
-import AdminUserManagement from '../components/AdminUserManagement';
+import AdminAuditLogs from '../components/AdminAuditLogs';
+import AdminAPIMonitoring from '../components/AdminAPIMonitoring';
+import AdminTVCodes from '../components/AdminTVCodes';
 import AdminChangePassword from '../components/AdminChangePassword';
+import AdminUserManagement from '../components/AdminUserManagement';
 import './Admin.css';
 
 const Admin = () => {
   const { user, logout, isSuperAdmin } = useAuth();
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
 
   // 📊 MAIN ADMIN INTERFACE
   return (
     <div className="admin-container">
       <div className="admin-header">
-        <div>
-          <h1>🏆 Sweet TV Admin Panel</h1>
-          <p className="user-info">
-            👤 {user?.name} ({user?.email}) - <strong>{user?.role}</strong>
-          </p>
+        <h1 style={{ margin: 0 }}>🏆 Sweet TV Admin Panel</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{
+            fontSize: '14px',
+            color: '#fff',
+            background: 'rgba(255,255,255,0.2)',
+            padding: '8px 16px',
+            borderRadius: '20px'
+          }}>
+            <strong>{user?.name}</strong> · {user?.role}
+          </div>
+          <button onClick={logout} className="btn-logout">
+            🚪 Logga ut
+          </button>
         </div>
-        <button onClick={handleLogout} className="btn-logout">
-          🚪 Logga ut
-        </button>
       </div>
 
       <div className="admin-tabs">
@@ -55,7 +57,7 @@ const Admin = () => {
           className={`tab ${activeTab === 'cache' ? 'active' : ''}`}
           onClick={() => setActiveTab('cache')}
         >
-          🗂️ Cache Management
+          🗂️ Cache
         </button>
         <button
           className={`tab ${activeTab === 'agents' ? 'active' : ''}`}
@@ -91,7 +93,7 @@ const Admin = () => {
           className={`tab ${activeTab === 'notifications' ? 'active' : ''}`}
           onClick={() => setActiveTab('notifications')}
         >
-          🔔 Notifikationer
+          🔔 Notis
         </button>
         <button
           className={`tab ${activeTab === 'stats' ? 'active' : ''}`}
@@ -103,7 +105,7 @@ const Admin = () => {
           className={`tab ${activeTab === 'campaignBonus' ? 'active' : ''}`}
           onClick={() => setActiveTab('campaignBonus')}
         >
-          💰 Kampanjbonus
+          💰 Bonus
         </button>
         <button
           className={`tab ${activeTab === 'thresholds' ? 'active' : ''}`}
@@ -112,27 +114,46 @@ const Admin = () => {
           🎨 Tröskelvärden
         </button>
         <button
-          className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settings')}
+          className={`tab ${activeTab === 'tvCodes' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tvCodes')}
         >
-          ⚙️ Settings
+          🔑 TV Koder
         </button>
-
-        {/* Superadmin only */}
-        {isSuperAdmin() && (
+        <button
+          className={`tab ${activeTab === 'auditLogs' ? 'active' : ''}`}
+          onClick={() => setActiveTab('auditLogs')}
+        >
+          📋 Audit Logs
+        </button>
+        <button
+          className={`tab ${activeTab === 'apiMonitoring' ? 'active' : ''}`}
+          onClick={() => setActiveTab('apiMonitoring')}
+        >
+          📈 API Monitor
+        </button>
+        <button
+          className={`tab ${activeTab === 'changePassword' ? 'active' : ''}`}
+          onClick={() => setActiveTab('changePassword')}
+        >
+          🔒 Byt Lösenord
+        </button>
+        {isSuperAdmin && (
           <button
             className={`tab ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => setActiveTab('users')}
+            style={{
+              background: activeTab === 'users' ? 'linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%)' : 'rgba(156, 39, 176, 0.1)',
+              color: activeTab === 'users' ? 'white' : '#9c27b0'
+            }}
           >
             👥 Användare
           </button>
         )}
-
         <button
-          className={`tab ${activeTab === 'password' ? 'active' : ''}`}
-          onClick={() => setActiveTab('password')}
+          className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('settings')}
         >
-          🔒 Byt Lösenord
+          ⚙️ Settings
         </button>
       </div>
 
@@ -148,9 +169,12 @@ const Admin = () => {
         {activeTab === 'stats' && <AdminStats />}
         {activeTab === 'campaignBonus' && <AdminCampaignBonusTiers />}
         {activeTab === 'thresholds' && <AdminThresholds />}
+        {activeTab === 'tvCodes' && <AdminTVCodes />}
+        {activeTab === 'auditLogs' && <AdminAuditLogs />}
+        {activeTab === 'apiMonitoring' && <AdminAPIMonitoring />}
+        {activeTab === 'changePassword' && <AdminChangePassword />}
+        {activeTab === 'users' && isSuperAdmin && <AdminUserManagement />}
         {activeTab === 'settings' && <AdminAutoRefreshSettings />}
-        {activeTab === 'users' && isSuperAdmin() && <AdminUserManagement />}
-        {activeTab === 'password' && <AdminChangePassword />}
       </div>
     </div>
   );

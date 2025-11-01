@@ -1,302 +1,430 @@
 import { useState, useEffect } from 'react';
-import { getUsers, createUser, updateUser, deleteUser } from '../services/api';
+import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
-import './AdminUserManagement.css';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const AdminUserManagement = () => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [form, setForm] = useState({
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // New user form
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newUser, setNewUser] = useState({
     email: '',
     password: '',
     name: '',
-    role: 'admin',
-    active: true
+    role: 'admin'
   });
-  const [message, setMessage] = useState(null);
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
   const fetchUsers = async () => {
-    setIsLoading(true);
     try {
-      const response = await getUsers();
+      setLoading(true);
+      setError('');
+
+      const response = await axios.get(`${API_BASE_URL}/auth/users`);
       setUsers(response.data.users);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      setMessage({ type: 'error', text: 'Fel vid hämtning av användare' });
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+      setError('Kunde inte hämta användare');
+    } finally {
+      setLoading(false);
     }
-    setIsLoading(false);
   };
 
-  const openAddModal = () => {
-    setEditingUser(null);
-    setForm({
-      email: '',
-      password: '',
-      name: '',
-      role: 'admin',
-      active: true
-    });
-    setShowModal(true);
-    setMessage(null);
+  const createUser = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    try {
+      await axios.post(`${API_BASE_URL}/auth/users`, newUser);
+
+      setSuccess(`Användare ${newUser.email} skapad!`);
+      setNewUser({ email: '', password: '', name: '', role: 'admin' });
+      setShowCreateForm(false);
+      fetchUsers();
+    } catch (err) {
+      console.error('Create user error:', err);
+      setError(err.response?.data?.error || 'Kunde inte skapa användare');
+    }
   };
 
-  const openEditModal = (user) => {
-    setEditingUser(user);
-    setForm({
-      email: user.email,
-      password: '', // Don't show password
-      name: user.name,
-      role: user.role,
-      active: user.active
-    });
-    setShowModal(true);
-    setMessage(null);
+  const toggleUserActive = async (userId, currentActive) => {
+    try {
+      await axios.put(`${API_BASE_URL}/auth/users/${userId}`, {
+        active: !currentActive
+      });
+
+      setSuccess('Användare uppdaterad');
+      fetchUsers();
+    } catch (err) {
+      console.error('Toggle user error:', err);
+      setError(err.response?.data?.error || 'Kunde inte uppdatera användare');
+    }
   };
 
-  const handleSave = async () => {
-    setMessage(null);
-
-    // Validation
-    if (!form.email || !form.name || !form.role) {
-      setMessage({ type: 'error', text: 'Email, namn och roll krävs' });
-      return;
-    }
-
-    if (!editingUser && !form.password) {
-      setMessage({ type: 'error', text: 'Lösenord krävs för nya användare' });
-      return;
-    }
-
-    if (form.password && form.password.length < 6) {
-      setMessage({ type: 'error', text: 'Lösenord måste vara minst 6 tecken' });
+  const deleteUser = async (userId, userEmail) => {
+    if (!confirm(`Är du säker på att du vill ta bort användaren ${userEmail}?`)) {
       return;
     }
 
     try {
-      if (editingUser) {
-        // Update existing user
-        const updateData = {
-          name: form.name,
-          role: form.role,
-          active: form.active
-        };
+      await axios.delete(`${API_BASE_URL}/auth/users/${userId}`);
 
-        // Only include password if it's changed
-        if (form.password) {
-          updateData.password = form.password;
-        }
-
-        await updateUser(editingUser.id, updateData);
-        setMessage({ type: 'success', text: 'Användare uppdaterad!' });
-      } else {
-        // Create new user
-        await createUser(form);
-        setMessage({ type: 'success', text: 'Användare skapad!' });
-      }
-
-      setShowModal(false);
-      await fetchUsers();
-    } catch (error) {
-      console.error('Error saving user:', error);
-      setMessage({
-        type: 'error',
-        text: error.response?.data?.error || 'Fel vid sparande av användare'
-      });
+      setSuccess(`Användare ${userEmail} borttagen`);
+      fetchUsers();
+    } catch (err) {
+      console.error('Delete user error:', err);
+      setError(err.response?.data?.error || 'Kunde inte ta bort användare');
     }
   };
 
-  const handleDelete = async (user) => {
-    if (!confirm(`Säker på att du vill radera ${user.name}?`)) return;
-
-    try {
-      await deleteUser(user.id);
-      setMessage({ type: 'success', text: 'Användare raderad!' });
-      await fetchUsers();
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      setMessage({
-        type: 'error',
-        text: error.response?.data?.error || 'Fel vid radering av användare'
-      });
+  const getRoleBadgeColor = (role) => {
+    switch (role) {
+      case 'superadmin': return '#9c27b0';
+      case 'admin': return '#2196f3';
+      case 'tv-user': return '#4caf50';
+      default: return '#9e9e9e';
     }
   };
 
-  const getRoleBadge = (role) => {
-    const badges = {
-      superadmin: { emoji: '👑', label: 'Superadmin', class: 'role-superadmin' },
-      admin: { emoji: '⚙️', label: 'Admin', class: 'role-admin' },
-      'tv-user': { emoji: '📺', label: 'TV User', class: 'role-tv-user' }
-    };
-    return badges[role] || badges['tv-user'];
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('sv-SE', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
-
-  if (isLoading) {
-    return <div className="loading">⏳ Laddar användare...</div>;
-  }
 
   return (
-    <div className="admin-user-management">
-      <div className="users-header">
-        <div>
-          <h2>👥 Användarhantering</h2>
-          <p className="description">Hantera användare och deras behörigheter (endast Superadmin)</p>
-        </div>
-        <button onClick={openAddModal} className="btn-primary">
-          ➕ Skapa Användare
+    <div className="admin-section">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2 style={{ color: '#005A9C', margin: 0 }}>👥 Användarhantering</h2>
+        <button
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          style={{
+            padding: '10px 20px',
+            background: showCreateForm ? '#666' : 'linear-gradient(135deg, #005A9C 0%, #00B2E3 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '600'
+          }}
+        >
+          {showCreateForm ? '✕ Avbryt' : '+ Skapa Användare'}
         </button>
       </div>
 
-      {message && (
-        <div className={`message ${message.type}`}>
-          {message.text}
+      {error && (
+        <div style={{
+          background: '#fee',
+          color: '#c33',
+          padding: '12px',
+          borderRadius: '8px',
+          marginBottom: '16px'
+        }}>
+          {error}
         </div>
       )}
 
-      {users.length === 0 ? (
-        <div className="no-users">Inga användare hittades</div>
-      ) : (
-        <table className="users-table">
-          <thead>
-            <tr>
-              <th>Namn</th>
-              <th>Email</th>
-              <th>Roll</th>
-              <th>Status</th>
-              <th>Skapad</th>
-              <th>Åtgärder</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(user => {
-              const badge = getRoleBadge(user.role);
-              const isCurrentUser = user.id === currentUser?.id;
-
-              return (
-                <tr key={user.id} className={!user.active ? 'inactive' : ''}>
-                  <td>
-                    <strong>{user.name}</strong>
-                    {isCurrentUser && <span className="you-badge">Du</span>}
-                  </td>
-                  <td>{user.email}</td>
-                  <td>
-                    <span className={`role-badge ${badge.class}`}>
-                      {badge.emoji} {badge.label}
-                    </span>
-                  </td>
-                  <td>
-                    {user.active ? (
-                      <span className="status-active">✅ Aktiv</span>
-                    ) : (
-                      <span className="status-inactive">⛔ Inaktiv</span>
-                    )}
-                  </td>
-                  <td>{new Date(user.created_at).toLocaleDateString('sv-SE')}</td>
-                  <td className="actions-cell">
-                    <button
-                      onClick={() => openEditModal(user)}
-                      className="btn-edit"
-                      title="Redigera"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => handleDelete(user)}
-                      className="btn-delete"
-                      title="Radera"
-                      disabled={isCurrentUser}
-                    >
-                      🗑️
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {success && (
+        <div style={{
+          background: '#e8f5e9',
+          color: '#2e7d32',
+          padding: '12px',
+          borderRadius: '8px',
+          marginBottom: '16px'
+        }}>
+          {success}
+        </div>
       )}
 
-      {/* Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingUser ? 'Redigera Användare' : 'Skapa Användare'}</h2>
+      {/* Create User Form */}
+      {showCreateForm && (
+        <div style={{
+          background: 'white',
+          padding: '24px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          marginBottom: '24px'
+        }}>
+          <h3 style={{ color: '#333', marginTop: 0, marginBottom: '20px' }}>Skapa Ny Användare</h3>
 
-            {message && (
-              <div className={`message ${message.type}`}>
-                {message.text}
-              </div>
-            )}
-
-            <div className="form-group">
-              <label>Email:</label>
+          <form onSubmit={createUser} style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '16px'
+          }}>
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                fontSize: '14px'
+              }}>
+                Email
+              </label>
               <input
                 type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="user@example.com"
-                disabled={editingUser} // Can't change email
+                value={newUser.email}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                required
+                placeholder="email@sweet-communication.com"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '4px',
+                  border: '2px solid #e0e0e0',
+                  fontSize: '15px'
+                }}
               />
             </div>
 
-            <div className="form-group">
-              <label>Namn:</label>
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                fontSize: '14px'
+              }}>
+                Namn
+              </label>
               <input
                 type="text"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="John Doe"
+                value={newUser.name}
+                onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                required
+                placeholder="För- och efternamn"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '4px',
+                  border: '2px solid #e0e0e0',
+                  fontSize: '15px'
+                }}
               />
             </div>
 
-            <div className="form-group">
-              <label>Lösenord {editingUser && '(lämna tomt för att behålla)'} :</label>
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                fontSize: '14px'
+              }}>
+                Lösenord
+              </label>
               <input
                 type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder={editingUser ? 'Lämna tomt för att behålla' : 'Minst 6 tecken'}
+                value={newUser.password}
+                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                required
+                minLength={6}
+                placeholder="Minst 6 tecken"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '4px',
+                  border: '2px solid #e0e0e0',
+                  fontSize: '15px'
+                }}
               />
             </div>
 
-            <div className="form-group">
-              <label>Roll:</label>
-              <select
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
-              >
-                <option value="superadmin">👑 Superadmin (full access)</option>
-                <option value="admin">⚙️ Admin (no user management)</option>
-                <option value="tv-user">📺 TV User (view only)</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) => setForm({ ...form, active: e.target.checked })}
-                />
-                <span>Aktiv</span>
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                fontSize: '14px'
+              }}>
+                Roll
               </label>
+              <select
+                value={newUser.role}
+                onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '4px',
+                  border: '2px solid #e0e0e0',
+                  fontSize: '15px'
+                }}
+              >
+                <option value="admin">Admin</option>
+                <option value="superadmin">Superadmin</option>
+                <option value="tv-user" style={{ color: '#999', fontStyle: 'italic' }}>TV-User (deprecated)</option>
+              </select>
+              {newUser.role === 'tv-user' && (
+                <div style={{ fontSize: '12px', color: '#ff9800', marginTop: '4px' }}>
+                  ⚠️ TV-User är deprecated. Använd TV Access Codes istället.
+                </div>
+              )}
             </div>
 
-            <div className="modal-actions">
-              <button onClick={() => setShowModal(false)} className="btn-secondary">
+            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '12px', marginTop: '8px' }}>
+              <button
+                type="submit"
+                style={{
+                  padding: '10px 24px',
+                  background: 'linear-gradient(135deg, #005A9C 0%, #00B2E3 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '15px',
+                  fontWeight: '600'
+                }}
+              >
+                Skapa Användare
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCreateForm(false)}
+                style={{
+                  padding: '10px 24px',
+                  background: '#666',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '15px'
+                }}
+              >
                 Avbryt
               </button>
-              <button onClick={handleSave} className="btn-primary">
-                Spara
-              </button>
             </div>
-          </div>
+          </form>
+        </div>
+      )}
+
+      {/* Users List */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+          Laddar användare...
+        </div>
+      ) : users.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+          Inga användare hittades
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            background: 'white',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            borderRadius: '8px',
+            overflow: 'hidden'
+          }}>
+            <thead>
+              <tr style={{ background: '#005A9C', color: 'white' }}>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Namn</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Email</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Roll</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Status</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Skapad</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '12px', fontSize: '14px', fontWeight: '600' }}>
+                    {user.name}
+                    {user.id === currentUser?.id && (
+                      <span style={{
+                        marginLeft: '8px',
+                        fontSize: '11px',
+                        color: '#00B2E3',
+                        fontWeight: '600'
+                      }}>
+                        (Du)
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>
+                    {user.email}
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    <span style={{
+                      background: getRoleBadgeColor(user.role),
+                      color: 'white',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: '600'
+                    }}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    <span style={{
+                      background: user.active ? '#4caf50' : '#f44336',
+                      color: 'white',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: '600'
+                    }}>
+                      {user.active ? 'AKTIV' : 'INAKTIV'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px', fontSize: '13px', color: '#666' }}>
+                    {formatDate(user.created_at)}
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => toggleUserActive(user.id, user.active)}
+                        style={{
+                          padding: '6px 12px',
+                          background: user.active ? '#ff9800' : '#4caf50',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '13px'
+                        }}
+                      >
+                        {user.active ? 'Inaktivera' : 'Aktivera'}
+                      </button>
+                      {user.id !== currentUser?.id && (
+                        <button
+                          onClick={() => deleteUser(user.id, user.email)}
+                          style={{
+                            padding: '6px 12px',
+                            background: '#f44336',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '13px'
+                          }}
+                        >
+                          Ta bort
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
