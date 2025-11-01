@@ -1,7 +1,7 @@
 // 🎯 REFAKTORERAD ADMIN.JSX - Modulär arkitektur med JWT Authentication
 
-import { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import AdminDashboard from '../components/AdminDashboard';
 import AdminCacheManagement from '../components/AdminCacheManagement';
 import AdminAutoRefreshSettings from '../components/AdminAutoRefreshSettings';
@@ -22,7 +22,7 @@ import AdminUserManagement from '../components/AdminUserManagement';
 import './Admin.css';
 
 const Admin = () => {
-  const { user, logout, isSuperAdmin } = useContext(AuthContext);
+  const { user, logout, isSuperAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
 
   // 📊 MAIN ADMIN INTERFACE
