@@ -71,9 +71,11 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Apply trigger to tables with updated_at
+-- Apply trigger to tables with updated_at (drop if exists first)
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_agents_updated_at ON agents;
 CREATE TRIGGER update_agents_updated_at BEFORE UPDATE ON agents
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

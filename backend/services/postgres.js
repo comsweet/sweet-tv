@@ -49,8 +49,13 @@ class PostgresService {
       await this.pool.query(schemaSql);
       console.log('✅ Database schema initialized');
     } catch (error) {
-      console.error('❌ Schema initialization failed:', error.message);
-      throw error;
+      // Schema errors are OK if tables already exist
+      if (error.code === '42P07' || error.code === '42710') {
+        console.log('⚠️  Schema already exists (this is OK)');
+      } else {
+        console.error('❌ Schema initialization failed:', error.message);
+        throw error;
+      }
     }
   }
 
