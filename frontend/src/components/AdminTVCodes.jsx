@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const AdminTVCodes = () => {
+  const { isSuperAdmin } = useAuth();
   const [activeCodes, setActiveCodes] = useState([]);
   const [allCodes, setAllCodes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [expiresInMinutes, setExpiresInMinutes] = useState(5);
+  const expiresInMinutes = 5; // Fixed at 5 minutes
   const [generatedCode, setGeneratedCode] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -131,18 +133,25 @@ const AdminTVCodes = () => {
       <h2 style={{ color: '#005A9C', marginBottom: '20px' }}>🔑 TV Access Codes</h2>
 
       <div style={{
-        background: '#e3f2fd',
-        padding: '16px',
-        borderRadius: '8px',
-        marginBottom: '20px',
-        fontSize: '14px',
-        color: '#0d47a1'
+        background: 'linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%)',
+        padding: '20px 24px',
+        borderRadius: '12px',
+        marginBottom: '24px',
+        border: '2px solid #90caf9',
+        boxShadow: '0 2px 8px rgba(0, 90, 156, 0.08)'
       }}>
-        <strong>ℹ️ Så fungerar det:</strong>
-        <p style={{ margin: '8px 0 0 0' }}>
-          Generera en 6-siffrig kod som TV-skärmar kan använda för att få tillgång till slideshows.
-          Koden är giltig i 1-10 minuter och kan endast användas en gång.
-        </p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <span style={{ fontSize: '24px' }}>ℹ️</span>
+          <div>
+            <strong style={{ color: '#0d47a1', fontSize: '15px', display: 'block', marginBottom: '8px' }}>
+              Så fungerar det:
+            </strong>
+            <p style={{ margin: 0, color: '#1565c0', fontSize: '14px', lineHeight: '1.6' }}>
+              Generera en 6-siffrig kod som TV-skärmar kan använda för att få tillgång till slideshows.
+              Koden är giltig i <strong>5 minuter</strong> och kan endast användas en gång.
+            </p>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -171,94 +180,140 @@ const AdminTVCodes = () => {
 
       {/* Generate Code */}
       <div style={{
-        background: 'white',
-        padding: '24px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        marginBottom: '24px'
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafb 100%)',
+        padding: '32px',
+        borderRadius: '16px',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+        marginBottom: '32px',
+        border: '1px solid #e0e0e0'
       }}>
-        <h3 style={{ color: '#333', marginTop: 0, marginBottom: '16px' }}>Generera Ny Kod</h3>
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <h3 style={{
+            color: '#005A9C',
+            marginTop: 0,
+            marginBottom: '8px',
+            fontSize: '24px',
+            fontWeight: '700'
+          }}>
+            Generera Ny Kod
+          </h3>
+          <p style={{
+            margin: 0,
+            color: '#666',
+            fontSize: '14px'
+          }}>
+            Koden är giltig i 5 minuter och kan endast användas en gång
+          </p>
+        </div>
 
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1', minWidth: '200px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>
-              Giltighetstid (minuter)
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              value={expiresInMinutes}
-              onChange={(e) => setExpiresInMinutes(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                borderRadius: '4px',
-                border: '2px solid #e0e0e0',
-                fontSize: '15px'
-              }}
-            />
-            <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-              Max 10 minuter
-            </div>
-          </div>
-
+        <div style={{
+          display: 'flex',
+          gap: '16px',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexWrap: 'wrap'
+        }}>
           <button
             onClick={generateCode}
             disabled={loading}
             style={{
-              padding: '10px 24px',
-              background: 'linear-gradient(135deg, #005A9C 0%, #00B2E3 100%)',
+              padding: '14px 32px',
+              background: loading ? '#ccc' : 'linear-gradient(135deg, #005A9C 0%, #00B2E3 100%)',
               color: 'white',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: '8px',
               cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: '15px',
-              fontWeight: '600'
+              fontSize: '16px',
+              fontWeight: '600',
+              transition: 'all 0.3s',
+              boxShadow: '0 4px 12px rgba(0, 90, 156, 0.2)'
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 6px 16px rgba(0, 90, 156, 0.3)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 4px 12px rgba(0, 90, 156, 0.2)';
             }}
           >
-            {loading ? 'Genererar...' : '🔑 Generera Kod'}
+            {loading ? '🔄 Genererar...' : '🔑 Generera Kod'}
           </button>
 
-          <button
-            onClick={cleanup}
-            style={{
-              padding: '10px 24px',
-              background: '#666',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '15px'
-            }}
-          >
-            🧹 Rensa Utgångna
-          </button>
+          {isSuperAdmin && (
+            <button
+              onClick={cleanup}
+              style={{
+                padding: '14px 24px',
+                background: '#666',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '15px',
+                fontWeight: '600',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#555';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = '#666';
+              }}
+            >
+              🧹 Rensa Utgångna
+            </button>
+          )}
         </div>
 
         {/* Generated Code Display */}
         {generatedCode && (
           <div style={{
-            marginTop: '24px',
-            padding: '24px',
-            background: '#f5f5f5',
-            borderRadius: '8px',
-            textAlign: 'center'
+            marginTop: '32px',
+            padding: '32px',
+            background: 'linear-gradient(135deg, #005A9C 0%, #00B2E3 100%)',
+            borderRadius: '16px',
+            textAlign: 'center',
+            boxShadow: '0 8px 24px rgba(0, 90, 156, 0.3)',
+            border: '3px solid rgba(255, 255, 255, 0.3)',
+            animation: 'slideIn 0.3s ease-out'
           }}>
-            <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>
-              Din kod:
+            <div style={{
+              fontSize: '14px',
+              color: 'rgba(255, 255, 255, 0.9)',
+              marginBottom: '12px',
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>
+              ✨ Din nya kod
             </div>
             <div style={{
-              fontSize: '48px',
+              fontSize: '56px',
               fontWeight: '700',
-              color: '#005A9C',
-              letterSpacing: '8px',
-              fontFamily: 'monospace'
+              color: 'white',
+              letterSpacing: '12px',
+              fontFamily: 'monospace',
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+              padding: '16px 0'
             }}>
               {generatedCode.code}
             </div>
-            <div style={{ fontSize: '14px', color: '#999', marginTop: '8px' }}>
-              Utgår: {formatDate(generatedCode.expiresAt)} ({generatedCode.expiresInMinutes} min)
+            <div style={{
+              fontSize: '13px',
+              color: 'rgba(255, 255, 255, 0.8)',
+              marginTop: '12px',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>⏱️</span>
+              <span>
+                Utgår: {formatDate(generatedCode.expiresAt)} <strong>({generatedCode.expiresInMinutes} min)</strong>
+              </span>
             </div>
           </div>
         )}
