@@ -330,25 +330,134 @@ router.get('/:id/stats', async (req, res) => {
       })
     );
 
+    // ==================== GROUP-BASED AGGREGATION ====================
+    let finalStats = statsArray;
+
+    if (leaderboard.displayMode === 'groups') {
+      console.log(`👥 Aggregating stats by user groups...`);
+
+      // Group stats by user group
+      const groupStats = {};
+
+      for (const stat of statsArray) {
+        const groupName = stat.agent.groupName || 'Ingen Grupp';
+
+        if (!groupStats[groupName]) {
+          groupStats[groupName] = {
+            groupName: groupName,
+            totalCommission: 0,
+            dealCount: 0,
+            uniqueSMS: 0,
+            campaignBonus: 0,
+            agentCount: 0,
+            agents: []
+          };
+        }
+
+        groupStats[groupName].totalCommission += stat.totalCommission;
+        groupStats[groupName].dealCount += stat.dealCount;
+        groupStats[groupName].uniqueSMS += stat.uniqueSMS;
+        groupStats[groupName].campaignBonus += stat.campaignBonus;
+        groupStats[groupName].agentCount += 1;
+        groupStats[groupName].agents.push({
+          name: stat.agent.name,
+          dealCount: stat.dealCount,
+          commission: stat.totalCommission
+        });
+      }
+
+      // Convert to array and calculate averages
+      finalStats = Object.values(groupStats).map(group => ({
+        groupName: group.groupName,
+        dealCount: group.dealCount,
+        totalCommission: group.totalCommission,
+        uniqueSMS: group.uniqueSMS,
+        campaignBonus: group.campaignBonus,
+        agentCount: group.agentCount,
+        avgCommission: group.agentCount > 0 ? group.totalCommission / group.agentCount : 0,
+        avgDeals: group.agentCount > 0 ? group.dealCount / group.agentCount : 0,
+        agents: group.agents
+      }));
+
+      console.log(`✅ Aggregated into ${finalStats.length} groups`);
+    }
+
     // Sort based on leaderboard.sortBy configuration
     const sortBy = leaderboard.sortBy || 'commission';
 
-    if (sortBy === 'total') {
-      // Sort by total (commission + campaign bonus)
-      statsArray.sort((a, b) =>
-        ((b.totalCommission + b.campaignBonus) - (a.totalCommission + a.campaignBonus))
-      );
-    } else if (sortBy === 'dealCount') {
-      // Sort by deal count
-      statsArray.sort((a, b) => b.dealCount - a.dealCount);
+    if (leaderboard.displayMode === 'groups') {
+      // Sort groups
+      if (sortBy === 'total') {
+        finalStats.sort((a, b) => ((b.totalCommission + b.campaignBonus) - (a.totalCommission + a.campaignBonus)));
+      } else if (sortBy === 'dealCount') {
+        finalStats.sort((a, b) => b.dealCount - a.dealCount);
+      } else {
+        finalStats.sort((a, b) => b.totalCommission - a.totalCommission);
+      }
     } else {
-      // Default: sort by commission
-      statsArray.sort((a, b) => b.totalCommission - a.totalCommission);
+      // Sort individuals
+      if (sortBy === 'total') {
+        finalStats.sort((a, b) =>
+          ((b.totalCommission + b.campaignBonus) - (a.totalCommission + a.campaignBonus))
+        );
+      } else if (sortBy === 'dealCount') {
+        finalStats.sort((a, b) => b.dealCount - a.dealCount);
+      } else {
+        finalStats.sort((a, b) => b.totalCommission - a.totalCommission);
+      }
+    }
+
+    // ==================== TOP N FILTERING ====================
+    if (leaderboard.topN && leaderboard.topN > 0) {
+      console.log(`🔝 Limiting to top ${leaderboard.topN} results`);
+      finalStats = finalStats.slice(0, leaderboard.topN);
+    }
+
+    // ==================== GAP CALCULATIONS ====================
+    if (leaderboard.showGap && finalStats.length > 0) {
+      const leaderValue = sortBy === 'total'
+        ? (finalStats[0].totalCommission + finalStats[0].campaignBonus)
+        : sortBy === 'dealCount'
+        ? finalStats[0].dealCount
+        : finalStats[0].totalCommission;
+
+      finalStats.forEach((stat, index) => {
+        if (index === 0) {
+          stat.gapToLeader = 0;
+        } else {
+          const currentValue = sortBy === 'total'
+            ? (stat.totalCommission + stat.campaignBonus)
+            : sortBy === 'dealCount'
+            ? stat.dealCount
+            : stat.totalCommission;
+
+          stat.gapToLeader = leaderValue - currentValue;
+        }
+      });
+    }
+
+    // ==================== MINI STATS ====================
+    let miniStats = null;
+    if (leaderboard.showMiniStats) {
+      const totalCommission = finalStats.reduce((sum, s) => sum + (s.totalCommission || 0), 0);
+      const totalDeals = finalStats.reduce((sum, s) => sum + (s.dealCount || 0), 0);
+      const totalBonus = finalStats.reduce((sum, s) => sum + (s.campaignBonus || 0), 0);
+      const totalSMS = finalStats.reduce((sum, s) => sum + (s.uniqueSMS || 0), 0);
+
+      miniStats = {
+        totalCommission,
+        totalDeals,
+        totalBonus,
+        totalSMS,
+        grandTotal: totalCommission + totalBonus,
+        participantCount: finalStats.length
+      };
     }
 
     const response = {
       leaderboard: leaderboard,
-      stats: statsArray,
+      stats: finalStats,
+      miniStats: miniStats,
       dateRange: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
@@ -358,7 +467,7 @@ router.get('/:id/stats', async (req, res) => {
     // Cache the result
     leaderboardCache.set(leaderboardId, startDate.toISOString(), endDate.toISOString(), response);
 
-    console.log(`📈 Leaderboard "${leaderboard.name}" with ${statsArray.length} agents`);
+    console.log(`📈 Leaderboard "${leaderboard.name}" with ${finalStats.length} ${leaderboard.displayMode === 'groups' ? 'groups' : 'agents'}`);
 
     res.json(response);
   } catch (error) {

@@ -9,6 +9,7 @@ import socketService from '../services/socket';
 import { getSlideshow, getLeaderboardStats2, getAutoRefreshSettings, getThresholdsForPeriod } from '../services/api';
 import DealNotification from '../components/DealNotification';
 import TVAccessCodeModal from '../components/TVAccessCodeModal';
+import LeaderboardVisualizer from '../components/LeaderboardVisualizer';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -64,7 +65,7 @@ const TVSizeControl = ({ currentSize, onSizeChange }) => {
 };
 
 // ⭐ LeaderboardSlide komponent med AUTO-SCROLL och FROZEN #1
-const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKey }) => {
+const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize, refreshKey }) => {
   const scrollContainerRef = useRef(null);
   const scrollContentRef = useRef(null);
   const [thresholds, setThresholds] = useState(null);
@@ -284,35 +285,57 @@ const LeaderboardSlide = ({ leaderboard, stats, isActive, displaySize, refreshKe
     );
   };
 
+  // Render default table layout (for visualizationMode === 'table')
+  const renderDefaultTable = () => (
+    <>
+      {stats.length === 0 ? (
+        <div className="slideshow-no-data">Inga affärer än</div>
+      ) : (
+        <div className="slideshow-items-wrapper">
+          {/* 🔥 FROZEN #1 SECTION */}
+          {firstPlace && (
+            <div className="frozen-first-place">
+              {renderAgent(firstPlace, 0, true)}
+            </div>
+          )}
+
+          {/* 🔥 AUTO-SCROLL SECTION - Alla utom #1 */}
+          {scrollableStats.length > 0 && (
+            <div className="scroll-container" ref={scrollContainerRef}>
+              <div className="scroll-content" ref={scrollContentRef}>
+                {scrollableStats.map((item, idx) => renderAgent(item, idx + 1, false))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  const visualizationMode = leaderboard.visualizationMode || 'table';
+
   return (
     <div className={`slideshow-slide ${isActive ? 'active' : ''}`}>
       <div className="slideshow-content">
         <div className="slideshow-header">
           <h1>{leaderboard.name}</h1>
           <p className="slideshow-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
-          <p className="slideshow-stats">📊 {totalDeals} affärer totalt • {stats.length} agenter</p>
+          <p className="slideshow-stats">
+            📊 {totalDeals} affärer totalt • {stats.length} {leaderboard.displayMode === 'groups' ? 'grupper' : 'agenter'}
+          </p>
         </div>
 
-        {stats.length === 0 ? (
-          <div className="slideshow-no-data">Inga affärer än</div>
+        {/* Use LeaderboardVisualizer for non-table modes */}
+        {visualizationMode !== 'table' ? (
+          <LeaderboardVisualizer
+            leaderboard={leaderboard}
+            stats={stats}
+            miniStats={miniStats}
+            isActive={isActive}
+            renderDefaultTable={renderDefaultTable}
+          />
         ) : (
-          <div className="slideshow-items-wrapper">
-            {/* 🔥 FROZEN #1 SECTION */}
-            {firstPlace && (
-              <div className="frozen-first-place">
-                {renderAgent(firstPlace, 0, true)}
-              </div>
-            )}
-
-            {/* 🔥 AUTO-SCROLL SECTION - Alla utom #1 */}
-            {scrollableStats.length > 0 && (
-              <div className="scroll-container" ref={scrollContainerRef}>
-                <div className="scroll-content" ref={scrollContentRef}>
-                  {scrollableStats.map((item, idx) => renderAgent(item, idx + 1, false))}
-                </div>
-              </div>
-            )}
-          </div>
+          renderDefaultTable()
         )}
       </div>
     </div>
@@ -379,10 +402,12 @@ const Slideshow = () => {
         try {
           const statsResponse = await getLeaderboardStats2(lbId);
           const stats = statsResponse.data.stats || [];
+          const miniStats = statsResponse.data.miniStats || null;
 
           leaderboardsWithStats.push({
             leaderboard: statsResponse.data.leaderboard,
             stats: stats,
+            miniStats: miniStats,
             duration: slideDuration
           });
 
@@ -518,13 +543,15 @@ const Slideshow = () => {
           try {
             const statsResponse = await getLeaderboardStats2(lbId);
             const stats = statsResponse.data.stats || [];
-            
+            const miniStats = statsResponse.data.miniStats || null;
+
             leaderboardsWithStats.push({
               leaderboard: statsResponse.data.leaderboard,
               stats: stats,
+              miniStats: miniStats,
               duration: slideDuration // ⭐ VIKTIGT: Lägg till duration här!
             });
-            
+
             const totalDeals = stats.reduce((sum, s) => sum + (s.dealCount || 0), 0);
             console.log(`   ✅ Loaded "${statsResponse.data.leaderboard.name}": ${stats.length} agents, ${totalDeals} deals, ${slideDuration}s`);
             
@@ -762,6 +789,7 @@ const Slideshow = () => {
             key={`slide-${slideData.leaderboard.id}-${refreshKey}`}
             leaderboard={slideData.leaderboard}
             stats={slideData.stats}
+            miniStats={slideData.miniStats}
             isActive={isActive}
             displaySize={displaySize}
             refreshKey={refreshKey}
