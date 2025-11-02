@@ -281,6 +281,14 @@ router.post('/sync-database', async (req, res) => {
 
       console.log(`📊 Adversus returned ${leads.length} leads (before filtering)`);
 
+      // Log first 5 lead IDs and their status for debugging
+      if (leads.length > 0) {
+        console.log('   First 5 leads from Adversus:');
+        leads.slice(0, 5).forEach(lead => {
+          console.log(`   - Lead ${lead.id}: status="${lead.status}", lastContactedBy=${lead.lastContactedBy}`);
+        });
+      }
+
       const deals = leads.map(lead => {
         const commissionField = lead.resultData?.find(f => f.id === 70163);
         const commission = parseFloat(commissionField?.value || 0);
@@ -305,6 +313,24 @@ router.post('/sync-database', async (req, res) => {
       }).filter(deal => deal.userId != null); // Skip deals without user_id
 
       console.log(`📊 Filtered to ${deals.length} deals with user_id`);
+
+      // Log today's deals specifically (for debugging)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const todayDeals = deals.filter(d => {
+        const orderDate = new Date(d.orderDate);
+        return orderDate >= todayStart && orderDate <= todayEnd;
+      });
+
+      if (todayDeals.length > 0) {
+        console.log(`   📅 ${todayDeals.length} deals are from TODAY (${todayStart.toISOString().split('T')[0]}):`);
+        todayDeals.forEach(d => {
+          console.log(`      - Lead ${d.leadId}: user=${d.userId}, commission=${d.commission}, status="${d.status}"`);
+        });
+      }
 
       // NOTE: No need to delete deals - we already truncated the entire table
       console.log(`💾 Inserting ${deals.length} deals into empty database...`);
