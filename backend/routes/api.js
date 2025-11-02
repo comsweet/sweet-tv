@@ -18,6 +18,7 @@ const autoRefreshRouter = require('./modules/autoRefresh');
 const thresholdsRouter = require('./modules/thresholds');
 const monitoringRouter = require('./modules/monitoring');
 const tvCodesRouter = require('./modules/tvCodes');
+const adminRouter = require('./modules/admin');
 
 // Mount all modular routes
 router.use('/auth', authRouter);
@@ -34,6 +35,7 @@ router.use('/auto-refresh', autoRefreshRouter);
 router.use('/thresholds', thresholdsRouter);
 router.use('/monitoring', monitoringRouter);
 router.use('/tv-codes', tvCodesRouter);
+router.use('/admin', adminRouter);
 
 // ==================== CORE ENDPOINTS ====================
 
