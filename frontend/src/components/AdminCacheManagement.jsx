@@ -41,17 +41,24 @@ const AdminCacheManagement = () => {
   const fetchAllStats = async () => {
     setLoading(true);
     try {
-      const [dealsResponse, smsResponse, statusResponse, duplicatesResponse] = await Promise.all([
+      const [dealsResponse, smsResponse, statusResponse] = await Promise.all([
         getDealsCacheStats(),
         getSMSCacheStats(),
-        getSyncStatus(),
-        getPendingDuplicates()
+        getSyncStatus()
       ]);
 
       setDealsStats(dealsResponse.data);
       setSmsStats(smsResponse.data);
       setSyncStatus(statusResponse.data);
-      setPendingDuplicates(duplicatesResponse.data.pending || []);
+
+      // Try to fetch pending duplicates (might fail if table doesn't exist yet)
+      try {
+        const duplicatesResponse = await getPendingDuplicates();
+        setPendingDuplicates(duplicatesResponse.data.pending || []);
+      } catch (dupError) {
+        console.warn('Could not fetch pending duplicates (table might not exist yet):', dupError);
+        setPendingDuplicates([]);
+      }
     } catch (error) {
       console.error('Error fetching stats:', error);
       alert('Error loading stats: ' + error.message);
@@ -347,10 +354,10 @@ const AdminCacheManagement = () => {
           <span style={{ fontSize: '24px' }}>⚠️</span>
           <div>
             <strong style={{ color: '#92400e' }}>
-              {pendingDuplicates.length} duplicate{pendingDuplicates.length > 1 ? 's' : ''} väntar på granskning
+              {pendingDuplicates.length} duplicate{pendingDuplicates.length > 1 ? 's' : ''} upptäckt
             </strong>
             <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#78350f' }}>
-              Gå till "Duplicate Management" sektionen nedan för att granska och besluta.
+              Duplicates sparas i pending_duplicates tabellen i PostgreSQL för manuell granskning.
             </p>
           </div>
         </div>
@@ -375,7 +382,12 @@ const AdminCacheManagement = () => {
           <div className="cache-stats">
             <div className="stat-grid">
               <div className="stat-box">
-                <div className="stat-label">Total Deals</div>
+                <div className="stat-label">📅 Today's Deals (Cache)</div>
+                <div className="stat-value">{dealsStats?.todayDeals?.toLocaleString('sv-SE') || 0}</div>
+              </div>
+
+              <div className="stat-box">
+                <div className="stat-label">📦 Rolling Window Deals</div>
                 <div className="stat-value">{dealsStats?.totalDeals?.toLocaleString('sv-SE') || 0}</div>
               </div>
 
@@ -385,19 +397,14 @@ const AdminCacheManagement = () => {
               </div>
 
               <div className="stat-box">
-                <div className="stat-label">Unique Agents</div>
-                <div className="stat-value">{dealsStats?.uniqueAgents || 0}</div>
-              </div>
-
-              <div className="stat-box">
-                <div className="stat-label">Queue Length</div>
-                <div className="stat-value">{dealsStats?.queueLength || 0}</div>
+                <div className="stat-label">🔄 Retry Queue</div>
+                <div className="stat-value">{dealsStats?.retryQueueLength || 0}</div>
               </div>
             </div>
 
             <div className="stat-info-box">
               <div className="info-row">
-                <span className="info-label">📅 Date Range:</span>
+                <span className="info-label">📅 Rolling Window:</span>
                 <span className="info-value">
                   {dealsStats?.rollingWindow?.start && dealsStats?.rollingWindow?.end
                     ? `${new Date(dealsStats.rollingWindow.start).toLocaleDateString('sv-SE')} - ${new Date(dealsStats.rollingWindow.end).toLocaleDateString('sv-SE')}`
@@ -409,10 +416,8 @@ const AdminCacheManagement = () => {
                 <span className="info-value">{formatDate(dealsStats?.lastSync)}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">📊 Needs Sync:</span>
-                <span className={`info-value ${dealsStats?.needsImmediateSync ? 'needs-sync' : ''}`}>
-                  {dealsStats?.needsImmediateSync ? 'Yes' : 'No'}
-                </span>
+                <span className="info-label">💾 Cache Strategy:</span>
+                <span className="info-value">Today's data in memory, history in PostgreSQL</span>
               </div>
             </div>
           </div>
@@ -462,27 +467,23 @@ const AdminCacheManagement = () => {
           <div className="cache-stats">
             <div className="stat-grid">
               <div className="stat-box">
-                <div className="stat-label">Total SMS</div>
+                <div className="stat-label">📅 Today's SMS (Cache)</div>
+                <div className="stat-value">{smsStats?.todaySMS?.toLocaleString('sv-SE') || 0}</div>
+              </div>
+
+              <div className="stat-box">
+                <div className="stat-label">📦 Rolling Window SMS</div>
                 <div className="stat-value">{smsStats?.totalSMS?.toLocaleString('sv-SE') || 0}</div>
               </div>
 
               <div className="stat-box">
-                <div className="stat-label">Success Rate</div>
-                <div className="stat-value">
-                  {smsStats?.totalSMS > 0
-                    ? ((smsStats.statusBreakdown?.success || 0) / smsStats.totalSMS * 100).toFixed(1)
-                    : 0}%
-                </div>
+                <div className="stat-label">Unique SMS</div>
+                <div className="stat-value">{smsStats?.uniqueSMS || 0}</div>
               </div>
 
               <div className="stat-box">
-                <div className="stat-label">Unique Agents</div>
-                <div className="stat-value">{smsStats?.uniqueAgents || 0}</div>
-              </div>
-
-              <div className="stat-box">
-                <div className="stat-label">Failed SMS</div>
-                <div className="stat-value">{smsStats?.statusBreakdown?.failed || 0}</div>
+                <div className="stat-label">🔄 Retry Queue</div>
+                <div className="stat-value">{smsStats?.retryQueueLength || 0}</div>
               </div>
             </div>
 
@@ -502,7 +503,7 @@ const AdminCacheManagement = () => {
 
             <div className="stat-info-box">
               <div className="info-row">
-                <span className="info-label">📅 Date Range:</span>
+                <span className="info-label">📅 Rolling Window:</span>
                 <span className="info-value">{smsStats?.rollingWindow || 'N/A'}</span>
               </div>
               <div className="info-row">
@@ -510,10 +511,8 @@ const AdminCacheManagement = () => {
                 <span className="info-value">{formatDate(smsStats?.lastSync)}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">📊 Needs Sync:</span>
-                <span className={`info-value ${smsStats?.needsSync ? 'needs-sync' : ''}`}>
-                  {smsStats?.needsSync ? 'Yes' : 'No'}
-                </span>
+                <span className="info-label">💾 Cache Strategy:</span>
+                <span className="info-value">Today's data in memory, history in PostgreSQL</span>
               </div>
             </div>
           </div>
