@@ -131,10 +131,7 @@ CREATE TABLE IF NOT EXISTS deals (
 
   -- Duplicate tracking
   is_duplicate BOOLEAN DEFAULT FALSE,
-  replaced_by INTEGER REFERENCES deals(id),
-
-  -- Unique constraint to prevent same lead on same day
-  UNIQUE (lead_id, DATE(order_date))
+  replaced_by INTEGER REFERENCES deals(id)
 );
 
 -- Indexes for deal queries
@@ -142,6 +139,9 @@ CREATE INDEX IF NOT EXISTS idx_deals_lead_id ON deals(lead_id);
 CREATE INDEX IF NOT EXISTS idx_deals_user_order_date ON deals(user_id, order_date);
 CREATE INDEX IF NOT EXISTS idx_deals_date ON deals(DATE(order_date));
 CREATE INDEX IF NOT EXISTS idx_deals_campaign ON deals(campaign_id);
+
+-- Unique index to prevent same lead on same day
+CREATE UNIQUE INDEX IF NOT EXISTS idx_deals_unique_lead_date ON deals(lead_id, DATE(order_date));
 
 -- Pending duplicates table (for manual resolution)
 CREATE TABLE IF NOT EXISTS pending_duplicates (
@@ -168,13 +168,13 @@ CREATE TABLE IF NOT EXISTS pending_duplicates (
   resolution_note TEXT,
 
   -- Status
-  status VARCHAR(50) DEFAULT 'pending',  -- 'pending', 'resolved'
-
-  -- Indexes
-  INDEX idx_pending_status (status),
-  INDEX idx_pending_lead_id (lead_id),
-  INDEX idx_pending_detected_at (detected_at)
+  status VARCHAR(50) DEFAULT 'pending'  -- 'pending', 'resolved'
 );
+
+-- Indexes for pending duplicates
+CREATE INDEX IF NOT EXISTS idx_pending_status ON pending_duplicates(status);
+CREATE INDEX IF NOT EXISTS idx_pending_lead_id ON pending_duplicates(lead_id);
+CREATE INDEX IF NOT EXISTS idx_pending_detected_at ON pending_duplicates(detected_at);
 
 -- Campaigns table (migrated from campaign-cache.json)
 CREATE TABLE IF NOT EXISTS campaigns (
