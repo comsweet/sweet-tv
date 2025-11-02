@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS sms_messages (
 );
 
 -- Indexes for SMS queries
+CREATE INDEX IF NOT EXISTS idx_sms_timestamp ON sms_messages(timestamp);  -- For range queries
 CREATE INDEX IF NOT EXISTS idx_sms_user_timestamp ON sms_messages(user_id, timestamp);
 CREATE INDEX IF NOT EXISTS idx_sms_date ON sms_messages(DATE(timestamp));
 CREATE INDEX IF NOT EXISTS idx_sms_receiver_date ON sms_messages(receiver, DATE(timestamp));
@@ -136,6 +137,7 @@ CREATE TABLE IF NOT EXISTS deals (
 
 -- Indexes for deal queries
 CREATE INDEX IF NOT EXISTS idx_deals_lead_id ON deals(lead_id);
+CREATE INDEX IF NOT EXISTS idx_deals_order_date ON deals(order_date);  -- For range queries
 CREATE INDEX IF NOT EXISTS idx_deals_user_order_date ON deals(user_id, order_date);
 CREATE INDEX IF NOT EXISTS idx_deals_date ON deals(DATE(order_date));
 CREATE INDEX IF NOT EXISTS idx_deals_campaign ON deals(campaign_id);
