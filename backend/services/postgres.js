@@ -93,12 +93,13 @@ class PostgresService {
         console.log(`   ${idx.indexname}: ${idx.indexdef}`);
       });
 
-      // Run EXPLAIN on typical query to see if index is used
+      // Run EXPLAIN on the optimized COUNT query
       const explain = await this.pool.query(`
-        EXPLAIN SELECT * FROM sms_messages
+        EXPLAIN SELECT COUNT(DISTINCT CONCAT(receiver, '|', DATE(timestamp))) as count
+        FROM sms_messages
         WHERE user_id = 222478 AND timestamp >= '2025-10-27T00:00:00.000Z' AND timestamp <= '2025-11-02T23:59:59.999Z'
       `);
-      console.log('🔍 Query plan for getSMSForUser (no ORDER BY):');
+      console.log('🔍 Query plan for getUniqueSMSCountForUser (optimized SQL COUNT):');
       explain.rows.forEach(row => console.log('   ', row['QUERY PLAN']));
     } catch (error) {
       console.error('⚠️  Could not list indexes:', error.message);

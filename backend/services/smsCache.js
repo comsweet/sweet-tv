@@ -387,36 +387,33 @@ class SMSCache {
     // Get SMS from cache or query DB
     const { start: todayStart, end: todayEnd } = this.getTodayWindow();
 
-    let agentSMS = [];
-
-    // If query is entirely for today → use cache
+    // If query is entirely for today → use cache (fast in-memory counting)
     if (start >= todayStart && end <= todayEnd) {
-      agentSMS = Array.from(this.todayCache.values()).filter(sms => {
+      const agentSMS = Array.from(this.todayCache.values()).filter(sms => {
         const smsDate = new Date(sms.timestamp);
         return String(sms.userId) === String(userIdNum) &&
                smsDate >= start && smsDate <= end;
       });
       console.log(`   ✅ Found ${agentSMS.length} SMS in today's cache`);
+
+      // Group by receiver + date (YYYY-MM-DD)
+      const uniqueReceiverDates = new Set();
+      agentSMS.forEach(sms => {
+        const date = new Date(sms.timestamp).toISOString().split('T')[0];
+        const key = `${sms.receiver}|${date}`;
+        uniqueReceiverDates.add(key);
+      });
+
+      const result = uniqueReceiverDates.size;
+      console.log(`   🎯 Returning uniqueSMS count: ${result}`);
+      return result;
     } else {
-      // Query PostgreSQL for historical data (filtered by user_id in SQL)
-      console.log(`   📊 Query spans beyond today, fetching from PostgreSQL...`);
-      agentSMS = await db.getSMSForUser(userIdNum, start, end);
-      console.log(`   ✅ Found ${agentSMS.length} SMS from DB`);
+      // Query PostgreSQL - COUNT directly in SQL (much faster!)
+      console.log(`   📊 Query spans beyond today, using SQL COUNT...`);
+      const result = await db.getUniqueSMSCountForUser(userIdNum, start, end);
+      console.log(`   🎯 Returning uniqueSMS count from SQL: ${result}`);
+      return result;
     }
-
-    // Group by receiver + date (YYYY-MM-DD)
-    const uniqueReceiverDates = new Set();
-
-    agentSMS.forEach(sms => {
-      const date = new Date(sms.timestamp).toISOString().split('T')[0]; // YYYY-MM-DD
-      const key = `${sms.receiver}|${date}`;
-      uniqueReceiverDates.add(key);
-    });
-
-    const result = uniqueReceiverDates.size;
-    console.log(`   🎯 Returning uniqueSMS count: ${result}`);
-
-    return result;
   }
 
   /**
