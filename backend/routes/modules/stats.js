@@ -68,10 +68,21 @@ router.get('/leaderboard', async (req, res) => {
     // Calculate stats
     const stats = {};
 
+    // IMPORTANT: Initialize stats for ALL users first (so users with 0 deals show up)
+    adversusUsers.forEach(user => {
+      stats[user.id] = {
+        userId: user.id,
+        totalCommission: 0,
+        dealCount: 0
+      };
+    });
+
+    // Then add deal data for users who have deals
     leads.forEach(lead => {
       const userId = lead.lastContactedBy;
       if (!userId) return;
 
+      // Create entry if user not in adversusUsers (shouldn't happen, but safety)
       if (!stats[userId]) {
         stats[userId] = {
           userId: userId,
