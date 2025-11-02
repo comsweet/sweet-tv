@@ -93,13 +93,13 @@ class PostgresService {
         console.log(`   ${idx.indexname}: ${idx.indexdef}`);
       });
 
-      // Run EXPLAIN on typical query to see if index is used
+      // Run EXPLAIN on the optimized COUNT query
       const explain = await this.pool.query(`
-        EXPLAIN SELECT * FROM sms_messages
+        EXPLAIN SELECT COUNT(DISTINCT CONCAT(receiver, '|', DATE(timestamp))) as count
+        FROM sms_messages
         WHERE user_id = 222478 AND timestamp >= '2025-10-27T00:00:00.000Z' AND timestamp <= '2025-11-02T23:59:59.999Z'
-        ORDER BY timestamp DESC
       `);
-      console.log('🔍 Query plan for getSMSForUser:');
+      console.log('🔍 Query plan for getUniqueSMSCountForUser (optimized SQL COUNT):');
       explain.rows.forEach(row => console.log('   ', row['QUERY PLAN']));
     } catch (error) {
       console.error('⚠️  Could not list indexes:', error.message);
@@ -524,8 +524,7 @@ class PostgresService {
     const result = await this.query(
       `SELECT * FROM deals
        WHERE order_date >= $1 AND order_date <= $2
-       AND (replaced_by IS NULL OR is_duplicate = FALSE)
-       ORDER BY order_date DESC`,
+       AND (replaced_by IS NULL OR is_duplicate = FALSE)`,
       [startDate, endDate]
     );
     return result.rows;
@@ -646,8 +645,7 @@ class PostgresService {
   async getSMSInRange(startDate, endDate) {
     const result = await this.query(
       `SELECT * FROM sms_messages
-       WHERE timestamp >= $1 AND timestamp <= $2
-       ORDER BY timestamp DESC`,
+       WHERE timestamp >= $1 AND timestamp <= $2`,
       [startDate, endDate]
     );
     return result.rows;
@@ -656,8 +654,7 @@ class PostgresService {
   async getSMSForUser(userId, startDate, endDate) {
     const result = await this.query(
       `SELECT * FROM sms_messages
-       WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3
-       ORDER BY timestamp DESC`,
+       WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3`,
       [userId, startDate, endDate]
     );
     return result.rows;
