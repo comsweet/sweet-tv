@@ -124,20 +124,14 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
 
   return (
     <div className={`rocket-race-vertical ${getResponsiveClass()}`}>
-      <div className="rocket-race-title">
-        <h2>{getGoalLabel()}</h2>
-        <div className="rocket-goal-info">
-          <span className="goal-icon">🎯</span>
-          <span className="goal-text">{getGoalText()}</span>
+      {/* Minimal goal badge in corner */}
+      {leaderboard.goalLabel && (
+        <div className="rocket-goal-badge">
+          🎯 {leaderboard.goalLabel}
         </div>
-      </div>
+      )}
 
-      <div className="finish-zone">
-        <div className="finish-flag">🏁</div>
-        <div className="finish-text">MÅLGÅNG</div>
-      </div>
-
-      {/* All rockets visible at once - like a bar chart */}
+      {/* Full screen bar chart - no headers */}
       <div className="rocket-columns-container">
         {stats.map((stat, index) => renderRocket(stat, index))}
       </div>
