@@ -28,7 +28,8 @@ class PollingService {
     // Polling configuration
     this.pollInterval = parseInt(process.env.POLL_INTERVAL) || 5000; // 5 seconds for fast response
     this.lastCheckTime = new Date(Date.now() - 60000);
-    this.isPolling = false;
+    this.isPolling = false; // Service running state
+    this.pollInProgress = false; // In-flight guard to prevent concurrent polls
     
     // Pending deals queue
     this.pendingDeals = new Map();
@@ -67,6 +68,14 @@ class PollingService {
   async poll() {
     if (!this.isPolling) return;
 
+    // 🛡️ In-flight guard: Skip if previous poll still running
+    if (this.pollInProgress) {
+      console.log('⏭️  Skipping poll - previous poll still in progress');
+      return;
+    }
+
+    this.pollInProgress = true;
+
     try {
       console.log('🔍 Polling for new deals...');
       
@@ -103,12 +112,15 @@ class PollingService {
       
     } catch (error) {
       console.error('❌ Error during polling:', error.message);
-      
+
       if (error.message === 'RATE_LIMIT_EXCEEDED') {
         console.log('⏳ Rate limit hit, backing off...');
         this.stop();
         setTimeout(() => this.start(), 60000);
       }
+    } finally {
+      // Always release in-flight guard, even on error
+      this.pollInProgress = false;
     }
   }
 
