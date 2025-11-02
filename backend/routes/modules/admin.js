@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../../services/postgres');
 const dealsCache = require('../../services/dealsCache');
 const smsCache = require('../../services/smsCache');
+const adversusAPI = require('../../services/adversusAPI');
 
 /**
  * ADMIN ENDPOINTS
@@ -238,14 +239,6 @@ router.post('/sync-database', async (req, res) => {
       });
     }
 
-    const adversusAPI = req.app.get('adversusAPI');
-    if (!adversusAPI) {
-      return res.status(500).json({
-        success: false,
-        error: 'Adversus API not available'
-      });
-    }
-
     if (mode === 'full') {
       // Full resync - truncate and reload
       console.log('🗑️  TRUNCATING all tables for full resync...');
@@ -255,9 +248,9 @@ router.post('/sync-database', async (req, res) => {
       await db.query('TRUNCATE TABLE pending_duplicates CASCADE');
 
       // Determine date range
-      const { startDate: rollingStart, endDate: rollingEnd } = dealsCache.getRollingWindow();
-      const start = startDate || rollingStart;
-      const end = endDate || rollingEnd;
+      const rollingWindow = dealsCache.getRollingWindow();
+      const start = startDate || rollingWindow.startDate.toISOString();
+      const end = endDate || rollingWindow.endDate.toISOString();
 
       console.log(`📥 Fetching from Adversus: ${start} → ${end}`);
 
@@ -286,8 +279,9 @@ router.post('/sync-database', async (req, res) => {
           orderDate: orderDateField?.value || lead.lastUpdatedTime,
           status: lead.status
         };
-      });
+      }).filter(deal => deal.userId != null); // Skip deals without user_id
 
+      console.log(`📊 Filtered to ${deals.length} deals with user_id`);
       await db.batchInsertDeals(deals);
 
       // Fetch SMS
@@ -324,9 +318,11 @@ router.post('/sync-database', async (req, res) => {
 
     } else if (mode === 'rolling') {
       // Rolling window sync - delete and reload only rolling window data
-      const { startDate, endDate } = dealsCache.getRollingWindow();
+      const rollingWindow = dealsCache.getRollingWindow();
+      const startDate = rollingWindow.startDate;
+      const endDate = rollingWindow.endDate;
 
-      console.log(`🔄 Rolling window sync: ${startDate} → ${endDate}`);
+      console.log(`🔄 Rolling window sync: ${startDate.toISOString()} → ${endDate.toISOString()}`);
 
       // Delete existing data in range
       await db.deleteDealsInRange(startDate, endDate);
