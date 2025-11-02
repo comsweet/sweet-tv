@@ -27,10 +27,10 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
 
   const formatValue = (stat) => {
     if (leaderboard.sortBy === 'dealCount') {
-      return `${stat.dealCount || 0}`;
+      return `${stat.dealCount || 0} affärer`;
     }
     const value = getTotalValue(stat);
-    return value.toLocaleString('sv-SE');
+    return `${value.toLocaleString('sv-SE')} THB`;
   };
 
   const getGoalLabel = () => {
