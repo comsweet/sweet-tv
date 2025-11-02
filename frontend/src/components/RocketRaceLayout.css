@@ -34,11 +34,22 @@
   50% { opacity: 0.3; }
 }
 
+/* Header container for title and finish line */
+.rocket-race-header {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  z-index: 1;
+}
+
 .rocket-race-title {
   text-align: center;
-  margin-bottom: 10px;
   position: relative;
-  z-index: 1;
 }
 
 .rocket-race-title h2 {
@@ -50,16 +61,11 @@
 }
 
 .finish-zone {
-  position: absolute;
-  top: 90px;
-  left: 0;
-  right: 0;
+  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 15px;
-  z-index: 2;
-  padding: 10px;
+  padding: 15px 0;
   background: repeating-linear-gradient(
     90deg,
     #212121 0px,
@@ -68,6 +74,7 @@
     white 60px
   );
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  z-index: 2;
 }
 
 .finish-flag {
@@ -80,29 +87,12 @@
   50% { transform: rotate(5deg); }
 }
 
-.finish-text {
-  color: #ffd700;
-  font-size: 1.6em;
-  font-weight: bold;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-  letter-spacing: 0.1em;
-}
-
-.finish-value {
-  color: #00B2E3;
-  font-size: 1.4em;
-  font-weight: bold;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 5px 15px;
-  border-radius: 15px;
-}
-
 .rocket-columns-container {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  height: calc(100vh - 200px); /* Space for title and finish zone */
-  margin-top: 70px;
+  height: calc(100vh - 180px); /* Space for header */
+  margin-top: 160px; /* Space for title + finish line */
   width: 100%;
   position: relative;
   z-index: 1;
@@ -208,7 +198,7 @@
   left: 50%;
   transform: translateX(-50%);
   transition: bottom 2s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 3;
+  z-index: 10; /* Above finish line */
 }
 
 .rocket-body {
@@ -225,16 +215,16 @@
 
 .rocket-flame {
   position: absolute;
-  top: -12px; /* Flame UNDER rocket since it flies upward */
-  right: -8px;
+  bottom: -15px; /* Flame below rocket */
+  left: -10px; /* Behind the rocket as it flies */
   font-size: 1.2em;
   animation: flame 0.3s ease-in-out infinite;
-  transform: rotate(180deg); /* Flip flame downward */
+  transform: rotate(225deg); /* Flame pointing down-left, opposite of rocket direction */
 }
 
 @keyframes flame {
-  0%, 100% { opacity: 1; transform: rotate(180deg) scale(1); }
-  50% { opacity: 0.7; transform: rotate(180deg) scale(1.3); }
+  0%, 100% { opacity: 1; transform: rotate(225deg) scale(1); }
+  50% { opacity: 0.7; transform: rotate(225deg) scale(1.3); }
 }
 
 .rocket-sprite.leader-rocket .rocket-body {
@@ -290,7 +280,7 @@
   border: 2px solid rgba(255, 255, 255, 0.4);
   text-align: center;
   white-space: nowrap;
-  z-index: 5;
+  z-index: 15; /* Above finish line and everything else */
 }
 
 .rocket-sprite.leader-rocket .rocket-value-display {
@@ -313,6 +303,12 @@
 .rocket-rank-badge {
   font-size: 1.8em;
   margin-bottom: 5px;
+}
+
+.rocket-rank-number {
+  color: white;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 .rocket-avatar-img {

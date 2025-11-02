@@ -22,7 +22,7 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
     if (index === 0) return '🥇';
     if (index === 1) return '🥈';
     if (index === 2) return '🥉';
-    return `#${index + 1}`;
+    return <span className="rocket-rank-number">#{index + 1}</span>;
   };
 
   const formatValue = (stat) => {
@@ -118,14 +118,15 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
 
   return (
     <div className={`rocket-race-vertical ${getResponsiveClass()}`}>
-      <div className="rocket-race-title">
-        <h2>{getGoalLabel()}</h2>
-      </div>
+      {/* Title above finish line */}
+      <div className="rocket-race-header">
+        <div className="rocket-race-title">
+          <h2>{getGoalLabel()}</h2>
+        </div>
 
-      <div className="finish-zone">
-        <div className="finish-flag">🏁</div>
-        <div className="finish-text">MÅLGÅNG</div>
-        <div className="finish-value">{getGoalText()}</div>
+        <div className="finish-zone">
+          <div className="finish-flag">🏁</div>
+        </div>
       </div>
 
       {/* Rockets fly upward toward finish line */}
