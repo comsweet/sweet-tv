@@ -425,20 +425,15 @@ class PostgresService {
   // ==================== DEALS ====================
 
   async insertDeal({ leadId, userId, campaignId, commission, multiDeals, orderDate, status }) {
-    try {
-      const result = await this.query(
-        `INSERT INTO deals (lead_id, user_id, campaign_id, commission, multi_deals, order_date, status, synced_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-         RETURNING *`,
-        [leadId, userId, campaignId, commission, multiDeals || 1, orderDate, status]
-      );
-      return result.rows[0];
-    } catch (error) {
-      if (error.code === '23505') { // Unique constraint violation
-        throw new Error('DUPLICATE_DEAL');
-      }
-      throw error;
-    }
+    // NOTE: No unique constraint on lead_id in database
+    // Duplicate detection handled in application layer (dealsCache.js)
+    const result = await this.query(
+      `INSERT INTO deals (lead_id, user_id, campaign_id, commission, multi_deals, order_date, status, synced_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       RETURNING *`,
+      [leadId, userId, campaignId, commission, multiDeals || 1, orderDate, status]
+    );
+    return result.rows[0];
   }
 
   async batchInsertDeals(deals) {

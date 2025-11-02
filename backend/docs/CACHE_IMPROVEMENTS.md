@@ -72,11 +72,15 @@ CREATE TABLE deals (
 
   -- Duplicate tracking
   is_duplicate BOOLEAN DEFAULT FALSE,
-  replaced_by INTEGER REFERENCES deals(id),
-
-  -- Prevent same lead on same day
-  UNIQUE (lead_id, DATE(order_date))
+  replaced_by INTEGER REFERENCES deals(id)
 );
+
+-- NOTE: No UNIQUE constraint on lead_id
+-- Duplicate detection handled in application layer (dealsCache.js)
+-- This allows:
+-- 1. Same lead to buy multiple products on same day (legitimate)
+-- 2. Admin to "approve" duplicate deals when resolving pending duplicates
+-- 3. Full flexibility in duplicate management
 ```
 
 #### `sms_messages`
