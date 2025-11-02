@@ -244,10 +244,84 @@ class DealsCache {
   }
 
   /**
-   * Sync deals from Adversus with smart UPSERT strategy
+   * Poll for NEW deals only (timestamp-based incremental sync)
+   */
+  async pollNewDeals(adversusAPI) {
+    console.log('🔍 Polling for new deals...');
+
+    // Get last sync timestamp
+    const lastSyncDate = new Date(this.lastSync);
+    const now = new Date();
+
+    console.log(`📅 Polling since: ${lastSyncDate.toISOString()}`);
+
+    try {
+      // Fetch only deals updated since last sync
+      const result = await adversusAPI.getLeadsInDateRange(lastSyncDate, now);
+      const leads = result.leads || [];
+
+      if (leads.length === 0) {
+        console.log('✅ No new deals since last poll');
+        this.lastSync = now.toISOString();
+        return [];
+      }
+
+      console.log(`✅ Found ${leads.length} new/updated leads`);
+
+      const deals = leads.map(lead => {
+        const commissionField = lead.resultData?.find(f => f.id === 70163);
+        const commission = parseFloat(commissionField?.value || 0);
+
+        let multiDeals = 1;
+        const resultMultiDeals = lead.resultData?.find(f => f.id === 74126);
+        if (resultMultiDeals?.value) {
+          multiDeals = parseInt(resultMultiDeals.value) || 1;
+        }
+
+        const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
+
+        return {
+          leadId: lead.id,
+          userId: lead.lastContactedBy,
+          campaignId: lead.campaignId,
+          commission: commission,
+          multiDeals: multiDeals,
+          orderDate: orderDateField?.value || lead.lastUpdatedTime,
+          status: lead.status
+        };
+      });
+
+      // Filter out deals without userId (required field)
+      const validDeals = deals.filter(deal => deal.userId != null);
+      const skippedDeals = deals.length - validDeals.length;
+
+      if (skippedDeals > 0) {
+        console.log(`⚠️  Skipped ${skippedDeals} deals without user_id`);
+      }
+
+      // Batch insert/update to PostgreSQL
+      await db.batchInsertDeals(validDeals.map(d => this.cacheToDb(d)));
+
+      // Reload today's cache (in case new deals are for today)
+      await this.loadTodayCache();
+
+      this.lastSync = now.toISOString();
+
+      const dealsWithCommission = validDeals.filter(deal => deal.commission > 0);
+      console.log(`💾 Polled ${validDeals.length} deals (${dealsWithCommission.length} with commission)`);
+
+      return validDeals;
+    } catch (error) {
+      console.error('❌ Error polling new deals:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Sync deals from Adversus with smart UPSERT strategy (FULL SYNC)
    */
   async syncDeals(adversusAPI) {
-    console.log('🔄 Syncing deals from Adversus...');
+    console.log('🔄 Full sync: Fetching rolling window from Adversus...');
 
     const { startDate, endDate } = this.getRollingWindow();
     console.log(`📅 Rolling window: ${startDate.toISOString()} → ${endDate.toISOString()}`);
@@ -342,7 +416,6 @@ class DealsCache {
    */
   async needsSync() {
     if (!this.lastSync) {
-      console.log('⚠️  No sync found - needs initial sync');
       return true;
     }
 
@@ -360,7 +433,14 @@ class DealsCache {
 
   async autoSync(adversusAPI) {
     if (await this.needsSync()) {
-      return await this.syncDeals(adversusAPI);
+      // If no previous sync → do full sync (rolling window)
+      if (!this.lastSync) {
+        console.log('⚠️  No sync found - needs initial sync');
+        return await this.syncDeals(adversusAPI);
+      }
+
+      // If previous sync exists → poll for new deals only
+      return await this.pollNewDeals(adversusAPI);
     }
 
     console.log('✅ Using cached deals');

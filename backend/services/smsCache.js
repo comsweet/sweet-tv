@@ -160,7 +160,76 @@ class SMSCache {
   }
 
   /**
-   * Sync SMS from Adversus with smart UPSERT strategy
+   * Poll for NEW SMS only (timestamp-based incremental sync)
+   */
+  async pollNewSMS(adversusAPI) {
+    await this._ensureInitialized();
+
+    console.log('🔍 Polling for new SMS...');
+
+    const lastSyncDate = new Date(this.lastSync);
+    const now = new Date();
+
+    console.log(`📅 Polling since: ${lastSyncDate.toISOString()}`);
+
+    try {
+      // Build filters for timestamp since last sync
+      const filters = {
+        type: { $eq: 'outbound' },
+        timestamp: {
+          $gt: lastSyncDate.toISOString(),
+          $lt: now.toISOString()
+        }
+      };
+
+      // Fetch SMS (should be minimal, usually 0-10)
+      const result = await adversusAPI.getSMS(filters, 1, 1000);
+      const smsArray = result.sms || [];
+
+      if (smsArray.length === 0) {
+        console.log('✅ No new SMS since last poll');
+        this.lastSync = now.toISOString();
+        return [];
+      }
+
+      console.log(`✅ Found ${smsArray.length} new SMS`);
+
+      // Filter to only delivered SMS
+      const deliveredSMS = smsArray.filter(sms => sms.status === 'delivered');
+
+      console.log(`📱 Delivered SMS: ${deliveredSMS.length} / ${smsArray.length}`);
+
+      // Normalize data
+      const smsData = deliveredSMS.map(sms => ({
+        id: sms.id,
+        userId: parseInt(sms.userId),
+        receiver: sms.receiver,
+        timestamp: sms.timestamp,
+        campaignId: sms.campaignId,
+        leadId: sms.leadId,
+        status: sms.status,
+        syncedAt: new Date().toISOString()
+      }));
+
+      // Batch insert/update to PostgreSQL
+      await db.batchInsertSMS(smsData.map(s => this.cacheToDb(s)));
+
+      // Reload today's cache (in case new SMS are for today)
+      await this.loadTodayCache();
+
+      this.lastSync = now.toISOString();
+
+      console.log(`💾 Polled ${smsData.length} SMS`);
+
+      return smsData;
+    } catch (error) {
+      console.error('❌ Error polling new SMS:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Sync SMS from Adversus with smart UPSERT strategy (FULL SYNC)
    */
   async syncSMS(adversusAPI) {
     await this._ensureInitialized();
@@ -168,7 +237,7 @@ class SMSCache {
     try {
       const { startDate, endDate, startDateFormatted, endDateFormatted } = this.getRollingWindow();
 
-      console.log(`📱 Syncing SMS from ${startDateFormatted} to ${endDateFormatted}`);
+      console.log(`📱 Full sync: Fetching rolling window SMS from ${startDateFormatted} to ${endDateFormatted}`);
 
       // Build filters
       const filters = {
@@ -256,7 +325,6 @@ class SMSCache {
    */
   async needsSync() {
     if (!this.lastSync) {
-      console.log('⚠️  No SMS sync found - needs initial sync');
       return true;
     }
 
@@ -276,8 +344,15 @@ class SMSCache {
     await this._ensureInitialized();
 
     if (await this.needsSync()) {
+      // If no previous sync → do full sync (rolling window)
+      if (!this.lastSync) {
+        console.log('⚠️  No SMS sync found - needs initial sync');
+        return await this.syncSMS(adversusAPI);
+      }
+
+      // If previous sync exists → poll for new SMS only
       console.log('📱 Auto-syncing SMS (2 min passed)...');
-      return await this.syncSMS(adversusAPI);
+      return await this.pollNewSMS(adversusAPI);
     }
 
     console.log('✅ Using cached SMS');
