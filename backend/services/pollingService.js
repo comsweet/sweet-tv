@@ -242,20 +242,35 @@ class PollingService {
         return;
       }
 
+      // Check if it's a duplicate (pending resolution)
+      if (result.status === 'pending_duplicate') {
+        console.log(`⚠️  DUPLICATE PENDING: Lead ${lead.id}`);
+        console.log(`   Existing deal: ${JSON.stringify(result.existingDeal)}`);
+        console.log(`   New deal: ${JSON.stringify(result.newDeal)}`);
+        console.log(`   Pending ID: ${result.pendingId}`);
+        // Don't play sound or send notification for duplicates
+        return;
+      }
+
       const { previousTotal, newTotal } = result;
 
       console.log(`\n💰 AGENT'S TODAY TOTAL (ATOMIC):`);
       console.log(`   Before this deal:      ${previousTotal.toFixed(2)} THB`);
       console.log(`   After this deal:       ${newTotal.toFixed(2)} THB`);
 
-      // 🔥🔥🔥 CRITICAL: Reset SMS cache so it syncs on next request!
-      await this.smsCache.resetLastSync();
-      console.log(`📱 Reset SMS cache - will sync on next request`);
-
       // Remove from pending if it was there
       if (this.pendingDeals.has(lead.id)) {
         console.log(`   ✅ Removed from pending queue (commission received)`);
         this.pendingDeals.delete(lead.id);
+      }
+
+      // 🔥 CRITICAL: Sync new SMS immediately so leaderboard shows correct numbers
+      // This only fetches NEW SMS since last sync (not all 85k!)
+      try {
+        await this.smsCache.pollNewSMS(this.adversusAPI);
+        console.log(`📱 SMS synced after deal`);
+      } catch (error) {
+        console.error(`⚠️  SMS sync failed (non-critical):`, error.message);
       }
 
       // Clear leaderboard cache so new stats are recalculated

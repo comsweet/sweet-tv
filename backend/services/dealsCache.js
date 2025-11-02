@@ -137,24 +137,72 @@ class DealsCache {
       const existing = await db.getDealByLeadId(deal.leadId);
 
       if (existing.length > 0) {
-        // DUPLICATE DETECTED! Create pending entry
+        const existingDeal = existing[0];
+
+        // Check if it's the SAME deal (from auto-sync) or a TRUE duplicate
+        const isSameDeal =
+          existingDeal.user_id === deal.userId &&
+          parseFloat(existingDeal.commission) === parseFloat(deal.commission);
+
+        if (isSameDeal) {
+          // This is the same deal we already have (from polling/sync)
+          console.log(`✅ Deal ${deal.leadId} already in DB (from sync) - updating cache only`);
+
+          // Update cache if deal is for today
+          const dealDate = new Date(deal.orderDate || new Date());
+          const { start, end } = this.getTodayWindow();
+
+          if (dealDate >= start && dealDate <= end) {
+            const previousTotal = this.todayUserTotals.get(deal.userId) || 0;
+            const commission = parseFloat(deal.commission) || 0;
+            const newTotal = previousTotal + commission;
+
+            this.todayCache.set(deal.leadId, {
+              leadId: deal.leadId,
+              userId: deal.userId,
+              campaignId: deal.campaignId,
+              commission: commission,
+              multiDeals: deal.multiDeals || 1,
+              orderDate: deal.orderDate || new Date().toISOString(),
+              status: deal.status,
+              syncedAt: new Date().toISOString()
+            });
+            this.todayUserTotals.set(deal.userId, newTotal);
+
+            return {
+              success: true,
+              deal: this.todayCache.get(deal.leadId),
+              previousTotal,
+              newTotal
+            };
+          }
+
+          // Not today's deal, just return success
+          return {
+            success: true,
+            deal: deal,
+            previousTotal: 0,
+            newTotal: parseFloat(deal.commission) || 0
+          };
+        }
+
+        // TRUE DUPLICATE - different user or commission!
+        console.log(`🚨 TRUE DUPLICATE DETECTED: Lead ${deal.leadId}`);
+        console.log(`   Existing: user=${existingDeal.user_id}, commission=${existingDeal.commission}`);
+        console.log(`   New: user=${deal.userId}, commission=${deal.commission}`);
+
         const pendingDup = await db.createPendingDuplicate({
           leadId: deal.leadId,
           newDealData: deal,
-          existingDealId: existing[0].id
+          existingDealId: existingDeal.id
         });
-
-        console.log(`🚨 DUPLICATE DETECTED: Lead ${deal.leadId} - created pending entry ${pendingDup.id}`);
-
-        // TODO: WebSocket notification to admin
-        // this.notifyAdminDuplicate(pendingDup);
 
         return {
           success: false,
           status: 'pending_duplicate',
           message: `Duplicate detected for lead ${deal.leadId}`,
           pendingId: pendingDup.id,
-          existingDeal: this.dbToCache(existing[0]),
+          existingDeal: this.dbToCache(existingDeal),
           newDeal: deal
         };
       }

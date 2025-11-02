@@ -365,14 +365,6 @@ class SMSCache {
   }
 
   /**
-   * Reset last sync (for backward compatibility)
-   */
-  async resetLastSync() {
-    console.log('🔄 Resetting SMS last sync - next autoSync will force sync');
-    this.lastSync = new Date(0).toISOString(); // Set to epoch
-  }
-
-  /**
    * Get unique SMS count for an agent in a date range
    * Unique = distinct receiver per DATE (not per hour)
    * Example: 5 SMS to +46701234567 on 2025-11-02 = 1 unique SMS
