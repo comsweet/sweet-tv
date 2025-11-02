@@ -51,7 +51,7 @@
 
 .rocket-race-title h2 {
   color: white;
-  font-size: 2.8em;
+  font-size: clamp(1.8rem, 2.5vw, 4.5rem);
   margin: 0;
   text-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
   font-weight: bold;
@@ -76,15 +76,16 @@
 
 .rocket-columns-container {
   display: flex;
-  justify-content: center;
+  justify-content: space-evenly; /* Dela space jämnt mellan kolumner */
   align-items: flex-end;
   flex: 1; /* Take up all remaining space */
   width: 100%;
   position: relative;
   z-index: 1;
   flex-wrap: nowrap;
-  padding: 20px 20px; /* Mindre padding på sidorna */
+  padding: 20px clamp(10px, 2vw, 40px); /* Dynamisk padding baserad på viewport */
   min-height: 0; /* Allow flex item to shrink below content size */
+  gap: clamp(8px, 1.5vw, 30px); /* Dynamiskt gap baserat på viewport */
 }
 
 /* Base rocket column - names at bottom, rockets fly upward */
@@ -92,140 +93,59 @@
   display: flex;
   flex-direction: column-reverse; /* Info at bottom, trail extends upward */
   align-items: center;
-  flex: 0 0 auto;
+  flex: 1 1 auto; /* Tillåt kolumner att växa/krympa jämnt */
+  max-width: calc(100% / var(--participant-count, 5)); /* Dela upp space jämnt */
+  min-width: clamp(80px, 10vw, 150px); /* Min/max bredd */
   gap: 0;
   height: 100%;
 }
 
-/* Responsive sizes based on participant count - ALL LARGER FOR TV */
-/* 1-3 participants - Reduced base sizes */
-.rockets-few .rocket-columns-container {
-  gap: 35px;
-}
-.rockets-few .rocket-avatar-img,
-.rockets-few .rocket-avatar-circle {
-  width: 85px;
-  height: 85px;
-  border-width: 5px;
-}
-.rockets-few .rocket-name-text {
-  font-size: 1.7em;
-}
-.rockets-few .rocket-body {
-  font-size: 3.8em;
-}
-.rockets-few .rocket-value-display {
-  font-size: 1.4em;
-  padding: 10px 20px;
-  top: -65px;
-}
-.rockets-few .rocket-rank-badge {
-  font-size: 2.4em;
-}
-.rockets-few .rocket-gap-text {
-  font-size: 1.4em;
-  padding: 7px 14px;
-}
-.rockets-few .rocket-meta-text {
-  font-size: 1.3em;
+/* ============================================================
+   FLEXIBEL SKALNING - Anpassar sig efter skärmstorlek
+   Använder viewport units och clamp() för dynamisk skalning
+   ============================================================ */
+
+/* Avatar och bilder - skalas baserat på tillgängligt utrymme */
+.rocket-avatar-img,
+.rocket-avatar-circle {
+  width: clamp(45px, 4vw, 110px);
+  height: clamp(45px, 4vw, 110px);
+  border-width: clamp(3px, 0.3vw, 6px);
+  font-size: clamp(1.2rem, 2vw, 3rem);
 }
 
-/* 4-5 participants - Reduced base sizes */
-.rockets-medium .rocket-columns-container {
-  gap: 30px;
-}
-.rockets-medium .rocket-avatar-img,
-.rockets-medium .rocket-avatar-circle {
-  width: 75px;
-  height: 75px;
-  border-width: 4px;
-}
-.rockets-medium .rocket-name-text {
-  font-size: 1.5em;
-}
-.rockets-medium .rocket-body {
-  font-size: 3.5em;
-}
-.rockets-medium .rocket-value-display {
-  font-size: 1.3em;
-  padding: 9px 18px;
-  top: -62px;
-}
-.rockets-medium .rocket-rank-badge {
-  font-size: 2.1em;
-}
-.rockets-medium .rocket-gap-text {
-  font-size: 1.3em;
-  padding: 7px 13px;
-}
-.rockets-medium .rocket-meta-text {
-  font-size: 1.2em;
+/* Namn - skalar proportionellt */
+.rocket-name-text {
+  font-size: clamp(0.9rem, 1.2vw, 2.2rem);
+  max-width: clamp(90px, 12vw, 220px);
 }
 
-/* 6-8 participants - Reduced base sizes */
-.rockets-many .rocket-columns-container {
-  gap: 22px;
-}
-.rockets-many .rocket-avatar-img,
-.rockets-many .rocket-avatar-circle {
-  width: 68px;
-  height: 68px;
-  border-width: 4px;
-}
-.rockets-many .rocket-name-text {
-  font-size: 1.4em;
-  max-width: 140px;
-}
-.rockets-many .rocket-body {
-  font-size: 3.2em;
-}
-.rockets-many .rocket-value-display {
-  font-size: 1.2em;
-  padding: 8px 16px;
-  top: -58px;
-}
-.rockets-many .rocket-rank-badge {
-  font-size: 1.9em;
-}
-.rockets-many .rocket-gap-text {
-  font-size: 1.2em;
-  padding: 6px 12px;
-}
-.rockets-many .rocket-meta-text {
-  font-size: 1.1em;
+/* Raket-emoji - skalas med viewport */
+.rocket-body {
+  font-size: clamp(2rem, 2.8vw, 5.5rem);
 }
 
-/* 9+ participants - Reduced base sizes */
-.rockets-lots .rocket-columns-container {
-  gap: 16px;
+/* Värde-bubbla - skalas med viewport */
+.rocket-value-display {
+  font-size: clamp(0.8rem, 1vw, 1.9rem);
+  padding: clamp(6px, 0.7vw, 14px) clamp(12px, 1.2vw, 26px);
+  top: clamp(-45px, -4.5vw, -90px);
 }
-.rockets-lots .rocket-avatar-img,
-.rockets-lots .rocket-avatar-circle {
-  width: 62px;
-  height: 62px;
-  border-width: 3px;
+
+/* Ranknummer och badges - skalas med viewport */
+.rocket-rank-badge {
+  font-size: clamp(1.3rem, 1.8vw, 3.4rem);
 }
-.rockets-lots .rocket-name-text {
-  font-size: 1.3em;
-  max-width: 130px;
+
+/* Gap text - skalas med viewport */
+.rocket-gap-text {
+  font-size: clamp(0.8rem, 1vw, 1.9rem);
+  padding: clamp(4px, 0.5vw, 10px) clamp(8px, 1vw, 18px);
 }
-.rockets-lots .rocket-value-display {
-  font-size: 1.1em;
-  padding: 7px 14px;
-  top: -54px;
-}
-.rockets-lots .rocket-gap-text {
-  font-size: 1.1em;
-  padding: 5px 10px;
-}
-.rockets-lots .rocket-rank-badge {
-  font-size: 1.7em;
-}
-.rockets-lots .rocket-body {
-  font-size: 3em;
-}
-.rockets-lots .rocket-meta-text {
-  font-size: 1em;
+
+/* Meta text - skalas med viewport */
+.rocket-meta-text {
+  font-size: clamp(0.75rem, 0.9vw, 1.7rem);
 }
 
 .rocket-trail {
@@ -417,295 +337,75 @@
 }
 
 /* ============================================================
-   TV SIZE OVERRIDES - Stöd för compact/normal/large/xlarge
-   Strategi: Normal använder nuvarande storlekar (inga overrides)
-   Large = lite större, XLarge = bara något större än Large
+   TV SIZE OVERRIDES - Använder skalning av viewport-baserade storlekar
+   Strategi: Justera viewport-multiplikatorn för varje storlek
    ============================================================ */
 
-/* COMPACT SIZE - Mindre än default */
+/* COMPACT SIZE - 80% av default viewport scaling */
+.size-compact .rocket-avatar-img,
+.size-compact .rocket-avatar-circle {
+  width: clamp(40px, 3.2vw, 88px);
+  height: clamp(40px, 3.2vw, 88px);
+}
+.size-compact .rocket-name-text {
+  font-size: clamp(0.75rem, 1vw, 1.8rem);
+}
+.size-compact .rocket-body {
+  font-size: clamp(1.7rem, 2.2vw, 4.4rem);
+}
+.size-compact .rocket-value-display {
+  font-size: clamp(0.7rem, 0.8vw, 1.5rem);
+}
+.size-compact .rocket-rank-badge {
+  font-size: clamp(1.1rem, 1.4vw, 2.7rem);
+}
 .size-compact .rocket-race-title h2 {
-  font-size: 2.3em;
+  font-size: clamp(1.5rem, 2vw, 3.6rem);
 }
 
-.size-compact .rockets-few .rocket-columns-container { gap: 28px; }
-.size-compact .rockets-few .rocket-avatar-img,
-.size-compact .rockets-few .rocket-avatar-circle {
-  width: 70px;
-  height: 70px;
-  border-width: 4px;
-}
-.size-compact .rockets-few .rocket-name-text { font-size: 1.4em; }
-.size-compact .rockets-few .rocket-body { font-size: 3.2em; }
-.size-compact .rockets-few .rocket-value-display {
-  font-size: 1.2em;
-  padding: 8px 16px;
-  top: -55px;
-}
-.size-compact .rockets-few .rocket-rank-badge { font-size: 2em; }
-.size-compact .rockets-few .rocket-gap-text {
-  font-size: 1.2em;
-  padding: 6px 12px;
-}
-.size-compact .rockets-few .rocket-meta-text { font-size: 1.1em; }
+/* NORMAL SIZE - Använder default viewport scaling (inga overrides) */
 
-.size-compact .rockets-medium .rocket-columns-container { gap: 24px; }
-.size-compact .rockets-medium .rocket-avatar-img,
-.size-compact .rockets-medium .rocket-avatar-circle {
-  width: 62px;
-  height: 62px;
-  border-width: 3px;
+/* LARGE SIZE - 120% av default viewport scaling */
+.size-large .rocket-avatar-img,
+.size-large .rocket-avatar-circle {
+  width: clamp(50px, 4.8vw, 132px);
+  height: clamp(50px, 4.8vw, 132px);
 }
-.size-compact .rockets-medium .rocket-name-text { font-size: 1.25em; }
-.size-compact .rockets-medium .rocket-body { font-size: 2.9em; }
-.size-compact .rockets-medium .rocket-value-display {
-  font-size: 1.1em;
-  padding: 7px 14px;
-  top: -52px;
+.size-large .rocket-name-text {
+  font-size: clamp(1rem, 1.44vw, 2.6rem);
 }
-.size-compact .rockets-medium .rocket-rank-badge { font-size: 1.75em; }
-.size-compact .rockets-medium .rocket-gap-text {
-  font-size: 1.1em;
-  padding: 6px 11px;
+.size-large .rocket-body {
+  font-size: clamp(2.3rem, 3.36vw, 6.6rem);
 }
-.size-compact .rockets-medium .rocket-meta-text { font-size: 1em; }
-
-.size-compact .rockets-many .rocket-columns-container { gap: 18px; }
-.size-compact .rockets-many .rocket-avatar-img,
-.size-compact .rockets-many .rocket-avatar-circle {
-  width: 56px;
-  height: 56px;
-  border-width: 3px;
+.size-large .rocket-value-display {
+  font-size: clamp(0.9rem, 1.2vw, 2.3rem);
 }
-.size-compact .rockets-many .rocket-name-text {
-  font-size: 1.15em;
-  max-width: 115px;
+.size-large .rocket-rank-badge {
+  font-size: clamp(1.5rem, 2.16vw, 4rem);
 }
-.size-compact .rockets-many .rocket-body { font-size: 2.6em; }
-.size-compact .rockets-many .rocket-value-display {
-  font-size: 1em;
-  padding: 7px 13px;
-  top: -48px;
-}
-.size-compact .rockets-many .rocket-rank-badge { font-size: 1.6em; }
-.size-compact .rockets-many .rocket-gap-text {
-  font-size: 1em;
-  padding: 5px 10px;
-}
-.size-compact .rockets-many .rocket-meta-text { font-size: 0.95em; }
-
-.size-compact .rockets-lots .rocket-columns-container { gap: 13px; }
-.size-compact .rockets-lots .rocket-avatar-img,
-.size-compact .rockets-lots .rocket-avatar-circle {
-  width: 52px;
-  height: 52px;
-  border-width: 3px;
-}
-.size-compact .rockets-lots .rocket-name-text {
-  font-size: 1.1em;
-  max-width: 110px;
-}
-.size-compact .rockets-lots .rocket-body { font-size: 2.5em; }
-.size-compact .rockets-lots .rocket-value-display {
-  font-size: 0.95em;
-  padding: 6px 11px;
-  top: -45px;
-}
-.size-compact .rockets-lots .rocket-rank-badge { font-size: 1.45em; }
-.size-compact .rockets-lots .rocket-gap-text {
-  font-size: 0.95em;
-  padding: 4px 9px;
-}
-.size-compact .rockets-lots .rocket-meta-text { font-size: 0.9em; }
-
-/* NORMAL SIZE - Använder default-storlekar (inga overrides) */
-
-/* LARGE SIZE - ~20% större än default */
 .size-large .rocket-race-title h2 {
-  font-size: 3.3em;
+  font-size: clamp(2.1rem, 3vw, 5.4rem);
 }
 
-.size-large .rockets-few .rocket-columns-container { gap: 42px; }
-.size-large .rockets-few .rocket-avatar-img,
-.size-large .rockets-few .rocket-avatar-circle {
-  width: 102px;
-  height: 102px;
-  border-width: 6px;
+/* EXTRA LARGE SIZE - 140% av default viewport scaling */
+.size-xlarge .rocket-avatar-img,
+.size-xlarge .rocket-avatar-circle {
+  width: clamp(55px, 5.6vw, 154px);
+  height: clamp(55px, 5.6vw, 154px);
 }
-.size-large .rockets-few .rocket-name-text { font-size: 2em; }
-.size-large .rockets-few .rocket-body { font-size: 4.5em; }
-.size-large .rockets-few .rocket-value-display {
-  font-size: 1.65em;
-  padding: 11px 22px;
-  top: -75px;
+.size-xlarge .rocket-name-text {
+  font-size: clamp(1.1rem, 1.68vw, 3rem);
 }
-.size-large .rockets-few .rocket-rank-badge { font-size: 2.85em; }
-.size-large .rockets-few .rocket-gap-text {
-  font-size: 1.65em;
-  padding: 8px 15px;
+.size-xlarge .rocket-body {
+  font-size: clamp(2.6rem, 3.92vw, 7.7rem);
 }
-.size-large .rockets-few .rocket-meta-text { font-size: 1.5em; }
-
-.size-large .rockets-medium .rocket-columns-container { gap: 36px; }
-.size-large .rockets-medium .rocket-avatar-img,
-.size-large .rockets-medium .rocket-avatar-circle {
-  width: 90px;
-  height: 90px;
-  border-width: 5px;
+.size-xlarge .rocket-value-display {
+  font-size: clamp(1rem, 1.4vw, 2.7rem);
 }
-.size-large .rockets-medium .rocket-name-text { font-size: 1.8em; }
-.size-large .rockets-medium .rocket-body { font-size: 4.2em; }
-.size-large .rockets-medium .rocket-value-display {
-  font-size: 1.55em;
-  padding: 10px 20px;
-  top: -72px;
+.size-xlarge .rocket-rank-badge {
+  font-size: clamp(1.7rem, 2.52vw, 4.8rem);
 }
-.size-large .rockets-medium .rocket-rank-badge { font-size: 2.5em; }
-.size-large .rockets-medium .rocket-gap-text {
-  font-size: 1.55em;
-  padding: 8px 14px;
-}
-.size-large .rockets-medium .rocket-meta-text { font-size: 1.4em; }
-
-.size-large .rockets-many .rocket-columns-container { gap: 27px; }
-.size-large .rockets-many .rocket-avatar-img,
-.size-large .rockets-many .rocket-avatar-circle {
-  width: 82px;
-  height: 82px;
-  border-width: 5px;
-}
-.size-large .rockets-many .rocket-name-text {
-  font-size: 1.65em;
-  max-width: 165px;
-}
-.size-large .rockets-many .rocket-body { font-size: 3.8em; }
-.size-large .rockets-many .rocket-value-display {
-  font-size: 1.4em;
-  padding: 9px 18px;
-  top: -68px;
-}
-.size-large .rockets-many .rocket-rank-badge { font-size: 2.25em; }
-.size-large .rockets-many .rocket-gap-text {
-  font-size: 1.4em;
-  padding: 7px 13px;
-}
-.size-large .rockets-many .rocket-meta-text { font-size: 1.3em; }
-
-.size-large .rockets-lots .rocket-columns-container { gap: 20px; }
-.size-large .rockets-lots .rocket-avatar-img,
-.size-large .rockets-lots .rocket-avatar-circle {
-  width: 75px;
-  height: 75px;
-  border-width: 4px;
-}
-.size-large .rockets-lots .rocket-name-text {
-  font-size: 1.55em;
-  max-width: 155px;
-}
-.size-large .rockets-lots .rocket-body { font-size: 3.6em; }
-.size-large .rockets-lots .rocket-value-display {
-  font-size: 1.3em;
-  padding: 8px 16px;
-  top: -63px;
-}
-.size-large .rockets-lots .rocket-rank-badge { font-size: 2em; }
-.size-large .rockets-lots .rocket-gap-text {
-  font-size: 1.3em;
-  padding: 6px 11px;
-}
-.size-large .rockets-lots .rocket-meta-text { font-size: 1.2em; }
-
-/* EXTRA LARGE SIZE - ~40% större än default */
 .size-xlarge .rocket-race-title h2 {
-  font-size: 3.8em;
+  font-size: clamp(2.4rem, 3.5vw, 6.3rem);
 }
-
-.size-xlarge .rockets-few .rocket-columns-container { gap: 49px; }
-.size-xlarge .rockets-few .rocket-avatar-img,
-.size-xlarge .rockets-few .rocket-avatar-circle {
-  width: 120px;
-  height: 120px;
-  border-width: 6px;
-}
-.size-xlarge .rockets-few .rocket-name-text { font-size: 2.35em; }
-.size-xlarge .rockets-few .rocket-body { font-size: 5.3em; }
-.size-xlarge .rockets-few .rocket-value-display {
-  font-size: 1.95em;
-  padding: 13px 26px;
-  top: -88px;
-}
-.size-xlarge .rockets-few .rocket-rank-badge { font-size: 3.35em; }
-.size-xlarge .rockets-few .rocket-gap-text {
-  font-size: 1.95em;
-  padding: 10px 18px;
-}
-.size-xlarge .rockets-few .rocket-meta-text { font-size: 1.8em; }
-
-.size-xlarge .rockets-medium .rocket-columns-container { gap: 42px; }
-.size-xlarge .rockets-medium .rocket-avatar-img,
-.size-xlarge .rockets-medium .rocket-avatar-circle {
-  width: 105px;
-  height: 105px;
-  border-width: 5px;
-}
-.size-xlarge .rockets-medium .rocket-name-text { font-size: 2.1em; }
-.size-xlarge .rockets-medium .rocket-body { font-size: 4.9em; }
-.size-xlarge .rockets-medium .rocket-value-display {
-  font-size: 1.8em;
-  padding: 12px 24px;
-  top: -83px;
-}
-.size-xlarge .rockets-medium .rocket-rank-badge { font-size: 2.9em; }
-.size-xlarge .rockets-medium .rocket-gap-text {
-  font-size: 1.8em;
-  padding: 9px 16px;
-}
-.size-xlarge .rockets-medium .rocket-meta-text { font-size: 1.65em; }
-
-.size-xlarge .rockets-many .rocket-columns-container { gap: 31px; }
-.size-xlarge .rockets-many .rocket-avatar-img,
-.size-xlarge .rockets-many .rocket-avatar-circle {
-  width: 95px;
-  height: 95px;
-  border-width: 5px;
-}
-.size-xlarge .rockets-many .rocket-name-text {
-  font-size: 1.95em;
-  max-width: 195px;
-}
-.size-xlarge .rockets-many .rocket-body { font-size: 4.5em; }
-.size-xlarge .rockets-many .rocket-value-display {
-  font-size: 1.65em;
-  padding: 11px 22px;
-  top: -78px;
-}
-.size-xlarge .rockets-many .rocket-rank-badge { font-size: 2.65em; }
-.size-xlarge .rockets-many .rocket-gap-text {
-  font-size: 1.65em;
-  padding: 8px 15px;
-}
-.size-xlarge .rockets-many .rocket-meta-text { font-size: 1.5em; }
-
-.size-xlarge .rockets-lots .rocket-columns-container { gap: 23px; }
-.size-xlarge .rockets-lots .rocket-avatar-img,
-.size-xlarge .rockets-lots .rocket-avatar-circle {
-  width: 87px;
-  height: 87px;
-  border-width: 4px;
-}
-.size-xlarge .rockets-lots .rocket-name-text {
-  font-size: 1.8em;
-  max-width: 180px;
-}
-.size-xlarge .rockets-lots .rocket-body { font-size: 4.2em; }
-.size-xlarge .rockets-lots .rocket-value-display {
-  font-size: 1.5em;
-  padding: 9px 18px;
-  top: -72px;
-}
-.size-xlarge .rockets-lots .rocket-rank-badge { font-size: 2.35em; }
-.size-xlarge .rockets-lots .rocket-gap-text {
-  font-size: 1.5em;
-  padding: 7px 13px;
-}
-.size-xlarge .rockets-lots .rocket-meta-text { font-size: 1.35em; }
 
