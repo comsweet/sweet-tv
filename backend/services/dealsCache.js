@@ -74,6 +74,7 @@ class DealsCache {
       console.log(`💾 Loaded ${todayDeals.length} deals into today's cache`);
     } catch (error) {
       console.error('❌ Error loading today cache:', error);
+      throw error; // Re-throw so caller knows it failed
     }
   }
 
