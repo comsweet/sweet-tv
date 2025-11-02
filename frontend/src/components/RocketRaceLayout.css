@@ -1,6 +1,6 @@
 .rocket-race-vertical {
   background: linear-gradient(180deg, #0a1929 0%, #1a2942 50%, #005A9C 100%);
-  height: 100vh;
+  height: 100%; /* Use parent height, not viewport */
   padding: 0;
   position: relative;
   overflow: hidden;
