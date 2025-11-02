@@ -317,13 +317,16 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
   return (
     <div className={`slideshow-slide ${isActive ? 'active' : ''}`}>
       <div className="slideshow-content">
-        <div className="slideshow-header">
-          <h1>{leaderboard.name}</h1>
-          <p className="slideshow-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
-          <p className="slideshow-stats">
-            📊 {totalDeals} affärer totalt • {stats.length} {leaderboard.displayMode === 'groups' ? 'grupper' : 'agenter'}
-          </p>
-        </div>
+        {/* Hide header for RocketRace - maximize full screen */}
+        {visualizationMode !== 'rocket' && (
+          <div className="slideshow-header">
+            <h1>{leaderboard.name}</h1>
+            <p className="slideshow-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
+            <p className="slideshow-stats">
+              📊 {totalDeals} affärer totalt • {stats.length} {leaderboard.displayMode === 'groups' ? 'grupper' : 'agenter'}
+            </p>
+          </div>
+        )}
 
         {/* Use LeaderboardVisualizer for non-table modes */}
         {visualizationMode !== 'table' ? (
