@@ -412,6 +412,14 @@ class DealsCache {
         console.log(`⚠️  Skipped ${skippedDeals} deals without user_id`);
       }
 
+      // Delete deals that exist in DB but are NOT in Adversus anymore (Smart UPSERT)
+      // This handles deals that were removed/cancelled in Adversus
+      const leadIds = validDeals.map(d => d.leadId);
+      const deletedCount = await db.deleteDealsNotInList(startDate, endDate, leadIds);
+      if (deletedCount > 0) {
+        console.log(`🗑️  Deleted ${deletedCount} deals no longer in Adversus`);
+      }
+
       // Batch insert/update to PostgreSQL
       await db.batchInsertDeals(validDeals.map(d => this.cacheToDb(d)));
 
