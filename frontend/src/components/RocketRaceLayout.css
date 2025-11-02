@@ -416,11 +416,403 @@
   border-radius: 16px;
 }
 
-/* Responsive */
+/* ============================================================
+   TV SIZE OVERRIDES - Stöd för compact/normal/large/xlarge
+   ============================================================ */
+
+/* COMPACT SIZE - Minimal storlek för små skärmar */
+.size-compact .rocket-race-title h2 {
+  font-size: 2em;
+}
+
+.size-compact .rockets-few .rocket-columns-container { gap: 25px; }
+.size-compact .rockets-few .rocket-avatar-img,
+.size-compact .rockets-few .rocket-avatar-circle {
+  width: 70px;
+  height: 70px;
+  border-width: 4px;
+}
+.size-compact .rockets-few .rocket-name-text { font-size: 1.4em; }
+.size-compact .rockets-few .rocket-body { font-size: 3em; }
+.size-compact .rockets-few .rocket-value-display {
+  font-size: 1.2em;
+  padding: 8px 16px;
+  top: -55px;
+}
+.size-compact .rockets-few .rocket-rank-badge { font-size: 2em; }
+.size-compact .rockets-few .rocket-gap-text {
+  font-size: 1.2em;
+  padding: 6px 12px;
+}
+.size-compact .rockets-few .rocket-meta-text { font-size: 1.1em; }
+
+.size-compact .rockets-medium .rocket-columns-container { gap: 20px; }
+.size-compact .rockets-medium .rocket-avatar-img,
+.size-compact .rockets-medium .rocket-avatar-circle {
+  width: 60px;
+  height: 60px;
+  border-width: 3px;
+}
+.size-compact .rockets-medium .rocket-name-text { font-size: 1.2em; }
+.size-compact .rockets-medium .rocket-body { font-size: 2.8em; }
+.size-compact .rockets-medium .rocket-value-display {
+  font-size: 1.1em;
+  padding: 6px 14px;
+  top: -50px;
+}
+.size-compact .rockets-medium .rocket-rank-badge { font-size: 1.8em; }
+.size-compact .rockets-medium .rocket-gap-text {
+  font-size: 1.1em;
+  padding: 5px 10px;
+}
+.size-compact .rockets-medium .rocket-meta-text { font-size: 1em; }
+
+.size-compact .rockets-many .rocket-columns-container { gap: 15px; }
+.size-compact .rockets-many .rocket-avatar-img,
+.size-compact .rockets-many .rocket-avatar-circle {
+  width: 55px;
+  height: 55px;
+  border-width: 3px;
+}
+.size-compact .rockets-many .rocket-name-text {
+  font-size: 1.1em;
+  max-width: 120px;
+}
+.size-compact .rockets-many .rocket-body { font-size: 2.6em; }
+.size-compact .rockets-many .rocket-value-display {
+  font-size: 1em;
+  padding: 6px 12px;
+  top: -48px;
+}
+.size-compact .rockets-many .rocket-rank-badge { font-size: 1.6em; }
+.size-compact .rockets-many .rocket-gap-text {
+  font-size: 1em;
+  padding: 5px 10px;
+}
+.size-compact .rockets-many .rocket-meta-text { font-size: 0.95em; }
+
+.size-compact .rockets-lots .rocket-columns-container { gap: 12px; }
+.size-compact .rockets-lots .rocket-avatar-img,
+.size-compact .rockets-lots .rocket-avatar-circle {
+  width: 50px;
+  height: 50px;
+  border-width: 3px;
+}
+.size-compact .rockets-lots .rocket-name-text {
+  font-size: 1em;
+  max-width: 100px;
+}
+.size-compact .rockets-lots .rocket-body { font-size: 2.4em; }
+.size-compact .rockets-lots .rocket-value-display {
+  font-size: 0.95em;
+  padding: 5px 10px;
+  top: -45px;
+}
+.size-compact .rockets-lots .rocket-rank-badge { font-size: 1.5em; }
+.size-compact .rockets-lots .rocket-gap-text {
+  font-size: 0.95em;
+  padding: 4px 8px;
+}
+.size-compact .rockets-lots .rocket-meta-text { font-size: 0.9em; }
+
+/* NORMAL SIZE - Standard storlek (default, no overrides needed) */
+
+/* LARGE SIZE - Större för bättre läsbarhet */
+.size-large .rocket-race-title h2 {
+  font-size: 4em;
+}
+
+.size-large .rockets-few .rocket-columns-container { gap: 60px; }
+.size-large .rockets-few .rocket-avatar-img,
+.size-large .rockets-few .rocket-avatar-circle {
+  width: 140px;
+  height: 140px;
+  border-width: 7px;
+}
+.size-large .rockets-few .rocket-name-text { font-size: 2.8em; }
+.size-large .rockets-few .rocket-body { font-size: 5.5em; }
+.size-large .rockets-few .rocket-value-display {
+  font-size: 2em;
+  padding: 14px 28px;
+  top: -90px;
+}
+.size-large .rockets-few .rocket-rank-badge { font-size: 3.4em; }
+.size-large .rockets-few .rocket-gap-text {
+  font-size: 2em;
+  padding: 10px 18px;
+}
+.size-large .rockets-few .rocket-meta-text { font-size: 1.8em; }
+
+.size-large .rockets-medium .rocket-columns-container { gap: 50px; }
+.size-large .rockets-medium .rocket-avatar-img,
+.size-large .rockets-medium .rocket-avatar-circle {
+  width: 120px;
+  height: 120px;
+  border-width: 6px;
+}
+.size-large .rockets-medium .rocket-name-text { font-size: 2.4em; }
+.size-large .rockets-medium .rocket-body { font-size: 5em; }
+.size-large .rockets-medium .rocket-value-display {
+  font-size: 1.8em;
+  padding: 12px 24px;
+  top: -85px;
+}
+.size-large .rockets-medium .rocket-rank-badge { font-size: 3em; }
+.size-large .rockets-medium .rocket-gap-text {
+  font-size: 1.8em;
+  padding: 9px 16px;
+}
+.size-large .rockets-medium .rocket-meta-text { font-size: 1.6em; }
+
+.size-large .rockets-many .rocket-columns-container { gap: 40px; }
+.size-large .rockets-many .rocket-avatar-img,
+.size-large .rockets-many .rocket-avatar-circle {
+  width: 110px;
+  height: 110px;
+  border-width: 6px;
+}
+.size-large .rockets-many .rocket-name-text {
+  font-size: 2.2em;
+  max-width: 220px;
+}
+.size-large .rockets-many .rocket-body { font-size: 4.8em; }
+.size-large .rockets-many .rocket-value-display {
+  font-size: 1.7em;
+  padding: 11px 20px;
+  top: -80px;
+}
+.size-large .rockets-many .rocket-rank-badge { font-size: 2.8em; }
+.size-large .rockets-many .rocket-gap-text {
+  font-size: 1.7em;
+  padding: 8px 15px;
+}
+.size-large .rockets-many .rocket-meta-text { font-size: 1.5em; }
+
+.size-large .rockets-lots .rocket-columns-container { gap: 30px; }
+.size-large .rockets-lots .rocket-avatar-img,
+.size-large .rockets-lots .rocket-avatar-circle {
+  width: 100px;
+  height: 100px;
+  border-width: 5px;
+}
+.size-large .rockets-lots .rocket-name-text {
+  font-size: 2em;
+  max-width: 200px;
+}
+.size-large .rockets-lots .rocket-body { font-size: 4.5em; }
+.size-large .rockets-lots .rocket-value-display {
+  font-size: 1.6em;
+  padding: 10px 18px;
+  top: -75px;
+}
+.size-large .rockets-lots .rocket-rank-badge { font-size: 2.6em; }
+.size-large .rockets-lots .rocket-gap-text {
+  font-size: 1.6em;
+  padding: 7px 14px;
+}
+.size-large .rockets-lots .rocket-meta-text { font-size: 1.4em; }
+
+/* EXTRA LARGE SIZE - Maximal storlek för stora TV-skärmar */
+.size-xlarge .rocket-race-title h2 {
+  font-size: 4.5em;
+}
+
+.size-xlarge .rockets-few .rocket-columns-container { gap: 70px; }
+.size-xlarge .rockets-few .rocket-avatar-img,
+.size-xlarge .rockets-few .rocket-avatar-circle {
+  width: 160px;
+  height: 160px;
+  border-width: 8px;
+}
+.size-xlarge .rockets-few .rocket-name-text { font-size: 3.2em; }
+.size-xlarge .rockets-few .rocket-body { font-size: 6em; }
+.size-xlarge .rockets-few .rocket-value-display {
+  font-size: 2.2em;
+  padding: 16px 32px;
+  top: -100px;
+}
+.size-xlarge .rockets-few .rocket-rank-badge { font-size: 3.8em; }
+.size-xlarge .rockets-few .rocket-gap-text {
+  font-size: 2.2em;
+  padding: 12px 20px;
+}
+.size-xlarge .rockets-few .rocket-meta-text { font-size: 2em; }
+
+.size-xlarge .rockets-medium .rocket-columns-container { gap: 60px; }
+.size-xlarge .rockets-medium .rocket-avatar-img,
+.size-xlarge .rockets-medium .rocket-avatar-circle {
+  width: 140px;
+  height: 140px;
+  border-width: 7px;
+}
+.size-xlarge .rockets-medium .rocket-name-text { font-size: 2.8em; }
+.size-xlarge .rockets-medium .rocket-body { font-size: 5.5em; }
+.size-xlarge .rockets-medium .rocket-value-display {
+  font-size: 2em;
+  padding: 14px 28px;
+  top: -95px;
+}
+.size-xlarge .rockets-medium .rocket-rank-badge { font-size: 3.4em; }
+.size-xlarge .rockets-medium .rocket-gap-text {
+  font-size: 2em;
+  padding: 10px 18px;
+}
+.size-xlarge .rockets-medium .rocket-meta-text { font-size: 1.8em; }
+
+.size-xlarge .rockets-many .rocket-columns-container { gap: 50px; }
+.size-xlarge .rockets-many .rocket-avatar-img,
+.size-xlarge .rockets-many .rocket-avatar-circle {
+  width: 130px;
+  height: 130px;
+  border-width: 7px;
+}
+.size-xlarge .rockets-many .rocket-name-text {
+  font-size: 2.6em;
+  max-width: 260px;
+}
+.size-xlarge .rockets-many .rocket-body { font-size: 5.2em; }
+.size-xlarge .rockets-many .rocket-value-display {
+  font-size: 1.9em;
+  padding: 12px 24px;
+  top: -90px;
+}
+.size-xlarge .rockets-many .rocket-rank-badge { font-size: 3.2em; }
+.size-xlarge .rockets-many .rocket-gap-text {
+  font-size: 1.9em;
+  padding: 10px 17px;
+}
+.size-xlarge .rockets-many .rocket-meta-text { font-size: 1.7em; }
+
+.size-xlarge .rockets-lots .rocket-columns-container { gap: 40px; }
+.size-xlarge .rockets-lots .rocket-avatar-img,
+.size-xlarge .rockets-lots .rocket-avatar-circle {
+  width: 120px;
+  height: 120px;
+  border-width: 6px;
+}
+.size-xlarge .rockets-lots .rocket-name-text {
+  font-size: 2.4em;
+  max-width: 240px;
+}
+.size-xlarge .rockets-lots .rocket-body { font-size: 5em; }
+.size-xlarge .rockets-lots .rocket-value-display {
+  font-size: 1.8em;
+  padding: 11px 22px;
+  top: -85px;
+}
+.size-xlarge .rockets-lots .rocket-rank-badge { font-size: 3em; }
+.size-xlarge .rockets-lots .rocket-gap-text {
+  font-size: 1.8em;
+  padding: 9px 16px;
+}
+.size-xlarge .rockets-lots .rocket-meta-text { font-size: 1.6em; }
+
+/* ============================================================
+   RESPONSIVE - Media queries för mindre skärmar
+   ============================================================ */
+
+/* Tablets och mindre laptops */
+@media (max-width: 1366px) {
+  .rocket-race-title h2 {
+    font-size: 2.8em;
+  }
+
+  .rockets-few .rocket-columns-container { gap: 35px; }
+  .rockets-few .rocket-avatar-img,
+  .rockets-few .rocket-avatar-circle {
+    width: 90px;
+    height: 90px;
+  }
+  .rockets-few .rocket-name-text { font-size: 1.8em; }
+  .rockets-few .rocket-body { font-size: 4em; }
+  .rockets-few .rocket-value-display { font-size: 1.4em; top: -60px; }
+  .rockets-few .rocket-rank-badge { font-size: 2.4em; }
+
+  .rockets-medium .rocket-columns-container { gap: 30px; }
+  .rockets-medium .rocket-avatar-img,
+  .rockets-medium .rocket-avatar-circle {
+    width: 80px;
+    height: 80px;
+  }
+  .rockets-medium .rocket-name-text { font-size: 1.6em; }
+  .rockets-medium .rocket-body { font-size: 3.6em; }
+  .rockets-medium .rocket-value-display { font-size: 1.3em; top: -58px; }
+  .rockets-medium .rocket-rank-badge { font-size: 2.2em; }
+
+  .rockets-many .rocket-columns-container { gap: 25px; }
+  .rockets-many .rocket-avatar-img,
+  .rockets-many .rocket-avatar-circle {
+    width: 70px;
+    height: 70px;
+  }
+  .rockets-many .rocket-name-text { font-size: 1.4em; max-width: 140px; }
+  .rockets-many .rocket-body { font-size: 3.2em; }
+  .rockets-many .rocket-value-display { font-size: 1.2em; top: -55px; }
+  .rockets-many .rocket-rank-badge { font-size: 2em; }
+
+  .rockets-lots .rocket-columns-container { gap: 18px; }
+  .rockets-lots .rocket-avatar-img,
+  .rockets-lots .rocket-avatar-circle {
+    width: 65px;
+    height: 65px;
+  }
+  .rockets-lots .rocket-name-text { font-size: 1.3em; max-width: 130px; }
+  .rockets-lots .rocket-body { font-size: 3em; }
+  .rockets-lots .rocket-value-display { font-size: 1.1em; top: -52px; }
+  .rockets-lots .rocket-rank-badge { font-size: 1.8em; }
+}
+
+/* Mobil och små tablets */
 @media (max-width: 768px) {
+  .rocket-race-title h2 {
+    font-size: 2em;
+  }
+
   .rocket-columns-container {
     flex-wrap: wrap;
-    height: calc(100vh - 60px);
+    padding: 10px;
+  }
+
+  .rockets-few .rocket-columns-container,
+  .rockets-medium .rocket-columns-container,
+  .rockets-many .rocket-columns-container,
+  .rockets-lots .rocket-columns-container {
+    gap: 15px;
+  }
+
+  .rocket-avatar-img,
+  .rocket-avatar-circle {
+    width: 50px !important;
+    height: 50px !important;
+    border-width: 3px !important;
+  }
+
+  .rocket-name-text {
+    font-size: 1em !important;
+    max-width: 100px !important;
+  }
+
+  .rocket-body {
+    font-size: 2.5em !important;
+  }
+
+  .rocket-value-display {
+    font-size: 0.9em !important;
+    padding: 5px 10px !important;
+    top: -45px !important;
+  }
+
+  .rocket-rank-badge {
+    font-size: 1.5em !important;
+  }
+
+  .rocket-gap-text {
+    font-size: 0.9em !important;
+    padding: 4px 8px !important;
+  }
+
+  .rocket-meta-text {
+    font-size: 0.85em !important;
   }
 
   .rocket-goal-badge {
