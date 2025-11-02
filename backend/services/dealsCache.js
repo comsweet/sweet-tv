@@ -1,290 +1,272 @@
-const fs = require('fs').promises;
-const path = require('path');
+const db = require('./postgres');
 
 /**
- * PERSISTENT DEALS CACHE
- * 
- * 🔥🔥🔥 CRITICAL FIX: När needsImmediateSync = true, ANVÄND CACHE istället för att synka!
- * Detta förhindrar att manuellt tillagda deals försvinner när Adversus inte committat än.
- * 
- * Rolling window: Nuvarande månad + 7 dagar innan.
+ * IMPROVED DEALS CACHE - PostgreSQL + Write-Through Cache
+ *
+ * Strategy:
+ * - ALL data persisted in PostgreSQL (historical data preserved)
+ * - In-memory cache for TODAY's data only (fast access)
+ * - Write-through: Save to DB immediately, update cache synchronously
+ * - Duplicate detection: Automatic pending queue for manual resolution
+ * - Auto-sync: Smart UPSERT strategy every 2 minutes
+ *
+ * Rolling window for sync: Current month + 7 days before
+ * Cache window: Today only (00:00 - 23:59)
  */
 class DealsCache {
   constructor() {
-    const isRender = process.env.RENDER === 'true';
+    console.log(`💾 Deals cache (PostgreSQL + write-through)`);
 
-    this.dbPath = isRender
-      ? '/var/data'
-      : path.join(__dirname, '../data');
+    // In-memory cache - ONLY for today's data
+    this.todayCache = new Map(); // leadId -> deal
+    this.todayUserTotals = new Map(); // userId -> total commission
 
-    this.cacheFile = path.join(this.dbPath, 'deals-cache.json');
-    this.lastSyncFile = path.join(this.dbPath, 'last-sync.json');
+    // Retry queue for failed DB writes
+    this.retryQueue = [];
+    this.retryTimer = null;
 
-    console.log(`💾 Deals cache path: ${this.dbPath} (isRender: ${isRender})`);
+    // Last sync timestamp
+    this.lastSync = null;
 
-    this.writeQueue = [];
-    this.isProcessing = false;
-    this.needsImmediateSync = false;
-
-    // ⚡ IN-MEMORY CACHE: Prevents race conditions with writeQueue
-    this.inMemoryCache = null;
-
+    // Init
     this.initCache();
   }
 
   async initCache() {
     try {
-      await fs.mkdir(this.dbPath, { recursive: true });
+      // Ensure PostgreSQL is initialized
+      await db.init();
 
-      try {
-        await fs.access(this.cacheFile);
-      } catch {
-        await fs.writeFile(this.cacheFile, JSON.stringify({ deals: [] }, null, 2));
-      }
+      // Load today's deals into cache
+      await this.loadTodayCache();
 
-      try {
-        await fs.access(this.lastSyncFile);
-      } catch {
-        await fs.writeFile(this.lastSyncFile, JSON.stringify({ lastSync: null }, null, 2));
-      }
+      // Start retry processor
+      this.startRetryProcessor();
 
-      console.log('💾 Deals cache initialized');
+      console.log('✅ Deals cache initialized with PostgreSQL');
     } catch (error) {
-      console.error('Error initializing deals cache:', error);
+      console.error('❌ Error initializing deals cache:', error);
     }
   }
 
-  async processWriteQueue() {
-    if (this.isProcessing || this.writeQueue.length === 0) {
-      return;
-    }
+  async loadTodayCache() {
+    try {
+      const { start, end } = this.getTodayWindow();
+      const todayDeals = await db.getDealsInRange(start, end);
 
-    this.isProcessing = true;
+      // Populate cache
+      this.todayCache.clear();
+      this.todayUserTotals.clear();
 
-    while (this.writeQueue.length > 0) {
-      const operation = this.writeQueue.shift();
-      try {
-        const result = await operation.execute();
-        operation.resolve(result);  // 🔥 CRITICAL FIX: Propagate return value!
-      } catch (error) {
-        console.error('❌ Queue operation failed:', error);
-        operation.reject(error);
+      for (const deal of todayDeals) {
+        this.todayCache.set(deal.lead_id, this.dbToCache(deal));
+
+        // Update user totals
+        const currentTotal = this.todayUserTotals.get(deal.user_id) || 0;
+        this.todayUserTotals.set(deal.user_id, currentTotal + parseFloat(deal.commission || 0));
       }
-    }
 
-    this.isProcessing = false;
+      console.log(`💾 Loaded ${todayDeals.length} deals into today's cache`);
+    } catch (error) {
+      console.error('❌ Error loading today cache:', error);
+    }
   }
 
-  async queueWrite(executeFn) {
-    return new Promise((resolve, reject) => {
-      this.writeQueue.push({
-        execute: executeFn,
-        resolve,
-        reject
-      });
-      this.processWriteQueue();
-    });
+  getTodayWindow() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return { start, end };
   }
 
   getRollingWindow() {
     const now = new Date();
-    
+
+    // Start: First day of month - 7 days
     const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     startDate.setDate(startDate.getDate() - 7);
     startDate.setHours(0, 0, 0, 0);
-    
+
+    // End: Last day of month
     const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     endDate.setHours(23, 59, 59, 999);
-    
+
     return { startDate, endDate };
   }
 
-  async getCache() {
-    // ⚡ Return COPY of in-memory cache if available (prevents reference issues)
-    if (this.inMemoryCache !== null) {
-      return [...this.inMemoryCache];  // Return a copy, not the same reference!
-    }
-
-    // Otherwise, read from disk and populate in-memory cache
-    try {
-      const data = await fs.readFile(this.cacheFile, 'utf8');
-      const parsed = JSON.parse(data);
-      this.inMemoryCache = parsed.deals || [];
-      return [...this.inMemoryCache];  // Return a copy
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        console.log('📝 No cache file found, starting fresh');
-        this.inMemoryCache = [];
-        return [];
-      }
-
-      console.error('❌ Error reading cache:', error.message);
-      console.error('🔧 Cache file corrupted, resetting to empty array');
-
-      // If JSON is corrupted, backup the old file and start fresh
-      try {
-        const backupFile = `${this.cacheFile}.backup-${Date.now()}`;
-        await fs.rename(this.cacheFile, backupFile);
-        console.log(`💾 Backed up corrupted cache to: ${backupFile}`);
-      } catch (backupError) {
-        console.error('⚠️  Could not backup corrupted file:', backupError.message);
-      }
-
-      // Return empty array to start fresh
-      this.inMemoryCache = [];
-      return [];
-    }
+  // Convert DB row to cache format
+  dbToCache(dbRow) {
+    return {
+      leadId: dbRow.lead_id,
+      userId: dbRow.user_id,
+      campaignId: dbRow.campaign_id,
+      commission: parseFloat(dbRow.commission || 0),
+      multiDeals: dbRow.multi_deals || 1,
+      orderDate: dbRow.order_date,
+      status: dbRow.status,
+      syncedAt: dbRow.synced_at || dbRow.created_at
+    };
   }
 
-  async _saveCache(deals) {
-    try {
-      // Write to disk for persistence
-      // NOTE: Do NOT update in-memory cache here - it's already updated in addDeal()/saveCache()
-      await fs.writeFile(this.cacheFile, JSON.stringify({ deals }, null, 2));
-      console.log(`💾 Saved ${deals.length} deals to disk`);
-    } catch (error) {
-      console.error('Error saving cache:', error);
-      throw error;
-    }
+  // Convert cache format to DB format
+  cacheToDb(deal) {
+    return {
+      leadId: deal.leadId,
+      userId: deal.userId,
+      campaignId: deal.campaignId,
+      commission: deal.commission,
+      multiDeals: deal.multiDeals || 1,
+      orderDate: deal.orderDate,
+      status: deal.status
+    };
   }
 
-  async saveCache(deals) {
-    // ⚡ Update in-memory cache IMMEDIATELY (synchronous)
-    this.inMemoryCache = deals;
-
-    // Then queue disk write (asynchronous)
-    return this.queueWrite(async () => {
-      await this._saveCache(deals);
-    });
-  }
-
-  async getLastSync() {
-    try {
-      const data = await fs.readFile(this.lastSyncFile, 'utf8');
-      return JSON.parse(data).lastSync;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  async updateLastSync() {
-    try {
-      await fs.writeFile(this.lastSyncFile, JSON.stringify({ 
-        lastSync: new Date().toISOString() 
-      }, null, 2));
-    } catch (error) {
-      console.error('Error updating last sync:', error);
-    }
-  }
-
+  /**
+   * Add deal with duplicate detection
+   * Returns immediately after updating cache (< 1ms)
+   * DB write happens in background
+   */
   async addDeal(deal) {
-    // ⚡ CRITICAL: Entire operation must be ATOMIC to prevent race conditions
-    // Queue this operation so only ONE addDeal runs at a time
-    // Also calculate previousTotal INSIDE the queue for atomicity
-    return this.queueWrite(async () => {
-      // Read current cache state INSIDE the queue (atomic read)
-      const allDeals = await this.getCache();
+    try {
+      // 1. Check for duplicate in DB
+      const existing = await db.getDealByLeadId(deal.leadId);
 
-      const exists = allDeals.find(d => d.leadId === deal.leadId);
-      if (exists) {
-        console.log('Deal already in cache, skipping:', deal.leadId);
-        return null;
+      if (existing.length > 0) {
+        // DUPLICATE DETECTED! Create pending entry
+        const pendingDup = await db.createPendingDuplicate({
+          leadId: deal.leadId,
+          newDealData: deal,
+          existingDealId: existing[0].id
+        });
+
+        console.log(`🚨 DUPLICATE DETECTED: Lead ${deal.leadId} - created pending entry ${pendingDup.id}`);
+
+        // TODO: WebSocket notification to admin
+        // this.notifyAdminDuplicate(pendingDup);
+
+        return {
+          success: false,
+          status: 'pending_duplicate',
+          message: `Duplicate detected for lead ${deal.leadId}`,
+          pendingId: pendingDup.id,
+          existingDeal: this.dbToCache(existing[0]),
+          newDeal: deal
+        };
       }
 
-      // Calculate previousTotal ATOMICALLY (before adding this deal)
-      const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      // 2. Calculate previousTotal from cache (FAST)
+      const previousTotal = this.todayUserTotals.get(deal.userId) || 0;
+      const commission = parseFloat(deal.commission) || 0;
+      const newTotal = previousTotal + commission;
 
-      const todayDeals = allDeals.filter(d => {
-        const dealDate = new Date(d.orderDate);
-        return dealDate >= startOfDay &&
-               dealDate <= endOfDay &&
-               String(d.userId) === String(deal.userId);
-      });
-
-      const previousTotal = todayDeals.reduce((sum, d) => sum + parseFloat(d.commission || 0), 0);
-
+      // 3. Update cache IMMEDIATELY (synchronous, < 0.1ms)
       const newDeal = {
         leadId: deal.leadId,
         userId: deal.userId,
         campaignId: deal.campaignId,
-        commission: parseFloat(deal.commission),
-        multiDeals: deal.multiDeals || '0',
-        orderDate: deal.orderDate,
+        commission: commission,
+        multiDeals: deal.multiDeals || 1,
+        orderDate: deal.orderDate || new Date().toISOString(),
         status: deal.status,
         syncedAt: new Date().toISOString()
       };
 
-      // Update in-memory cache (atomic write)
-      allDeals.push(newDeal);
-      this.inMemoryCache = allDeals;
+      // Check if deal is for today
+      const dealDate = new Date(newDeal.orderDate);
+      const { start, end } = this.getTodayWindow();
 
-      const newTotal = previousTotal + newDeal.commission;
+      if (dealDate >= start && dealDate <= end) {
+        this.todayCache.set(newDeal.leadId, newDeal);
+        this.todayUserTotals.set(newDeal.userId, newTotal);
+      }
 
-      console.log(`⚡ [ATOMIC] Deal ${deal.leadId} added: ${previousTotal.toFixed(2)} → ${newTotal.toFixed(2)} THB`);
+      console.log(`⚡ Deal ${deal.leadId} added to cache: ${previousTotal.toFixed(2)} → ${newTotal.toFixed(2)} THB`);
 
-      // Write to disk for persistence
-      await this._saveCache(allDeals);
+      // 4. Save to PostgreSQL ASYNC (fire-and-forget with retry)
+      this.persistToDBAsync(newDeal);
 
-      // 🔥🔥🔥 CRITICAL: Flag to PREVENT sync (use cache instead!)
-      this.needsImmediateSync = true;
-
-      // 🔥 Auto-clear flag after 60 seconds (safety fallback)
-      setTimeout(() => {
-        if (this.needsImmediateSync) {
-          console.log('⏰ Auto-clearing needsImmediateSync after 60s');
-          this.needsImmediateSync = false;
-        }
-      }, 60000);
-
-      console.log(`💾 Added deal ${newDeal.leadId} to cache (needsImmediateSync = true for 60s)`);
-
-      // Return both the deal and the totals for atomic operation
+      // 5. Return IMMEDIATELY for ping sound! 🔔
       return {
+        success: true,
         deal: newDeal,
         previousTotal,
         newTotal
       };
-    });
+
+    } catch (error) {
+      console.error('❌ Error adding deal:', error);
+      throw error;
+    }
   }
 
+  /**
+   * Async DB write with retry queue
+   */
+  async persistToDBAsync(deal) {
+    try {
+      await db.insertDeal(this.cacheToDb(deal));
+      console.log(`✅ Deal ${deal.leadId} saved to PostgreSQL`);
+    } catch (error) {
+      if (error.message === 'DUPLICATE_DEAL') {
+        console.log(`⚠️  Deal ${deal.leadId} already in DB (race condition), skipping`);
+      } else {
+        console.error(`❌ DB write failed for ${deal.leadId}, adding to retry queue:`, error.message);
+        this.retryQueue.push(deal);
+      }
+    }
+  }
+
+  /**
+   * Retry processor for failed DB writes
+   */
+  startRetryProcessor() {
+    this.retryTimer = setInterval(async () => {
+      if (this.retryQueue.length > 0) {
+        console.log(`🔄 Processing ${this.retryQueue.length} failed DB writes...`);
+
+        const toRetry = [...this.retryQueue];
+        this.retryQueue = [];
+
+        for (const deal of toRetry) {
+          try {
+            await db.insertDeal(this.cacheToDb(deal));
+            console.log(`✅ Retry successful for ${deal.leadId}`);
+          } catch (error) {
+            console.error(`❌ Retry failed for ${deal.leadId}:`, error.message);
+            this.retryQueue.push(deal); // Try again later
+          }
+        }
+      }
+    }, 30000); // Retry every 30 seconds
+  }
+
+  /**
+   * Sync deals from Adversus with smart UPSERT strategy
+   */
   async syncDeals(adversusAPI) {
     console.log('🔄 Syncing deals from Adversus...');
-    
+
     const { startDate, endDate } = this.getRollingWindow();
     console.log(`📅 Rolling window: ${startDate.toISOString()} → ${endDate.toISOString()}`);
-    
+
     try {
       const result = await adversusAPI.getLeadsInDateRange(startDate, endDate);
       const leads = result.leads || [];
-      
+
       console.log(`✅ Fetched ${leads.length} leads from Adversus`);
-      
+
       const deals = leads.map(lead => {
         const commissionField = lead.resultData?.find(f => f.id === 70163);
         const commission = parseFloat(commissionField?.value || 0);
-        
-        let multiDeals = '1';
-        
+
+        let multiDeals = 1;
         const resultMultiDeals = lead.resultData?.find(f => f.id === 74126);
         if (resultMultiDeals?.value) {
-          multiDeals = resultMultiDeals.value;
-        } else {
-          const masterMultiDeals = lead.masterData?.find(f => 
-            f.label?.toLowerCase().includes('multideal') || 
-            f.label?.toLowerCase().includes('multi deal') ||
-            f.label?.toLowerCase().includes('antal deals') ||
-            f.id === 74126
-          );
-          
-          if (masterMultiDeals?.value) {
-            multiDeals = masterMultiDeals.value;
-          }
+          multiDeals = parseInt(resultMultiDeals.value) || 1;
         }
-        
+
         const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
-        
+
         return {
           leadId: lead.id,
           userId: lead.lastContactedBy,
@@ -292,25 +274,22 @@ class DealsCache {
           commission: commission,
           multiDeals: multiDeals,
           orderDate: orderDateField?.value || lead.lastUpdatedTime,
-          status: lead.status,
-          syncedAt: new Date().toISOString()
+          status: lead.status
         };
       });
-      
+
+      // Batch insert/update to PostgreSQL
+      await db.batchInsertDeals(deals.map(d => this.cacheToDb(d)));
+
+      // Reload today's cache
+      await this.loadTodayCache();
+
+      this.lastSync = new Date().toISOString();
+
       const dealsWithCommission = deals.filter(deal => deal.commission > 0);
-      const dealsWithMultiple = deals.filter(deal => parseInt(deal.multiDeals) > 1);
-      
-      await this.saveCache(deals);
-      await this.updateLastSync();
-      
-      // Clear flag after successful sync
-      this.needsImmediateSync = false;
-      
-      console.log(`💾 Cached ${deals.length} deals total`);
+      console.log(`💾 Synced ${deals.length} deals to PostgreSQL`);
       console.log(`   - ${dealsWithCommission.length} deals WITH commission`);
-      console.log(`   - ${deals.length - dealsWithCommission.length} deals WITHOUT commission`);
-      console.log(`   - ${dealsWithMultiple.length} deals WITH multiDeals > 1 🎯`);
-      
+
       return deals;
     } catch (error) {
       console.error('❌ Error syncing deals:', error.message);
@@ -318,37 +297,52 @@ class DealsCache {
     }
   }
 
+  /**
+   * Get deals in date range (from DB or cache)
+   */
   async getDealsInRange(startDate, endDate) {
-    const allDeals = await this.getCache();
-    
-    return allDeals.filter(deal => {
-      const dealDate = new Date(deal.orderDate);
-      return dealDate >= startDate && dealDate <= endDate;
-    });
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const { start: todayStart, end: todayEnd } = this.getTodayWindow();
+
+    // If query is entirely for today → use cache
+    if (start >= todayStart && end <= todayEnd) {
+      return Array.from(this.todayCache.values()).filter(deal => {
+        const dealDate = new Date(deal.orderDate);
+        return dealDate >= start && dealDate <= end;
+      });
+    }
+
+    // Otherwise → query PostgreSQL
+    const dbDeals = await db.getDealsInRange(start, end);
+    return dbDeals.map(d => this.dbToCache(d));
   }
 
-  // 🔥🔥🔥 CRITICAL FIX: När needsImmediateSync = true, synka INTE!
+  /**
+   * Get all deals (for backward compatibility)
+   */
+  async getCache() {
+    // Return today's cache as array
+    return Array.from(this.todayCache.values());
+  }
+
+  /**
+   * Auto-sync if needed (every 2 minutes)
+   */
   async needsSync() {
-    if (this.needsImmediateSync) {
-      console.log('🔥 needsImmediateSync = true - SKIPPING sync (using cache)');
-      return false;  // ← VIKTIGT: Don't sync!
-    }
-    
-    const lastSync = await this.getLastSync();
-    
-    if (!lastSync) {
+    if (!this.lastSync) {
       console.log('⚠️  No sync found - needs initial sync');
       return true;
     }
-    
-    const lastSyncDate = new Date(lastSync);
+
+    const lastSyncDate = new Date(this.lastSync);
     const minutesSinceSync = (Date.now() - lastSyncDate.getTime()) / (1000 * 60);
-    
+
     if (minutesSinceSync >= 2) {
       console.log(`⏰ Last sync was ${Math.round(minutesSinceSync)} min ago - needs sync`);
       return true;
     }
-    
+
     console.log(`✅ Last sync was ${Math.round(minutesSinceSync)} min ago - cache is fresh`);
     return false;
   }
@@ -357,7 +351,7 @@ class DealsCache {
     if (await this.needsSync()) {
       return await this.syncDeals(adversusAPI);
     }
-    
+
     console.log('✅ Using cached deals');
     return await this.getCache();
   }
@@ -367,73 +361,60 @@ class DealsCache {
     return await this.syncDeals(adversusAPI);
   }
 
+  /**
+   * Clean old deals (optional - DB keeps history)
+   */
   async cleanOldDeals() {
-    return this.queueWrite(async () => {
-      const { startDate } = this.getRollingWindow();
-      const allDeals = await this.getCache();
-      
-      const validDeals = allDeals.filter(deal => {
-        const dealDate = new Date(deal.orderDate);
-        return dealDate >= startDate;
-      });
-      
-      if (validDeals.length < allDeals.length) {
-        const removed = allDeals.length - validDeals.length;
-        await this._saveCache(validDeals);
-        console.log(`🗑️  Cleaned ${removed} old deals outside rolling window`);
-      }
-    });
+    // No-op: PostgreSQL keeps all history
+    // Could implement archiving to separate table if needed
+    console.log('ℹ️  cleanOldDeals: PostgreSQL keeps all history');
   }
 
+  /**
+   * Get stats
+   */
   async getStats() {
-    const deals = await this.getCache();
-    const lastSync = await this.getLastSync();
     const { startDate, endDate } = this.getRollingWindow();
-    
+    const allDeals = await db.getDealsInRange(startDate, endDate);
+
     return {
-      totalDeals: deals.length,
-      lastSync: lastSync,
-      needsImmediateSync: this.needsImmediateSync,
+      totalDeals: allDeals.length,
+      todayDeals: this.todayCache.size,
+      lastSync: this.lastSync,
       rollingWindow: {
         start: startDate.toISOString(),
         end: endDate.toISOString()
       },
-      totalCommission: deals.reduce((sum, d) => sum + d.commission, 0),
-      uniqueAgents: new Set(deals.map(d => d.userId)).size,
-      queueLength: this.writeQueue.length
+      totalCommission: allDeals.reduce((sum, d) => sum + parseFloat(d.commission || 0), 0),
+      uniqueAgents: new Set(allDeals.map(d => d.user_id)).size,
+      retryQueueLength: this.retryQueue.length
     };
   }
 
+  /**
+   * Get today's total for agent (from cache - FAST!)
+   */
   async getTodayTotalForAgent(userId) {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    
-    const allDeals = await this.getCache();
-    const todayDeals = allDeals.filter(deal => {
-      const dealDate = new Date(deal.orderDate);
-      return dealDate >= startOfDay && 
-             dealDate <= endOfDay && 
-             String(deal.userId) === String(userId);
-    });
-    
-    const total = todayDeals.reduce((sum, deal) => sum + parseFloat(deal.commission || 0), 0);
-    console.log(`📊 Today's total for agent ${userId}: ${total} THB (from ${todayDeals.length} deals in cache)`);
+    const total = this.todayUserTotals.get(userId) || 0;
+    console.log(`📊 Today's total for agent ${userId}: ${total} THB (from cache)`);
     return total;
   }
 
+  /**
+   * Get today's deals for agent (from cache)
+   */
   async getTodayDealsForAgent(userId) {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    
-    const allDeals = await this.getCache();
-    return allDeals.filter(deal => {
-      const dealDate = new Date(deal.orderDate);
-      return dealDate >= startOfDay && 
-             dealDate <= endOfDay && 
-             String(deal.userId) === String(userId);
-    });
+    return Array.from(this.todayCache.values()).filter(deal =>
+      String(deal.userId) === String(userId)
+    );
+  }
+
+  /**
+   * Invalidate cache (reload from DB)
+   */
+  async invalidateCache() {
+    console.log('🔄 Invalidating cache, reloading from DB...');
+    await this.loadTodayCache();
   }
 }
 

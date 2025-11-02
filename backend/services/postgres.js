@@ -421,6 +421,341 @@ class PostgresService {
   async deleteTVAccessCode(code) {
     await this.query('DELETE FROM tv_access_codes WHERE code = $1', [code]);
   }
+
+  // ==================== DEALS ====================
+
+  async insertDeal({ leadId, userId, campaignId, commission, multiDeals, orderDate, status }) {
+    try {
+      const result = await this.query(
+        `INSERT INTO deals (lead_id, user_id, campaign_id, commission, multi_deals, order_date, status, synced_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+         RETURNING *`,
+        [leadId, userId, campaignId, commission, multiDeals || 1, orderDate, status]
+      );
+      return result.rows[0];
+    } catch (error) {
+      if (error.code === '23505') { // Unique constraint violation
+        throw new Error('DUPLICATE_DEAL');
+      }
+      throw error;
+    }
+  }
+
+  async batchInsertDeals(deals) {
+    if (deals.length === 0) return;
+
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+
+      for (const deal of deals) {
+        await client.query(
+          `INSERT INTO deals (lead_id, user_id, campaign_id, commission, multi_deals, order_date, status, synced_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+           ON CONFLICT (lead_id, DATE(order_date)) DO UPDATE SET
+             commission = EXCLUDED.commission,
+             status = EXCLUDED.status,
+             synced_at = NOW()`,
+          [deal.leadId, deal.userId, deal.campaignId, deal.commission, deal.multiDeals || 1, deal.orderDate, deal.status]
+        );
+      }
+
+      await client.query('COMMIT');
+      console.log(`✅ Batch inserted ${deals.length} deals`);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('❌ Batch insert failed:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getDealsInRange(startDate, endDate) {
+    const result = await this.query(
+      `SELECT * FROM deals
+       WHERE order_date >= $1 AND order_date <= $2
+       AND (replaced_by IS NULL OR is_duplicate = FALSE)
+       ORDER BY order_date DESC`,
+      [startDate, endDate]
+    );
+    return result.rows;
+  }
+
+  async getDealsForUser(userId, startDate, endDate) {
+    const result = await this.query(
+      `SELECT * FROM deals
+       WHERE user_id = $1 AND order_date >= $2 AND order_date <= $3
+       AND (replaced_by IS NULL OR is_duplicate = FALSE)
+       ORDER BY order_date DESC`,
+      [userId, startDate, endDate]
+    );
+    return result.rows;
+  }
+
+  async getDealByLeadId(leadId) {
+    const result = await this.query(
+      'SELECT * FROM deals WHERE lead_id = $1 AND (replaced_by IS NULL OR is_duplicate = FALSE)',
+      [leadId]
+    );
+    return result.rows;
+  }
+
+  async updateDeal(id, updates) {
+    const fields = [];
+    const values = [];
+    let paramCount = 1;
+
+    Object.keys(updates).forEach(key => {
+      if (key !== 'id') {
+        const dbKey = key === 'leadId' ? 'lead_id' :
+                      key === 'userId' ? 'user_id' :
+                      key === 'campaignId' ? 'campaign_id' :
+                      key === 'multiDeals' ? 'multi_deals' :
+                      key === 'orderDate' ? 'order_date' : key;
+        fields.push(`${dbKey} = $${paramCount}`);
+        values.push(updates[key]);
+        paramCount++;
+      }
+    });
+
+    values.push(id);
+    const query = `UPDATE deals SET ${fields.join(', ')}, synced_at = NOW() WHERE id = $${paramCount} RETURNING *`;
+
+    const result = await this.query(query, values);
+    return result.rows[0];
+  }
+
+  async deleteDealsInRange(startDate, endDate) {
+    const result = await this.query(
+      'DELETE FROM deals WHERE order_date >= $1 AND order_date <= $2',
+      [startDate, endDate]
+    );
+    return result.rowCount;
+  }
+
+  async deleteDealsNotInList(startDate, endDate, leadIds) {
+    if (leadIds.length === 0) {
+      // Delete all in range if no leads provided
+      return this.deleteDealsInRange(startDate, endDate);
+    }
+
+    const placeholders = leadIds.map((_, i) => `$${i + 3}`).join(',');
+    const result = await this.query(
+      `DELETE FROM deals
+       WHERE order_date >= $1 AND order_date <= $2
+       AND lead_id NOT IN (${placeholders})`,
+      [startDate, endDate, ...leadIds]
+    );
+    return result.rowCount;
+  }
+
+  // ==================== SMS MESSAGES ====================
+
+  async insertSMS({ id, userId, receiver, timestamp, campaignId, leadId, status }) {
+    const result = await this.query(
+      `INSERT INTO sms_messages (id, user_id, receiver, timestamp, campaign_id, lead_id, status, synced_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       ON CONFLICT (id) DO UPDATE SET
+         status = EXCLUDED.status,
+         synced_at = NOW()
+       RETURNING *`,
+      [id, userId, receiver, timestamp, campaignId, leadId, status]
+    );
+    return result.rows[0];
+  }
+
+  async batchInsertSMS(smsMessages) {
+    if (smsMessages.length === 0) return;
+
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+
+      for (const sms of smsMessages) {
+        await client.query(
+          `INSERT INTO sms_messages (id, user_id, receiver, timestamp, campaign_id, lead_id, status, synced_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+           ON CONFLICT (id) DO UPDATE SET
+             status = EXCLUDED.status,
+             synced_at = NOW()`,
+          [sms.id, sms.userId, sms.receiver, sms.timestamp, sms.campaignId, sms.leadId, sms.status]
+        );
+      }
+
+      await client.query('COMMIT');
+      console.log(`✅ Batch inserted ${smsMessages.length} SMS messages`);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('❌ Batch SMS insert failed:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getSMSInRange(startDate, endDate) {
+    const result = await this.query(
+      `SELECT * FROM sms_messages
+       WHERE timestamp >= $1 AND timestamp <= $2
+       ORDER BY timestamp DESC`,
+      [startDate, endDate]
+    );
+    return result.rows;
+  }
+
+  async getSMSForUser(userId, startDate, endDate) {
+    const result = await this.query(
+      `SELECT * FROM sms_messages
+       WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3
+       ORDER BY timestamp DESC`,
+      [userId, startDate, endDate]
+    );
+    return result.rows;
+  }
+
+  async getUniqueSMSCountForUser(userId, startDate, endDate) {
+    const result = await this.query(
+      `SELECT COUNT(DISTINCT CONCAT(receiver, '|', DATE(timestamp))) as count
+       FROM sms_messages
+       WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3`,
+      [userId, startDate, endDate]
+    );
+    return parseInt(result.rows[0].count);
+  }
+
+  async deleteSMSInRange(startDate, endDate) {
+    const result = await this.query(
+      'DELETE FROM sms_messages WHERE timestamp >= $1 AND timestamp <= $2',
+      [startDate, endDate]
+    );
+    return result.rowCount;
+  }
+
+  async deleteSMSNotInList(startDate, endDate, smsIds) {
+    if (smsIds.length === 0) {
+      return this.deleteSMSInRange(startDate, endDate);
+    }
+
+    const placeholders = smsIds.map((_, i) => `$${i + 3}`).join(',');
+    const result = await this.query(
+      `DELETE FROM sms_messages
+       WHERE timestamp >= $1 AND timestamp <= $2
+       AND id NOT IN (${placeholders})`,
+      [startDate, endDate, ...smsIds]
+    );
+    return result.rowCount;
+  }
+
+  // ==================== PENDING DUPLICATES ====================
+
+  async createPendingDuplicate({ leadId, newDealData, existingDealId }) {
+    const result = await this.query(
+      `INSERT INTO pending_duplicates (
+        lead_id, new_user_id, new_commission, new_order_date,
+        new_campaign_id, new_multi_deals, new_status, new_data, existing_deal_id
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        leadId,
+        newDealData.userId,
+        newDealData.commission,
+        newDealData.orderDate,
+        newDealData.campaignId,
+        newDealData.multiDeals,
+        newDealData.status,
+        JSON.stringify(newDealData),
+        existingDealId
+      ]
+    );
+    return result.rows[0];
+  }
+
+  async getPendingDuplicates() {
+    const result = await this.query(
+      `SELECT
+        pd.*,
+        d.commission as existing_commission,
+        d.order_date as existing_order_date,
+        d.user_id as existing_user_id,
+        d.campaign_id as existing_campaign_id,
+        a1.name as existing_agent_name,
+        a2.name as new_agent_name
+       FROM pending_duplicates pd
+       LEFT JOIN deals d ON pd.existing_deal_id = d.id
+       LEFT JOIN agents a1 ON d.user_id = a1.user_id
+       LEFT JOIN agents a2 ON pd.new_user_id = a2.user_id
+       WHERE pd.status = 'pending'
+       ORDER BY pd.detected_at DESC`
+    );
+    return result.rows;
+  }
+
+  async getPendingDuplicate(id) {
+    const result = await this.query(
+      'SELECT * FROM pending_duplicates WHERE id = $1',
+      [id]
+    );
+    return result.rows[0];
+  }
+
+  async resolvePendingDuplicate(id, resolution, resolvedBy, note) {
+    const result = await this.query(
+      `UPDATE pending_duplicates
+       SET status = 'resolved',
+           resolved_at = NOW(),
+           resolved_by = $2,
+           resolution = $3,
+           resolution_note = $4
+       WHERE id = $1
+       RETURNING *`,
+      [id, resolvedBy, resolution, note]
+    );
+    return result.rows[0];
+  }
+
+  async getDuplicateHistory(limit = 100) {
+    const result = await this.query(
+      `SELECT * FROM pending_duplicates
+       WHERE status = 'resolved'
+       ORDER BY resolved_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+    return result.rows;
+  }
+
+  // ==================== CAMPAIGNS ====================
+
+  async upsertCampaign({ campaignId, name, groupName }) {
+    const result = await this.query(
+      `INSERT INTO campaigns (campaign_id, name, group_name, fetched_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (campaign_id) DO UPDATE SET
+         name = EXCLUDED.name,
+         group_name = EXCLUDED.group_name,
+         fetched_at = NOW()
+       RETURNING *`,
+      [campaignId, name, groupName]
+    );
+    return result.rows[0];
+  }
+
+  async getCampaign(campaignId) {
+    const result = await this.query(
+      'SELECT * FROM campaigns WHERE campaign_id = $1',
+      [campaignId]
+    );
+    return result.rows[0];
+  }
+
+  async getAllCampaigns() {
+    const result = await this.query(
+      'SELECT * FROM campaigns ORDER BY name ASC'
+    );
+    return result.rows;
+  }
 }
 
 // Create singleton instance

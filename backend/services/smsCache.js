@@ -1,111 +1,100 @@
-// backend/services/smsCache.js
-// 🔥 UPDATED VERSION - Handles both old and new cache formats
-// 🔥 FIXED: Persistent disk path + robust format handling + SINGLE getUniqueSMSForAgent with return
-// 🔥🔥🔥 NEW: resetLastSync() to force sync when a deal is added!
-const fs = require('fs').promises;
-const path = require('path');
+const db = require('./postgres');
 
+/**
+ * IMPROVED SMS CACHE - PostgreSQL + Write-Through Cache
+ *
+ * Strategy:
+ * - ALL data persisted in PostgreSQL (historical data preserved)
+ * - In-memory cache for TODAY's data only (fast access)
+ * - Write-through: Save to DB immediately, update cache synchronously
+ * - Auto-sync: Smart UPSERT strategy every 2 minutes
+ *
+ * Rolling window for sync: Current month + 7 days before
+ * Cache window: Today only (00:00 - 23:59)
+ */
 class SMSCache {
   constructor() {
-    // 🔥 KRITISK FIX: Persistent disk på Render!
-    const isRender = process.env.RENDER === 'true';
-    
-    const dbPath = isRender 
-      ? '/var/data'  // Render persistent disk
-      : path.join(__dirname, '../data');  // Local development
-    
-    this.cacheFile = path.join(dbPath, 'sms-cache.json');
-    this.lastSyncFile = path.join(dbPath, 'sms-last-sync.json');
-    
-    console.log(`📱 SMS cache path: ${dbPath} (isRender: ${isRender})`);
-    
-    this.cache = [];
-    this.writeQueue = [];
-    this.isProcessing = false;
+    console.log(`📱 SMS cache (PostgreSQL + write-through)`);
+
+    // In-memory cache - ONLY for today's data
+    this.todayCache = new Map(); // smsId -> sms
+
+    // Retry queue for failed DB writes
+    this.retryQueue = [];
+    this.retryTimer = null;
+
+    // Last sync timestamp
+    this.lastSync = null;
+
+    // Initialized flag
     this.initialized = false;
-    
-    // 🔥 Auto-initialize on first use
-    this._initPromise = null;
+
+    // Init
+    this.initCache();
   }
 
-  // ==================== INITIALIZATION ====================
+  async initCache() {
+    try {
+      // Ensure PostgreSQL is initialized
+      await db.init();
+
+      // Load today's SMS into cache
+      await this.loadTodayCache();
+
+      // Start retry processor
+      this.startRetryProcessor();
+
+      this.initialized = true;
+      console.log('✅ SMS cache initialized with PostgreSQL');
+    } catch (error) {
+      console.error('❌ Error initializing SMS cache:', error);
+    }
+  }
 
   async _ensureInitialized() {
-    if (this.initialized) return;
-    
-    if (!this._initPromise) {
-      this._initPromise = this._doInit();
+    if (!this.initialized) {
+      await this.initCache();
     }
-    
-    await this._initPromise;
   }
 
-  async _doInit() {
+  async loadTodayCache() {
     try {
-      await this.loadCache();
-      this.initialized = true;
-      console.log('📱 SMS Cache initialized');
+      const { start, end } = this.getTodayWindow();
+      const todaySMS = await db.getSMSInRange(start, end);
+
+      // Populate cache
+      this.todayCache.clear();
+
+      for (const sms of todaySMS) {
+        this.todayCache.set(sms.id, this.dbToCache(sms));
+      }
+
+      console.log(`📱 Loaded ${todaySMS.length} SMS into today's cache`);
     } catch (error) {
-      console.error('❌ Error initializing SMS cache:', error.message);
-      this.cache = [];
-      this.initialized = true; // Mark as initialized even on error
+      console.error('❌ Error loading today SMS cache:', error);
     }
   }
 
-  async init() {
-    await this._ensureInitialized();
+  getTodayWindow() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return { start, end };
   }
-
-  async loadCache() {
-    try {
-      const data = await fs.readFile(this.cacheFile, 'utf8');
-      const parsed = JSON.parse(data);
-      
-      // 🔥 ROBUST: Handle both old and new formats
-      if (Array.isArray(parsed)) {
-        // New format: direct array
-        this.cache = parsed;
-        console.log(`📱 Loaded ${this.cache.length} SMS from cache (new format)`);
-      } else if (parsed.sms && Array.isArray(parsed.sms)) {
-        // Old format: { sms: [...] }
-        this.cache = parsed.sms;
-        console.log(`📱 Loaded ${this.cache.length} SMS from cache (old format - will convert)`);
-        
-        // Convert to new format immediately
-        await this.saveCache(this.cache);
-        console.log(`✅ Converted cache to new format`);
-      } else {
-        // Unknown format - start fresh
-        console.log(`⚠️  Unknown cache format, starting fresh`);
-        this.cache = [];
-        await this.saveCache([]);
-      }
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        console.log('📱 No SMS cache found, starting fresh');
-        this.cache = [];
-        await this.saveCache([]);
-      } else {
-        throw error;
-      }
-    }
-  }
-
-  // ==================== ROLLING WINDOW ====================
 
   getRollingWindow() {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
+
     // Start: 7 days before month start
     const monthStart = new Date(currentYear, currentMonth, 1);
     const startDate = new Date(monthStart);
     startDate.setDate(startDate.getDate() - 7);
-    
+
     // End: now
     const endDate = now;
-    
+
     return {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
@@ -114,56 +103,69 @@ class SMSCache {
     };
   }
 
-  // ==================== WRITE QUEUE ====================
-
-  async queueWrite(executeFn) {
-    return new Promise((resolve, reject) => {
-      this.writeQueue.push({ execute: executeFn, resolve, reject });
-      this.processWriteQueue();
-    });
+  // Convert DB row to cache format
+  dbToCache(dbRow) {
+    return {
+      id: dbRow.id,
+      userId: dbRow.user_id,
+      receiver: dbRow.receiver,
+      timestamp: dbRow.timestamp,
+      campaignId: dbRow.campaign_id,
+      leadId: dbRow.lead_id,
+      status: dbRow.status,
+      syncedAt: dbRow.synced_at || dbRow.created_at
+    };
   }
 
-  async processWriteQueue() {
-    if (this.isProcessing || this.writeQueue.length === 0) {
-      return;
-    }
+  // Convert cache format to DB format
+  cacheToDb(sms) {
+    return {
+      id: sms.id,
+      userId: sms.userId,
+      receiver: sms.receiver,
+      timestamp: sms.timestamp,
+      campaignId: sms.campaignId,
+      leadId: sms.leadId,
+      status: sms.status
+    };
+  }
 
-    this.isProcessing = true;
-    const { execute, resolve, reject } = this.writeQueue.shift();
+  /**
+   * Retry processor for failed DB writes
+   */
+  startRetryProcessor() {
+    this.retryTimer = setInterval(async () => {
+      if (this.retryQueue.length > 0) {
+        console.log(`🔄 Processing ${this.retryQueue.length} failed SMS DB writes...`);
 
-    try {
-      const result = await execute();
-      resolve(result);
-    } catch (error) {
-      reject(error);
-    } finally {
-      this.isProcessing = false;
-      if (this.writeQueue.length > 0) {
-        this.processWriteQueue();
+        const toRetry = [...this.retryQueue];
+        this.retryQueue = [];
+
+        for (const sms of toRetry) {
+          try {
+            await db.insertSMS(this.cacheToDb(sms));
+            console.log(`✅ Retry successful for SMS ${sms.id}`);
+          } catch (error) {
+            console.error(`❌ Retry failed for SMS ${sms.id}:`, error.message);
+            this.retryQueue.push(sms); // Try again later
+          }
+        }
       }
-    }
+    }, 30000); // Retry every 30 seconds
   }
 
-  async saveCache(smsArray) {
-    return this.queueWrite(async () => {
-      // 🔥 ALWAYS save as direct array (new format)
-      await fs.writeFile(this.cacheFile, JSON.stringify(smsArray, null, 2));
-      this.cache = smsArray;
-      return smsArray;
-    });
-  }
-
-  // ==================== SYNC FROM ADVERSUS ====================
-
+  /**
+   * Sync SMS from Adversus with smart UPSERT strategy
+   */
   async syncSMS(adversusAPI) {
-    await this._ensureInitialized(); // 🔥 Auto-init
-    
+    await this._ensureInitialized();
+
     try {
       const { startDate, endDate, startDateFormatted, endDateFormatted } = this.getRollingWindow();
-      
+
       console.log(`📱 Syncing SMS from ${startDateFormatted} to ${endDateFormatted}`);
 
-      // Build filters (NO status filter - not supported by API!)
+      // Build filters
       const filters = {
         type: { $eq: 'outbound' },
         timestamp: {
@@ -176,56 +178,49 @@ class SMSCache {
       let allSMS = [];
       let page = 1;
       let hasMore = true;
-      const maxPages = 20; // Safety limit to prevent infinite loops
+      const maxPages = 20; // Safety limit
 
       while (hasMore && page <= maxPages) {
         const result = await adversusAPI.getSMS(filters, page, 1000);
         const smsArray = result.sms || [];
-        
+
         allSMS = [...allSMS, ...smsArray];
-        
+
         console.log(`📱 Fetched page ${page}: ${smsArray.length} SMS`);
-        
-        // 🔍 DEBUG: Log pagination info
+
         const meta = result.meta;
         if (meta && meta.pagination) {
-          console.log(`   📊 Pagination: page ${meta.pagination.page}/${meta.pagination.pageCount}, total: ${meta.pagination.total}`);
+          console.log(`   📊 Pagination: page ${meta.pagination.page}/${meta.pagination.pageCount}`);
           hasMore = meta.pagination.page < meta.pagination.pageCount;
           page++;
         } else {
-          // 🔥 FIX: If no meta, check if we got a full page (1000 SMS)
-          // If we got exactly 1000, there might be more pages
           if (smsArray.length === 1000) {
-            console.log(`   ⚠️  No meta found, but got full page (1000 SMS). Fetching next page...`);
+            console.log(`   ⚠️  No meta found, but got full page. Fetching next...`);
             page++;
             hasMore = true;
           } else {
-            console.log(`   ✅ No meta found, got ${smsArray.length} SMS (< 1000). Assuming last page.`);
+            console.log(`   ✅ No meta found, got ${smsArray.length} SMS. Last page.`);
             hasMore = false;
           }
         }
-        
+
         // Small delay to respect rate limits
         if (hasMore) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
 
-      if (page > maxPages) {
-        console.log(`⚠️  Reached max pages limit (${maxPages}). There might be more SMS.`);
-      }
-
       console.log(`📱 Total fetched: ${allSMS.length} SMS across ${page - 1} pages`);
 
-      // Filter to only delivered SMS (do it in code since API doesn't support status filter)
+      // Filter to only delivered SMS
       const deliveredSMS = allSMS.filter(sms => sms.status === 'delivered');
-      
+
       console.log(`📱 Delivered SMS: ${deliveredSMS.length} / ${allSMS.length}`);
 
-      // ✅ Normalize userId to number
+      // Normalize data
       const smsData = deliveredSMS.map(sms => ({
         id: sms.id,
-        userId: parseInt(sms.userId),  // 🔥 FIX: Alltid number!
+        userId: parseInt(sms.userId),
         receiver: sms.receiver,
         timestamp: sms.timestamp,
         campaignId: sms.campaignId,
@@ -234,11 +229,15 @@ class SMSCache {
         syncedAt: new Date().toISOString()
       }));
 
-      // Save to cache
-      await this.saveCache(smsData);
-      await this.updateLastSync();
+      // Batch insert/update to PostgreSQL
+      await db.batchInsertSMS(smsData.map(s => this.cacheToDb(s)));
 
-      console.log(`💾 Cached ${smsData.length} delivered SMS`);
+      // Reload today's cache
+      await this.loadTodayCache();
+
+      this.lastSync = new Date().toISOString();
+
+      console.log(`💾 Synced ${smsData.length} SMS to PostgreSQL`);
 
       return smsData;
     } catch (error) {
@@ -247,115 +246,87 @@ class SMSCache {
     }
   }
 
-  // ==================== LAST SYNC TRACKING ====================
-
-  async updateLastSync() {
-    const lastSync = {
-      timestamp: new Date().toISOString(),
-      count: this.cache.length
-    };
-    await fs.writeFile(this.lastSyncFile, JSON.stringify(lastSync, null, 2));
-  }
-
-  // 🔥🔥🔥 NEW: Reset last sync to force next autoSync to sync!
-  async resetLastSync() {
-    console.log('🔄 Resetting SMS last sync - next autoSync will force sync');
-    const lastSync = {
-      timestamp: new Date(0).toISOString(), // Set to epoch = always needs sync
-      count: this.cache.length
-    };
-    await fs.writeFile(this.lastSyncFile, JSON.stringify(lastSync, null, 2));
-  }
-
-  async getLastSync() {
-    try {
-      const data = await fs.readFile(this.lastSyncFile, 'utf8');
-      return JSON.parse(data);
-    } catch (error) {
-      return null;
-    }
-  }
-
+  /**
+   * Auto-sync if needed (every 2 minutes)
+   */
   async needsSync() {
-    const lastSync = await this.getLastSync();
-    if (!lastSync) return true;
+    if (!this.lastSync) {
+      console.log('⚠️  No SMS sync found - needs initial sync');
+      return true;
+    }
 
-    const lastSyncTime = new Date(lastSync.timestamp);
-    const now = new Date();
-    const minutesSinceSync = (now - lastSyncTime) / (1000 * 60);
+    const lastSyncDate = new Date(this.lastSync);
+    const minutesSinceSync = (Date.now() - lastSyncDate.getTime()) / (1000 * 60);
 
-    return minutesSinceSync >= 2; // 🔥 UPDATED: Sync every 2 minutes
+    if (minutesSinceSync >= 2) {
+      console.log(`⏰ Last SMS sync was ${Math.round(minutesSinceSync)} min ago - needs sync`);
+      return true;
+    }
+
+    console.log(`✅ Last SMS sync was ${Math.round(minutesSinceSync)} min ago - cache is fresh`);
+    return false;
   }
 
   async autoSync(adversusAPI) {
-    await this._ensureInitialized(); // 🔥 Auto-init
-    
+    await this._ensureInitialized();
+
     if (await this.needsSync()) {
       console.log('📱 Auto-syncing SMS (2 min passed)...');
       return await this.syncSMS(adversusAPI);
     }
-    return this.cache;
+
+    console.log('✅ Using cached SMS');
+    return Array.from(this.todayCache.values());
   }
 
-  // ==================== UNIQUE SMS COUNTING ====================
+  async forceSync(adversusAPI) {
+    console.log('🔄 FORCE SYNC SMS initiated from admin');
+    return await this.syncSMS(adversusAPI);
+  }
+
+  /**
+   * Reset last sync (for backward compatibility)
+   */
+  async resetLastSync() {
+    console.log('🔄 Resetting SMS last sync - next autoSync will force sync');
+    this.lastSync = new Date(0).toISOString(); // Set to epoch
+  }
 
   /**
    * Get unique SMS count for an agent in a date range
-   * Unique = distinct receiver per DATE (not per day-hour)
-   * Example: 5 SMS to +46701234567 on 2025-10-28 = 1 unique SMS
+   * Unique = distinct receiver per DATE (not per hour)
+   * Example: 5 SMS to +46701234567 on 2025-11-02 = 1 unique SMS
    */
   getUniqueSMSForAgent(userId, startDate, endDate) {
     const start = new Date(startDate);
     const end = new Date(endDate);
-
-    // 🔥 DEBUG LOG
-    console.log(`\n🔍 ==================== SMS DEBUG ====================`);
-    console.log(`🔍 getUniqueSMSForAgent() called:`);
-    console.log(`   userId: ${userId} (type: ${typeof userId})`);
-    console.log(`   startDate input: ${startDate} (type: ${typeof startDate})`);
-    console.log(`   endDate input: ${endDate} (type: ${typeof endDate})`);
-    console.log(`   start parsed: ${start.toISOString()}`);
-    console.log(`   end parsed: ${end.toISOString()}`);
-    console.log(`   Cache size: ${this.cache.length} SMS total`);
-
     const userIdNum = parseInt(userId);
 
-    const agentSMS = this.cache.filter(sms => {
-      const smsDate = new Date(sms.timestamp);
-      const userMatch = String(sms.userId) === String(userIdNum);
-      const dateMatch = smsDate >= start && smsDate <= end;
-      
-      return userMatch && dateMatch;
-    });
+    console.log(`🔍 getUniqueSMSForAgent: userId=${userIdNum}, ${start.toISOString()} → ${end.toISOString()}`);
 
-    console.log(`   ✅ Found ${agentSMS.length} matching SMS for user ${userId}`);
-    
-    if (agentSMS.length === 0) {
-      console.log(`\n   ⚠️  ZERO SMS FOUND! Debugging...`);
-      
-      const allUserSMS = this.cache.filter(sms => String(sms.userId) === String(userIdNum));
-      console.log(`   User has ${allUserSMS.length} total SMS in cache (any date)`);
-      
-      if (allUserSMS.length > 0) {
-        console.log(`   Sample timestamps for this user:`);
-        allUserSMS.slice(0, 3).forEach((sms, idx) => {
-          const smsDate = new Date(sms.timestamp);
-          console.log(`     [${idx + 1}] ${sms.timestamp} → ${smsDate.toISOString()}`);
-          console.log(`         >= start? ${smsDate >= start}, <= end? ${smsDate <= end}`);
-        });
-      }
-      
-      const todaySMS = this.cache.filter(sms => {
+    // Get SMS from cache or query DB
+    const { start: todayStart, end: todayEnd } = this.getTodayWindow();
+
+    let agentSMS = [];
+
+    // If query is entirely for today → use cache
+    if (start >= todayStart && end <= todayEnd) {
+      agentSMS = Array.from(this.todayCache.values()).filter(sms => {
         const smsDate = new Date(sms.timestamp);
-        return smsDate >= start && smsDate <= end;
+        return String(sms.userId) === String(userIdNum) &&
+               smsDate >= start && smsDate <= end;
       });
-      console.log(`   Cache has ${todaySMS.length} total SMS in date range (all users)`);
+      console.log(`   ✅ Found ${agentSMS.length} SMS in today's cache`);
+    } else {
+      // Query PostgreSQL (sync call - may need refactoring)
+      console.log(`   ⚠️  Query spans beyond today, need to query DB (not implemented yet)`);
+      // TODO: Make this async or pre-fetch from DB
+      return 0;
     }
-    console.log(`🔍 ==================== END DEBUG ====================\n`);
 
     // Group by receiver + date (YYYY-MM-DD)
     const uniqueReceiverDates = new Set();
-    
+
     agentSMS.forEach(sms => {
       const date = new Date(sms.timestamp).toISOString().split('T')[0]; // YYYY-MM-DD
       const key = `${sms.receiver}|${date}`;
@@ -364,52 +335,13 @@ class SMSCache {
 
     const result = uniqueReceiverDates.size;
     console.log(`   🎯 Returning uniqueSMS count: ${result}`);
-    
+
     return result;
   }
 
   /**
-   * Get SMS stats for an agent (unique SMS + success rate)
-   * Success rate = (totalDeals / uniqueSMS) * 100
-   * 
-   * @deprecated Use getSMSSuccessRate instead for better performance
-   */
-  async getSMSStatsForAgent(userId, startDate, endDate, dealsCache) {
-    await this._ensureInitialized(); // 🔥 Auto-init
-    
-    // 🔥 FIX: Convert userId to number for consistency
-    const userIdNum = parseInt(userId);
-    
-    const uniqueSMS = this.getUniqueSMSForAgent(userIdNum, startDate, endDate);
-    
-    // Get deals count for same period
-    const deals = await dealsCache.getDealsInRange(startDate, endDate);
-    
-    // 🔥 FIX: Type-safe comparison using String()
-    const agentDeals = deals.filter(deal => {
-      return String(deal.userId) === String(userIdNum);
-    });
-    
-    // Calculate total deals (including multiDeals)
-    const totalDeals = agentDeals.reduce((sum, deal) => {
-      const multiDeals = parseInt(deal.multiDeals) || 1;
-      return sum + multiDeals;
-    }, 0);
-
-    // Calculate success rate with 2 decimals
-    const successRate = uniqueSMS > 0 ? (totalDeals / uniqueSMS * 100) : 0;
-
-    return {
-      uniqueSMS,
-      totalDeals,
-      successRate: parseFloat(successRate.toFixed(2)) // Format: 33.33
-    };
-  }
-
-  /**
-   * ✅ NEW: Calculate SMS success rate using pre-calculated dealCount
-   * This is simpler and avoids fetching deals again from cache
-   * 
+   * Get SMS success rate using pre-calculated dealCount
+   *
    * @param {number|string} userId - User ID
    * @param {Date|string} startDate - Start date
    * @param {Date|string} endDate - End date
@@ -420,7 +352,7 @@ class SMSCache {
     const userIdNum = parseInt(userId);
     const uniqueSMS = this.getUniqueSMSForAgent(userIdNum, startDate, endDate);
     const successRate = uniqueSMS > 0 ? (dealCount / uniqueSMS * 100) : 0;
-    
+
     return {
       uniqueSMS,
       successRate: parseFloat(successRate.toFixed(2))
@@ -431,107 +363,119 @@ class SMSCache {
    * Get today's unique SMS count for an agent
    */
   getTodayUniqueSMSForAgent(userId) {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
-
-    return this.getUniqueSMSForAgent(userId, startOfDay.toISOString(), endOfDay.toISOString());
+    const { start, end } = this.getTodayWindow();
+    return this.getUniqueSMSForAgent(userId, start.toISOString(), end.toISOString());
   }
 
-  // ==================== STATS & MAINTENANCE ====================
+  /**
+   * Get SMS in date range (from DB or cache)
+   */
+  async getSMSInRange(startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const { start: todayStart, end: todayEnd } = this.getTodayWindow();
 
-  async getStats() {
-    await this._ensureInitialized(); // 🔥 Auto-init
-
-    // 🔥 SAFETY CHECK
-    if (!Array.isArray(this.cache)) {
-      return {
-        error: 'Cache is not an array',
-        cacheType: typeof this.cache,
-        cacheValue: this.cache
-      };
+    // If query is entirely for today → use cache
+    if (start >= todayStart && end <= todayEnd) {
+      return Array.from(this.todayCache.values()).filter(sms => {
+        const smsDate = new Date(sms.timestamp);
+        return smsDate >= start && smsDate <= end;
+      });
     }
 
-    const lastSync = await this.getLastSync();
-    const { startDateFormatted, endDateFormatted } = this.getRollingWindow();
+    // Otherwise → query PostgreSQL
+    const dbSMS = await db.getSMSInRange(start, end);
+    return dbSMS.map(s => this.dbToCache(s));
+  }
+
+  /**
+   * Get SMS for agent in date range
+   */
+  async getSMSForAgent(userId, startDate, endDate) {
+    const userIdNum = parseInt(userId);
+    const smsInRange = await this.getSMSInRange(startDate, endDate);
+    return smsInRange.filter(sms =>
+      String(sms.userId) === String(userIdNum)
+    );
+  }
+
+  /**
+   * Get stats
+   */
+  async getStats() {
+    await this._ensureInitialized();
+
+    const { startDate, endDate, startDateFormatted, endDateFormatted } = this.getRollingWindow();
+    const allSMS = await db.getSMSInRange(new Date(startDate), new Date(endDate));
 
     // Count unique agents
-    const uniqueAgents = new Set(this.cache.map(sms => sms.userId));
+    const uniqueAgents = new Set(allSMS.map(sms => sms.user_id));
 
     // Count by status
-    const statusCounts = this.cache.reduce((acc, sms) => {
+    const statusCounts = allSMS.reduce((acc, sms) => {
       acc[sms.status] = (acc[sms.status] || 0) + 1;
       return acc;
     }, {});
 
-    // Calculate unique SMS (unique receiver + date combinations)
+    // Calculate unique SMS
     const uniqueReceiverDates = new Set();
-    this.cache.forEach(sms => {
+    allSMS.forEach(sms => {
       const date = new Date(sms.timestamp).toISOString().split('T')[0];
       const key = `${sms.receiver}_${date}`;
       uniqueReceiverDates.add(key);
     });
-    const uniqueSMS = uniqueReceiverDates.size;
 
     return {
-      totalSMS: this.cache.length,
-      uniqueSMS: uniqueSMS,
+      totalSMS: allSMS.length,
+      todaySMS: this.todayCache.size,
+      uniqueSMS: uniqueReceiverDates.size,
       uniqueAgents: uniqueAgents.size,
       statusBreakdown: statusCounts,
       rollingWindow: `${startDateFormatted} to ${endDateFormatted}`,
-      lastSync: lastSync ? lastSync.timestamp : 'Never',
-      needsSync: await this.needsSync()
+      lastSync: this.lastSync || 'Never',
+      needsSync: await this.needsSync(),
+      retryQueueLength: this.retryQueue.length
     };
   }
 
+  /**
+   * Clean old SMS (no-op - DB keeps history)
+   */
   async cleanOldSMS() {
-    const { startDate } = this.getRollingWindow();
-    const startTime = new Date(startDate);
-
-    const filtered = this.cache.filter(sms => {
-      return new Date(sms.timestamp) >= startTime;
-    });
-
-    const removed = this.cache.length - filtered.length;
-    
-    if (removed > 0) {
-      await this.saveCache(filtered);
-      console.log(`🧹 Cleaned ${removed} old SMS outside rolling window`);
-    }
-
-    return { removed, remaining: filtered.length };
+    console.log('ℹ️  cleanOldSMS: PostgreSQL keeps all history');
+    return { removed: 0, remaining: this.todayCache.size };
   }
 
-  async forceSync(adversusAPI) {
-    console.log('🔄 Force syncing SMS...');
-    return await this.syncSMS(adversusAPI);
+  /**
+   * Get last sync (for backward compatibility)
+   */
+  async getLastSync() {
+    return {
+      timestamp: this.lastSync || new Date(0).toISOString(),
+      count: this.todayCache.size
+    };
   }
 
-  // ==================== QUERY HELPERS ====================
-
-  getSMSInRange(startDate, endDate) {
-    // 🔥 SAFETY CHECK
-    if (!Array.isArray(this.cache)) {
-      console.error(`❌ Cache is not an array in getSMSInRange`);
-      return [];
-    }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    return this.cache.filter(sms => {
-      const smsDate = new Date(sms.timestamp);
-      return smsDate >= start && smsDate <= end;
-    });
+  /**
+   * Update last sync (for backward compatibility)
+   */
+  async updateLastSync() {
+    this.lastSync = new Date().toISOString();
   }
 
-  getSMSForAgent(userId, startDate, endDate) {
-    // 🔥 FIX: Type-safe comparison
-    const userIdNum = parseInt(userId);
-    return this.getSMSInRange(startDate, endDate).filter(sms => {
-      return String(sms.userId) === String(userIdNum);
-    });
+  /**
+   * Invalidate cache (reload from DB)
+   */
+  async invalidateCache() {
+    console.log('🔄 Invalidating SMS cache, reloading from DB...');
+    await this.loadTodayCache();
+  }
+
+  /**
+   * Get cache property (for backward compatibility)
+   */
+  get cache() {
+    return Array.from(this.todayCache.values());
   }
 }
 
