@@ -461,33 +461,23 @@ class PostgresService {
     try {
       await client.query('BEGIN');
 
-      // Strategy: Check if deal exists, update if yes, insert if no
-      // This avoids need for UNIQUE constraint
+      // Use ON CONFLICT with UNIQUE constraint on lead_id
+      // If lead_id exists, update the existing row
+      // This enforces: same lead_id can only exist ONCE
       for (const deal of deals) {
-        // Check if deal with this lead_id exists
-        const existing = await client.query(
-          'SELECT id FROM deals WHERE lead_id = $1 LIMIT 1',
-          [deal.leadId]
+        await client.query(
+          `INSERT INTO deals (lead_id, user_id, campaign_id, commission, multi_deals, order_date, status, synced_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+           ON CONFLICT (lead_id) DO UPDATE SET
+             user_id = EXCLUDED.user_id,
+             campaign_id = EXCLUDED.campaign_id,
+             commission = EXCLUDED.commission,
+             multi_deals = EXCLUDED.multi_deals,
+             order_date = EXCLUDED.order_date,
+             status = EXCLUDED.status,
+             synced_at = NOW()`,
+          [deal.leadId, deal.userId, deal.campaignId, deal.commission, deal.multiDeals || 1, deal.orderDate, deal.status]
         );
-
-        if (existing.rows.length > 0) {
-          // Update existing deal
-          await client.query(
-            `UPDATE deals
-             SET user_id = $1, campaign_id = $2, commission = $3,
-                 multi_deals = $4, order_date = $5, status = $6, synced_at = NOW()
-             WHERE lead_id = $7`,
-            [deal.userId, deal.campaignId, deal.commission, deal.multiDeals || 1,
-             deal.orderDate, deal.status, deal.leadId]
-          );
-        } else {
-          // Insert new deal
-          await client.query(
-            `INSERT INTO deals (lead_id, user_id, campaign_id, commission, multi_deals, order_date, status, synced_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-            [deal.leadId, deal.userId, deal.campaignId, deal.commission, deal.multiDeals || 1, deal.orderDate, deal.status]
-          );
-        }
       }
 
       await client.query('COMMIT');

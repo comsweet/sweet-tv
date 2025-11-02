@@ -140,9 +140,10 @@ CREATE INDEX IF NOT EXISTS idx_deals_user_order_date ON deals(user_id, order_dat
 CREATE INDEX IF NOT EXISTS idx_deals_date ON deals(DATE(order_date));
 CREATE INDEX IF NOT EXISTS idx_deals_campaign ON deals(campaign_id);
 
--- NOTE: No UNIQUE constraint on lead_id + date
--- Duplicate detection handled in application layer (dealsCache.js)
--- This allows admin to approve multiple deals for same lead on same day if legitimate
+-- UNIQUE constraint: Same lead_id can only exist ONCE
+-- If duplicate detected, it goes to pending_duplicates for admin review
+-- Admin decides: keep old, replace with new, or reject new
+CREATE UNIQUE INDEX IF NOT EXISTS idx_deals_unique_lead_id ON deals(lead_id);
 
 -- Pending duplicates table (for manual resolution)
 CREATE TABLE IF NOT EXISTS pending_duplicates (

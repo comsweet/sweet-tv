@@ -281,8 +281,16 @@ class DealsCache {
         };
       });
 
+      // Filter out deals without userId (required field)
+      const validDeals = deals.filter(deal => deal.userId != null);
+      const skippedDeals = deals.length - validDeals.length;
+
+      if (skippedDeals > 0) {
+        console.log(`⚠️  Skipped ${skippedDeals} deals without user_id`);
+      }
+
       // Batch insert/update to PostgreSQL
-      await db.batchInsertDeals(deals.map(d => this.cacheToDb(d)));
+      await db.batchInsertDeals(validDeals.map(d => this.cacheToDb(d)));
 
       // Reload today's cache
       await this.loadTodayCache();

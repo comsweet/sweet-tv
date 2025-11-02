@@ -107,7 +107,14 @@ router.post('/duplicates/:id/resolve', async (req, res) => {
 
       switch (action) {
         case 'approve':
-          // Insert new deal (allow duplicate)
+          // IMPORTANT: With UNIQUE constraint on lead_id, we can't have two deals with same lead_id
+          // "Approve" now means: Replace old with new (keep new, delete old)
+          // This is effectively same as "replace" action
+
+          // Delete old deal
+          await client.query('DELETE FROM deals WHERE id = $1', [pending.existing_deal_id]);
+
+          // Insert new deal
           await db.insertDeal({
             leadId: newDealData.leadId,
             userId: newDealData.userId,
@@ -117,20 +124,13 @@ router.post('/duplicates/:id/resolve', async (req, res) => {
             orderDate: newDealData.orderDate,
             status: newDealData.status
           });
-          console.log(`✅ Approved duplicate: ${pending.lead_id}`);
+
+          console.log(`✅ Approved (replaced old with new): ${pending.lead_id}`);
           break;
 
         case 'replace':
-          // Mark old deal as replaced
-          await client.query(
-            `UPDATE deals
-             SET is_duplicate = TRUE,
-                 replaced_by = (
-                   SELECT id FROM deals WHERE lead_id = $1 ORDER BY created_at DESC LIMIT 1
-                 )
-             WHERE id = $2`,
-            [newDealData.leadId, pending.existing_deal_id]
-          );
+          // Delete old deal, insert new
+          await client.query('DELETE FROM deals WHERE id = $1', [pending.existing_deal_id]);
 
           // Insert new deal
           await db.insertDeal({
