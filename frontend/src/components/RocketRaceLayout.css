@@ -101,51 +101,57 @@
 }
 
 /* ============================================================
-   FLEXIBEL SKALNING - Anpassar sig efter skärmstorlek
-   Använder viewport units och clamp() för dynamisk skalning
+   FLEXIBEL SKALNING - Anpassar sig efter skärmstorlek OCH antal deltagare
+   Använder --participant-count för att räkna ut optimal storlek
    ============================================================ */
 
-/* Avatar och bilder - skalas baserat på tillgängligt utrymme */
+/* Avatar och bilder - skalas baserat på antal deltagare */
 .rocket-avatar-img,
 .rocket-avatar-circle {
-  width: clamp(45px, 4vw, 110px);
-  height: clamp(45px, 4vw, 110px);
-  border-width: clamp(3px, 0.3vw, 6px);
-  font-size: clamp(1.2rem, 2vw, 3rem);
+  width: clamp(40px, calc(35vw / var(--participant-count, 5)), 90px);
+  height: clamp(40px, calc(35vw / var(--participant-count, 5)), 90px);
+  border-width: clamp(3px, 0.2vw, 5px);
+  font-size: clamp(1rem, calc(15vw / var(--participant-count, 5)), 2.5rem);
 }
 
 /* Namn - skalar proportionellt */
 .rocket-name-text {
-  font-size: clamp(0.9rem, 1.2vw, 2.2rem);
-  max-width: clamp(90px, 12vw, 220px);
+  font-size: clamp(0.8rem, calc(10vw / var(--participant-count, 5)), 1.8rem);
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
-/* Raket-emoji - skalas med viewport */
+/* Raket-emoji - skalas baserat på antal deltagare */
 .rocket-body {
-  font-size: clamp(2rem, 2.8vw, 5.5rem);
+  font-size: clamp(1.8rem, calc(22vw / var(--participant-count, 5)), 4.5rem);
 }
 
-/* Värde-bubbla - skalas med viewport */
+/* Värde-bubbla - MINDRE för att inte överlappa */
 .rocket-value-display {
-  font-size: clamp(0.8rem, 1vw, 1.9rem);
-  padding: clamp(6px, 0.7vw, 14px) clamp(12px, 1.2vw, 26px);
-  top: clamp(-45px, -4.5vw, -90px);
+  font-size: clamp(0.7rem, calc(8vw / var(--participant-count, 5)), 1.5rem);
+  padding: clamp(4px, 0.4vw, 8px) clamp(8px, 0.8vw, 16px);
+  top: clamp(-40px, calc(-30vw / var(--participant-count, 5)), -70px);
+  white-space: nowrap;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Ranknummer och badges - skalas med viewport */
+/* Ranknummer och badges - skalas baserat på antal deltagare */
 .rocket-rank-badge {
-  font-size: clamp(1.3rem, 1.8vw, 3.4rem);
+  font-size: clamp(1.1rem, calc(14vw / var(--participant-count, 5)), 2.8rem);
 }
 
-/* Gap text - skalas med viewport */
+/* Gap text - mindre för att inte överlappa */
 .rocket-gap-text {
-  font-size: clamp(0.8rem, 1vw, 1.9rem);
-  padding: clamp(4px, 0.5vw, 10px) clamp(8px, 1vw, 18px);
+  font-size: clamp(0.7rem, calc(8vw / var(--participant-count, 5)), 1.5rem);
+  padding: clamp(3px, 0.3vw, 7px) clamp(6px, 0.6vw, 12px);
 }
 
-/* Meta text - skalas med viewport */
+/* Meta text - skalas baserat på antal deltagare */
 .rocket-meta-text {
-  font-size: clamp(0.75rem, 0.9vw, 1.7rem);
+  font-size: clamp(0.65rem, calc(7vw / var(--participant-count, 5)), 1.4rem);
 }
 
 .rocket-trail {
@@ -337,75 +343,75 @@
 }
 
 /* ============================================================
-   TV SIZE OVERRIDES - Använder skalning av viewport-baserade storlekar
-   Strategi: Justera viewport-multiplikatorn för varje storlek
+   TV SIZE OVERRIDES - Justerar multiplikatorn i formeln
+   Strategi: Ändra täljaren i calc(Xvw / participant-count)
    ============================================================ */
 
-/* COMPACT SIZE - 80% av default viewport scaling */
+/* COMPACT SIZE - 80% multiplikator (mindre värden i täljaren) */
 .size-compact .rocket-avatar-img,
 .size-compact .rocket-avatar-circle {
-  width: clamp(40px, 3.2vw, 88px);
-  height: clamp(40px, 3.2vw, 88px);
+  width: clamp(35px, calc(28vw / var(--participant-count, 5)), 75px);
+  height: clamp(35px, calc(28vw / var(--participant-count, 5)), 75px);
 }
 .size-compact .rocket-name-text {
-  font-size: clamp(0.75rem, 1vw, 1.8rem);
+  font-size: clamp(0.7rem, calc(8vw / var(--participant-count, 5)), 1.5rem);
 }
 .size-compact .rocket-body {
-  font-size: clamp(1.7rem, 2.2vw, 4.4rem);
+  font-size: clamp(1.5rem, calc(18vw / var(--participant-count, 5)), 3.8rem);
 }
 .size-compact .rocket-value-display {
-  font-size: clamp(0.7rem, 0.8vw, 1.5rem);
+  font-size: clamp(0.6rem, calc(6.5vw / var(--participant-count, 5)), 1.2rem);
 }
 .size-compact .rocket-rank-badge {
-  font-size: clamp(1.1rem, 1.4vw, 2.7rem);
+  font-size: clamp(1rem, calc(11vw / var(--participant-count, 5)), 2.3rem);
 }
 .size-compact .rocket-race-title h2 {
-  font-size: clamp(1.5rem, 2vw, 3.6rem);
+  font-size: clamp(1.4rem, 1.8vw, 3.2rem);
 }
 
-/* NORMAL SIZE - Använder default viewport scaling (inga overrides) */
+/* NORMAL SIZE - Använder default multiplikator (inga overrides) */
 
-/* LARGE SIZE - 120% av default viewport scaling */
+/* LARGE SIZE - 120% multiplikator (större värden i täljaren) */
 .size-large .rocket-avatar-img,
 .size-large .rocket-avatar-circle {
-  width: clamp(50px, 4.8vw, 132px);
-  height: clamp(50px, 4.8vw, 132px);
+  width: clamp(45px, calc(42vw / var(--participant-count, 5)), 108px);
+  height: clamp(45px, calc(42vw / var(--participant-count, 5)), 108px);
 }
 .size-large .rocket-name-text {
-  font-size: clamp(1rem, 1.44vw, 2.6rem);
+  font-size: clamp(0.9rem, calc(12vw / var(--participant-count, 5)), 2.1rem);
 }
 .size-large .rocket-body {
-  font-size: clamp(2.3rem, 3.36vw, 6.6rem);
+  font-size: clamp(2.1rem, calc(26vw / var(--participant-count, 5)), 5.3rem);
 }
 .size-large .rocket-value-display {
-  font-size: clamp(0.9rem, 1.2vw, 2.3rem);
+  font-size: clamp(0.8rem, calc(9.5vw / var(--participant-count, 5)), 1.8rem);
 }
 .size-large .rocket-rank-badge {
-  font-size: clamp(1.5rem, 2.16vw, 4rem);
+  font-size: clamp(1.3rem, calc(17vw / var(--participant-count, 5)), 3.3rem);
 }
 .size-large .rocket-race-title h2 {
-  font-size: clamp(2.1rem, 3vw, 5.4rem);
+  font-size: clamp(2rem, 2.8vw, 5rem);
 }
 
-/* EXTRA LARGE SIZE - 140% av default viewport scaling */
+/* EXTRA LARGE SIZE - 140% multiplikator (ännu större värden) */
 .size-xlarge .rocket-avatar-img,
 .size-xlarge .rocket-avatar-circle {
-  width: clamp(55px, 5.6vw, 154px);
-  height: clamp(55px, 5.6vw, 154px);
+  width: clamp(50px, calc(49vw / var(--participant-count, 5)), 126px);
+  height: clamp(50px, calc(49vw / var(--participant-count, 5)), 126px);
 }
 .size-xlarge .rocket-name-text {
-  font-size: clamp(1.1rem, 1.68vw, 3rem);
+  font-size: clamp(1rem, calc(14vw / var(--participant-count, 5)), 2.5rem);
 }
 .size-xlarge .rocket-body {
-  font-size: clamp(2.6rem, 3.92vw, 7.7rem);
+  font-size: clamp(2.4rem, calc(31vw / var(--participant-count, 5)), 6.3rem);
 }
 .size-xlarge .rocket-value-display {
-  font-size: clamp(1rem, 1.4vw, 2.7rem);
+  font-size: clamp(0.9rem, calc(11vw / var(--participant-count, 5)), 2.1rem);
 }
 .size-xlarge .rocket-rank-badge {
-  font-size: clamp(1.7rem, 2.52vw, 4.8rem);
+  font-size: clamp(1.5rem, calc(20vw / var(--participant-count, 5)), 3.9rem);
 }
 .size-xlarge .rocket-race-title h2 {
-  font-size: clamp(2.4rem, 3.5vw, 6.3rem);
+  font-size: clamp(2.3rem, 3.2vw, 5.8rem);
 }
 
