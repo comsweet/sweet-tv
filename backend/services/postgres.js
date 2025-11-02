@@ -66,8 +66,18 @@ class PostgresService {
 
       await this.pool.query(schemaSql);
       console.log('✅ Database schema initialized');
+    } catch (error) {
+      // Schema errors are OK if tables already exist
+      if (error.code === '42P07' || error.code === '42710') {
+        console.log('⚠️  Schema already exists (this is OK)');
+      } else {
+        console.error('❌ Schema initialization failed:', error.message);
+        throw error;
+      }
+    }
 
-      // Update statistics for query planner
+    try {
+      // Update statistics for query planner (run regardless of schema creation)
       await this.pool.query('VACUUM ANALYZE sms_messages');
       console.log('✅ Updated query planner statistics');
 
@@ -82,14 +92,17 @@ class PostgresService {
       indexes.rows.forEach(idx => {
         console.log(`   ${idx.indexname}: ${idx.indexdef}`);
       });
+
+      // Run EXPLAIN on typical query to see if index is used
+      const explain = await this.pool.query(`
+        EXPLAIN SELECT * FROM sms_messages
+        WHERE user_id = 222478 AND timestamp >= '2025-10-27T00:00:00.000Z' AND timestamp <= '2025-11-02T23:59:59.999Z'
+        ORDER BY timestamp DESC
+      `);
+      console.log('🔍 Query plan for getSMSForUser:');
+      explain.rows.forEach(row => console.log('   ', row['QUERY PLAN']));
     } catch (error) {
-      // Schema errors are OK if tables already exist
-      if (error.code === '42P07' || error.code === '42710') {
-        console.log('⚠️  Schema already exists (this is OK)');
-      } else {
-        console.error('❌ Schema initialization failed:', error.message);
-        throw error;
-      }
+      console.error('⚠️  Could not list indexes:', error.message);
     }
   }
 
@@ -641,19 +654,6 @@ class PostgresService {
   }
 
   async getSMSForUser(userId, startDate, endDate) {
-    // Use EXPLAIN ANALYZE to debug slow queries (first call only)
-    if (!this._explainLogged) {
-      this._explainLogged = true;
-      const explain = await this.query(
-        `EXPLAIN ANALYZE SELECT * FROM sms_messages
-         WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3
-         ORDER BY timestamp DESC`,
-        [userId, startDate, endDate]
-      );
-      console.log('📊 EXPLAIN ANALYZE for getSMSForUser:');
-      explain.rows.forEach(row => console.log('   ', row['QUERY PLAN']));
-    }
-
     const result = await this.query(
       `SELECT * FROM sms_messages
        WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3
