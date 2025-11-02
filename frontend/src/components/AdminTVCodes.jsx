@@ -130,7 +130,7 @@ const AdminTVCodes = () => {
 
   return (
     <div className="admin-section">
-      <h2 style={{ color: '#005A9C', marginBottom: '20px' }}>🔑 TV Access Codes</h2>
+      <h2 style={{ color: '#005A9C', marginBottom: '20px' }}>🔑 TV Kod</h2>
 
       <div style={{
         background: 'linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%)',

@@ -155,6 +155,17 @@ export const syncSMSManually = () => api.post('/sms/sync');
 export const cleanOldSMS = () => api.post('/sms/clean');
 export const clearSMSCache = () => api.delete('/sms/cache');
 
+// Admin - Database Sync & Duplicate Management
+export const syncDatabase = (mode, startDate, endDate) =>
+  api.post('/admin/sync-database', { mode, startDate, endDate });
+export const getSyncStatus = () => api.get('/admin/sync-status');
+export const invalidateCache = () => api.post('/admin/cache/invalidate');
+export const getPendingDuplicates = () => api.get('/admin/duplicates/pending');
+export const resolveDuplicate = (id, action, note, adminName) =>
+  api.post(`/admin/duplicates/${id}/resolve`, { action, note, adminName });
+export const getDuplicateHistory = (limit = 100) =>
+  api.get(`/admin/duplicates/history?limit=${limit}`);
+
 // Auto-Refresh Settings
 export const getAutoRefreshSettings = () => api.get('/auto-refresh/settings');
 export const updateAutoRefreshSettings = (data) => api.post('/auto-refresh/settings', data);

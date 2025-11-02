@@ -28,7 +28,7 @@ const Admin = () => {
 
   const menuItems = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard', section: 'main' },
-    { id: 'tvCodes', icon: '🔑', label: 'TV Koder', section: 'main' },
+    { id: 'tvCodes', icon: '🔑', label: 'TV Kod', section: 'main' },
     { id: 'agents', icon: '👥', label: 'Agenter', section: 'content' },
     { id: 'groups', icon: '👨‍👩‍👧‍👦', label: 'Groups', section: 'content' },
     { id: 'leaderboards', icon: '🏆', label: 'Leaderboards', section: 'content' },
@@ -40,7 +40,7 @@ const Admin = () => {
     { id: 'thresholds', icon: '🎨', label: 'Tröskelvärden', section: 'analytics' },
     { id: 'auditLogs', icon: '📋', label: 'Audit Logs', section: 'monitoring' },
     { id: 'apiMonitoring', icon: '📈', label: 'API Monitor', section: 'monitoring' },
-    { id: 'cache', icon: '🗂️', label: 'Cache', section: 'system' },
+    { id: 'cache', icon: '🗄️', label: 'Database & Cache', section: 'system' },
     { id: 'settings', icon: '⚙️', label: 'Settings', section: 'system' },
     { id: 'changePassword', icon: '🔒', label: 'Byt Lösenord', section: 'account' },
     { id: 'users', icon: '👤', label: 'Användare', section: 'account', superadmin: isSuperAdmin },
