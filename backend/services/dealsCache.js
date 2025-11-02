@@ -207,12 +207,10 @@ class DealsCache {
       await db.insertDeal(this.cacheToDb(deal));
       console.log(`✅ Deal ${deal.leadId} saved to PostgreSQL`);
     } catch (error) {
-      if (error.message === 'DUPLICATE_DEAL') {
-        console.log(`⚠️  Deal ${deal.leadId} already in DB (race condition), skipping`);
-      } else {
-        console.error(`❌ DB write failed for ${deal.leadId}, adding to retry queue:`, error.message);
-        this.retryQueue.push(deal);
-      }
+      // No unique constraint - all inserts should succeed
+      // If error occurs, add to retry queue
+      console.error(`❌ DB write failed for ${deal.leadId}, adding to retry queue:`, error.message);
+      this.retryQueue.push(deal);
     }
   }
 
