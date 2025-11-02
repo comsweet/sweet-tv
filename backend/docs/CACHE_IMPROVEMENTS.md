@@ -75,13 +75,14 @@ CREATE TABLE deals (
   replaced_by INTEGER REFERENCES deals(id)
 );
 
--- NOTE: No UNIQUE constraint on lead_id
--- Duplicate detection handled in application layer (dealsCache.js)
--- This allows:
--- 1. Same lead to buy multiple products on same day (legitimate)
--- 2. Admin to "approve" duplicate deals when resolving pending duplicates
--- 3. Full flexibility in duplicate management
+-- UNIQUE constraint: Same lead_id can only exist ONCE
+-- If duplicate detected, it goes to pending_duplicates for admin review
+-- Admin decides: keep old, replace with new, merge, or reject new
+CREATE UNIQUE INDEX idx_deals_unique_lead_id ON deals(lead_id);
 ```
+
+**Important:** The UNIQUE constraint on `lead_id` enforces that **same lead can only have ONE deal**.
+This prevents agents from deleting and re-registering orders to cheat commissions.
 
 #### `sms_messages`
 ```sql
@@ -156,30 +157,27 @@ CREATE TABLE pending_duplicates (
 
 ### Admin Actions:
 
-#### **Approve** (Tillåt båda)
+#### **Approve / Replace** (Ersätt gamla med nya)
 ```sql
-INSERT INTO deals ... -- Lägg till nya deal
-```
-**Use case:** Kund köpte två produkter
-
-#### **Replace** (Ersätt gamla med nya)
-```sql
-UPDATE deals SET is_duplicate = TRUE, replaced_by = <new_id> WHERE id = <old_id>;
+DELETE FROM deals WHERE id = <old_id>;
 INSERT INTO deals ... -- Lägg till nya
 ```
-**Use case:** Fel commission på gamla, nya är rätt
+**Use case:** Agent registrerade order på nytt, nya är korrekt. Ta bort gamla, godkänn nya.
+
+**Note:** Med UNIQUE constraint på lead_id kan vi bara ha EN deal per lead.
+"Approve" och "Replace" gör samma sak: radera gamla, spara nya.
 
 #### **Merge** (Uppdatera befintlig)
 ```sql
 UPDATE deals SET commission = <new>, order_date = <new> WHERE id = <old_id>;
 ```
-**Use case:** Samma deal, uppdaterad info
+**Use case:** Samma deal, men commission eller datum ändrades. Uppdatera befintlig.
 
-#### **Reject** (Behåll bara gamla)
+#### **Reject** (Behåll gamla, blockera nya)
 ```sql
--- Gör ingenting
+-- Gör ingenting, behåll gamla
 ```
-**Use case:** Accidental duplicate
+**Use case:** Agent försöker fuska genom att registrera om. Behåll ursprungliga, blockera nya.
 
 ## 📡 API Endpoints
 
