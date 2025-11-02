@@ -166,6 +166,56 @@
   gap: 4px;
 }
 
+/* Auto-scroll support */
+.progress-frozen-first {
+  flex-shrink: 0;
+}
+
+.progress-frozen-first .progress-bar-item {
+  box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);
+  border: 3px solid #ffd700;
+}
+
+.progress-scroll-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+
+.progress-scroll-content {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* When there's a frozen first item, the layout becomes flex with overflow */
+.progress-bars-layout:has(.progress-frozen-first) {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Auto-scroll animation */
+.progress-scroll-content.scrolling {
+  animation: progressAutoScroll var(--scroll-duration, 30s) linear infinite;
+}
+
+@keyframes progressAutoScroll {
+  0%, 1% {
+    transform: translateY(0);
+  }
+  99%, 100% {
+    transform: translateY(var(--scroll-distance, -1000px));
+  }
+}
+
+/* Pause scroll on hover (for testing) */
+.progress-scroll-container:hover .progress-scroll-content.scrolling {
+  animation-play-state: paused;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .progress-bar-header {

@@ -27,10 +27,10 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
 
   const formatValue = (stat) => {
     if (leaderboard.sortBy === 'dealCount') {
-      return `${stat.dealCount || 0}`;
+      return `${stat.dealCount || 0} affärer`;
     }
     const value = getTotalValue(stat);
-    return value.toLocaleString('sv-SE');
+    return `${value.toLocaleString('sv-SE')} THB`;
   };
 
   const getGoalLabel = () => {
@@ -105,8 +105,8 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
           {stat.gapToLeader !== undefined && stat.gapToLeader > 0 && (
             <div className="rocket-gap-text">
               -{leaderboard.sortBy === 'dealCount'
-                ? `${stat.gapToLeader}`
-                : `${stat.gapToLeader.toLocaleString('sv-SE')}`}
+                ? `${stat.gapToLeader} affärer`
+                : `${stat.gapToLeader.toLocaleString('sv-SE')} THB`}
             </div>
           )}
         </div>

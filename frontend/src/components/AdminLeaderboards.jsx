@@ -419,6 +419,14 @@ const AdminLeaderboards = () => {
                   />
                   <span>📊 Visa team mini-stats</span>
                 </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.enableAutoScroll}
+                    onChange={(e) => setForm({ ...form, enableAutoScroll: e.target.checked })}
+                  />
+                  <span>🔄 Auto-scroll (för Race, Cards & Progress)</span>
+                </label>
               </div>
             </div>
 
