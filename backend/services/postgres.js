@@ -75,6 +75,35 @@ class PostgresService {
         throw error;
       }
     }
+
+    try {
+      // Update statistics for query planner (run regardless of schema creation)
+      await this.pool.query('VACUUM ANALYZE sms_messages');
+      console.log('✅ Updated query planner statistics');
+
+      // List all indexes on sms_messages table
+      const indexes = await this.pool.query(`
+        SELECT indexname, indexdef
+        FROM pg_indexes
+        WHERE tablename = 'sms_messages'
+        ORDER BY indexname
+      `);
+      console.log('📊 SMS indexes:');
+      indexes.rows.forEach(idx => {
+        console.log(`   ${idx.indexname}: ${idx.indexdef}`);
+      });
+
+      // Run EXPLAIN on typical query to see if index is used
+      const explain = await this.pool.query(`
+        EXPLAIN SELECT * FROM sms_messages
+        WHERE user_id = 222478 AND timestamp >= '2025-10-27T00:00:00.000Z' AND timestamp <= '2025-11-02T23:59:59.999Z'
+        ORDER BY timestamp DESC
+      `);
+      console.log('🔍 Query plan for getSMSForUser:');
+      explain.rows.forEach(row => console.log('   ', row['QUERY PLAN']));
+    } catch (error) {
+      console.error('⚠️  Could not list indexes:', error.message);
+    }
   }
 
   async query(text, params) {
