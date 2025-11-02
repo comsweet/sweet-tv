@@ -26,7 +26,7 @@ class PollingService {
     this.adversusAPI = adversusAPI;
     
     // Polling configuration
-    this.pollInterval = parseInt(process.env.POLL_INTERVAL) || 15000;
+    this.pollInterval = parseInt(process.env.POLL_INTERVAL) || 5000; // 5 seconds for fast response
     this.lastCheckTime = new Date(Date.now() - 60000);
     this.isPolling = false;
     
