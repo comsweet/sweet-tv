@@ -115,16 +115,20 @@ router.post('/duplicates/:id/resolve', async (req, res) => {
           // Delete old deal
           await client.query('DELETE FROM deals WHERE id = $1', [pending.existing_deal_id]);
 
-          // Insert new deal
-          await db.insertDeal({
-            leadId: newDealData.leadId,
-            userId: newDealData.userId,
-            campaignId: newDealData.campaignId,
-            commission: newDealData.commission,
-            multiDeals: newDealData.multiDeals,
-            orderDate: newDealData.orderDate,
-            status: newDealData.status
-          });
+          // Insert new deal using client (within transaction)
+          await client.query(
+            `INSERT INTO deals (lead_id, user_id, campaign_id, commission, multi_deals, order_date, status, synced_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+            [
+              newDealData.leadId,
+              newDealData.userId,
+              newDealData.campaignId,
+              newDealData.commission,
+              newDealData.multiDeals || 1,
+              newDealData.orderDate,
+              newDealData.status
+            ]
+          );
 
           console.log(`✅ Approved (replaced old with new): ${pending.lead_id}`);
           break;
@@ -133,16 +137,20 @@ router.post('/duplicates/:id/resolve', async (req, res) => {
           // Delete old deal, insert new
           await client.query('DELETE FROM deals WHERE id = $1', [pending.existing_deal_id]);
 
-          // Insert new deal
-          await db.insertDeal({
-            leadId: newDealData.leadId,
-            userId: newDealData.userId,
-            campaignId: newDealData.campaignId,
-            commission: newDealData.commission,
-            multiDeals: newDealData.multiDeals,
-            orderDate: newDealData.orderDate,
-            status: newDealData.status
-          });
+          // Insert new deal using client (within transaction)
+          await client.query(
+            `INSERT INTO deals (lead_id, user_id, campaign_id, commission, multi_deals, order_date, status, synced_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+            [
+              newDealData.leadId,
+              newDealData.userId,
+              newDealData.campaignId,
+              newDealData.commission,
+              newDealData.multiDeals || 1,
+              newDealData.orderDate,
+              newDealData.status
+            ]
+          );
 
           console.log(`🔄 Replaced old deal with new: ${pending.lead_id}`);
           break;
@@ -153,19 +161,30 @@ router.post('/duplicates/:id/resolve', async (req, res) => {
           break;
 
         case 'merge':
-          // Update existing deal with new values
-          await db.updateDeal(pending.existing_deal_id, {
-            commission: newDealData.commission,
-            orderDate: newDealData.orderDate,
-            multiDeals: newDealData.multiDeals,
-            status: newDealData.status
-          });
+          // Update existing deal with new values using client (within transaction)
+          await client.query(
+            `UPDATE deals
+             SET commission = $1, order_date = $2, multi_deals = $3, status = $4, synced_at = NOW()
+             WHERE id = $5`,
+            [
+              newDealData.commission,
+              newDealData.orderDate,
+              newDealData.multiDeals || 1,
+              newDealData.status,
+              pending.existing_deal_id
+            ]
+          );
           console.log(`🔀 Merged duplicate data: ${pending.lead_id}`);
           break;
       }
 
-      // Mark as resolved
-      await db.resolvePendingDuplicate(id, action, adminName || 'Unknown', note || '');
+      // Mark as resolved using client (within transaction)
+      await client.query(
+        `UPDATE pending_duplicates
+         SET status = 'resolved', resolution = $1, resolved_by = $2, resolved_at = NOW(), note = $3
+         WHERE id = $4`,
+        [action, adminName || 'Unknown', note || '', id]
+      );
 
       await client.query('COMMIT');
 
