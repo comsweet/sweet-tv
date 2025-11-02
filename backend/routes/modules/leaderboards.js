@@ -149,10 +149,44 @@ router.get('/:id/stats', async (req, res) => {
     // Calculate stats
     const stats = {};
 
+    // IMPORTANT: Initialize stats for ALL users first (so users with 0 deals show up)
+    // If userGroups filter is active, only add users from those groups
+    // If no filter, add ALL adversus users
+    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
+      // Filter active: Only users from selected groups
+      const normalizedGroups = leaderboard.userGroups.map(g => String(g));
+      const usersInSelectedGroups = adversusUsers.filter(u => {
+        if (!u.group || !u.group.id) return false;
+        const userGroupId = String(u.group.id);
+        return normalizedGroups.includes(userGroupId);
+      });
+
+      usersInSelectedGroups.forEach(user => {
+        stats[user.id] = {
+          userId: user.id,
+          totalCommission: 0,
+          dealCount: 0
+        };
+      });
+      console.log(`  📋 Initialized ${usersInSelectedGroups.length} users from selected groups`);
+    } else {
+      // No filter: Add ALL adversus users
+      adversusUsers.forEach(user => {
+        stats[user.id] = {
+          userId: user.id,
+          totalCommission: 0,
+          dealCount: 0
+        };
+      });
+      console.log(`  📋 Initialized ${adversusUsers.length} users (no group filter)`);
+    }
+
+    // Then add deal data for users who have deals
     filteredLeads.forEach(lead => {
       const userId = lead.lastContactedBy;
       if (!userId) return;
 
+      // Create entry if user not in adversusUsers (shouldn't happen, but safety)
       if (!stats[userId]) {
         stats[userId] = {
           userId: userId,
@@ -170,31 +204,6 @@ router.get('/:id/stats', async (req, res) => {
       stats[userId].totalCommission += commission;
       stats[userId].dealCount += multiDealsValue;
     });
-
-    // 🔥 ADD ALL AGENTS FROM SELECTED USER GROUPS (even with 0 deals)
-    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
-      const normalizedGroups = leaderboard.userGroups.map(g => String(g));
-
-      // Find all users in selected groups
-      const usersInSelectedGroups = adversusUsers.filter(u => {
-        if (!u.group || !u.group.id) return false;
-        const userGroupId = String(u.group.id);
-        return normalizedGroups.includes(userGroupId);
-      });
-
-      // Add any missing users with 0 deals
-      usersInSelectedGroups.forEach(user => {
-        const userId = String(user.id);
-        if (!stats[userId]) {
-          stats[userId] = {
-            userId: userId,
-            totalCommission: 0,
-            dealCount: 0
-          };
-          console.log(`  ➕ Added agent ${user.name || userId} with 0 deals from group ${user.group.id}`);
-        }
-      });
-    }
 
     // ==================== CAMPAIGN BONUS CALCULATION ====================
     // Beräkna campaign bonus per agent, per dag, per kampanj-grupp
