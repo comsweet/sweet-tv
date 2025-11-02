@@ -119,7 +119,10 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
   };
 
   return (
-    <div className={`rocket-race-vertical ${getResponsiveClass()}`}>
+    <div
+      className={`rocket-race-vertical ${getResponsiveClass()}`}
+      style={{ '--participant-count': participantCount }}
+    >
       {/* Title above finish line */}
       <div className="rocket-race-header">
         <div className="rocket-race-title">
