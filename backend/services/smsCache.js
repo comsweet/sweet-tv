@@ -57,6 +57,11 @@ class SMSCache {
     }
   }
 
+  // Public init method for explicit initialization
+  async init() {
+    await this._ensureInitialized();
+  }
+
   async loadTodayCache() {
     try {
       const { start, end } = this.getTodayWindow();

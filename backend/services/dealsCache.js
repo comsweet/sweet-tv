@@ -49,6 +49,11 @@ class DealsCache {
     }
   }
 
+  // Public init method for explicit initialization (for consistency with smsCache)
+  async init() {
+    await this.initCache();
+  }
+
   async loadTodayCache() {
     try {
       const { start, end } = this.getTodayWindow();
