@@ -418,292 +418,294 @@
 
 /* ============================================================
    TV SIZE OVERRIDES - Stöd för compact/normal/large/xlarge
+   Strategi: Normal använder nuvarande storlekar (inga overrides)
+   Large = lite större, XLarge = bara något större än Large
    ============================================================ */
 
-/* COMPACT SIZE - Minimal storlek för små skärmar */
+/* COMPACT SIZE - Minimal storlek */
 .size-compact .rocket-race-title h2 {
-  font-size: 2em;
+  font-size: 2.5em;
 }
 
-.size-compact .rockets-few .rocket-columns-container { gap: 25px; }
+.size-compact .rockets-few .rocket-columns-container { gap: 30px; }
 .size-compact .rockets-few .rocket-avatar-img,
 .size-compact .rockets-few .rocket-avatar-circle {
+  width: 80px;
+  height: 80px;
+  border-width: 4px;
+}
+.size-compact .rockets-few .rocket-name-text { font-size: 1.6em; }
+.size-compact .rockets-few .rocket-body { font-size: 3.5em; }
+.size-compact .rockets-few .rocket-value-display {
+  font-size: 1.3em;
+  padding: 8px 16px;
+  top: -60px;
+}
+.size-compact .rockets-few .rocket-rank-badge { font-size: 2.2em; }
+.size-compact .rockets-few .rocket-gap-text {
+  font-size: 1.3em;
+  padding: 6px 12px;
+}
+.size-compact .rockets-few .rocket-meta-text { font-size: 1.2em; }
+
+.size-compact .rockets-medium .rocket-columns-container { gap: 25px; }
+.size-compact .rockets-medium .rocket-avatar-img,
+.size-compact .rockets-medium .rocket-avatar-circle {
   width: 70px;
   height: 70px;
   border-width: 4px;
 }
-.size-compact .rockets-few .rocket-name-text { font-size: 1.4em; }
-.size-compact .rockets-few .rocket-body { font-size: 3em; }
-.size-compact .rockets-few .rocket-value-display {
+.size-compact .rockets-medium .rocket-name-text { font-size: 1.4em; }
+.size-compact .rockets-medium .rocket-body { font-size: 3.2em; }
+.size-compact .rockets-medium .rocket-value-display {
   font-size: 1.2em;
   padding: 8px 16px;
-  top: -55px;
+  top: -58px;
 }
-.size-compact .rockets-few .rocket-rank-badge { font-size: 2em; }
-.size-compact .rockets-few .rocket-gap-text {
+.size-compact .rockets-medium .rocket-rank-badge { font-size: 2em; }
+.size-compact .rockets-medium .rocket-gap-text {
   font-size: 1.2em;
   padding: 6px 12px;
 }
-.size-compact .rockets-few .rocket-meta-text { font-size: 1.1em; }
+.size-compact .rockets-medium .rocket-meta-text { font-size: 1.1em; }
 
-.size-compact .rockets-medium .rocket-columns-container { gap: 20px; }
-.size-compact .rockets-medium .rocket-avatar-img,
-.size-compact .rockets-medium .rocket-avatar-circle {
+.size-compact .rockets-many .rocket-columns-container { gap: 20px; }
+.size-compact .rockets-many .rocket-avatar-img,
+.size-compact .rockets-many .rocket-avatar-circle {
+  width: 65px;
+  height: 65px;
+  border-width: 4px;
+}
+.size-compact .rockets-many .rocket-name-text {
+  font-size: 1.3em;
+  max-width: 130px;
+}
+.size-compact .rockets-many .rocket-body { font-size: 3em; }
+.size-compact .rockets-many .rocket-value-display {
+  font-size: 1.1em;
+  padding: 8px 14px;
+  top: -55px;
+}
+.size-compact .rockets-many .rocket-rank-badge { font-size: 1.8em; }
+.size-compact .rockets-many .rocket-gap-text {
+  font-size: 1.1em;
+  padding: 6px 12px;
+}
+.size-compact .rockets-many .rocket-meta-text { font-size: 1em; }
+
+.size-compact .rockets-lots .rocket-columns-container { gap: 15px; }
+.size-compact .rockets-lots .rocket-avatar-img,
+.size-compact .rockets-lots .rocket-avatar-circle {
   width: 60px;
   height: 60px;
   border-width: 3px;
 }
-.size-compact .rockets-medium .rocket-name-text { font-size: 1.2em; }
-.size-compact .rockets-medium .rocket-body { font-size: 2.8em; }
-.size-compact .rockets-medium .rocket-value-display {
-  font-size: 1.1em;
-  padding: 6px 14px;
-  top: -50px;
-}
-.size-compact .rockets-medium .rocket-rank-badge { font-size: 1.8em; }
-.size-compact .rockets-medium .rocket-gap-text {
-  font-size: 1.1em;
-  padding: 5px 10px;
-}
-.size-compact .rockets-medium .rocket-meta-text { font-size: 1em; }
-
-.size-compact .rockets-many .rocket-columns-container { gap: 15px; }
-.size-compact .rockets-many .rocket-avatar-img,
-.size-compact .rockets-many .rocket-avatar-circle {
-  width: 55px;
-  height: 55px;
-  border-width: 3px;
-}
-.size-compact .rockets-many .rocket-name-text {
-  font-size: 1.1em;
+.size-compact .rockets-lots .rocket-name-text {
+  font-size: 1.2em;
   max-width: 120px;
 }
-.size-compact .rockets-many .rocket-body { font-size: 2.6em; }
-.size-compact .rockets-many .rocket-value-display {
+.size-compact .rockets-lots .rocket-body { font-size: 2.8em; }
+.size-compact .rockets-lots .rocket-value-display {
   font-size: 1em;
   padding: 6px 12px;
-  top: -48px;
+  top: -50px;
 }
-.size-compact .rockets-many .rocket-rank-badge { font-size: 1.6em; }
-.size-compact .rockets-many .rocket-gap-text {
-  font-size: 1em;
-  padding: 5px 10px;
-}
-.size-compact .rockets-many .rocket-meta-text { font-size: 0.95em; }
-
-.size-compact .rockets-lots .rocket-columns-container { gap: 12px; }
-.size-compact .rockets-lots .rocket-avatar-img,
-.size-compact .rockets-lots .rocket-avatar-circle {
-  width: 50px;
-  height: 50px;
-  border-width: 3px;
-}
-.size-compact .rockets-lots .rocket-name-text {
-  font-size: 1em;
-  max-width: 100px;
-}
-.size-compact .rockets-lots .rocket-body { font-size: 2.4em; }
-.size-compact .rockets-lots .rocket-value-display {
-  font-size: 0.95em;
-  padding: 5px 10px;
-  top: -45px;
-}
-.size-compact .rockets-lots .rocket-rank-badge { font-size: 1.5em; }
+.size-compact .rockets-lots .rocket-rank-badge { font-size: 1.6em; }
 .size-compact .rockets-lots .rocket-gap-text {
-  font-size: 0.95em;
-  padding: 4px 8px;
+  font-size: 1em;
+  padding: 5px 10px;
 }
-.size-compact .rockets-lots .rocket-meta-text { font-size: 0.9em; }
+.size-compact .rockets-lots .rocket-meta-text { font-size: 0.95em; }
 
-/* NORMAL SIZE - Standard storlek (default, no overrides needed) */
+/* NORMAL SIZE - Använder default-storlekar (inga overrides) */
 
-/* LARGE SIZE - Större för bättre läsbarhet */
+/* LARGE SIZE - Lite större än default */
 .size-large .rocket-race-title h2 {
-  font-size: 4em;
+  font-size: 3.8em;
 }
 
-.size-large .rockets-few .rocket-columns-container { gap: 60px; }
+.size-large .rockets-few .rocket-columns-container { gap: 55px; }
 .size-large .rockets-few .rocket-avatar-img,
 .size-large .rockets-few .rocket-avatar-circle {
-  width: 140px;
-  height: 140px;
-  border-width: 7px;
-}
-.size-large .rockets-few .rocket-name-text { font-size: 2.8em; }
-.size-large .rockets-few .rocket-body { font-size: 5.5em; }
-.size-large .rockets-few .rocket-value-display {
-  font-size: 2em;
-  padding: 14px 28px;
-  top: -90px;
-}
-.size-large .rockets-few .rocket-rank-badge { font-size: 3.4em; }
-.size-large .rockets-few .rocket-gap-text {
-  font-size: 2em;
-  padding: 10px 18px;
-}
-.size-large .rockets-few .rocket-meta-text { font-size: 1.8em; }
-
-.size-large .rockets-medium .rocket-columns-container { gap: 50px; }
-.size-large .rockets-medium .rocket-avatar-img,
-.size-large .rockets-medium .rocket-avatar-circle {
-  width: 120px;
-  height: 120px;
+  width: 130px;
+  height: 130px;
   border-width: 6px;
 }
-.size-large .rockets-medium .rocket-name-text { font-size: 2.4em; }
-.size-large .rockets-medium .rocket-body { font-size: 5em; }
-.size-large .rockets-medium .rocket-value-display {
-  font-size: 1.8em;
+.size-large .rockets-few .rocket-name-text { font-size: 2.6em; }
+.size-large .rockets-few .rocket-body { font-size: 5.3em; }
+.size-large .rockets-few .rocket-value-display {
+  font-size: 1.9em;
   padding: 12px 24px;
   top: -85px;
 }
-.size-large .rockets-medium .rocket-rank-badge { font-size: 3em; }
-.size-large .rockets-medium .rocket-gap-text {
-  font-size: 1.8em;
+.size-large .rockets-few .rocket-rank-badge { font-size: 3.2em; }
+.size-large .rockets-few .rocket-gap-text {
+  font-size: 1.9em;
   padding: 9px 16px;
 }
-.size-large .rockets-medium .rocket-meta-text { font-size: 1.6em; }
+.size-large .rockets-few .rocket-meta-text { font-size: 1.7em; }
 
-.size-large .rockets-many .rocket-columns-container { gap: 40px; }
-.size-large .rockets-many .rocket-avatar-img,
-.size-large .rockets-many .rocket-avatar-circle {
+.size-large .rockets-medium .rocket-columns-container { gap: 45px; }
+.size-large .rockets-medium .rocket-avatar-img,
+.size-large .rockets-medium .rocket-avatar-circle {
   width: 110px;
   height: 110px;
-  border-width: 6px;
+  border-width: 5px;
 }
-.size-large .rockets-many .rocket-name-text {
-  font-size: 2.2em;
-  max-width: 220px;
-}
-.size-large .rockets-many .rocket-body { font-size: 4.8em; }
-.size-large .rockets-many .rocket-value-display {
+.size-large .rockets-medium .rocket-name-text { font-size: 2.2em; }
+.size-large .rockets-medium .rocket-body { font-size: 4.8em; }
+.size-large .rockets-medium .rocket-value-display {
   font-size: 1.7em;
-  padding: 11px 20px;
+  padding: 11px 22px;
   top: -80px;
 }
-.size-large .rockets-many .rocket-rank-badge { font-size: 2.8em; }
-.size-large .rockets-many .rocket-gap-text {
+.size-large .rockets-medium .rocket-rank-badge { font-size: 2.8em; }
+.size-large .rockets-medium .rocket-gap-text {
   font-size: 1.7em;
   padding: 8px 15px;
 }
-.size-large .rockets-many .rocket-meta-text { font-size: 1.5em; }
+.size-large .rockets-medium .rocket-meta-text { font-size: 1.5em; }
 
-.size-large .rockets-lots .rocket-columns-container { gap: 30px; }
-.size-large .rockets-lots .rocket-avatar-img,
-.size-large .rockets-lots .rocket-avatar-circle {
+.size-large .rockets-many .rocket-columns-container { gap: 35px; }
+.size-large .rockets-many .rocket-avatar-img,
+.size-large .rockets-many .rocket-avatar-circle {
   width: 100px;
   height: 100px;
   border-width: 5px;
 }
-.size-large .rockets-lots .rocket-name-text {
+.size-large .rockets-many .rocket-name-text {
   font-size: 2em;
   max-width: 200px;
 }
-.size-large .rockets-lots .rocket-body { font-size: 4.5em; }
-.size-large .rockets-lots .rocket-value-display {
+.size-large .rockets-many .rocket-body { font-size: 4.4em; }
+.size-large .rockets-many .rocket-value-display {
   font-size: 1.6em;
-  padding: 10px 18px;
+  padding: 10px 20px;
   top: -75px;
 }
-.size-large .rockets-lots .rocket-rank-badge { font-size: 2.6em; }
-.size-large .rockets-lots .rocket-gap-text {
+.size-large .rockets-many .rocket-rank-badge { font-size: 2.6em; }
+.size-large .rockets-many .rocket-gap-text {
   font-size: 1.6em;
-  padding: 7px 14px;
+  padding: 8px 14px;
 }
-.size-large .rockets-lots .rocket-meta-text { font-size: 1.4em; }
+.size-large .rockets-many .rocket-meta-text { font-size: 1.4em; }
 
-/* EXTRA LARGE SIZE - Maximal storlek för stora TV-skärmar */
+.size-large .rockets-lots .rocket-columns-container { gap: 25px; }
+.size-large .rockets-lots .rocket-avatar-img,
+.size-large .rockets-lots .rocket-avatar-circle {
+  width: 90px;
+  height: 90px;
+  border-width: 5px;
+}
+.size-large .rockets-lots .rocket-name-text {
+  font-size: 1.8em;
+  max-width: 180px;
+}
+.size-large .rockets-lots .rocket-body { font-size: 4.2em; }
+.size-large .rockets-lots .rocket-value-display {
+  font-size: 1.5em;
+  padding: 9px 18px;
+  top: -70px;
+}
+.size-large .rockets-lots .rocket-rank-badge { font-size: 2.4em; }
+.size-large .rockets-lots .rocket-gap-text {
+  font-size: 1.5em;
+  padding: 7px 13px;
+}
+.size-large .rockets-lots .rocket-meta-text { font-size: 1.3em; }
+
+/* EXTRA LARGE SIZE - Bara något större än Large */
 .size-xlarge .rocket-race-title h2 {
-  font-size: 4.5em;
+  font-size: 4em;
 }
 
-.size-xlarge .rockets-few .rocket-columns-container { gap: 70px; }
+.size-xlarge .rockets-few .rocket-columns-container { gap: 60px; }
 .size-xlarge .rockets-few .rocket-avatar-img,
 .size-xlarge .rockets-few .rocket-avatar-circle {
-  width: 160px;
-  height: 160px;
-  border-width: 8px;
-}
-.size-xlarge .rockets-few .rocket-name-text { font-size: 3.2em; }
-.size-xlarge .rockets-few .rocket-body { font-size: 6em; }
-.size-xlarge .rockets-few .rocket-value-display {
-  font-size: 2.2em;
-  padding: 16px 32px;
-  top: -100px;
-}
-.size-xlarge .rockets-few .rocket-rank-badge { font-size: 3.8em; }
-.size-xlarge .rockets-few .rocket-gap-text {
-  font-size: 2.2em;
-  padding: 12px 20px;
-}
-.size-xlarge .rockets-few .rocket-meta-text { font-size: 2em; }
-
-.size-xlarge .rockets-medium .rocket-columns-container { gap: 60px; }
-.size-xlarge .rockets-medium .rocket-avatar-img,
-.size-xlarge .rockets-medium .rocket-avatar-circle {
   width: 140px;
   height: 140px;
   border-width: 7px;
 }
-.size-xlarge .rockets-medium .rocket-name-text { font-size: 2.8em; }
-.size-xlarge .rockets-medium .rocket-body { font-size: 5.5em; }
-.size-xlarge .rockets-medium .rocket-value-display {
+.size-xlarge .rockets-few .rocket-name-text { font-size: 2.8em; }
+.size-xlarge .rockets-few .rocket-body { font-size: 5.5em; }
+.size-xlarge .rockets-few .rocket-value-display {
   font-size: 2em;
-  padding: 14px 28px;
-  top: -95px;
+  padding: 13px 26px;
+  top: -90px;
 }
-.size-xlarge .rockets-medium .rocket-rank-badge { font-size: 3.4em; }
-.size-xlarge .rockets-medium .rocket-gap-text {
+.size-xlarge .rockets-few .rocket-rank-badge { font-size: 3.4em; }
+.size-xlarge .rockets-few .rocket-gap-text {
   font-size: 2em;
   padding: 10px 18px;
 }
-.size-xlarge .rockets-medium .rocket-meta-text { font-size: 1.8em; }
+.size-xlarge .rockets-few .rocket-meta-text { font-size: 1.8em; }
 
-.size-xlarge .rockets-many .rocket-columns-container { gap: 50px; }
-.size-xlarge .rockets-many .rocket-avatar-img,
-.size-xlarge .rockets-many .rocket-avatar-circle {
-  width: 130px;
-  height: 130px;
-  border-width: 7px;
-}
-.size-xlarge .rockets-many .rocket-name-text {
-  font-size: 2.6em;
-  max-width: 260px;
-}
-.size-xlarge .rockets-many .rocket-body { font-size: 5.2em; }
-.size-xlarge .rockets-many .rocket-value-display {
-  font-size: 1.9em;
-  padding: 12px 24px;
-  top: -90px;
-}
-.size-xlarge .rockets-many .rocket-rank-badge { font-size: 3.2em; }
-.size-xlarge .rockets-many .rocket-gap-text {
-  font-size: 1.9em;
-  padding: 10px 17px;
-}
-.size-xlarge .rockets-many .rocket-meta-text { font-size: 1.7em; }
-
-.size-xlarge .rockets-lots .rocket-columns-container { gap: 40px; }
-.size-xlarge .rockets-lots .rocket-avatar-img,
-.size-xlarge .rockets-lots .rocket-avatar-circle {
+.size-xlarge .rockets-medium .rocket-columns-container { gap: 50px; }
+.size-xlarge .rockets-medium .rocket-avatar-img,
+.size-xlarge .rockets-medium .rocket-avatar-circle {
   width: 120px;
   height: 120px;
   border-width: 6px;
 }
-.size-xlarge .rockets-lots .rocket-name-text {
-  font-size: 2.4em;
-  max-width: 240px;
-}
-.size-xlarge .rockets-lots .rocket-body { font-size: 5em; }
-.size-xlarge .rockets-lots .rocket-value-display {
+.size-xlarge .rockets-medium .rocket-name-text { font-size: 2.4em; }
+.size-xlarge .rockets-medium .rocket-body { font-size: 5em; }
+.size-xlarge .rockets-medium .rocket-value-display {
   font-size: 1.8em;
-  padding: 11px 22px;
+  padding: 12px 24px;
   top: -85px;
 }
-.size-xlarge .rockets-lots .rocket-rank-badge { font-size: 3em; }
-.size-xlarge .rockets-lots .rocket-gap-text {
+.size-xlarge .rockets-medium .rocket-rank-badge { font-size: 3em; }
+.size-xlarge .rockets-medium .rocket-gap-text {
   font-size: 1.8em;
   padding: 9px 16px;
 }
-.size-xlarge .rockets-lots .rocket-meta-text { font-size: 1.6em; }
+.size-xlarge .rockets-medium .rocket-meta-text { font-size: 1.6em; }
+
+.size-xlarge .rockets-many .rocket-columns-container { gap: 40px; }
+.size-xlarge .rockets-many .rocket-avatar-img,
+.size-xlarge .rockets-many .rocket-avatar-circle {
+  width: 110px;
+  height: 110px;
+  border-width: 6px;
+}
+.size-xlarge .rockets-many .rocket-name-text {
+  font-size: 2.2em;
+  max-width: 220px;
+}
+.size-xlarge .rockets-many .rocket-body { font-size: 4.6em; }
+.size-xlarge .rockets-many .rocket-value-display {
+  font-size: 1.7em;
+  padding: 11px 22px;
+  top: -80px;
+}
+.size-xlarge .rockets-many .rocket-rank-badge { font-size: 2.8em; }
+.size-xlarge .rockets-many .rocket-gap-text {
+  font-size: 1.7em;
+  padding: 9px 15px;
+}
+.size-xlarge .rockets-many .rocket-meta-text { font-size: 1.5em; }
+
+.size-xlarge .rockets-lots .rocket-columns-container { gap: 30px; }
+.size-xlarge .rockets-lots .rocket-avatar-img,
+.size-xlarge .rockets-lots .rocket-avatar-circle {
+  width: 100px;
+  height: 100px;
+  border-width: 5px;
+}
+.size-xlarge .rockets-lots .rocket-name-text {
+  font-size: 2em;
+  max-width: 200px;
+}
+.size-xlarge .rockets-lots .rocket-body { font-size: 4.4em; }
+.size-xlarge .rockets-lots .rocket-value-display {
+  font-size: 1.6em;
+  padding: 10px 20px;
+  top: -75px;
+}
+.size-xlarge .rockets-lots .rocket-rank-badge { font-size: 2.6em; }
+.size-xlarge .rockets-lots .rocket-gap-text {
+  font-size: 1.6em;
+  padding: 8px 14px;
+}
+.size-xlarge .rockets-lots .rocket-meta-text { font-size: 1.4em; }
 
