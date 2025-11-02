@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import AdminDashboard from '../components/AdminDashboard';
 import AdminCacheManagement from '../components/AdminCacheManagement';
+import AdminDuplicateManagement from '../components/AdminDuplicateManagement';
 import AdminAutoRefreshSettings from '../components/AdminAutoRefreshSettings';
 import AdminAgents from '../components/AdminAgents';
 import AdminGroups from '../components/AdminGroups';
@@ -41,6 +42,7 @@ const Admin = () => {
     { id: 'auditLogs', icon: '📋', label: 'Audit Logs', section: 'monitoring' },
     { id: 'apiMonitoring', icon: '📈', label: 'API Monitor', section: 'monitoring' },
     { id: 'cache', icon: '🗄️', label: 'Database & Cache', section: 'system' },
+    { id: 'duplicates', icon: '⚠️', label: 'Duplicates', section: 'system' },
     { id: 'settings', icon: '⚙️', label: 'Settings', section: 'system' },
     { id: 'changePassword', icon: '🔒', label: 'Byt Lösenord', section: 'account' },
     { id: 'users', icon: '👤', label: 'Användare', section: 'account', superadmin: isSuperAdmin },
@@ -126,6 +128,7 @@ const Admin = () => {
         <div className="admin-content">
           {activeTab === 'dashboard' && <AdminDashboard />}
           {activeTab === 'cache' && <AdminCacheManagement />}
+          {activeTab === 'duplicates' && <AdminDuplicateManagement />}
           {activeTab === 'agents' && <AdminAgents />}
           {activeTab === 'groups' && <AdminGroups />}
           {activeTab === 'leaderboards' && <AdminLeaderboards />}
