@@ -398,10 +398,9 @@ class SMSCache {
       });
       console.log(`   ✅ Found ${agentSMS.length} SMS in today's cache`);
     } else {
-      // Query PostgreSQL for historical data
+      // Query PostgreSQL for historical data (filtered by user_id in SQL)
       console.log(`   📊 Query spans beyond today, fetching from PostgreSQL...`);
-      const allSMS = await this.getSMSInRange(start, end);
-      agentSMS = allSMS.filter(sms => String(sms.userId) === String(userIdNum));
+      agentSMS = await db.getSMSForUser(userIdNum, start, end);
       console.log(`   ✅ Found ${agentSMS.length} SMS from DB`);
     }
 
