@@ -301,6 +301,15 @@ router.post('/sync-database', async (req, res) => {
       }).filter(deal => deal.userId != null); // Skip deals without user_id
 
       console.log(`📊 Filtered to ${deals.length} deals with user_id`);
+
+      // Delete deals that exist in DB but are NOT in Adversus anymore (Smart UPSERT)
+      // This handles deals that were removed/cancelled in Adversus
+      const leadIds = deals.map(d => d.leadId);
+      const deletedCount = await db.deleteDealsNotInList(new Date(start), new Date(end), leadIds);
+      if (deletedCount > 0) {
+        console.log(`🗑️  Deleted ${deletedCount} deals no longer in Adversus`);
+      }
+
       await db.batchInsertDeals(deals);
 
       // Fetch SMS

@@ -77,6 +77,7 @@ class SMSCache {
       console.log(`📱 Loaded ${todaySMS.length} SMS into today's cache`);
     } catch (error) {
       console.error('❌ Error loading today SMS cache:', error);
+      throw error; // Re-throw so caller knows it failed
     }
   }
 

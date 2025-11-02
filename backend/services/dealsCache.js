@@ -74,6 +74,7 @@ class DealsCache {
       console.log(`💾 Loaded ${todayDeals.length} deals into today's cache`);
     } catch (error) {
       console.error('❌ Error loading today cache:', error);
+      throw error; // Re-throw so caller knows it failed
     }
   }
 
@@ -409,6 +410,14 @@ class DealsCache {
 
       if (skippedDeals > 0) {
         console.log(`⚠️  Skipped ${skippedDeals} deals without user_id`);
+      }
+
+      // Delete deals that exist in DB but are NOT in Adversus anymore (Smart UPSERT)
+      // This handles deals that were removed/cancelled in Adversus
+      const leadIds = validDeals.map(d => d.leadId);
+      const deletedCount = await db.deleteDealsNotInList(startDate, endDate, leadIds);
+      if (deletedCount > 0) {
+        console.log(`🗑️  Deleted ${deletedCount} deals no longer in Adversus`);
       }
 
       // Batch insert/update to PostgreSQL
