@@ -62,7 +62,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 15px 0;
+  padding: 10px 0;
   background: repeating-linear-gradient(
     90deg,
     #212121 0px,
@@ -72,16 +72,6 @@
   );
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   z-index: 2;
-}
-
-.finish-flag {
-  font-size: 2.5em;
-  animation: wave 2s ease-in-out infinite;
-}
-
-@keyframes wave {
-  0%, 100% { transform: rotate(-5deg); }
-  50% { transform: rotate(5deg); }
 }
 
 .rocket-columns-container {
@@ -203,6 +193,7 @@
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
   animation: rocket-hover 1s ease-in-out infinite;
   transform: rotate(-45deg);
+  position: relative; /* For flame positioning */
 }
 
 @keyframes rocket-hover {
@@ -212,16 +203,16 @@
 
 .rocket-flame {
   position: absolute;
-  bottom: -18px; /* Flame below rocket */
+  bottom: -15px; /* Flame below rocket emoji */
   left: 50%;
-  transform: translateX(-50%) rotate(180deg); /* Centered and pointing straight down */
-  font-size: 1.2em;
+  transform: translateX(-50%) rotate(225deg); /* Centered and pointing down-left (opposite rocket direction) */
+  font-size: 0.4em; /* Relative to rocket-body font-size */
   animation: flame 0.3s ease-in-out infinite;
 }
 
 @keyframes flame {
-  0%, 100% { opacity: 1; transform: translateX(-50%) rotate(180deg) scale(1); }
-  50% { opacity: 0.7; transform: translateX(-50%) rotate(180deg) scale(1.3); }
+  0%, 100% { opacity: 1; transform: translateX(-50%) rotate(225deg) scale(1); }
+  50% { opacity: 0.7; transform: translateX(-50%) rotate(225deg) scale(1.3); }
 }
 
 .rocket-sprite.leader-rocket .rocket-body {

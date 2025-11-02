@@ -98,8 +98,10 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
             {/* Value ABOVE rocket - doesn't cover anything */}
             <div className="rocket-value-display">{formatValue(stat)}</div>
 
-            <div className="rocket-body">🚀</div>
-            <div className="rocket-flame">🔥</div>
+            <div className="rocket-body">
+              🚀
+              <div className="rocket-flame">🔥</div>
+            </div>
             {isLeader && <div className="rocket-crown">👑</div>}
           </div>
         </div>
@@ -125,7 +127,7 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
         </div>
 
         <div className="finish-zone">
-          <div className="finish-flag">🏁</div>
+          {/* Checkered finish line - no flag */}
         </div>
       </div>
 
