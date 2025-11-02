@@ -111,27 +111,108 @@
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  gap: 15px;
-  height: calc(100vh - 380px); /* More space for info below */
+  height: calc(100vh - 380px);
   margin-top: 100px;
   position: relative;
   z-index: 1;
   flex-wrap: nowrap;
-  overflow-x: hidden;
-  padding: 0 15px;
+  width: 100%;
+  padding: 0 20px;
 }
 
+/* Base rocket column */
 .rocket-column {
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 0 0 auto;
-  width: 180px; /* Much wider columns */
   gap: 10px;
 }
 
+/* Responsive sizes based on participant count */
+/* 1-3 participants: LARGE bars (like classic bar chart) */
+.rockets-few .rocket-columns-container {
+  gap: 30px;
+}
+.rockets-few .rocket-column {
+  width: 220px;
+}
+.rockets-few .rocket-trail {
+  width: 180px;
+}
+.rockets-few .rocket-avatar-img,
+.rockets-few .rocket-avatar-circle {
+  width: 80px;
+  height: 80px;
+}
+.rockets-few .rocket-name-text {
+  font-size: 1.5em;
+}
+
+/* 4-5 participants: Medium-Large bars */
+.rockets-medium .rocket-columns-container {
+  gap: 20px;
+}
+.rockets-medium .rocket-column {
+  width: 180px;
+}
+.rockets-medium .rocket-trail {
+  width: 140px;
+}
+
+/* 6-8 participants: Medium bars */
+.rockets-many .rocket-columns-container {
+  gap: 15px;
+}
+.rockets-many .rocket-column {
+  width: 140px;
+}
+.rockets-many .rocket-trail {
+  width: 100px;
+}
+.rockets-many .rocket-avatar-img,
+.rockets-many .rocket-avatar-circle {
+  width: 55px;
+  height: 55px;
+}
+.rockets-many .rocket-name-text {
+  font-size: 1.2em;
+  max-width: 130px;
+}
+
+/* 9+ participants: Compact bars (fit more on screen) */
+.rockets-lots .rocket-columns-container {
+  gap: 10px;
+  padding: 0 10px;
+}
+.rockets-lots .rocket-column {
+  width: 110px;
+}
+.rockets-lots .rocket-trail {
+  width: 75px;
+}
+.rockets-lots .rocket-avatar-img,
+.rockets-lots .rocket-avatar-circle {
+  width: 45px;
+  height: 45px;
+}
+.rockets-lots .rocket-name-text {
+  font-size: 1em;
+  max-width: 100px;
+}
+.rockets-lots .rocket-value-display {
+  font-size: 1.1em;
+  min-width: 100px;
+  padding: 6px 10px;
+}
+.rockets-lots .rocket-gap-text {
+  font-size: 1.1em;
+}
+.rockets-lots .rocket-rank-badge {
+  font-size: 1.5em;
+}
+
 .rocket-trail {
-  width: 140px; /* Much wider bars - like real bar charts */
   height: 100%;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 20px;
@@ -330,62 +411,6 @@
   background: rgba(0, 0, 0, 0.4);
   padding: 4px 10px;
   border-radius: 12px;
-}
-
-/* Auto-scroll support for horizontal scrolling */
-.rocket-columns-wrapper {
-  display: flex;
-  align-items: flex-end;
-  gap: 20px;
-  height: calc(100vh - 380px);
-  margin-top: 100px;
-  position: relative;
-  z-index: 1;
-  overflow: hidden;
-  padding: 0 15px;
-}
-
-.rocket-frozen-first {
-  flex-shrink: 0;
-}
-
-.rocket-frozen-first .rocket-column {
-  filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.6));
-}
-
-.rocket-scroll-container {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-  height: 100%;
-  display: flex;
-  align-items: flex-end;
-}
-
-.rocket-scroll-content {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: 15px;
-}
-
-/* Auto-scroll animation - horizontal */
-.rocket-scroll-content.scrolling {
-  animation: rocketAutoScroll var(--scroll-duration, 30s) linear infinite;
-}
-
-@keyframes rocketAutoScroll {
-  0%, 1% {
-    transform: translateX(0);
-  }
-  99%, 100% {
-    transform: translateX(var(--scroll-distance, -1000px));
-  }
-}
-
-/* Pause scroll on hover (for testing) */
-.rocket-scroll-container:hover .rocket-scroll-content.scrolling {
-  animation-play-state: paused;
 }
 
 /* Responsive */
