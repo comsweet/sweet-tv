@@ -1,50 +1,6 @@
-import { useRef, useEffect } from 'react';
-import './RaceLayout.css';
+import './RocketRaceLayout.css';
 
-const RaceLayout = ({ stats, leaderboard, displayMode }) => {
-  const scrollContainerRef = useRef(null);
-  const scrollContentRef = useRef(null);
-
-  // Auto-scroll logic (similar to Slideshow table)
-  useEffect(() => {
-    const enableAutoScroll = leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true;
-
-    if (!enableAutoScroll || stats.length <= 1) return;
-
-    const container = scrollContainerRef.current;
-    const content = scrollContentRef.current;
-
-    if (!container || !content) return;
-
-    // Calculate scroll distance
-    const containerHeight = container.clientHeight;
-    const contentHeight = content.scrollHeight;
-    const scrollDistance = contentHeight - containerHeight;
-
-    if (scrollDistance <= 0) {
-      // Nothing to scroll
-      return;
-    }
-
-    // Dynamic scroll speed: 25 pixels per second
-    const SCROLL_SPEED = 25;
-    const scrollDuration = scrollDistance / SCROLL_SPEED;
-    const totalDuration = scrollDuration * 1.1; // Add 10% for pauses
-
-    // Set CSS variables for animation
-    container.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
-    container.style.setProperty('--scroll-duration', `${totalDuration}s`);
-
-    // Start animation
-    content.classList.add('scrolling');
-
-    return () => {
-      if (content) {
-        content.classList.remove('scrolling');
-      }
-    };
-  }, [stats, leaderboard.enableAutoScroll]); // Track full stats array, not just length
-
+const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
   const getTotalValue = (stat) => {
     if (leaderboard.sortBy === 'dealCount') {
       return stat.dealCount || 0;
@@ -59,14 +15,14 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
   const goalValue = leaderboard.goalValue || maxValue;
 
   const getProgressPercentage = (value) => {
-    return Math.min((value / goalValue) * 95, 95);
+    return Math.min((value / goalValue) * 90, 90); // Max 90% to leave space for finish
   };
 
   const getRankIcon = (index) => {
     if (index === 0) return '🥇';
     if (index === 1) return '🥈';
     if (index === 2) return '🥉';
-    return `#${index + 1}`;
+    return <span className="rocket-rank-number">#{index + 1}</span>;
   };
 
   const formatValue = (stat) => {
@@ -81,7 +37,7 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
     if (leaderboard.goalLabel) {
       return leaderboard.goalLabel;
     }
-    return 'Löpar-Race till Målet!';
+    return 'Race mot målet!';
   };
 
   const getGoalText = () => {
@@ -91,126 +47,97 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
     return `${goalValue.toLocaleString('sv-SE')} THB`;
   };
 
-  const getRunnerIcon = (index) => {
-    // Use better running emoji
-    if (index === 0) return '🏃‍♂️';
-    if (index === 1 || index === 2) return '🏃';
-    return '🚶';
-  };
-
-  const renderRunner = (stat, index) => {
+  const renderRocket = (stat, index) => {
     const value = getTotalValue(stat);
     const percentage = getProgressPercentage(value);
     const isGroup = displayMode === 'groups';
     const isLeader = index === 0;
 
     return (
-      <div key={stat.userId || stat.groupName || index} className="race-lane">
-        <div className="race-info">
-          <span className="race-rank">{getRankIcon(index)}</span>
+      <div key={stat.userId || stat.groupName || index} className="rocket-column">
+        {/* Participant info at BOTTOM - always visible */}
+        <div className="rocket-participant-info">
+          <span className="rocket-rank-badge">{getRankIcon(index)}</span>
 
-          <div className="race-participant">
-            {!isGroup && stat.agent?.profileImage ? (
-              <img
-                src={stat.agent.profileImage}
-                alt={stat.agent?.name || stat.groupName || 'Unknown'}
-                className="race-avatar"
-              />
-            ) : (
-              <div className="race-avatar-placeholder">
-                {isGroup ? '👥' : (stat.agent?.name || stat.groupName || '?').charAt(0)}
-              </div>
-            )}
-
-            <div className="race-name-section">
-              <div className="race-name">
-                {isGroup ? stat.groupName : stat.agent?.name || 'Unknown'}
-              </div>
-              {isGroup && (
-                <div className="race-meta">{stat.agentCount} agenter</div>
-              )}
+          {!isGroup && stat.agent?.profileImage ? (
+            <img
+              src={stat.agent.profileImage}
+              alt={stat.agent?.name || stat.groupName || 'Unknown'}
+              className="rocket-avatar-img"
+            />
+          ) : (
+            <div className="rocket-avatar-circle">
+              {isGroup ? '👥' : (stat.agent?.name || stat.groupName || '?').charAt(0)}
             </div>
-          </div>
-        </div>
+          )}
 
-        <div className="race-track">
-          <div className="race-track-lines">
-            <div className="track-line"></div>
-            <div className="track-line"></div>
+          <div className="rocket-name-text">
+            {isGroup ? stat.groupName : stat.agent?.name || 'Unknown'}
           </div>
 
-          <div
-            className={`runner ${isLeader ? 'runner-leader' : ''}`}
-            style={{ left: `${percentage}%` }}
-          >
-            <div className="runner-icon">{getRunnerIcon(index)}</div>
-            <div className="runner-value">{formatValue(stat)}</div>
-            {isLeader && (
-              <div className="runner-crown">👑</div>
-            )}
-          </div>
+          {isGroup && (
+            <div className="rocket-meta-text">{stat.agentCount} agenter</div>
+          )}
 
-          {isLeader && percentage > 60 && (
-            <div className="runner-cheers">🎉</div>
+          {stat.gapToLeader !== undefined && stat.gapToLeader > 0 && (
+            <div className="rocket-gap-text">
+              -{leaderboard.sortBy === 'dealCount'
+                ? `${stat.gapToLeader} affärer`
+                : `${stat.gapToLeader.toLocaleString('sv-SE')} THB`}
+            </div>
           )}
         </div>
 
-        {stat.gapToLeader !== undefined && stat.gapToLeader > 0 && (
-          <div className="race-gap">
-            🏁 {leaderboard.sortBy === 'dealCount'
-              ? `${stat.gapToLeader} affärer`
-              : `${stat.gapToLeader.toLocaleString('sv-SE')} THB`} bakom
+        {/* Thin trail line - see space background through it */}
+        <div className="rocket-trail">
+          {/* Rocket flying at the right height */}
+          <div
+            className={`rocket-sprite ${isLeader ? 'leader-rocket' : ''}`}
+            style={{ bottom: `${percentage}%` }}
+          >
+            {/* Value ABOVE rocket - doesn't cover anything */}
+            <div className="rocket-value-display">{formatValue(stat)}</div>
+
+            <div className="rocket-body">
+              🚀
+              <div className="rocket-flame">🔥</div>
+            </div>
+            {isLeader && <div className="rocket-crown">👑</div>}
           </div>
-        )}
+        </div>
       </div>
     );
   };
 
-  const enableAutoScroll = leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true;
-  const firstPlace = stats[0];
-  const scrollableStats = stats.slice(1);
+  // Calculate responsive column width based on number of participants
+  const participantCount = stats.length;
+  const getResponsiveClass = () => {
+    if (participantCount <= 3) return 'rockets-few'; // 3 or less
+    if (participantCount <= 5) return 'rockets-medium'; // 4-5
+    if (participantCount <= 8) return 'rockets-many'; // 6-8
+    if (participantCount <= 9) return 'rockets-lots'; // 9
+    return 'rockets-max'; // 10+
+  };
 
   return (
-    <div className="race-layout">
-      <div className="race-header">
-        <h2>{getGoalLabel()}</h2>
-        <div className="race-goal">
-          <span className="goal-label">Målgång:</span>
-          <span className="goal-value">{getGoalText()}</span>
+    <div className={`rocket-race-vertical ${getResponsiveClass()}`}>
+      {/* Title above finish line */}
+      <div className="rocket-race-header">
+        <div className="rocket-race-title">
+          <h2>{getGoalLabel()}</h2>
+        </div>
+
+        <div className="finish-zone">
+          {/* Checkered finish line - no flag */}
         </div>
       </div>
 
-      <div className="race-stadium">
-        {/* If auto-scroll enabled and more than 1 stat, use frozen + scroll structure */}
-        {enableAutoScroll && stats.length > 1 ? (
-          <>
-            {/* Frozen first place */}
-            {firstPlace && (
-              <div className="race-frozen-first">
-                {renderRunner(firstPlace, 0)}
-              </div>
-            )}
-
-            {/* Auto-scrolling section for the rest */}
-            {scrollableStats.length > 0 && (
-              <div className="race-scroll-container" ref={scrollContainerRef}>
-                <div className="race-scroll-content" ref={scrollContentRef}>
-                  {scrollableStats.map((stat, idx) => renderRunner(stat, idx + 1))}
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          /* No auto-scroll: show all runners normally */
-          stats.map((stat, index) => renderRunner(stat, index))
-        )}
-      </div>
-
-      <div className="race-finish-line">
-        <div className="finish-banner">🏁 MÅLGÅNG 🏁</div>
+      {/* Rockets fly upward toward finish line */}
+      <div className="rocket-columns-container">
+        {stats.map((stat, index) => renderRocket(stat, index))}
       </div>
     </div>
   );
 };
 
-export default RaceLayout;
+export default RocketRaceLayout;
