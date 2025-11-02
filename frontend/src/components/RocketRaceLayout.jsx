@@ -1,6 +1,49 @@
+import { useRef, useEffect } from 'react';
 import './RocketRaceLayout.css';
 
 const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
+  const scrollContainerRef = useRef(null);
+  const scrollContentRef = useRef(null);
+
+  // Auto-scroll logic
+  useEffect(() => {
+    const enableAutoScroll = leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true;
+
+    if (!enableAutoScroll || stats.length <= 1) return;
+
+    const container = scrollContainerRef.current;
+    const content = scrollContentRef.current;
+
+    if (!container || !content) return;
+
+    // Calculate scroll distance
+    const containerWidth = container.clientWidth;
+    const contentWidth = content.scrollWidth;
+    const scrollDistance = contentWidth - containerWidth;
+
+    if (scrollDistance <= 0) {
+      return;
+    }
+
+    // Dynamic scroll speed: 25 pixels per second
+    const SCROLL_SPEED = 25;
+    const scrollDuration = scrollDistance / SCROLL_SPEED;
+    const totalDuration = scrollDuration * 1.1; // Add 10% for pauses
+
+    // Set CSS variables for animation
+    container.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
+    container.style.setProperty('--scroll-duration', `${totalDuration}s`);
+
+    // Start animation
+    content.classList.add('scrolling');
+
+    return () => {
+      if (content) {
+        content.classList.remove('scrolling');
+      }
+    };
+  }, [stats, leaderboard.enableAutoScroll]); // Track full stats array, not just length
+
   const getTotalValue = (stat) => {
     if (leaderboard.sortBy === 'dealCount') {
       return stat.dealCount || 0;
@@ -55,6 +98,10 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
 
     return (
       <div key={stat.userId || stat.groupName || index} className="rocket-column">
+        {/* Value display at top of bar */}
+        <div className="rocket-value-display">{formatValue(stat)}</div>
+
+        {/* Vertical bar with rocket */}
         <div className="rocket-trail">
           <div
             className={`rocket-fill ${isLeader ? 'leader-fill' : ''}`}
@@ -71,14 +118,9 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
             <div className="rocket-body">🚀</div>
             {isLeader && <div className="rocket-crown">👑</div>}
           </div>
-
-          {percentage > 60 && isLeader && (
-            <div className="rocket-sparkle" style={{ bottom: `${percentage - 10}%` }}>✨</div>
-          )}
         </div>
 
-        <div className="rocket-value-display">{formatValue(stat)}</div>
-
+        {/* Participant info below bar - ALWAYS VISIBLE */}
         <div className="rocket-participant-info">
           <span className="rocket-rank-badge">{getRankIcon(index)}</span>
 
@@ -114,6 +156,10 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
     );
   };
 
+  const enableAutoScroll = leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true;
+  const firstPlace = stats[0];
+  const scrollableStats = stats.slice(1);
+
   return (
     <div className="rocket-race-vertical">
       <div className="rocket-race-title">
@@ -129,9 +175,31 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
         <div className="finish-text">MÅLGÅNG</div>
       </div>
 
-      <div className="rocket-columns-container">
-        {stats.map((stat, index) => renderRocket(stat, index))}
-      </div>
+      {/* Rockets container with optional auto-scroll */}
+      {enableAutoScroll && stats.length > 1 ? (
+        <div className="rocket-columns-wrapper">
+          {/* Frozen first place */}
+          {firstPlace && (
+            <div className="rocket-frozen-first">
+              {renderRocket(firstPlace, 0)}
+            </div>
+          )}
+
+          {/* Auto-scrolling section for the rest */}
+          {scrollableStats.length > 0 && (
+            <div className="rocket-scroll-container" ref={scrollContainerRef}>
+              <div className="rocket-scroll-content" ref={scrollContentRef}>
+                {scrollableStats.map((stat, idx) => renderRocket(stat, idx + 1))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* No auto-scroll: show all rockets normally */
+        <div className="rocket-columns-container">
+          {stats.map((stat, index) => renderRocket(stat, index))}
+        </div>
+      )}
     </div>
   );
 };
