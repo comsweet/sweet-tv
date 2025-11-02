@@ -302,7 +302,7 @@ class SMSCache {
    * Unique = distinct receiver per DATE (not per hour)
    * Example: 5 SMS to +46701234567 on 2025-11-02 = 1 unique SMS
    */
-  getUniqueSMSForAgent(userId, startDate, endDate) {
+  async getUniqueSMSForAgent(userId, startDate, endDate) {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const userIdNum = parseInt(userId);
@@ -323,10 +323,11 @@ class SMSCache {
       });
       console.log(`   ✅ Found ${agentSMS.length} SMS in today's cache`);
     } else {
-      // Query PostgreSQL (sync call - may need refactoring)
-      console.log(`   ⚠️  Query spans beyond today, need to query DB (not implemented yet)`);
-      // TODO: Make this async or pre-fetch from DB
-      return 0;
+      // Query PostgreSQL for historical data
+      console.log(`   📊 Query spans beyond today, fetching from PostgreSQL...`);
+      const allSMS = await this.getSMSInRange(start, end);
+      agentSMS = allSMS.filter(sms => String(sms.userId) === String(userIdNum));
+      console.log(`   ✅ Found ${agentSMS.length} SMS from DB`);
     }
 
     // Group by receiver + date (YYYY-MM-DD)
@@ -353,9 +354,9 @@ class SMSCache {
    * @param {number} dealCount - Already calculated deal count (with multiDeals)
    * @returns {Object} { uniqueSMS, successRate }
    */
-  getSMSSuccessRate(userId, startDate, endDate, dealCount) {
+  async getSMSSuccessRate(userId, startDate, endDate, dealCount) {
     const userIdNum = parseInt(userId);
-    const uniqueSMS = this.getUniqueSMSForAgent(userIdNum, startDate, endDate);
+    const uniqueSMS = await this.getUniqueSMSForAgent(userIdNum, startDate, endDate);
     const successRate = uniqueSMS > 0 ? (dealCount / uniqueSMS * 100) : 0;
 
     return {
@@ -367,9 +368,9 @@ class SMSCache {
   /**
    * Get today's unique SMS count for an agent
    */
-  getTodayUniqueSMSForAgent(userId) {
+  async getTodayUniqueSMSForAgent(userId) {
     const { start, end } = this.getTodayWindow();
-    return this.getUniqueSMSForAgent(userId, start.toISOString(), end.toISOString());
+    return await this.getUniqueSMSForAgent(userId, start.toISOString(), end.toISOString());
   }
 
   /**
