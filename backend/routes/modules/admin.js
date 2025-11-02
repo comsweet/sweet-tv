@@ -266,6 +266,8 @@ router.post('/sync-database', async (req, res) => {
       await db.query('TRUNCATE TABLE sms_messages CASCADE');
       await db.query('TRUNCATE TABLE pending_duplicates CASCADE');
 
+      console.log('✅ Truncate complete - all tables empty');
+
       // Determine date range
       const rollingWindow = dealsCache.getRollingWindow();
       const start = startDate || rollingWindow.startDate.toISOString();
@@ -276,6 +278,8 @@ router.post('/sync-database', async (req, res) => {
       // Fetch deals
       const dealsResult = await adversusAPI.getLeadsInDateRange(new Date(start), new Date(end));
       const leads = dealsResult.leads || [];
+
+      console.log(`📊 Adversus returned ${leads.length} leads (before filtering)`);
 
       const deals = leads.map(lead => {
         const commissionField = lead.resultData?.find(f => f.id === 70163);
@@ -302,15 +306,12 @@ router.post('/sync-database', async (req, res) => {
 
       console.log(`📊 Filtered to ${deals.length} deals with user_id`);
 
-      // Delete deals that exist in DB but are NOT in Adversus anymore (Smart UPSERT)
-      // This handles deals that were removed/cancelled in Adversus
-      const leadIds = deals.map(d => d.leadId);
-      const deletedCount = await db.deleteDealsNotInList(new Date(start), new Date(end), leadIds);
-      if (deletedCount > 0) {
-        console.log(`🗑️  Deleted ${deletedCount} deals no longer in Adversus`);
-      }
+      // NOTE: No need to delete deals - we already truncated the entire table
+      console.log(`💾 Inserting ${deals.length} deals into empty database...`);
 
       await db.batchInsertDeals(deals);
+
+      console.log(`✅ Batch insert complete`);
 
       // Fetch SMS
       const smsResult = await adversusAPI.getSMS({
@@ -333,8 +334,11 @@ router.post('/sync-database', async (req, res) => {
       await db.batchInsertSMS(smsData);
 
       // Reload caches
+      console.log('🔄 Reloading caches from database...');
       await dealsCache.invalidateCache();
       await smsCache.invalidateCache();
+
+      console.log(`✅ Full sync complete: ${deals.length} deals, ${smsData.length} SMS`);
 
       res.json({
         success: true,

@@ -57,7 +57,14 @@ class DealsCache {
   async loadTodayCache() {
     try {
       const { start, end } = this.getTodayWindow();
+      console.log(`🔍 Loading today cache: ${start.toISOString()} → ${end.toISOString()}`);
+
       const todayDeals = await db.getDealsInRange(start, end);
+      console.log(`📊 DB returned ${todayDeals.length} deals for today`);
+
+      if (todayDeals.length > 0) {
+        console.log(`   First deal: lead_id=${todayDeals[0].lead_id}, user_id=${todayDeals[0].user_id}, commission=${todayDeals[0].commission}`);
+      }
 
       // Populate cache
       this.todayCache.clear();
@@ -71,7 +78,7 @@ class DealsCache {
         this.todayUserTotals.set(deal.user_id, currentTotal + parseFloat(deal.commission || 0));
       }
 
-      console.log(`💾 Loaded ${todayDeals.length} deals into today's cache`);
+      console.log(`💾 Loaded ${todayDeals.length} deals into today's cache (cache size: ${this.todayCache.size})`);
     } catch (error) {
       console.error('❌ Error loading today cache:', error);
       throw error; // Re-throw so caller knows it failed
