@@ -43,7 +43,7 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
         content.classList.remove('scrolling');
       }
     };
-  }, [stats.length, leaderboard.enableAutoScroll]);
+  }, [stats, leaderboard.enableAutoScroll]); // Track full stats array, not just length
 
   const getTotalValue = (stat) => {
     if (leaderboard.sortBy === 'dealCount') {

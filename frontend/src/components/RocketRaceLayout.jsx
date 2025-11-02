@@ -55,6 +55,10 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
 
     return (
       <div key={stat.userId || stat.groupName || index} className="rocket-column">
+        {/* Value display at top of bar */}
+        <div className="rocket-value-display">{formatValue(stat)}</div>
+
+        {/* Vertical bar with rocket */}
         <div className="rocket-trail">
           <div
             className={`rocket-fill ${isLeader ? 'leader-fill' : ''}`}
@@ -71,14 +75,9 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
             <div className="rocket-body">🚀</div>
             {isLeader && <div className="rocket-crown">👑</div>}
           </div>
-
-          {percentage > 60 && isLeader && (
-            <div className="rocket-sparkle" style={{ bottom: `${percentage - 10}%` }}>✨</div>
-          )}
         </div>
 
-        <div className="rocket-value-display">{formatValue(stat)}</div>
-
+        {/* Participant info below bar - ALWAYS VISIBLE */}
         <div className="rocket-participant-info">
           <span className="rocket-rank-badge">{getRankIcon(index)}</span>
 
@@ -114,8 +113,17 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
     );
   };
 
+  // Calculate responsive column width based on number of participants
+  const participantCount = stats.length;
+  const getResponsiveClass = () => {
+    if (participantCount <= 3) return 'rockets-few'; // 3 or less
+    if (participantCount <= 5) return 'rockets-medium'; // 4-5
+    if (participantCount <= 8) return 'rockets-many'; // 6-8
+    return 'rockets-lots'; // 9+
+  };
+
   return (
-    <div className="rocket-race-vertical">
+    <div className={`rocket-race-vertical ${getResponsiveClass()}`}>
       <div className="rocket-race-title">
         <h2>{getGoalLabel()}</h2>
         <div className="rocket-goal-info">
@@ -129,6 +137,7 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
         <div className="finish-text">MÅLGÅNG</div>
       </div>
 
+      {/* All rockets visible at once - like a bar chart */}
       <div className="rocket-columns-container">
         {stats.map((stat, index) => renderRocket(stat, index))}
       </div>
