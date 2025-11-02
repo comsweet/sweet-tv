@@ -264,6 +264,15 @@ class PollingService {
         this.pendingDeals.delete(lead.id);
       }
 
+      // 🔥 CRITICAL: Sync new SMS immediately so leaderboard shows correct numbers
+      // This only fetches NEW SMS since last sync (not all 85k!)
+      try {
+        await this.smsCache.pollNewSMS(this.adversusAPI);
+        console.log(`📱 SMS synced after deal`);
+      } catch (error) {
+        console.error(`⚠️  SMS sync failed (non-critical):`, error.message);
+      }
+
       // Clear leaderboard cache so new stats are recalculated
       this.leaderboardCache.clear();
 
