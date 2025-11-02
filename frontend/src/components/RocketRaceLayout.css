@@ -265,10 +265,10 @@
 
 .rocket-flame {
   position: absolute;
-  bottom: -8px; /* Mycket närmare raketen */
+  bottom: -14px; /* Precis under raketen */
   left: 50%;
   transform: translateX(-50%) rotate(45deg); /* Counter-rotate flame so it points down */
-  font-size: 0.6em; /* Något större */
+  font-size: 0.6em;
   animation: flame 0.3s ease-in-out infinite;
   transform-origin: center top; /* Rotate from top of flame */
 }
