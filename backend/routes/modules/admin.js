@@ -181,7 +181,7 @@ router.post('/duplicates/:id/resolve', async (req, res) => {
       // Mark as resolved using client (within transaction)
       await client.query(
         `UPDATE pending_duplicates
-         SET status = 'resolved', resolution = $1, resolved_by = $2, resolved_at = NOW(), note = $3
+         SET status = 'resolved', resolution = $1, resolved_by = $2, resolved_at = NOW(), resolution_note = $3
          WHERE id = $4`,
         [action, adminName || 'Unknown', note || '', id]
       );
