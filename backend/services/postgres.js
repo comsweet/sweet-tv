@@ -66,6 +66,22 @@ class PostgresService {
 
       await this.pool.query(schemaSql);
       console.log('✅ Database schema initialized');
+
+      // Update statistics for query planner
+      await this.pool.query('VACUUM ANALYZE sms_messages');
+      console.log('✅ Updated query planner statistics');
+
+      // List all indexes on sms_messages table
+      const indexes = await this.pool.query(`
+        SELECT indexname, indexdef
+        FROM pg_indexes
+        WHERE tablename = 'sms_messages'
+        ORDER BY indexname
+      `);
+      console.log('📊 SMS indexes:');
+      indexes.rows.forEach(idx => {
+        console.log(`   ${idx.indexname}: ${idx.indexdef}`);
+      });
     } catch (error) {
       // Schema errors are OK if tables already exist
       if (error.code === '42P07' || error.code === '42710') {
@@ -625,6 +641,19 @@ class PostgresService {
   }
 
   async getSMSForUser(userId, startDate, endDate) {
+    // Use EXPLAIN ANALYZE to debug slow queries (first call only)
+    if (!this._explainLogged) {
+      this._explainLogged = true;
+      const explain = await this.query(
+        `EXPLAIN ANALYZE SELECT * FROM sms_messages
+         WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3
+         ORDER BY timestamp DESC`,
+        [userId, startDate, endDate]
+      );
+      console.log('📊 EXPLAIN ANALYZE for getSMSForUser:');
+      explain.rows.forEach(row => console.log('   ', row['QUERY PLAN']));
+    }
+
     const result = await this.query(
       `SELECT * FROM sms_messages
        WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3
