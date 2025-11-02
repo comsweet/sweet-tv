@@ -1,6 +1,50 @@
+import { useRef, useEffect } from 'react';
 import './RaceLayout.css';
 
 const RaceLayout = ({ stats, leaderboard, displayMode }) => {
+  const scrollContainerRef = useRef(null);
+  const scrollContentRef = useRef(null);
+
+  // Auto-scroll logic (similar to Slideshow table)
+  useEffect(() => {
+    const enableAutoScroll = leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true;
+
+    if (!enableAutoScroll || stats.length <= 1) return;
+
+    const container = scrollContainerRef.current;
+    const content = scrollContentRef.current;
+
+    if (!container || !content) return;
+
+    // Calculate scroll distance
+    const containerHeight = container.clientHeight;
+    const contentHeight = content.scrollHeight;
+    const scrollDistance = contentHeight - containerHeight;
+
+    if (scrollDistance <= 0) {
+      // Nothing to scroll
+      return;
+    }
+
+    // Dynamic scroll speed: 25 pixels per second
+    const SCROLL_SPEED = 25;
+    const scrollDuration = scrollDistance / SCROLL_SPEED;
+    const totalDuration = scrollDuration * 1.1; // Add 10% for pauses
+
+    // Set CSS variables for animation
+    container.style.setProperty('--scroll-distance', `-${scrollDistance}px`);
+    container.style.setProperty('--scroll-duration', `${totalDuration}s`);
+
+    // Start animation
+    content.classList.add('scrolling');
+
+    return () => {
+      if (content) {
+        content.classList.remove('scrolling');
+      }
+    };
+  }, [stats.length, leaderboard.enableAutoScroll]);
+
   const getTotalValue = (stat) => {
     if (leaderboard.sortBy === 'dealCount') {
       return stat.dealCount || 0;
@@ -122,6 +166,10 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
     );
   };
 
+  const enableAutoScroll = leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true;
+  const firstPlace = stats[0];
+  const scrollableStats = stats.slice(1);
+
   return (
     <div className="race-layout">
       <div className="race-header">
@@ -133,7 +181,29 @@ const RaceLayout = ({ stats, leaderboard, displayMode }) => {
       </div>
 
       <div className="race-stadium">
-        {stats.map((stat, index) => renderRunner(stat, index))}
+        {/* If auto-scroll enabled and more than 1 stat, use frozen + scroll structure */}
+        {enableAutoScroll && stats.length > 1 ? (
+          <>
+            {/* Frozen first place */}
+            {firstPlace && (
+              <div className="race-frozen-first">
+                {renderRunner(firstPlace, 0)}
+              </div>
+            )}
+
+            {/* Auto-scrolling section for the rest */}
+            {scrollableStats.length > 0 && (
+              <div className="race-scroll-container" ref={scrollContainerRef}>
+                <div className="race-scroll-content" ref={scrollContentRef}>
+                  {scrollableStats.map((stat, idx) => renderRunner(stat, idx + 1))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          /* No auto-scroll: show all runners normally */
+          stats.map((stat, index) => renderRunner(stat, index))
+        )}
       </div>
 
       <div className="race-finish-line">

@@ -76,6 +76,8 @@ class LeaderboardService {
       // Goal configuration for race modes
       goalValue: leaderboard.goalValue || null, // null = auto (max value), number = custom goal
       goalLabel: leaderboard.goalLabel || '', // e.g., "Race mot 100k!"
+      // Auto-scroll configuration
+      enableAutoScroll: leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true,
       active: leaderboard.active !== undefined ? leaderboard.active : true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()

@@ -38,7 +38,9 @@ export const useLeaderboards = () => {
     showMiniStats: false,
     // Goal configuration
     goalValue: null, // null = auto
-    goalLabel: ''
+    goalLabel: '',
+    // Auto-scroll configuration
+    enableAutoScroll: true
   });
 
   const fetchLeaderboards = async () => {
@@ -78,7 +80,9 @@ export const useLeaderboards = () => {
       showMiniStats: false,
       // Goal configuration
       goalValue: null,
-      goalLabel: ''
+      goalLabel: '',
+      // Auto-scroll configuration
+      enableAutoScroll: true
     });
     setShowModal(true);
   };
@@ -110,7 +114,9 @@ export const useLeaderboards = () => {
       showMiniStats: leaderboard.showMiniStats !== undefined ? leaderboard.showMiniStats : false,
       // Goal configuration
       goalValue: leaderboard.goalValue || null,
-      goalLabel: leaderboard.goalLabel || ''
+      goalLabel: leaderboard.goalLabel || '',
+      // Auto-scroll configuration
+      enableAutoScroll: leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true
     });
     setShowModal(true);
   };
