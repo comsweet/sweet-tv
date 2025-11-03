@@ -10,6 +10,11 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode, displaySize = 'norm
     return stat.totalCommission || 0;
   };
 
+  const getDisplayName = (name) => {
+    if (!name) return 'Unknown';
+    return name.split(' ')[0];
+  };
+
   // Use goalValue if set, otherwise use max value
   const maxValue = Math.max(...stats.map(s => getTotalValue(s)), 1);
   const goalValue = leaderboard.goalValue || maxValue;
@@ -72,7 +77,7 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode, displaySize = 'norm
           )}
 
           <div className="rocket-name-text">
-            {isGroup ? stat.groupName : stat.agent?.name || 'Unknown'}
+            {isGroup ? stat.groupName : getDisplayName(stat.agent?.name)}
           </div>
 
           {isGroup && (
