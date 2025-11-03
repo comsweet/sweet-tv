@@ -311,7 +311,22 @@ router.post('/sync-database', async (req, res) => {
           orderDate: orderDateField?.value || lead.lastUpdatedTime,
           status: lead.status
         };
-      }).filter(deal => deal.userId != null); // Skip deals without user_id
+      }).filter(deal => {
+        // Skip deals without user_id
+        if (deal.userId == null) {
+          console.log(`⚠️  Skipping lead ${deal.leadId}: no userId`);
+          return false;
+        }
+
+        // Skip deals where userId is not a valid integer (e.g. campaign name string)
+        const userIdNum = parseInt(deal.userId);
+        if (isNaN(userIdNum) || userIdNum.toString() !== deal.userId.toString()) {
+          console.log(`⚠️  Skipping lead ${deal.leadId}: invalid userId "${deal.userId}" (expected integer, got ${typeof deal.userId})`);
+          return false;
+        }
+
+        return true;
+      });
 
       console.log(`📊 Filtered to ${deals.length} deals with user_id`);
 
