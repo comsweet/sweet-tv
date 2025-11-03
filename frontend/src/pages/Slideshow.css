@@ -296,8 +296,7 @@
 }
 
 .slideshow-right-columns {
-  display: grid;
-  grid-template-columns: 120px 110px 140px 140px 150px;
+  display: flex;
   align-items: center;
   gap: 0.7rem;
   justify-self: end;
@@ -593,7 +592,6 @@
 }
 
 .size-compact .slideshow-right-columns {
-  grid-template-columns: 95px 95px 120px 120px 125px;
   gap: 0.5rem;
 }
 
@@ -694,7 +692,6 @@
 }
 
 .size-large .slideshow-right-columns {
-  grid-template-columns: 145px 135px 170px 170px 180px;
   gap: 1rem;
 }
 
@@ -795,7 +792,6 @@
 }
 
 .size-xlarge .slideshow-right-columns {
-  grid-template-columns: 170px 160px 200px 200px 210px;
   gap: 1.3rem;
 }
 
@@ -923,7 +919,6 @@
   }
 
   .slideshow-right-columns {
-    grid-template-columns: 100px 90px 120px 120px 125px;
     gap: 0.5rem;
   }
 }
