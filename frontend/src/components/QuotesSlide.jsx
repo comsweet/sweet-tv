@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getCurrentQuotes } from '../services/api';
 import './QuotesSlide.css';
 
 const QuotesSlide = ({ isActive, tvSize }) => {
@@ -16,8 +17,8 @@ const QuotesSlide = ({ isActive, tvSize }) => {
 
   const fetchQuotes = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/quotes-slide/current`);
-      const data = await response.json();
+      const response = await getCurrentQuotes();
+      const data = response.data;
 
       if (data.quotes && data.quotes.length > 0) {
         setQuotes(data.quotes);
