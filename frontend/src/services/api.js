@@ -185,4 +185,15 @@ export const getThresholdsForPeriod = (timePeriod) => api.get(`/thresholds/${tim
 export const updateThresholds = (timePeriod, data) => api.put(`/thresholds/${timePeriod}`, data);
 export const resetThresholds = () => api.post('/thresholds/reset');
 
+// Quotes Slide
+export const getQuotesSlideConfig = () => api.get('/quotes-slide/config');
+export const updateQuotesSlideConfig = (data) => api.put('/quotes-slide/config', data);
+export const refreshQuotesSlide = () => api.post('/quotes-slide/refresh');
+export const getCurrentQuotes = () => api.get('/quotes-slide/current');
+export const getAllQuotes = () => api.get('/quotes-slide/all');
+export const getQuote = (id) => api.get(`/quotes-slide/quote/${id}`);
+export const createQuote = (data) => api.post('/quotes-slide/quote', data);
+export const updateQuote = (id, data) => api.put(`/quotes-slide/quote/${id}`, data);
+export const deleteQuote = (id) => api.delete(`/quotes-slide/quote/${id}`);
+
 export default api;

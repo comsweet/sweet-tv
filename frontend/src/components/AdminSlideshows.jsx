@@ -212,10 +212,15 @@ const AdminSlideshows = () => {
 
               <div className="form-group">
                 <div className="section-header-inline">
-                  <label>📊 Slides (Leaderboards med individuella tider):</label>
-                  <button onClick={addSlide} className="btn-secondary btn-sm">
-                    ➕ Lägg till slide
-                  </button>
+                  <label>📊 Slides (Leaderboards & Quotes med individuella tider):</label>
+                  <div className="add-slide-buttons">
+                    <button onClick={() => addSlide('leaderboard')} className="btn-secondary btn-sm">
+                      ➕ Leaderboard
+                    </button>
+                    <button onClick={() => addSlide('quotes')} className="btn-secondary btn-sm">
+                      ➕ Quotes
+                    </button>
+                  </div>
                 </div>
 
                 {form.slides.length === 0 ? (
@@ -227,13 +232,14 @@ const AdminSlideshows = () => {
                     <div className="slides-list">
                       {form.slides.map((slide, index) => {
                         const selectedLb = leaderboards.find(lb => lb.id === slide.leaderboardId);
+                        const isQuotes = slide.type === 'quotes';
 
                         return (
-                          <div key={index} className="slide-config-card">
+                          <div key={index} className={`slide-config-card ${isQuotes ? 'quotes-slide' : ''}`}>
                             <div className="slide-config-header">
                               <div className="slide-number">
                                 <span className="slide-badge">#{index + 1}</span>
-                                <h4>Slide {index + 1}</h4>
+                                <h4>{isQuotes ? '💬 Quotes Slide' : `📊 Slide ${index + 1}`}</h4>
                               </div>
                               <div className="slide-actions">
                                 <button
@@ -263,34 +269,41 @@ const AdminSlideshows = () => {
                             </div>
 
                             <div className="slide-config-body">
-                              <div className="form-group">
-                                <label>Leaderboard:</label>
-                                <select
-                                  value={slide.leaderboardId || ''}
-                                  onChange={(e) => updateSlide(index, 'leaderboardId', e.target.value)}
-                                  className={!slide.leaderboardId ? 'select-error' : ''}
-                                >
-                                  <option value="">Välj leaderboard...</option>
-                                  {leaderboards.map(lb => (
-                                    <option key={lb.id} value={lb.id}>
-                                      {lb.name}
-                                    </option>
-                                  ))}
-                                </select>
-                                {selectedLb && (
-                                  <div className="lb-meta-badges">
-                                    <span className="meta-badge">
-                                      {selectedLb.timePeriod === 'day' && '📅 Dag'}
-                                      {selectedLb.timePeriod === 'week' && '📅 Vecka'}
-                                      {selectedLb.timePeriod === 'month' && '📅 Månad'}
-                                      {selectedLb.timePeriod === 'custom' && '📅 Anpassad'}
-                                    </span>
-                                    <span className="meta-badge">
-                                      {selectedLb.userGroups?.length === 0 ? '👥 Alla' : `👥 ${selectedLb.userGroups.length}`}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
+                              {isQuotes ? (
+                                <div className="quotes-slide-info">
+                                  <p>✨ Visar 2 motiverande citat från databasen</p>
+                                  <p>Konfigureras i <strong>Quotes</strong>-sektionen</p>
+                                </div>
+                              ) : (
+                                <div className="form-group">
+                                  <label>Leaderboard:</label>
+                                  <select
+                                    value={slide.leaderboardId || ''}
+                                    onChange={(e) => updateSlide(index, 'leaderboardId', e.target.value)}
+                                    className={!slide.leaderboardId ? 'select-error' : ''}
+                                  >
+                                    <option value="">Välj leaderboard...</option>
+                                    {leaderboards.map(lb => (
+                                      <option key={lb.id} value={lb.id}>
+                                        {lb.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {selectedLb && (
+                                    <div className="lb-meta-badges">
+                                      <span className="meta-badge">
+                                        {selectedLb.timePeriod === 'day' && '📅 Dag'}
+                                        {selectedLb.timePeriod === 'week' && '📅 Vecka'}
+                                        {selectedLb.timePeriod === 'month' && '📅 Månad'}
+                                        {selectedLb.timePeriod === 'custom' && '📅 Anpassad'}
+                                      </span>
+                                      <span className="meta-badge">
+                                        {selectedLb.userGroups?.length === 0 ? '👥 Alla' : `👥 ${selectedLb.userGroups.length}`}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
 
                               <div className="form-group">
                                 <label>⏱️ Visningstid:</label>

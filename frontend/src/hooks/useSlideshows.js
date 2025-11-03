@@ -74,9 +74,12 @@ export const useSlideshows = () => {
         throw new Error('Lägg till minst en slide!');
       }
 
-      const invalidSlides = form.slides.filter(slide => !slide.leaderboardId);
-      if (invalidSlides.length > 0) {
-        throw new Error('Alla slides måste ha en leaderboard vald!');
+      // Validate leaderboard slides have leaderboardId
+      const invalidLeaderboardSlides = form.slides.filter(
+        slide => slide.type !== 'quotes' && !slide.leaderboardId
+      );
+      if (invalidLeaderboardSlides.length > 0) {
+        throw new Error('Alla leaderboard-slides måste ha en leaderboard vald!');
       }
 
       if (editingSlideshow) {
@@ -116,14 +119,17 @@ export const useSlideshows = () => {
     }
   };
 
-  const addSlide = () => {
-    setForm(prev => ({
-      ...prev,
-      slides: [
-        ...prev.slides,
-        { leaderboardId: null, duration: prev.duration || 30 }
-      ]
-    }));
+  const addSlide = (type = 'leaderboard') => {
+    setForm(prev => {
+      const newSlide = type === 'quotes'
+        ? { type: 'quotes', duration: prev.duration || 15 }
+        : { type: 'leaderboard', leaderboardId: null, duration: prev.duration || 30 };
+
+      return {
+        ...prev,
+        slides: [...prev.slides, newSlide]
+      };
+    });
   };
 
   const removeSlide = (index) => {
