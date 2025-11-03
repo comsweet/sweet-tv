@@ -187,41 +187,35 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
           animationDelay: isActive && !isFrozen ? `${index * 0.1}s` : '0s'
         }}
       >
-        {/* Vänster-grupp: rank, avatar, name */}
-        <div className="slideshow-left-group">
-          <div className="slideshow-rank">
-            {index === 0 && !isZeroDeals && isFrozen && '🥇'}
-            {index === 1 && !isZeroDeals && !isFrozen && '🥈'}
-            {index === 2 && !isZeroDeals && !isFrozen && '🥉'}
-            {((index > 2 && !isFrozen) || (index > 0 && isFrozen) || isZeroDeals) && `#${index + 1}`}
-          </div>
-
-          {item.agent && item.agent.profileImage ? (
-            <img
-              src={item.agent.profileImage}
-              alt={item.agent.name || 'Agent'}
-              className="slideshow-avatar"
-            />
-          ) : (
-            <div className="slideshow-avatar-placeholder">
-              {item.agent && item.agent.name ? item.agent.name.charAt(0) : '?'}
-            </div>
-          )}
-
-          <div className="slideshow-info">
-            <h3 className={`slideshow-name ${isZeroDeals ? 'zero-deals' : ''}`}>
-              {item.agent ? item.agent.name : 'Unknown'}
-              {item.agent && item.agent.groupName && (
-                <span className="user-group-badge">[{item.agent.groupName}]</span>
-              )}
-            </h3>
-          </div>
+        <div className="slideshow-rank">
+          {index === 0 && !isZeroDeals && isFrozen && '🥇'}
+          {index === 1 && !isZeroDeals && !isFrozen && '🥈'}
+          {index === 2 && !isZeroDeals && !isFrozen && '🥉'}
+          {((index > 2 && !isFrozen) || (index > 0 && isFrozen) || isZeroDeals) && `#${index + 1}`}
         </div>
 
-        {/* Höger-grupp: data columns */}
-        <div className="slideshow-right-group">
-          {renderColumnsInOrder(item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate)}
+        {item.agent && item.agent.profileImage ? (
+          <img
+            src={item.agent.profileImage}
+            alt={item.agent.name || 'Agent'}
+            className="slideshow-avatar"
+          />
+        ) : (
+          <div className="slideshow-avatar-placeholder">
+            {item.agent && item.agent.name ? item.agent.name.charAt(0) : '?'}
+          </div>
+        )}
+
+        <div className="slideshow-info">
+          <h3 className={`slideshow-name ${isZeroDeals ? 'zero-deals' : ''}`}>
+            {item.agent ? item.agent.name : 'Unknown'}
+            {item.agent && item.agent.groupName && (
+              <span className="user-group-badge">[{item.agent.groupName}]</span>
+            )}
+          </h3>
         </div>
+
+        {renderColumnsInOrder(item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate)}
       </div>
     );
   };
