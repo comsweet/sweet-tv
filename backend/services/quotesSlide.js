@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
+const postgres = require('./postgres');
 
 class QuotesSlideService {
   constructor() {
@@ -11,12 +12,10 @@ class QuotesSlideService {
       : path.join(__dirname, '../data');
 
     this.configFile = path.join(this.dbPath, 'quotesSlideConfig.json');
-    this.quotesFile = path.join(__dirname, '../../frontend/public/data/quotes.json');
 
     console.log(`💾 Quotes slide config path: ${this.dbPath} (isRender: ${isRender})`);
-    console.log(`📖 Quotes library path: ${this.quotesFile}`);
+    console.log(`📊 Quotes library: Postgres database`);
 
-    this.allQuotes = null; // Cache för alla citat
     this.initDatabase();
   }
 
@@ -34,27 +33,24 @@ class QuotesSlideService {
           mode: 'random', // 'random' eller 'manual'
           refreshInterval: 3600000, // 1 timme i millisekunder
           lastRefresh: new Date().toISOString(),
-          selectedQuotes: []
+          selectedQuoteIds: [] // Changed from selectedQuotes to selectedQuoteIds (array of IDs)
         };
         await fs.writeFile(this.configFile, JSON.stringify(defaultConfig, null, 2));
         console.log('📝 Created quotesSlideConfig.json with defaults');
       }
 
-      // Ladda alla citat från quotes.json
-      await this.loadAllQuotes();
+      // Ensure Postgres is initialized
+      await postgres.init();
+
+      // Check quotes count
+      const count = await postgres.getQuotesCount();
+      console.log(`📚 Quotes in database: ${count}`);
+
+      if (count === 0) {
+        console.log('⚠️  No quotes in database! Run: node backend/scripts/migrate-quotes.js');
+      }
     } catch (error) {
       console.error('Error initializing quotes slide database:', error);
-    }
-  }
-
-  async loadAllQuotes() {
-    try {
-      const data = await fs.readFile(this.quotesFile, 'utf8');
-      this.allQuotes = JSON.parse(data);
-      console.log(`📚 Loaded ${this.allQuotes.length} quotes from library`);
-    } catch (error) {
-      console.error('Error loading quotes library:', error);
-      this.allQuotes = [];
     }
   }
 
@@ -86,14 +82,29 @@ class QuotesSlideService {
     }
   }
 
-  // Välj 2 random citat från biblioteket
-  selectRandomQuotes(count = 2) {
-    if (!this.allQuotes || this.allQuotes.length === 0) {
+  // Välj 2 random citat från databasen (prioriterar quotes som visats minst)
+  async selectRandomQuotes(count = 2) {
+    try {
+      const activeQuotes = await postgres.getActiveQuotes();
+
+      if (activeQuotes.length === 0) {
+        return [];
+      }
+
+      // Shuffle and take first 'count' quotes
+      const shuffled = [...activeQuotes].sort(() => 0.5 - Math.random());
+      const selected = shuffled.slice(0, Math.min(count, activeQuotes.length));
+
+      // Increment times_shown for selected quotes
+      for (const quote of selected) {
+        await postgres.incrementQuoteTimesShown(quote.id);
+      }
+
+      return selected;
+    } catch (error) {
+      console.error('Error selecting random quotes:', error);
       return [];
     }
-
-    const shuffled = [...this.allQuotes].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, Math.min(count, this.allQuotes.length));
   }
 
   // Hämta aktuella citat (kontrollera om refresh behövs)
@@ -108,10 +119,20 @@ class QuotesSlideService {
       };
     }
 
-    // Om manual mode, returnera de valda citaten
+    // Om manual mode, hämta de valda citaten från databasen
     if (config.mode === 'manual') {
+      const quoteIds = config.selectedQuoteIds || [];
+      const quotes = [];
+
+      for (const id of quoteIds) {
+        const quote = await postgres.getQuote(id);
+        if (quote) {
+          quotes.push(quote);
+        }
+      }
+
       return {
-        quotes: config.selectedQuotes || [],
+        quotes: quotes,
         config: config
       };
     }
@@ -122,34 +143,46 @@ class QuotesSlideService {
     const timeSinceRefresh = now - lastRefresh;
 
     // Om det är dags för refresh (eller om inga citat är valda)
-    if (timeSinceRefresh >= config.refreshInterval || !config.selectedQuotes || config.selectedQuotes.length === 0) {
+    if (timeSinceRefresh >= config.refreshInterval || !config.selectedQuoteIds || config.selectedQuoteIds.length === 0) {
       console.log('🔄 Refreshing random quotes...');
-      const newQuotes = this.selectRandomQuotes(2);
+      const newQuotes = await this.selectRandomQuotes(2);
+      const newQuoteIds = newQuotes.map(q => q.id);
 
       await this.updateConfig({
-        selectedQuotes: newQuotes,
+        selectedQuoteIds: newQuoteIds,
         lastRefresh: new Date().toISOString()
       });
 
       return {
         quotes: newQuotes,
-        config: { ...config, selectedQuotes: newQuotes, lastRefresh: new Date().toISOString() }
+        config: { ...config, selectedQuoteIds: newQuoteIds, lastRefresh: new Date().toISOString() }
       };
     }
 
-    // Annars returnera befintliga citat
+    // Annars hämta befintliga citat från databasen
+    const quoteIds = config.selectedQuoteIds || [];
+    const quotes = [];
+
+    for (const id of quoteIds) {
+      const quote = await postgres.getQuote(id);
+      if (quote) {
+        quotes.push(quote);
+      }
+    }
+
     return {
-      quotes: config.selectedQuotes,
+      quotes: quotes,
       config: config
     };
   }
 
   // Manuell refresh (välj nya random citat direkt)
   async refreshNow() {
-    const newQuotes = this.selectRandomQuotes(2);
+    const newQuotes = await this.selectRandomQuotes(2);
+    const newQuoteIds = newQuotes.map(q => q.id);
 
     const config = await this.updateConfig({
-      selectedQuotes: newQuotes,
+      selectedQuoteIds: newQuoteIds,
       lastRefresh: new Date().toISOString()
     });
 
@@ -161,8 +194,13 @@ class QuotesSlideService {
   }
 
   // Hämta alla tillgängliga citat (för admin UI)
-  getAllQuotes() {
-    return this.allQuotes || [];
+  async getAllQuotes() {
+    try {
+      return await postgres.getAllQuotes();
+    } catch (error) {
+      console.error('Error getting all quotes:', error);
+      return [];
+    }
   }
 }
 
