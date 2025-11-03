@@ -24,10 +24,11 @@ const AdminQuotes = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Pagination
+  // Pagination & Filtering
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const quotesPerPage = 20;
+  const [quotesPerPage, setQuotesPerPage] = useState(100);
+  const [showOnlySelected, setShowOnlySelected] = useState(false);
 
   // Modal for add/edit quote
   const [showModal, setShowModal] = useState(false);
@@ -137,17 +138,37 @@ const AdminQuotes = () => {
     }));
   };
 
-  // Filter quotes by search term
-  const filteredQuotes = allQuotes.filter(q =>
+  // Filter and sort quotes
+  let filteredQuotes = allQuotes.filter(q =>
     q.quote.toLowerCase().includes(searchTerm.toLowerCase()) ||
     q.attribution.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Filter by selected only (if enabled)
+  if (showOnlySelected && config.mode === 'manual') {
+    filteredQuotes = filteredQuotes.filter(q => config.selectedQuoteIds.includes(q.id));
+  }
+
+  // Sort: Selected quotes first (when in manual mode)
+  if (config.mode === 'manual') {
+    filteredQuotes = filteredQuotes.sort((a, b) => {
+      const aSelected = config.selectedQuoteIds.includes(a.id);
+      const bSelected = config.selectedQuoteIds.includes(b.id);
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+      return 0;
+    });
+  }
+
   // Pagination
   const indexOfLastQuote = currentPage * quotesPerPage;
   const indexOfFirstQuote = indexOfLastQuote - quotesPerPage;
-  const paginatedQuotes = filteredQuotes.slice(indexOfFirstQuote, indexOfLastQuote);
-  const totalPages = Math.ceil(filteredQuotes.length / quotesPerPage);
+  const paginatedQuotes = quotesPerPage === -1
+    ? filteredQuotes
+    : filteredQuotes.slice(indexOfFirstQuote, indexOfLastQuote);
+  const totalPages = quotesPerPage === -1
+    ? 1
+    : Math.ceil(filteredQuotes.length / quotesPerPage);
 
   const formatInterval = (seconds) => {
     if (seconds < 60) return `${seconds}s`;
@@ -263,10 +284,40 @@ const AdminQuotes = () => {
             }}
             className="search-input"
           />
-          <div className="library-stats">
-            Visar {filteredQuotes.length} av {allQuotes.length} citat
-            {config.mode === 'manual' && ` (${config.selectedQuoteIds.length} valda)`}
+
+          <div className="library-filters">
+            {config.mode === 'manual' && (
+              <button
+                onClick={() => {
+                  setShowOnlySelected(!showOnlySelected);
+                  setCurrentPage(1);
+                }}
+                className={`filter-btn ${showOnlySelected ? 'active' : ''}`}
+                title={showOnlySelected ? 'Visa alla citat' : 'Visa bara valda citat'}
+              >
+                {showOnlySelected ? '✓ Bara valda' : 'Visa bara valda'}
+              </button>
+            )}
+
+            <select
+              value={quotesPerPage}
+              onChange={(e) => {
+                setQuotesPerPage(parseInt(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="per-page-selector"
+            >
+              <option value="50">50 per sida</option>
+              <option value="100">100 per sida</option>
+              <option value="200">200 per sida</option>
+              <option value="-1">Alla ({allQuotes.length})</option>
+            </select>
           </div>
+        </div>
+
+        <div className="library-stats">
+          Visar {paginatedQuotes.length} av {filteredQuotes.length} citat
+          {config.mode === 'manual' && ` (${config.selectedQuoteIds.length} valda)`}
         </div>
 
         {/* Quotes Table */}
@@ -323,7 +374,7 @@ const AdminQuotes = () => {
         </table>
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {totalPages > 1 && quotesPerPage !== -1 && (
           <div className="pagination">
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
