@@ -384,6 +384,8 @@
   color: #2c3e50;
   text-align: center;
   white-space: nowrap;
+  width: 120px;
+  flex-shrink: 0;
 }
 
 .slideshow-deals-column .emoji {
@@ -406,6 +408,8 @@
   min-height: 48px;
   border: 3px solid;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  width: 110px;
+  flex-shrink: 0;
 }
 
 .slideshow-sms-box.sms-green {
@@ -457,6 +461,8 @@
   font-weight: bold;
   text-align: right;
   white-space: nowrap;
+  width: 140px;
+  flex-shrink: 0;
 }
 
 .slideshow-commission.zero {
@@ -485,6 +491,8 @@
   color: #f39c12;
   text-align: center;
   white-space: nowrap;
+  width: 140px;
+  flex-shrink: 0;
 }
 
 .slideshow-campaign-bonus .emoji {
@@ -523,6 +531,8 @@
   border: 3px solid;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   white-space: nowrap;
+  width: 150px;
+  flex-shrink: 0;
 }
 
 .slideshow-total .emoji {
@@ -613,6 +623,7 @@
 .size-compact .slideshow-deals-column {
   font-size: 0.95rem;
   gap: 0.4rem;
+  width: 95px;
 }
 
 .size-compact .slideshow-deals-column .emoji {
@@ -622,6 +633,7 @@
 .size-compact .slideshow-sms-box {
   padding: 0.3rem 0.5rem;
   min-height: 36px;
+  width: 95px;
 }
 
 .size-compact .slideshow-sms-box .sms-rate {
@@ -634,11 +646,13 @@
 
 .size-compact .slideshow-commission {
   font-size: 0.95rem;
+  width: 120px;
 }
 
 .size-compact .slideshow-campaign-bonus {
   font-size: 0.95rem;
   gap: 0.4rem;
+  width: 120px;
 }
 
 .size-compact .slideshow-campaign-bonus .emoji {
@@ -654,6 +668,7 @@
   padding: 0.3rem 0.5rem;
   min-height: 36px;
   gap: 0.4rem;
+  width: 125px;
 }
 
 .size-compact .slideshow-total .emoji {
@@ -713,6 +728,7 @@
 .size-large .slideshow-deals-column {
   font-size: 1.4rem;
   gap: 0.6rem;
+  width: 145px;
 }
 
 .size-large .slideshow-deals-column .emoji {
@@ -722,6 +738,7 @@
 .size-large .slideshow-sms-box {
   padding: 0.6rem 0.9rem;
   min-height: 52px;
+  width: 135px;
 }
 
 .size-large .slideshow-sms-box .sms-rate {
@@ -734,11 +751,13 @@
 
 .size-large .slideshow-commission {
   font-size: 1.4rem;
+  width: 170px;
 }
 
 .size-large .slideshow-campaign-bonus {
   font-size: 1.4rem;
   gap: 0.6rem;
+  width: 170px;
 }
 
 .size-large .slideshow-campaign-bonus .emoji {
@@ -754,6 +773,7 @@
   padding: 0.6rem 0.9rem;
   min-height: 52px;
   gap: 0.6rem;
+  width: 180px;
 }
 
 .size-large .slideshow-total .emoji {
@@ -813,6 +833,7 @@
 .size-xlarge .slideshow-deals-column {
   font-size: 1.75rem;
   gap: 0.7rem;
+  width: 170px;
 }
 
 .size-xlarge .slideshow-deals-column .emoji {
@@ -822,6 +843,7 @@
 .size-xlarge .slideshow-sms-box {
   padding: 0.8rem 1.1rem;
   min-height: 65px;
+  width: 160px;
 }
 
 .size-xlarge .slideshow-sms-box .sms-rate {
@@ -834,11 +856,13 @@
 
 .size-xlarge .slideshow-commission {
   font-size: 1.75rem;
+  width: 200px;
 }
 
 .size-xlarge .slideshow-campaign-bonus {
   font-size: 1.75rem;
   gap: 0.7rem;
+  width: 200px;
 }
 
 .size-xlarge .slideshow-campaign-bonus .emoji {
@@ -854,6 +878,7 @@
   padding: 0.8rem 1.1rem;
   min-height: 65px;
   gap: 0.7rem;
+  width: 210px;
 }
 
 .size-xlarge .slideshow-total .emoji {
