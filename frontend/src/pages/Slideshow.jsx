@@ -215,6 +215,9 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
           </h3>
         </div>
 
+        {/* Spacer för att pusha höger-kolumner till höger */}
+        <div className="slideshow-spacer"></div>
+
         {/* Render columns in configured order */}
         {renderColumnsInOrder(item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate)}
       </div>
