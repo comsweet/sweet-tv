@@ -10,6 +10,7 @@ import { getSlideshow, getLeaderboardStats2, getAutoRefreshSettings, getThreshol
 import DealNotification from '../components/DealNotification';
 import TVAccessCodeModal from '../components/TVAccessCodeModal';
 import LeaderboardVisualizer from '../components/LeaderboardVisualizer';
+import QuotesSlide from '../components/QuotesSlide';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -401,29 +402,43 @@ const Slideshow = () => {
 
       for (let i = 0; i < slidesConfig.length; i++) {
         const slideConfig = slidesConfig[i];
-        const lbId = slideConfig.leaderboardId || slideConfig;
         const slideDuration = slideConfig.duration || slideshowData.duration || 30;
 
-        try {
-          const statsResponse = await getLeaderboardStats2(lbId);
-          const stats = statsResponse.data.stats || [];
-          const miniStats = statsResponse.data.miniStats || null;
+        // Check if this is a quotes slide
+        if (slideConfig.type === 'quotes') {
+          console.log(`   💬 Refreshing quotes slide ${i + 1}/${slidesConfig.length}`);
 
           leaderboardsWithStats.push({
-            leaderboard: statsResponse.data.leaderboard,
-            stats: stats,
-            miniStats: miniStats,
+            type: 'quotes',
             duration: slideDuration
           });
+        }
+        // Otherwise it's a leaderboard slide
+        else {
+          const lbId = slideConfig.leaderboardId || slideConfig;
 
-          const totalDeals = stats.reduce((sum, s) => sum + (s.dealCount || 0), 0);
-          console.log(`   🔄 Refreshed "${statsResponse.data.leaderboard.name}": ${stats.length} agents, ${totalDeals} deals`);
+          try {
+            const statsResponse = await getLeaderboardStats2(lbId);
+            const stats = statsResponse.data.stats || [];
+            const miniStats = statsResponse.data.miniStats || null;
 
-          if (i < slidesConfig.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            leaderboardsWithStats.push({
+              type: 'leaderboard',
+              leaderboard: statsResponse.data.leaderboard,
+              stats: stats,
+              miniStats: miniStats,
+              duration: slideDuration
+            });
+
+            const totalDeals = stats.reduce((sum, s) => sum + (s.dealCount || 0), 0);
+            console.log(`   🔄 Refreshed "${statsResponse.data.leaderboard.name}": ${stats.length} agents, ${totalDeals} deals`);
+
+            if (i < slidesConfig.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          } catch (error) {
+            console.error(`   ❌ Error refreshing leaderboard ${lbId}:`, error.message);
           }
-        } catch (error) {
-          console.error(`   ❌ Error refreshing leaderboard ${lbId}:`, error.message);
         }
       }
 
@@ -458,6 +473,11 @@ const Slideshow = () => {
     // Update all leaderboards in slideshow
     setLeaderboardsData(prevData => {
       return prevData.map(leaderboardSlide => {
+        // Skip quotes slides
+        if (leaderboardSlide.type === 'quotes') {
+          return leaderboardSlide;
+        }
+
         const stats = [...leaderboardSlide.stats];
 
         // Find agent in this leaderboard
@@ -540,31 +560,47 @@ const Slideshow = () => {
         
         for (let i = 0; i < slidesConfig.length; i++) {
           const slideConfig = slidesConfig[i];
-          const lbId = slideConfig.leaderboardId || slideConfig;
           const slideDuration = slideConfig.duration || slideshowData.duration || 30;
-          
-          console.log(`   📈 Loading leaderboard ${i + 1}/${slidesConfig.length} (ID: ${lbId}, Duration: ${slideDuration}s)`);
-          
-          try {
-            const statsResponse = await getLeaderboardStats2(lbId);
-            const stats = statsResponse.data.stats || [];
-            const miniStats = statsResponse.data.miniStats || null;
+
+          // Check if this is a quotes slide
+          if (slideConfig.type === 'quotes') {
+            console.log(`   💬 Adding quotes slide ${i + 1}/${slidesConfig.length} (Duration: ${slideDuration}s)`);
 
             leaderboardsWithStats.push({
-              leaderboard: statsResponse.data.leaderboard,
-              stats: stats,
-              miniStats: miniStats,
-              duration: slideDuration // ⭐ VIKTIGT: Lägg till duration här!
+              type: 'quotes',
+              duration: slideDuration
             });
 
-            const totalDeals = stats.reduce((sum, s) => sum + (s.dealCount || 0), 0);
-            console.log(`   ✅ Loaded "${statsResponse.data.leaderboard.name}": ${stats.length} agents, ${totalDeals} deals, ${slideDuration}s`);
-            
-            if (i < slidesConfig.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 2000));
+            console.log(`   ✅ Quotes slide added`);
+          }
+          // Otherwise it's a leaderboard slide
+          else {
+            const lbId = slideConfig.leaderboardId || slideConfig;
+
+            console.log(`   📈 Loading leaderboard ${i + 1}/${slidesConfig.length} (ID: ${lbId}, Duration: ${slideDuration}s)`);
+
+            try {
+              const statsResponse = await getLeaderboardStats2(lbId);
+              const stats = statsResponse.data.stats || [];
+              const miniStats = statsResponse.data.miniStats || null;
+
+              leaderboardsWithStats.push({
+                type: 'leaderboard',
+                leaderboard: statsResponse.data.leaderboard,
+                stats: stats,
+                miniStats: miniStats,
+                duration: slideDuration // ⭐ VIKTIGT: Lägg till duration här!
+              });
+
+              const totalDeals = stats.reduce((sum, s) => sum + (s.dealCount || 0), 0);
+              console.log(`   ✅ Loaded "${statsResponse.data.leaderboard.name}": ${stats.length} agents, ${totalDeals} deals, ${slideDuration}s`);
+
+              if (i < slidesConfig.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+            } catch (error) {
+              console.error(`   ❌ Error loading leaderboard ${lbId}:`, error.message);
             }
-          } catch (error) {
-            console.error(`   ❌ Error loading leaderboard ${lbId}:`, error.message);
           }
         }
 
@@ -789,6 +825,22 @@ const Slideshow = () => {
       {leaderboardsData.map((slideData, index) => {
         const isActive = index === currentIndex;
 
+        // Render quotes slide if type is 'quotes'
+        if (slideData.type === 'quotes') {
+          return (
+            <div
+              key={`slide-quotes-${index}-${refreshKey}`}
+              className={`slideshow-slide ${isActive ? 'active' : ''}`}
+            >
+              <QuotesSlide
+                isActive={isActive}
+                tvSize={displaySize}
+              />
+            </div>
+          );
+        }
+
+        // Otherwise render leaderboard slide
         return (
           <LeaderboardSlide
             key={`slide-${slideData.leaderboard.id}-${refreshKey}`}

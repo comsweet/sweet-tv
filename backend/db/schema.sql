@@ -197,3 +197,25 @@ CREATE INDEX IF NOT EXISTS idx_campaigns_group ON campaigns(group_name);
 DROP TRIGGER IF EXISTS update_campaigns_updated_at ON campaigns;
 CREATE TRIGGER update_campaigns_updated_at BEFORE UPDATE ON campaigns
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ==================== QUOTES LIBRARY ====================
+
+-- Quotes table (motivational quotes for sales team)
+CREATE TABLE IF NOT EXISTS quotes (
+  id SERIAL PRIMARY KEY,
+  quote TEXT NOT NULL,
+  attribution VARCHAR(255) NOT NULL,
+  active BOOLEAN DEFAULT true,
+  times_shown INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for quotes
+CREATE INDEX IF NOT EXISTS idx_quotes_active ON quotes(active);
+CREATE INDEX IF NOT EXISTS idx_quotes_times_shown ON quotes(times_shown);
+
+-- Apply trigger to quotes table
+DROP TRIGGER IF EXISTS update_quotes_updated_at ON quotes;
+CREATE TRIGGER update_quotes_updated_at BEFORE UPDATE ON quotes
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

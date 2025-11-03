@@ -802,6 +802,101 @@ class PostgresService {
     );
     return result.rows;
   }
+
+  // ==================== QUOTES ====================
+
+  async createQuote({ quote, attribution, active = true }) {
+    const result = await this.query(
+      'INSERT INTO quotes (quote, attribution, active) VALUES ($1, $2, $3) RETURNING *',
+      [quote, attribution, active]
+    );
+    return result.rows[0];
+  }
+
+  async batchInsertQuotes(quotes) {
+    if (quotes.length === 0) return;
+
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+
+      for (const quote of quotes) {
+        await client.query(
+          'INSERT INTO quotes (quote, attribution, active) VALUES ($1, $2, $3)',
+          [quote.quote, quote.attribution, quote.active !== undefined ? quote.active : true]
+        );
+      }
+
+      await client.query('COMMIT');
+      console.log(`✅ Batch inserted ${quotes.length} quotes`);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('❌ Batch quote insert failed:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getAllQuotes() {
+    const result = await this.query(
+      'SELECT * FROM quotes ORDER BY created_at DESC'
+    );
+    return result.rows;
+  }
+
+  async getActiveQuotes() {
+    const result = await this.query(
+      'SELECT * FROM quotes WHERE active = true ORDER BY times_shown ASC, RANDOM()'
+    );
+    return result.rows;
+  }
+
+  async getQuote(id) {
+    const result = await this.query(
+      'SELECT * FROM quotes WHERE id = $1',
+      [id]
+    );
+    return result.rows[0];
+  }
+
+  async updateQuote(id, updates) {
+    const fields = [];
+    const values = [];
+    let paramCount = 1;
+
+    Object.keys(updates).forEach(key => {
+      if (key !== 'id') {
+        const dbKey = key === 'timesShown' ? 'times_shown' : key;
+        fields.push(`${dbKey} = $${paramCount}`);
+        values.push(updates[key]);
+        paramCount++;
+      }
+    });
+
+    values.push(id);
+    const query = `UPDATE quotes SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+
+    const result = await this.query(query, values);
+    return result.rows[0];
+  }
+
+  async incrementQuoteTimesShown(id) {
+    const result = await this.query(
+      'UPDATE quotes SET times_shown = times_shown + 1 WHERE id = $1 RETURNING *',
+      [id]
+    );
+    return result.rows[0];
+  }
+
+  async deleteQuote(id) {
+    await this.query('DELETE FROM quotes WHERE id = $1', [id]);
+  }
+
+  async getQuotesCount() {
+    const result = await this.query('SELECT COUNT(*) FROM quotes');
+    return parseInt(result.rows[0].count);
+  }
 }
 
 // Create singleton instance
