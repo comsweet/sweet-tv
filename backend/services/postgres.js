@@ -840,21 +840,21 @@ class PostgresService {
 
   async getAllQuotes() {
     const result = await this.query(
-      'SELECT * FROM quotes ORDER BY created_at DESC'
+      'SELECT id, quote, attribution, active, COALESCE(times_shown, 0) as times_shown, created_at, updated_at FROM quotes ORDER BY created_at DESC'
     );
     return result.rows;
   }
 
   async getActiveQuotes() {
     const result = await this.query(
-      'SELECT * FROM quotes WHERE active = true ORDER BY times_shown ASC, RANDOM()'
+      'SELECT id, quote, attribution, active, COALESCE(times_shown, 0) as times_shown, created_at, updated_at FROM quotes WHERE active = true ORDER BY times_shown ASC, RANDOM()'
     );
     return result.rows;
   }
 
   async getQuote(id) {
     const result = await this.query(
-      'SELECT * FROM quotes WHERE id = $1',
+      'SELECT id, quote, attribution, active, COALESCE(times_shown, 0) as times_shown, created_at, updated_at FROM quotes WHERE id = $1',
       [id]
     );
     return result.rows[0];
