@@ -1,6 +1,6 @@
 .rocket-race-vertical {
   background: linear-gradient(180deg, #0a1929 0%, #1a2942 50%, #005A9C 100%);
-  height: 100%; /* Use parent height, not viewport */
+  height: 100%;
   padding: 0;
   position: relative;
   overflow: hidden;
@@ -76,94 +76,166 @@
 
 .rocket-columns-container {
   display: flex;
-  justify-content: space-evenly; /* Dela space jämnt mellan kolumner */
+  justify-content: space-evenly;
   align-items: flex-end;
-  flex: 1; /* Take up all remaining space */
+  flex: 1;
   width: 100%;
   position: relative;
   z-index: 1;
   flex-wrap: nowrap;
-  padding: 20px clamp(10px, 2vw, 40px); /* Dynamisk padding baserad på viewport */
-  min-height: 0; /* Allow flex item to shrink below content size */
-  gap: clamp(8px, 1.5vw, 30px); /* Dynamiskt gap baserat på viewport */
+  padding: 20px clamp(10px, 2vw, 40px);
+  min-height: 0;
+  gap: clamp(8px, 1.5vw, 30px);
 }
 
-/* Base rocket column - names at bottom, rockets fly upward */
+/* Base rocket column */
 .rocket-column {
   display: flex;
-  flex-direction: column-reverse; /* Info at bottom, trail extends upward */
+  flex-direction: column-reverse;
   align-items: center;
-  flex: 1 1 auto; /* Tillåt kolumner att växa/krympa jämnt */
-  max-width: calc(100% / var(--participant-count, 5)); /* Dela upp space jämnt */
-  min-width: clamp(80px, 10vw, 150px); /* Min/max bredd */
+  flex: 1 1 auto;
+  max-width: calc(100% / var(--participant-count, 5));
+  min-width: clamp(80px, 10vw, 150px);
   gap: 0;
   height: 100%;
 }
 
 /* ============================================================
-   FLEXIBEL SKALNING - Anpassar sig efter skärmstorlek OCH antal deltagare
-   Använder --participant-count för att räkna ut optimal storlek
+   FLEXIBEL SKALNING - Anpassar sig efter antal deltagare
    ============================================================ */
 
-/* Avatar och bilder - skalas baserat på antal deltagare */
+/* Avatar och bilder */
 .rocket-avatar-img,
 .rocket-avatar-circle {
   width: clamp(40px, calc(35vw / var(--participant-count, 5)), 90px);
   height: clamp(40px, calc(35vw / var(--participant-count, 5)), 90px);
   border-width: clamp(3px, 0.2vw, 5px);
-  font-size: clamp(1rem, calc(15vw / var(--participant-count, 5)), 2.5rem);
+  border-style: solid;
+  border-color: #00B2E3;
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
-/* Namn - skalar proportionellt */
+.rocket-avatar-img {
+  object-fit: cover;
+}
+
+.rocket-avatar-circle {
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1rem, calc(15vw / var(--participant-count, 5)), 2.5rem);
+  font-weight: bold;
+}
+
+/* Namn */
 .rocket-name-text {
+  color: white;
   font-size: clamp(0.8rem, calc(10vw / var(--participant-count, 5)), 1.8rem);
+  font-weight: bold;
+  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.8);
   max-width: 100%;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  text-align: center;
+  line-height: 1.2;
 }
 
-/* Raket-emoji - skalas baserat på antal deltagare */
+/* Raket-emoji */
 .rocket-body {
   font-size: clamp(1.8rem, calc(22vw / var(--participant-count, 5)), 4.5rem);
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.7));
+  animation: rocket-hover 1s ease-in-out infinite;
+  position: relative;
+  transform: rotate(-45deg);
 }
 
-/* Värde-bubbla - MINDRE för att inte överlappa */
+@keyframes rocket-hover {
+  0%, 100% { transform: rotate(-45deg) translateY(0); }
+  50% { transform: rotate(-45deg) translateY(-8px); }
+}
+
+.rocket-sprite.leader-rocket .rocket-body {
+  animation: rocket-hover 0.8s ease-in-out infinite, glow 2s ease-in-out infinite;
+  transform: rotate(-45deg);
+}
+
+@keyframes glow {
+  0%, 100% { filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.8)); }
+  50% { filter: drop-shadow(0 0 30px rgba(255, 215, 0, 1)); }
+}
+
+/* Värde-bubbla */
 .rocket-value-display {
-  font-size: clamp(0.7rem, calc(8vw / var(--participant-count, 5)), 1.5rem);
-  padding: clamp(4px, 0.4vw, 8px) clamp(8px, 0.8vw, 16px);
+  position: absolute;
   top: clamp(-40px, calc(-30vw / var(--participant-count, 5)), -70px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 90, 156, 0.95);
+  color: white;
+  padding: clamp(4px, 0.4vw, 8px) clamp(8px, 0.8vw, 16px);
+  border-radius: 16px;
+  font-size: clamp(0.7rem, calc(8vw / var(--participant-count, 5)), 1.5rem);
+  font-weight: bold;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  border: 3px solid rgba(255, 255, 255, 0.4);
+  text-align: center;
   white-space: nowrap;
   max-width: 90%;
   overflow: hidden;
   text-overflow: ellipsis;
+  z-index: 15;
 }
 
-/* Ranknummer och badges - skalas baserat på antal deltagare */
+.rocket-sprite.leader-rocket .rocket-value-display {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  color: #744210;
+  border: 3px solid #ff8c00;
+}
+
+/* Ranknummer och badges */
 .rocket-rank-badge {
   font-size: clamp(1.1rem, calc(14vw / var(--participant-count, 5)), 2.8rem);
+  margin-bottom: 8px;
 }
 
-/* Gap text - mindre för att inte överlappa */
+.rocket-rank-number {
+  color: white;
+  font-weight: bold;
+  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* Gap text */
 .rocket-gap-text {
+  color: #ff6b6b;
   font-size: clamp(0.7rem, calc(8vw / var(--participant-count, 5)), 1.5rem);
+  font-weight: 700;
   padding: clamp(3px, 0.3vw, 7px) clamp(6px, 0.6vw, 12px);
+  margin-top: 10px;
+  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
 }
 
-/* Meta text - skalas baserat på antal deltagare */
+/* Meta text */
 .rocket-meta-text {
+  color: #00B2E3;
   font-size: clamp(0.65rem, calc(7vw / var(--participant-count, 5)), 1.4rem);
+  font-weight: 500;
 }
 
 .rocket-trail {
   flex: 1;
-  width: 6px; /* Slightly thicker for TV visibility */
+  width: 6px;
   background: repeating-linear-gradient(
     180deg,
     rgba(255, 255, 255, 0.4) 0px,
     rgba(255, 255, 255, 0.4) 10px,
     transparent 10px,
     transparent 20px
-  ); /* Dashed line - see space through it */
+  );
   position: relative;
   margin: 10px 0;
 }
@@ -173,46 +245,22 @@
   left: 50%;
   transform: translateX(-50%);
   transition: bottom 2s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 10; /* Above finish line */
-}
-
-.rocket-body {
-  font-size: 4.5em;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.7));
-  animation: rocket-hover 1s ease-in-out infinite;
-  position: relative; /* For flame positioning */
-  transform: rotate(-45deg); /* Rotate rocket to point upward */
-}
-
-@keyframes rocket-hover {
-  0%, 100% { transform: rotate(-45deg) translateY(0); }
-  50% { transform: rotate(-45deg) translateY(-8px); }
+  z-index: 10;
 }
 
 .rocket-flame {
   position: absolute;
-  bottom: -14px; /* Precis under raketen */
+  bottom: -14px;
   left: 50%;
-  transform: translateX(-50%) rotate(45deg); /* Counter-rotate flame so it points down */
+  transform: translateX(-50%) rotate(45deg);
   font-size: 0.6em;
   animation: flame 0.3s ease-in-out infinite;
-  transform-origin: center top; /* Rotate from top of flame */
+  transform-origin: center top;
 }
 
 @keyframes flame {
   0%, 100% { opacity: 1; transform: translateX(-50%) rotate(45deg) scale(1); }
   50% { opacity: 0.7; transform: translateX(-50%) rotate(45deg) scale(1.3); }
-}
-
-.rocket-sprite.leader-rocket .rocket-body {
-  animation: rocket-hover 0.8s ease-in-out infinite, glow 2s ease-in-out infinite;
-  font-size: 5em;
-  transform: rotate(-45deg); /* Keep rotation for leader too */
-}
-
-@keyframes glow {
-  0%, 100% { filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.8)); }
-  50% { filter: drop-shadow(0 0 30px rgba(255, 215, 0, 1)); }
 }
 
 .rocket-crown {
@@ -229,47 +277,6 @@
   50% { transform: translateX(-50%) translateY(-10px); }
 }
 
-.rocket-sparkle {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 2.2em;
-  animation: sparkle-pulse 1s ease-in-out infinite;
-  z-index: 2;
-}
-
-@keyframes sparkle-pulse {
-  0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
-  50% { opacity: 1; transform: translateX(-50%) scale(1.3); }
-}
-
-.rocket-value-display {
-  position: absolute;
-  top: -70px; /* Above the rocket */
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 90, 156, 0.95);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 16px;
-  font-size: 1.6em;
-  font-weight: bold;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-  border: 3px solid rgba(255, 255, 255, 0.4);
-  text-align: center;
-  white-space: nowrap;
-  z-index: 15; /* Above finish line and everything else */
-}
-
-.rocket-sprite.leader-rocket .rocket-value-display {
-  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-  color: #744210;
-  border: 3px solid #ff8c00;
-  top: -80px;
-  font-size: 1.8em;
-  padding: 12px 24px;
-}
-
 .rocket-participant-info {
   display: flex;
   flex-direction: column;
@@ -279,75 +286,11 @@
   text-align: center;
 }
 
-.rocket-rank-badge {
-  font-size: 2.6em;
-  margin-bottom: 8px;
-}
-
-.rocket-rank-number {
-  color: white;
-  font-weight: bold;
-  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.8);
-}
-
-.rocket-avatar-img {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 5px solid #00B2E3;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-}
-
-.rocket-avatar-circle {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.5em;
-  font-weight: bold;
-  border: 5px solid #00B2E3;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-}
-
-.rocket-name-text {
-  color: white;
-  font-size: 2em;
-  font-weight: bold;
-  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.8);
-  max-width: 220px;
-  word-wrap: break-word;
-  text-align: center;
-  line-height: 1.2;
-}
-
-.rocket-meta-text {
-  color: #00B2E3;
-  font-size: 1.4em;
-  font-weight: 500;
-}
-
-.rocket-gap-text {
-  color: #ff6b6b;
-  font-size: 1.6em;
-  font-weight: 700;
-  margin-top: 10px;
-  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.8);
-  background: rgba(0, 0, 0, 0.5);
-  padding: 8px 14px;
-  border-radius: 16px;
-}
-
 /* ============================================================
-   TV SIZE OVERRIDES - Justerar multiplikatorn i formeln
-   Strategi: Ändra täljaren i calc(Xvw / participant-count)
+   TV SIZE OVERRIDES
    ============================================================ */
 
-/* COMPACT SIZE - 80% multiplikator (mindre värden i täljaren) */
+/* COMPACT SIZE - 80% multiplikator */
 .size-compact .rocket-avatar-img,
 .size-compact .rocket-avatar-circle {
   width: clamp(35px, calc(28vw / var(--participant-count, 5)), 75px);
@@ -369,9 +312,9 @@
   font-size: clamp(1.4rem, 1.8vw, 3.2rem);
 }
 
-/* NORMAL SIZE - Använder default multiplikator (inga overrides) */
+/* NORMAL SIZE - Använder default (inga overrides) */
 
-/* LARGE SIZE - 120% multiplikator (större värden i täljaren) */
+/* LARGE SIZE - 120% multiplikator */
 .size-large .rocket-avatar-img,
 .size-large .rocket-avatar-circle {
   width: clamp(45px, calc(42vw / var(--participant-count, 5)), 108px);
@@ -393,7 +336,7 @@
   font-size: clamp(2rem, 2.8vw, 5rem);
 }
 
-/* EXTRA LARGE SIZE - 140% multiplikator (ännu större värden) */
+/* EXTRA LARGE SIZE - 140% multiplikator */
 .size-xlarge .rocket-avatar-img,
 .size-xlarge .rocket-avatar-circle {
   width: clamp(50px, calc(49vw / var(--participant-count, 5)), 126px);
@@ -414,4 +357,3 @@
 .size-xlarge .rocket-race-title h2 {
   font-size: clamp(2.3rem, 3.2vw, 5.8rem);
 }
-
