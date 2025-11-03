@@ -282,7 +282,6 @@
 /* NORMAL Leaderboard items (default) */
 .slideshow-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 1rem;
   padding: 0.5rem 1rem;
@@ -300,7 +299,8 @@
   grid-template-columns: 45px 45px auto;
   align-items: center;
   gap: 0.7rem;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .slideshow-right-group {
@@ -309,6 +309,7 @@
   align-items: center;
   gap: 0.7rem;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .slideshow-item:hover {
@@ -364,6 +365,7 @@
 /* Name - NORMAL */
 .slideshow-info {
   min-width: 0;
+  overflow: hidden;
 }
 
 .slideshow-name {
@@ -373,6 +375,8 @@
   color: #2c3e50;
   white-space: nowrap;
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .slideshow-name.zero-deals {
@@ -599,11 +603,15 @@
 .size-compact .slideshow-left-group {
   grid-template-columns: 35px 38px auto;
   gap: 0.5rem;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .size-compact .slideshow-right-group {
   grid-template-columns: 95px 95px 120px 120px 125px;
   gap: 0.5rem;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .size-compact .slideshow-rank {
@@ -704,11 +712,15 @@
 .size-large .slideshow-left-group {
   grid-template-columns: 55px 60px auto;
   gap: 1rem;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .size-large .slideshow-right-group {
   grid-template-columns: 145px 135px 170px 170px 180px;
   gap: 1rem;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .size-large .slideshow-rank {
@@ -809,11 +821,15 @@
 .size-xlarge .slideshow-left-group {
   grid-template-columns: 70px 75px auto;
   gap: 1.3rem;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .size-xlarge .slideshow-right-group {
   grid-template-columns: 170px 160px 200px 200px 210px;
   gap: 1.3rem;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .size-xlarge .slideshow-rank {
@@ -941,11 +957,15 @@
   .slideshow-left-group {
     grid-template-columns: 40px 40px auto;
     gap: 0.5rem;
+    flex-shrink: 1;
+    min-width: 0;
   }
 
   .slideshow-right-group {
     grid-template-columns: 100px 90px 120px 120px 125px;
     gap: 0.5rem;
+    flex-shrink: 0;
+    margin-left: auto;
   }
 }
 
