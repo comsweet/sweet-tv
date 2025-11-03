@@ -45,21 +45,21 @@
 .notification-content {
   background: white;
   border-radius: 30px;
-  padding: 3rem 4rem;
+  padding: 4rem 5rem;
   display: flex;
   align-items: center;
-  gap: 3rem;
+  gap: 4rem;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
-  min-width: 600px;
+  min-width: 800px;
 }
 
 .notification-avatar,
 .notification-avatar-placeholder {
-  width: 150px;
-  height: 150px;
+  width: 200px;
+  height: 200px;
   border-radius: 50%;
   object-fit: cover;
-  border: 6px solid #667eea;
+  border: 8px solid #667eea;
   flex-shrink: 0;
   animation: pulse 1s infinite;
 }
@@ -79,7 +79,7 @@
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  font-size: 4rem;
+  font-size: 5rem;
   font-weight: bold;
 }
 
@@ -89,27 +89,27 @@
 
 .notification-name {
   margin: 0 0 0.5rem;
-  font-size: 2.5rem;
+  font-size: 3.5rem;
   color: #2c3e50;
   font-weight: bold;
 }
 
 .notification-commission {
   margin: 0 0 1rem;
-  font-size: 3rem;
+  font-size: 4.5rem;
   color: #27ae60;
   font-weight: bold;
 }
 
 .notification-message {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.5rem;
   color: #7f8c8d;
 }
 
 /* Additional styles for milestone notifications */
 .notification-message.milestone {
-  font-size: 1.3rem !important;
+  font-size: 1.8rem !important;
   font-weight: bold;
   background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
   -webkit-background-clip: text;
