@@ -83,7 +83,7 @@
   position: relative;
   z-index: 1;
   flex-wrap: nowrap;
-  padding: 20px clamp(10px, 2vw, 40px);
+  padding: clamp(80px, 8vh, 120px) clamp(10px, 2vw, 40px) 20px;
   min-height: 0;
   gap: clamp(8px, 1.5vw, 30px);
 }

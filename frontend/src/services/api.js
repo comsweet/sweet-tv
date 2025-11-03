@@ -112,6 +112,7 @@ export const createLeaderboard = (data) => api.post('/leaderboards', data);
 export const updateLeaderboard = (id, data) => api.put(`/leaderboards/${id}`, data);
 export const deleteLeaderboard = (id) => api.delete(`/leaderboards/${id}`);
 export const getLeaderboardStats2 = (id) => api.get(`/leaderboards/${id}/stats`);
+export const getLeaderboardHistory = (id, params) => api.get(`/leaderboards/${id}/history`, { params });
 
 // Slideshows
 export const getSlideshows = () => api.get('/slideshows');

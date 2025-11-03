@@ -1,0 +1,154 @@
+.trend-chart-slide {
+  background: linear-gradient(135deg, #005A9C 0%, #003d6b 100%);
+  min-height: 100vh;
+  height: 100%;
+  padding: 2rem;
+  color: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.trend-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  flex-shrink: 0;
+}
+
+.trend-header h1 {
+  font-size: 3rem;
+  margin: 0 0 0.5rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.trend-subtitle {
+  font-size: 1.5rem;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.trend-chart-container {
+  flex: 1;
+  min-height: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  margin-bottom: 1.5rem;
+}
+
+.trend-footer {
+  flex-shrink: 0;
+  padding: 1rem 0;
+}
+
+.trend-leaders {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.trend-leader-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border: 3px solid;
+  border-radius: 12px;
+  padding: 0.8rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.trend-leader-badge:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+.trend-rank {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #FFD93D;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.trend-name {
+  font-size: 1.3rem;
+  font-weight: 600;
+  flex: 1;
+  color: #ffffff;
+}
+
+.trend-total {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #00B2E3;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Loading state */
+.trend-loading,
+.trend-error,
+.trend-no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid #00B2E3;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-message {
+  font-size: 1.2rem;
+  color: #FF6B6B;
+  margin-top: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .trend-header h1 {
+    font-size: 2.5rem;
+  }
+
+  .trend-subtitle {
+    font-size: 1.2rem;
+  }
+
+  .trend-leader-badge {
+    min-width: 150px;
+    padding: 0.6rem 1rem;
+    gap: 0.8rem;
+  }
+
+  .trend-rank {
+    font-size: 1.5rem;
+  }
+
+  .trend-name {
+    font-size: 1.1rem;
+  }
+
+  .trend-total {
+    font-size: 1.2rem;
+  }
+}
