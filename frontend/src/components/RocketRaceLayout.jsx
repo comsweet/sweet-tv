@@ -1,6 +1,6 @@
 import './RocketRaceLayout.css';
 
-const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
+const RocketRaceLayout = ({ stats, leaderboard, displayMode, displaySize = 'normal' }) => {
   const getTotalValue = (stat) => {
     if (leaderboard.sortBy === 'dealCount') {
       return stat.dealCount || 0;
@@ -8,6 +8,11 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
       return (stat.totalCommission || 0) + (stat.campaignBonus || 0);
     }
     return stat.totalCommission || 0;
+  };
+
+  const getDisplayName = (name) => {
+    if (!name) return 'Unknown';
+    return name.split(' ')[0];
   };
 
   // Use goalValue if set, otherwise use max value
@@ -72,7 +77,7 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
           )}
 
           <div className="rocket-name-text">
-            {isGroup ? stat.groupName : stat.agent?.name || 'Unknown'}
+            {isGroup ? stat.groupName : getDisplayName(stat.agent?.name)}
           </div>
 
           {isGroup && (
@@ -120,7 +125,7 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
 
   return (
     <div
-      className={`rocket-race-vertical ${getResponsiveClass()}`}
+      className={`rocket-race-vertical ${getResponsiveClass()} size-${displaySize}`}
       style={{ '--participant-count': participantCount }}
     >
       {/* Title above finish line */}

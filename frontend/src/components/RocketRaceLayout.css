@@ -137,10 +137,11 @@
   font-weight: bold;
   text-shadow: 0 3px 6px rgba(0, 0, 0, 0.8);
   max-width: 100%;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
   text-align: center;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Raket-emoji */

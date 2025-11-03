@@ -338,6 +338,7 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
             stats={stats}
             miniStats={miniStats}
             isActive={isActive}
+            displaySize={displaySize}
             renderDefaultTable={renderDefaultTable}
           />
         ) : (
