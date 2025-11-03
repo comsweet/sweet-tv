@@ -99,7 +99,8 @@ router.post('/duplicates/:id/resolve', async (req, res) => {
       });
     }
 
-    const newDealData = JSON.parse(pending.new_data);
+    // JSONB columns are automatically parsed by pg library, no need to JSON.parse
+    const newDealData = pending.new_data;
 
     // Execute action
     const client = await db.getClient();
