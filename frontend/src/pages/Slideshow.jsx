@@ -11,6 +11,7 @@ import DealNotification from '../components/DealNotification';
 import TVAccessCodeModal from '../components/TVAccessCodeModal';
 import LeaderboardVisualizer from '../components/LeaderboardVisualizer';
 import QuotesSlide from '../components/QuotesSlide';
+import TrendChartSlide from '../components/TrendChartSlide';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -414,6 +415,23 @@ const Slideshow = () => {
             duration: slideDuration
           });
         }
+        // Check if this is a trend chart slide
+        else if (slideConfig.type === 'trend') {
+          console.log(`   📈 Refreshing trend chart slide ${i + 1}/${slidesConfig.length}`);
+
+          const lbId = slideConfig.leaderboardId;
+          try {
+            const statsResponse = await getLeaderboardStats2(lbId);
+            leaderboardsWithStats.push({
+              type: 'trend',
+              leaderboard: statsResponse.data.leaderboard,
+              config: slideConfig.config || {},
+              duration: slideDuration
+            });
+          } catch (error) {
+            console.error(`   ❌ Error refreshing trend ${lbId}:`, error.message);
+          }
+        }
         // Otherwise it's a leaderboard slide
         else {
           const lbId = slideConfig.leaderboardId || slideConfig;
@@ -474,8 +492,8 @@ const Slideshow = () => {
     // Update all leaderboards in slideshow
     setLeaderboardsData(prevData => {
       return prevData.map(leaderboardSlide => {
-        // Skip quotes slides
-        if (leaderboardSlide.type === 'quotes') {
+        // Skip quotes and trend slides
+        if (leaderboardSlide.type === 'quotes' || leaderboardSlide.type === 'trend') {
           return leaderboardSlide;
         }
 
@@ -573,6 +591,25 @@ const Slideshow = () => {
             });
 
             console.log(`   ✅ Quotes slide added`);
+          }
+          // Check if this is a trend chart slide
+          else if (slideConfig.type === 'trend') {
+            console.log(`   📈 Adding trend chart slide ${i + 1}/${slidesConfig.length} (Duration: ${slideDuration}s)`);
+
+            // Get leaderboard config for trend
+            const lbId = slideConfig.leaderboardId;
+            try {
+              const statsResponse = await getLeaderboardStats2(lbId);
+              leaderboardsWithStats.push({
+                type: 'trend',
+                leaderboard: statsResponse.data.leaderboard,
+                config: slideConfig.config || {},
+                duration: slideDuration
+              });
+              console.log(`   ✅ Trend slide added for "${statsResponse.data.leaderboard.name}"`);
+            } catch (error) {
+              console.error(`   ❌ Error loading leaderboard for trend ${lbId}:`, error.message);
+            }
           }
           // Otherwise it's a leaderboard slide
           else {
@@ -836,6 +873,22 @@ const Slideshow = () => {
               <QuotesSlide
                 isActive={isActive}
                 tvSize={displaySize}
+              />
+            </div>
+          );
+        }
+
+        // Render trend chart slide if type is 'trend'
+        if (slideData.type === 'trend') {
+          return (
+            <div
+              key={`slide-trend-${index}-${refreshKey}`}
+              className={`slideshow-slide ${isActive ? 'active' : ''}`}
+            >
+              <TrendChartSlide
+                leaderboard={slideData.leaderboard}
+                isActive={isActive}
+                config={slideData.config || {}}
               />
             </div>
           );

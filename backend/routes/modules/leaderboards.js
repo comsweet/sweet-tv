@@ -509,6 +509,154 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Get leaderboard historical trend data
+router.get('/:id/history', async (req, res) => {
+  try {
+    const leaderboardId = req.params.id;
+    const { hours = 24, topN = 5, metric = 'commission' } = req.query;
+
+    // Get leaderboard config
+    const leaderboard = await leaderboardService.getLeaderboard(leaderboardId);
+    if (!leaderboard) {
+      return res.status(404).json({ error: 'Leaderboard not found' });
+    }
+
+    // Calculate date range (last N hours)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setHours(startDate.getHours() - parseInt(hours));
+
+    console.log(`📈 [${leaderboard.name}] Fetching history from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
+    // Get deals from cache
+    const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
+
+    // Get users
+    let adversusUsers = [];
+    try {
+      const usersResult = await adversusAPI.getUsers();
+      adversusUsers = usersResult.users || [];
+    } catch (error) {
+      console.error('⚠️ Failed to load Adversus users:', error.message);
+    }
+
+    // Filter by user groups if specified
+    let filteredDeals = cachedDeals;
+    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
+      const normalizedGroups = leaderboard.userGroups.map(g => String(g));
+      const allowedUserIds = adversusUsers
+        .filter(u => u.group && u.group.id && normalizedGroups.includes(String(u.group.id)))
+        .map(u => String(u.id));
+
+      filteredDeals = cachedDeals.filter(deal =>
+        allowedUserIds.includes(String(deal.userId))
+      );
+    }
+
+    // Group deals by hour and userId
+    const hourlyData = {};
+
+    for (const deal of filteredDeals) {
+      const dealDate = new Date(deal.orderDate);
+      const hourKey = new Date(dealDate.getFullYear(), dealDate.getMonth(), dealDate.getDate(), dealDate.getHours()).toISOString();
+      const userId = String(deal.userId);
+
+      if (!hourlyData[hourKey]) {
+        hourlyData[hourKey] = {};
+      }
+
+      if (!hourlyData[hourKey][userId]) {
+        hourlyData[hourKey][userId] = {
+          commission: 0,
+          deals: 0
+        };
+      }
+
+      hourlyData[hourKey][userId].commission += parseFloat(deal.commission || 0);
+      hourlyData[hourKey][userId].deals += parseInt(deal.multiDeals || '1');
+    }
+
+    // Calculate cumulative totals for each user
+    const userTotals = {};
+    const sortedHours = Object.keys(hourlyData).sort();
+
+    for (const userId of new Set(filteredDeals.map(d => String(d.userId)))) {
+      userTotals[userId] = {
+        totalCommission: 0,
+        totalDeals: 0
+      };
+    }
+
+    // Build time series
+    const timeSeries = sortedHours.map(hourKey => {
+      const hour = hourlyData[hourKey];
+
+      // Update cumulative totals
+      for (const userId in hour) {
+        if (userTotals[userId]) {
+          userTotals[userId].totalCommission += hour[userId].commission;
+          userTotals[userId].totalDeals += hour[userId].deals;
+        }
+      }
+
+      // Build data point with cumulative values
+      const dataPoint = { time: hourKey };
+      for (const userId in userTotals) {
+        const adversusUser = adversusUsers.find(u => String(u.id) === userId);
+        const userName = adversusUser?.name || adversusUser?.firstname || `Agent ${userId}`;
+
+        if (metric === 'deals') {
+          dataPoint[userName] = userTotals[userId].totalDeals;
+        } else {
+          dataPoint[userName] = Math.round(userTotals[userId].totalCommission);
+        }
+      }
+
+      return dataPoint;
+    });
+
+    // Find top N users by final total
+    const finalTotals = Object.entries(userTotals)
+      .map(([userId, totals]) => {
+        const adversusUser = adversusUsers.find(u => String(u.id) === userId);
+        return {
+          userId,
+          name: adversusUser?.name || adversusUser?.firstname || `Agent ${userId}`,
+          total: metric === 'deals' ? totals.totalDeals : totals.totalCommission
+        };
+      })
+      .sort((a, b) => b.total - a.total)
+      .slice(0, parseInt(topN));
+
+    // Filter time series to only include top N users
+    const topUserNames = finalTotals.map(u => u.name);
+    const filteredTimeSeries = timeSeries.map(point => {
+      const filtered = { time: point.time };
+      for (const name of topUserNames) {
+        filtered[name] = point[name] || 0;
+      }
+      return filtered;
+    });
+
+    res.json({
+      leaderboard: {
+        id: leaderboard._id,
+        name: leaderboard.name
+      },
+      timeSeries: filteredTimeSeries,
+      topUsers: finalTotals,
+      metric: metric,
+      dateRange: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching leaderboard history:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete leaderboard
 router.delete('/:id', async (req, res) => {
   try {
