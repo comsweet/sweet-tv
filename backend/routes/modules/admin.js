@@ -347,7 +347,7 @@ router.post('/sync-database', async (req, res) => {
       }, 1, 10000);
 
       const smsData = (smsResult.sms || [])
-        .filter(sms => sms.status === 'sent')
+        .filter(sms => sms.status === 'delivered')
         .map(sms => ({
           id: sms.id,
           userId: parseInt(sms.userId),

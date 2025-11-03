@@ -195,10 +195,10 @@ class SMSCache {
 
       console.log(`✅ Found ${smsArray.length} new SMS`);
 
-      // Filter to only sent SMS
-      const deliveredSMS = smsArray.filter(sms => sms.status === 'sent');
+      // Filter to only delivered SMS
+      const deliveredSMS = smsArray.filter(sms => sms.status === 'delivered');
 
-      console.log(`📱 Sent SMS: ${deliveredSMS.length} / ${smsArray.length}`);
+      console.log(`📱 Delivered SMS: ${deliveredSMS.length} / ${smsArray.length}`);
 
       // Normalize data
       const smsData = deliveredSMS.map(sms => ({
@@ -287,10 +287,10 @@ class SMSCache {
 
       console.log(`📱 Total fetched: ${allSMS.length} SMS across ${page - 1} pages`);
 
-      // Filter to only sent SMS
-      const deliveredSMS = allSMS.filter(sms => sms.status === 'sent');
+      // Filter to only delivered SMS
+      const deliveredSMS = allSMS.filter(sms => sms.status === 'delivered');
 
-      console.log(`📱 Sent SMS: ${deliveredSMS.length} / ${allSMS.length}`);
+      console.log(`📱 Delivered SMS: ${deliveredSMS.length} / ${allSMS.length}`);
 
       // Normalize data
       const smsData = deliveredSMS.map(sms => ({
