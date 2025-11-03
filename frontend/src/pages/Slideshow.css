@@ -282,7 +282,7 @@
 /* NORMAL Leaderboard items (default) */
 .slideshow-item {
   display: grid;
-  grid-template-columns: 45px 45px auto 1fr 120px 110px 140px 140px 150px;
+  grid-template-columns: 45px 45px minmax(0, auto) 1fr 120px 110px 140px 140px 150px;
   align-items: center;
   gap: 0.7rem;
   padding: 0.5rem 1rem;
@@ -348,6 +348,8 @@
 /* Name - NORMAL */
 .slideshow-info {
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .slideshow-name {
@@ -357,6 +359,8 @@
   color: #2c3e50;
   white-space: nowrap;
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .slideshow-name.zero-deals {
@@ -577,7 +581,7 @@
 .size-compact .slideshow-item {
   padding: 0.35rem 0.7rem;
   margin-bottom: 0.35rem;
-  grid-template-columns: 35px 38px auto 1fr 95px 95px 120px 120px 125px;
+  grid-template-columns: 35px 38px minmax(0, auto) 1fr 95px 95px 120px 120px 125px;
   gap: 0.5rem;
 }
 
@@ -673,7 +677,7 @@
 .size-large .slideshow-item {
   padding: 0.7rem 1.3rem;
   margin-bottom: 0.7rem;
-  grid-template-columns: 55px 60px auto 1fr 145px 135px 170px 170px 180px;
+  grid-template-columns: 55px 60px minmax(0, auto) 1fr 145px 135px 170px 170px 180px;
   gap: 1rem;
 }
 
@@ -769,7 +773,7 @@
 .size-xlarge .slideshow-item {
   padding: 1rem 1.6rem;
   margin-bottom: 1rem;
-  grid-template-columns: 70px 75px auto 1fr 170px 160px 200px 200px 210px;
+  grid-template-columns: 70px 75px minmax(0, auto) 1fr 170px 160px 200px 200px 210px;
   gap: 1.3rem;
 }
 
