@@ -19,32 +19,37 @@
 
 .quotes-container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1600px;
   display: flex;
-  flex-direction: column;
-  gap: 4rem;
+  flex-direction: row;
+  gap: 3rem;
+  align-items: stretch;
 }
 
 .quote-item {
+  flex: 1;
   opacity: 0;
   animation: fadeInUp 0.8s ease-out forwards;
   background: rgba(255, 255, 255, 0.1);
   border-left: 5px solid #00B2E3;
-  padding: 2.5rem 3rem;
+  padding: 2rem 2.5rem;
   border-radius: 12px;
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .quote-item:hover {
-  transform: translateX(10px);
+  transform: translateY(-5px);
   background: rgba(255, 255, 255, 0.15);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
 .quote-mark {
-  font-size: 4rem;
+  font-size: 3rem;
   color: #00B2E3;
   line-height: 1;
   font-family: Georgia, serif;
@@ -53,31 +58,31 @@
 .quote-mark.opening {
   float: left;
   margin-right: 0.5rem;
-  margin-top: -0.5rem;
+  margin-top: -0.3rem;
 }
 
 .quote-mark.closing {
   float: right;
   margin-left: 0.5rem;
-  margin-bottom: -1.5rem;
+  margin-bottom: -1rem;
 }
 
 .quote-text {
-  font-size: 2.2rem;
-  line-height: 1.5;
+  font-size: 1.8rem;
+  line-height: 1.4;
   color: white;
   font-weight: 500;
-  margin: 0 0 1.5rem 0;
+  margin: 0 0 1rem 0;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   clear: both;
 }
 
 .quote-attribution {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   color: rgba(255, 255, 255, 0.8);
   font-style: italic;
   text-align: right;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   clear: both;
 }
 
@@ -101,24 +106,25 @@
 }
 
 .quotes-slide.size-compact .quotes-container {
-  gap: 2.5rem;
+  gap: 2rem;
 }
 
 .quotes-slide.size-compact .quote-item {
-  padding: 1.5rem 2rem;
+  padding: 1.3rem 1.8rem;
 }
 
 .quotes-slide.size-compact .quote-mark {
-  font-size: 3rem;
+  font-size: 2.5rem;
 }
 
 .quotes-slide.size-compact .quote-text {
-  font-size: 1.6rem;
-  margin-bottom: 1rem;
+  font-size: 1.4rem;
+  line-height: 1.35;
+  margin-bottom: 0.8rem;
 }
 
 .quotes-slide.size-compact .quote-attribution {
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 /* ==================================================
@@ -126,28 +132,29 @@
    ================================================== */
 
 .quotes-slide.size-large {
-  padding: 4rem 5rem;
-}
-
-.quotes-slide.size-large .quotes-container {
-  gap: 5rem;
-}
-
-.quotes-slide.size-large .quote-item {
   padding: 3rem 4rem;
 }
 
+.quotes-slide.size-large .quotes-container {
+  gap: 3.5rem;
+}
+
+.quotes-slide.size-large .quote-item {
+  padding: 2.5rem 3rem;
+}
+
 .quotes-slide.size-large .quote-mark {
-  font-size: 5rem;
+  font-size: 3.5rem;
 }
 
 .quotes-slide.size-large .quote-text {
-  font-size: 2.8rem;
-  margin-bottom: 2rem;
+  font-size: 2.2rem;
+  line-height: 1.45;
+  margin-bottom: 1.2rem;
 }
 
 .quotes-slide.size-large .quote-attribution {
-  font-size: 1.9rem;
+  font-size: 1.6rem;
 }
 
 /* ==================================================
@@ -155,28 +162,29 @@
    ================================================== */
 
 .quotes-slide.size-xlarge {
-  padding: 5rem 6rem;
-}
-
-.quotes-slide.size-xlarge .quotes-container {
-  gap: 6rem;
-}
-
-.quotes-slide.size-xlarge .quote-item {
   padding: 4rem 5rem;
 }
 
+.quotes-slide.size-xlarge .quotes-container {
+  gap: 4rem;
+}
+
+.quotes-slide.size-xlarge .quote-item {
+  padding: 3rem 3.5rem;
+}
+
 .quotes-slide.size-xlarge .quote-mark {
-  font-size: 6rem;
+  font-size: 4rem;
 }
 
 .quotes-slide.size-xlarge .quote-text {
-  font-size: 3.5rem;
-  margin-bottom: 2.5rem;
+  font-size: 2.6rem;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
 }
 
 .quotes-slide.size-xlarge .quote-attribution {
-  font-size: 2.4rem;
+  font-size: 1.9rem;
 }
 
 /* Responsive - mainly for testing */
@@ -186,14 +194,22 @@
   }
 
   .quotes-container {
-    gap: 3rem;
+    gap: 2rem;
   }
 
   .quote-text {
-    font-size: 1.8rem;
+    font-size: 1.6rem;
   }
 
   .quote-attribution {
     font-size: 1.2rem;
+  }
+}
+
+/* Stack vertically on very small screens */
+@media (max-width: 768px) {
+  .quotes-container {
+    flex-direction: column;
+    gap: 2rem;
   }
 }
