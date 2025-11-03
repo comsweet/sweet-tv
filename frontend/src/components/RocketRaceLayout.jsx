@@ -1,6 +1,6 @@
 import './RocketRaceLayout.css';
 
-const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
+const RocketRaceLayout = ({ stats, leaderboard, displayMode, displaySize = 'normal' }) => {
   const getTotalValue = (stat) => {
     if (leaderboard.sortBy === 'dealCount') {
       return stat.dealCount || 0;
@@ -120,7 +120,7 @@ const RocketRaceLayout = ({ stats, leaderboard, displayMode }) => {
 
   return (
     <div
-      className={`rocket-race-vertical ${getResponsiveClass()}`}
+      className={`rocket-race-vertical ${getResponsiveClass()} size-${displaySize}`}
       style={{ '--participant-count': participantCount }}
     >
       {/* Title above finish line */}

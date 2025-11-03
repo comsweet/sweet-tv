@@ -14,6 +14,7 @@ const LeaderboardVisualizer = ({
   stats,
   miniStats,
   isActive,
+  displaySize,
   renderDefaultTable
 }) => {
   const visualizationMode = leaderboard.visualizationMode || 'table';
@@ -36,10 +37,10 @@ const LeaderboardVisualizer = ({
           <ProgressBarsLayout stats={stats} leaderboard={leaderboard} displayMode={displayMode} />
         )}
         {visualizationMode === 'rocket' && (
-          <RocketRaceLayout stats={stats} leaderboard={leaderboard} displayMode={displayMode} />
+          <RocketRaceLayout stats={stats} leaderboard={leaderboard} displayMode={displayMode} displaySize={displaySize} />
         )}
         {visualizationMode === 'race' && (
-          <RaceLayout stats={stats} leaderboard={leaderboard} displayMode={displayMode} />
+          <RaceLayout stats={stats} leaderboard={leaderboard} displayMode={displayMode} displaySize={displaySize} />
         )}
       </div>
     </div>
