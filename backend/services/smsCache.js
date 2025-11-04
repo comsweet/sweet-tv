@@ -82,9 +82,40 @@ class SMSCache {
   }
 
   getTodayWindow() {
+    // 🔥 FIX: Use Thailand timezone (UTC+7) instead of server's local timezone
+    // Server runs in UTC, but SMS are created in Thailand time
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    // Thailand is UTC+7
+    const THAILAND_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+    // Get current time in Thailand by adding offset to UTC
+    const nowThailand = new Date(now.getTime() + THAILAND_OFFSET_MS);
+
+    // Get start of day in Thailand (midnight Thailand time)
+    const startThailand = new Date(
+      Date.UTC(
+        nowThailand.getUTCFullYear(),
+        nowThailand.getUTCMonth(),
+        nowThailand.getUTCDate(),
+        0, 0, 0, 0
+      )
+    );
+
+    // Get end of day in Thailand (23:59:59.999 Thailand time)
+    const endThailand = new Date(
+      Date.UTC(
+        nowThailand.getUTCFullYear(),
+        nowThailand.getUTCMonth(),
+        nowThailand.getUTCDate(),
+        23, 59, 59, 999
+      )
+    );
+
+    // Convert back to UTC by subtracting the offset
+    const start = new Date(startThailand.getTime() - THAILAND_OFFSET_MS);
+    const end = new Date(endThailand.getTime() - THAILAND_OFFSET_MS);
+
     return { start, end };
   }
 
