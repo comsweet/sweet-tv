@@ -70,24 +70,43 @@ router.post('/generate', authenticateToken, requireRole(['admin', 'superadmin'])
   }
 });
 
-// POST /api/tv-codes/validate - Validate TV access code (PUBLIC)
+// POST /api/tv-codes/validate - Validate TV access code and create session (PUBLIC)
 router.post('/validate', async (req, res) => {
   try {
-    const { code } = req.body;
+    const { code, sessionId } = req.body;
 
     if (!code || code.length !== 6) {
       return res.status(400).json({ valid: false, reason: 'Invalid code format' });
     }
 
-    const result = await postgres.validateTVAccessCode(code, req.ip);
-
-    if (result.valid) {
-      console.log(`✅ TV access code validated: ${code} from ${req.ip}`);
-    } else {
-      console.log(`❌ TV access code validation failed: ${code} - ${result.reason}`);
+    if (!sessionId) {
+      return res.status(400).json({ valid: false, reason: 'Session ID required' });
     }
 
-    res.json(result);
+    // Validate access code
+    const result = await postgres.validateTVAccessCode(code, req.ip);
+
+    if (!result.valid) {
+      console.log(`❌ TV access code validation failed: ${code} - ${result.reason}`);
+      return res.json(result);
+    }
+
+    // Create session with 12-hour timeout
+    const session = await postgres.createTVSession({
+      sessionId,
+      accessCodeId: result.accessCode.id,
+      accessCode: code,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+
+    console.log(`✅ TV session created: ${sessionId} (code: ${code}, IP: ${req.ip}, expires: ${session.expires_at})`);
+
+    res.json({
+      valid: true,
+      sessionId: session.session_id,
+      expiresAt: session.expires_at
+    });
   } catch (error) {
     console.error('Validate TV code error:', error);
     res.status(500).json({ error: error.message });
@@ -153,6 +172,131 @@ router.post('/cleanup', authenticateToken, requireRole(['admin', 'superadmin']),
     res.json({ deletedCount });
   } catch (error) {
     console.error('Cleanup TV codes error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== TV SESSIONS ====================
+
+// POST /api/tv-codes/sessions/validate - Validate session (PUBLIC)
+router.post('/sessions/validate', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ valid: false, reason: 'Session ID required' });
+    }
+
+    const result = await postgres.validateTVSession(sessionId);
+    res.json(result);
+  } catch (error) {
+    console.error('Validate session error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/tv-codes/sessions/heartbeat - Update session activity (PUBLIC)
+router.post('/sessions/heartbeat', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID required' });
+    }
+
+    // Validate session first
+    const validation = await postgres.validateTVSession(sessionId);
+    if (!validation.valid) {
+      return res.status(401).json({
+        error: 'Invalid session',
+        reason: validation.reason,
+        terminatedReason: validation.terminatedReason
+      });
+    }
+
+    // Update activity timestamp
+    const session = await postgres.updateTVSessionActivity(sessionId);
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found or inactive' });
+    }
+
+    res.json({
+      success: true,
+      lastActivity: session.last_activity_at,
+      expiresAt: session.expires_at
+    });
+  } catch (error) {
+    console.error('Heartbeat error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/tv-codes/sessions/active - Get active sessions (Superadmin only)
+router.get('/sessions/active', authenticateToken, requireRole(['superadmin']), async (req, res) => {
+  try {
+    const sessions = await postgres.getActiveTVSessions();
+    res.json({ sessions });
+  } catch (error) {
+    console.error('Get active sessions error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/tv-codes/sessions/all - Get all sessions (Superadmin only)
+router.get('/sessions/all', authenticateToken, requireRole(['superadmin']), async (req, res) => {
+  try {
+    const { limit = 100, offset = 0 } = req.query;
+    const sessions = await postgres.getAllTVSessions({ limit, offset });
+    res.json({ sessions });
+  } catch (error) {
+    console.error('Get all sessions error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/tv-codes/sessions/:sessionId - Terminate session (Superadmin only)
+router.delete('/sessions/:sessionId', authenticateToken, requireRole(['superadmin']), async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { reason = 'Manually terminated by admin' } = req.body;
+
+    const session = await postgres.terminateTVSession(sessionId, req.user.id, reason);
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    console.log(`🔒 TV session terminated: ${sessionId} by ${req.user.email} - Reason: ${reason}`);
+
+    // Log audit
+    await postgres.createAuditLog({
+      userId: req.user.id,
+      userEmail: req.user.email,
+      action: 'TERMINATE_TV_SESSION',
+      resourceType: 'tv_session',
+      resourceId: sessionId,
+      details: { reason },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+
+    res.json({ success: true, session });
+  } catch (error) {
+    console.error('Terminate session error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/tv-codes/sessions/cleanup - Cleanup expired sessions (Admin & Superadmin only)
+router.post('/sessions/cleanup', authenticateToken, requireRole(['admin', 'superadmin']), async (req, res) => {
+  try {
+    const cleanedCount = await postgres.cleanupExpiredTVSessions();
+    console.log(`🧹 Cleaned up ${cleanedCount} expired TV sessions`);
+
+    res.json({ cleanedCount });
+  } catch (error) {
+    console.error('Cleanup sessions error:', error);
     res.status(500).json({ error: error.message });
   }
 });

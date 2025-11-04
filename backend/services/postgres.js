@@ -469,6 +469,117 @@ class PostgresService {
     await this.query('DELETE FROM tv_access_codes WHERE code = $1', [code]);
   }
 
+  // ==================== TV SESSIONS ====================
+
+  async createTVSession({ sessionId, accessCodeId, accessCode, ipAddress, userAgent }) {
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 12); // 12-hour timeout
+
+    const result = await this.query(
+      `INSERT INTO tv_sessions (session_id, access_code_id, access_code, ip_address, user_agent, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [sessionId, accessCodeId, accessCode, ipAddress, userAgent, expiresAt]
+    );
+
+    return result.rows[0];
+  }
+
+  async getTVSession(sessionId) {
+    const result = await this.query(
+      'SELECT * FROM tv_sessions WHERE session_id = $1',
+      [sessionId]
+    );
+
+    return result.rows[0];
+  }
+
+  async validateTVSession(sessionId) {
+    const session = await this.getTVSession(sessionId);
+
+    if (!session) {
+      return { valid: false, reason: 'Session not found' };
+    }
+
+    if (!session.active) {
+      return { valid: false, reason: 'Session terminated', terminatedReason: session.terminated_reason };
+    }
+
+    if (new Date(session.expires_at) < new Date()) {
+      // Auto-terminate expired session
+      await this.terminateTVSession(sessionId, null, 'Session expired after 12 hours');
+      return { valid: false, reason: 'Session expired' };
+    }
+
+    return { valid: true, session };
+  }
+
+  async updateTVSessionActivity(sessionId) {
+    const result = await this.query(
+      'UPDATE tv_sessions SET last_activity_at = CURRENT_TIMESTAMP WHERE session_id = $1 AND active = true RETURNING *',
+      [sessionId]
+    );
+
+    return result.rows[0];
+  }
+
+  async getActiveTVSessions() {
+    const result = await this.query(
+      `SELECT
+        ts.*,
+        tac.created_by_email,
+        EXTRACT(EPOCH FROM (ts.expires_at - CURRENT_TIMESTAMP))/3600 as hours_remaining,
+        EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - ts.last_activity_at))/60 as minutes_since_activity
+       FROM tv_sessions ts
+       LEFT JOIN tv_access_codes tac ON ts.access_code_id = tac.id
+       WHERE ts.active = true AND ts.expires_at > CURRENT_TIMESTAMP
+       ORDER BY ts.started_at DESC`,
+      []
+    );
+
+    return result.rows;
+  }
+
+  async terminateTVSession(sessionId, terminatedBy = null, reason = 'Manually terminated') {
+    const result = await this.query(
+      `UPDATE tv_sessions
+       SET active = false, terminated_at = CURRENT_TIMESTAMP, terminated_by = $2, terminated_reason = $3
+       WHERE session_id = $1
+       RETURNING *`,
+      [sessionId, terminatedBy, reason]
+    );
+
+    return result.rows[0];
+  }
+
+  async cleanupExpiredTVSessions() {
+    const result = await this.query(
+      `UPDATE tv_sessions
+       SET active = false, terminated_at = CURRENT_TIMESTAMP, terminated_reason = 'Session expired after 12 hours'
+       WHERE active = true AND expires_at < CURRENT_TIMESTAMP
+       RETURNING *`
+    );
+
+    return result.rowCount;
+  }
+
+  async getAllTVSessions({ limit = 100, offset = 0 }) {
+    const result = await this.query(
+      `SELECT
+        ts.*,
+        tac.created_by_email,
+        EXTRACT(EPOCH FROM (ts.expires_at - ts.started_at))/3600 as session_duration_hours,
+        EXTRACT(EPOCH FROM (COALESCE(ts.terminated_at, CURRENT_TIMESTAMP) - ts.started_at))/3600 as actual_duration_hours
+       FROM tv_sessions ts
+       LEFT JOIN tv_access_codes tac ON ts.access_code_id = tac.id
+       ORDER BY ts.started_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    return result.rows;
+  }
+
   // ==================== DEALS ====================
 
   async insertDeal({ leadId, userId, campaignId, commission, multiDeals, orderDate, status }) {

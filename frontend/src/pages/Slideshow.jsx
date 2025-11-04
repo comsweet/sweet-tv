@@ -6,7 +6,7 @@ console.log('🔥🔥🔥 SLIDESHOW.JSX LOADED - VERSION: INDIVIDUAL-DURATION');
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
-import { getSlideshow, getLeaderboardStats2, getAutoRefreshSettings, getThresholdsForPeriod } from '../services/api';
+import { getSlideshow, getLeaderboardStats2, getAutoRefreshSettings, getThresholdsForPeriod, sendSessionHeartbeat } from '../services/api';
 import DealNotification from '../components/DealNotification';
 import TVAccessCodeModal from '../components/TVAccessCodeModal';
 import LeaderboardVisualizer from '../components/LeaderboardVisualizer';
@@ -362,8 +362,9 @@ const Slideshow = () => {
 
   // 🔑 TV ACCESS CODE STATE
   const [hasAccess, setHasAccess] = useState(() => {
-    return sessionStorage.getItem('tvAccessGranted') === 'true';
+    return sessionStorage.getItem('tvSessionId') !== null;
   });
+  const [sessionError, setSessionError] = useState(null);
 
   // 🔥 TV SIZE STATE
   const [displaySize, setDisplaySize] = useState(() => {
@@ -677,6 +678,53 @@ const Slideshow = () => {
     loadAutoRefreshSettings();
   }, []);
 
+  // 💓 Session heartbeat - keep session alive (every 30 seconds)
+  useEffect(() => {
+    if (!hasAccess) return;
+
+    const sessionId = sessionStorage.getItem('tvSessionId');
+    if (!sessionId) {
+      setHasAccess(false);
+      return;
+    }
+
+    // Send initial heartbeat
+    const sendHeartbeat = async () => {
+      try {
+        const response = await sendSessionHeartbeat(sessionId);
+        console.log('💓 Heartbeat sent successfully');
+      } catch (error) {
+        console.error('❌ Heartbeat failed:', error);
+
+        // Check if session was terminated
+        if (error.response?.status === 401) {
+          const reason = error.response.data?.reason;
+          const terminatedReason = error.response.data?.terminatedReason;
+
+          console.log(`🔒 Session invalid: ${reason}`);
+          if (terminatedReason) {
+            console.log(`   Reason: ${terminatedReason}`);
+            setSessionError(terminatedReason);
+          }
+
+          // Clear session and force re-authentication
+          sessionStorage.removeItem('tvSessionId');
+          sessionStorage.removeItem('tvAccessGranted');
+          sessionStorage.removeItem('tvSessionExpires');
+          setHasAccess(false);
+        }
+      }
+    };
+
+    // Send heartbeat every 30 seconds
+    const heartbeatInterval = setInterval(sendHeartbeat, 30 * 1000);
+    sendHeartbeat(); // Send immediately
+
+    return () => {
+      clearInterval(heartbeatInterval);
+    };
+  }, [hasAccess]);
+
   useEffect(() => {
     fetchSlideshowData();
 
@@ -803,7 +851,10 @@ const Slideshow = () => {
 
   // 🔑 Show access code modal if not granted
   if (!hasAccess) {
-    return <TVAccessCodeModal onAccessGranted={() => setHasAccess(true)} />;
+    return <TVAccessCodeModal onAccessGranted={() => {
+      setHasAccess(true);
+      setSessionError(null);
+    }} sessionError={sessionError} />;
   }
 
   if (isLoading) {

@@ -4,7 +4,16 @@ import './TVAccessCodeModal.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-const TVAccessCodeModal = ({ onAccessGranted }) => {
+// Generate UUID v4
+const generateSessionId = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+const TVAccessCodeModal = ({ onAccessGranted, sessionError = null }) => {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [isValidating, setIsValidating] = useState(false);
@@ -12,13 +21,34 @@ const TVAccessCodeModal = ({ onAccessGranted }) => {
     ...Array(6).fill(0).map(() => null)
   ];
 
-  // Check if already validated (stored in sessionStorage)
+  // Check if already validated (check for session ID)
   useEffect(() => {
-    const hasAccess = sessionStorage.getItem('tvAccessGranted');
-    if (hasAccess === 'true') {
-      onAccessGranted();
+    const sessionId = sessionStorage.getItem('tvSessionId');
+    if (sessionId) {
+      // Validate session with backend
+      validateSession(sessionId);
     }
   }, [onAccessGranted]);
+
+  const validateSession = async (sessionId) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/tv-codes/sessions/validate`, {
+        sessionId
+      });
+
+      if (response.data.valid) {
+        onAccessGranted();
+      } else {
+        // Session invalid, clear storage
+        sessionStorage.removeItem('tvSessionId');
+        sessionStorage.removeItem('tvAccessGranted');
+      }
+    } catch (error) {
+      console.error('Session validation error:', error);
+      sessionStorage.removeItem('tvSessionId');
+      sessionStorage.removeItem('tvAccessGranted');
+    }
+  };
 
   const handleInputChange = (index, value) => {
     // Only allow numbers
@@ -65,13 +95,20 @@ const TVAccessCodeModal = ({ onAccessGranted }) => {
     setError('');
 
     try {
+      // Generate new session ID
+      const sessionId = generateSessionId();
+
       const response = await axios.post(`${API_BASE_URL}/tv-codes/validate`, {
-        code: codeString
+        code: codeString,
+        sessionId: sessionId
       });
 
       if (response.data.valid) {
-        // Store in sessionStorage (clears on tab/window close)
+        // Store session ID in sessionStorage
+        sessionStorage.setItem('tvSessionId', sessionId);
         sessionStorage.setItem('tvAccessGranted', 'true');
+        sessionStorage.setItem('tvSessionExpires', response.data.expiresAt);
+        console.log(`✅ Session created: ${sessionId}, expires: ${response.data.expiresAt}`);
         onAccessGranted();
       } else {
         setError(response.data.reason === 'Code not found' ? 'Ogiltig kod' :
@@ -105,6 +142,13 @@ const TVAccessCodeModal = ({ onAccessGranted }) => {
         <div className="tv-access-header">
           <h1>Sweet TV</h1>
           <p>Ange tillgångskod för att fortsätta</p>
+          {sessionError && (
+            <div className="tv-session-error">
+              <strong>Din session har avslutats:</strong>
+              <br />
+              {sessionError}
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="tv-access-form">

@@ -122,6 +122,17 @@ export const createSlideshow = (data) => api.post('/slideshows', data);
 export const updateSlideshow = (id, data) => api.put(`/slideshows/${id}`, data);
 export const deleteSlideshow = (id) => api.delete(`/slideshows/${id}`);
 
+// TV Sessions
+export const validateTVSession = (sessionId) =>
+  api.post('/tv-codes/sessions/validate', { sessionId });
+export const sendSessionHeartbeat = (sessionId) =>
+  api.post('/tv-codes/sessions/heartbeat', { sessionId });
+export const getActiveTVSessions = () => api.get('/tv-codes/sessions/active');
+export const getAllTVSessions = (params) => api.get('/tv-codes/sessions/all', { params });
+export const terminateTVSession = (sessionId, reason) =>
+  api.delete(`/tv-codes/sessions/${sessionId}`, { data: { reason } });
+export const cleanupExpiredTVSessions = () => api.post('/tv-codes/sessions/cleanup');
+
 // Sound Management
 export const getSoundSettings = () => api.get('/sounds/settings');
 export const updateSoundSettings = (data) => api.put('/sounds/settings', data);
