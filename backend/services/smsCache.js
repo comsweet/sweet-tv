@@ -44,6 +44,9 @@ class SMSCache {
       // Start retry processor
       this.startRetryProcessor();
 
+      // Start midnight cache reset scheduler
+      this.startMidnightScheduler();
+
       this.initialized = true;
       console.log('✅ SMS cache initialized with PostgreSQL');
     } catch (error) {
@@ -531,6 +534,38 @@ class SMSCache {
    */
   async updateLastSync() {
     this.lastSync = new Date().toISOString();
+  }
+
+  /**
+   * Start scheduler to reset cache at midnight every day
+   * This ensures "today's" cache is always current even if server runs 24/7
+   */
+  startMidnightScheduler() {
+    const scheduleNextMidnight = () => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 1, 0); // 00:00:01 tomorrow
+
+      const msUntilMidnight = tomorrow.getTime() - now.getTime();
+
+      console.log(`🕐 Midnight SMS cache reset scheduled for ${tomorrow.toISOString()} (in ${Math.round(msUntilMidnight / 1000 / 60)} minutes)`);
+
+      this.midnightTimer = setTimeout(async () => {
+        console.log('🌙 MIDNIGHT: Resetting SMS cache for new day...');
+        try {
+          await this.loadTodayCache();
+          console.log('✅ SMS cache reset complete for new day');
+        } catch (error) {
+          console.error('❌ Error resetting SMS cache at midnight:', error);
+        }
+
+        // Schedule next midnight reset
+        scheduleNextMidnight();
+      }, msUntilMidnight);
+    };
+
+    scheduleNextMidnight();
   }
 
   /**

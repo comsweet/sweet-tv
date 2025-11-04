@@ -49,17 +49,23 @@ router.post('/clean', async (req, res) => {
   }
 });
 
-// Clear deals database
+// Clear deals cache (invalidate in-memory cache, reload from DB)
 router.delete('/database', async (req, res) => {
   try {
-    await dealsCache.saveCache([]);
-    console.log('✅ Cleared deals-cache.json');
+    // With PostgreSQL, "clear cache" means invalidate in-memory cache
+    // and reload today's data from database
+    await dealsCache.invalidateCache();
+    console.log('✅ Invalidated deals cache and reloaded from PostgreSQL');
+
+    const stats = await dealsCache.getStats();
 
     res.json({
       success: true,
-      message: 'Cleared deals cache (deals-cache.json)'
+      message: 'Deals cache invalidated and reloaded from database',
+      stats
     });
   } catch (error) {
+    console.error('❌ Error invalidating deals cache:', error);
     res.status(500).json({ error: error.message });
   }
 });
