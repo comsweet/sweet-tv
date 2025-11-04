@@ -43,6 +43,9 @@ class DealsCache {
       // Start retry processor
       this.startRetryProcessor();
 
+      // Start midnight cache reset scheduler
+      this.startMidnightScheduler();
+
       console.log('✅ Deals cache initialized with PostgreSQL');
     } catch (error) {
       console.error('❌ Error initializing deals cache:', error);
@@ -562,6 +565,38 @@ class DealsCache {
     return Array.from(this.todayCache.values()).filter(deal =>
       String(deal.userId) === String(userId)
     );
+  }
+
+  /**
+   * Start scheduler to reset cache at midnight every day
+   * This ensures "today's" cache is always current even if server runs 24/7
+   */
+  startMidnightScheduler() {
+    const scheduleNextMidnight = () => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 1, 0); // 00:00:01 tomorrow
+
+      const msUntilMidnight = tomorrow.getTime() - now.getTime();
+
+      console.log(`🕐 Midnight cache reset scheduled for ${tomorrow.toISOString()} (in ${Math.round(msUntilMidnight / 1000 / 60)} minutes)`);
+
+      this.midnightTimer = setTimeout(async () => {
+        console.log('🌙 MIDNIGHT: Resetting deals cache for new day...');
+        try {
+          await this.loadTodayCache();
+          console.log('✅ Deals cache reset complete for new day');
+        } catch (error) {
+          console.error('❌ Error resetting deals cache at midnight:', error);
+        }
+
+        // Schedule next midnight reset
+        scheduleNextMidnight();
+      }, msUntilMidnight);
+    };
+
+    scheduleNextMidnight();
   }
 
   /**

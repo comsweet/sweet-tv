@@ -67,17 +67,23 @@ router.post('/clean', async (req, res) => {
   }
 });
 
-// Clear SMS cache
+// Clear SMS cache (invalidate in-memory cache, reload from DB)
 router.delete('/cache', async (req, res) => {
   try {
-    await smsCache.saveCache([]);
-    console.log('✅ Cleared sms-cache.json');
+    // With PostgreSQL, "clear cache" means invalidate in-memory cache
+    // and reload today's data from database
+    await smsCache.invalidateCache();
+    console.log('✅ Invalidated SMS cache and reloaded from PostgreSQL');
+
+    const stats = await smsCache.getStats();
 
     res.json({
       success: true,
-      message: 'Cleared SMS cache'
+      message: 'SMS cache invalidated and reloaded from database',
+      stats
     });
   } catch (error) {
+    console.error('❌ Error invalidating SMS cache:', error);
     res.status(500).json({ error: error.message });
   }
 });
