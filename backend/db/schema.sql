@@ -67,6 +67,24 @@ CREATE TABLE IF NOT EXISTS tv_access_codes (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- TV Sessions (tracks active slideshow sessions with 12-hour timeout)
+CREATE TABLE IF NOT EXISTS tv_sessions (
+  id SERIAL PRIMARY KEY,
+  session_id VARCHAR(36) UNIQUE NOT NULL,
+  access_code_id INTEGER REFERENCES tv_access_codes(id),
+  access_code VARCHAR(6),
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP NOT NULL,
+  last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  active BOOLEAN DEFAULT true,
+  terminated_by INTEGER REFERENCES users(id),
+  terminated_at TIMESTAMP,
+  terminated_reason TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
@@ -76,6 +94,9 @@ CREATE INDEX IF NOT EXISTS idx_api_requests_created_at ON api_requests(created_a
 CREATE INDEX IF NOT EXISTS idx_agents_user_id ON agents(user_id);
 CREATE INDEX IF NOT EXISTS idx_tv_access_codes_code ON tv_access_codes(code);
 CREATE INDEX IF NOT EXISTS idx_tv_access_codes_expires_at ON tv_access_codes(expires_at);
+CREATE INDEX IF NOT EXISTS idx_tv_sessions_session_id ON tv_sessions(session_id);
+CREATE INDEX IF NOT EXISTS idx_tv_sessions_active ON tv_sessions(active);
+CREATE INDEX IF NOT EXISTS idx_tv_sessions_expires_at ON tv_sessions(expires_at);
 
 -- Update timestamp trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()

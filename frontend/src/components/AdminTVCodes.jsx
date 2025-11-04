@@ -8,6 +8,7 @@ const AdminTVCodes = () => {
   const { isSuperAdmin } = useAuth();
   const [activeCodes, setActiveCodes] = useState([]);
   const [allCodes, setAllCodes] = useState([]);
+  const [activeSessions, setActiveSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -17,7 +18,10 @@ const AdminTVCodes = () => {
 
   useEffect(() => {
     fetchActiveCodes();
-  }, []);
+    if (isSuperAdmin) {
+      fetchActiveSessions();
+    }
+  }, [isSuperAdmin]);
 
   const fetchActiveCodes = async () => {
     try {
@@ -25,6 +29,36 @@ const AdminTVCodes = () => {
       setActiveCodes(response.data.codes);
     } catch (err) {
       console.error('Failed to fetch active codes:', err);
+    }
+  };
+
+  const fetchActiveSessions = async () => {
+    if (!isSuperAdmin) return;
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/tv-codes/sessions/active`);
+      setActiveSessions(response.data.sessions);
+    } catch (err) {
+      console.error('Failed to fetch active sessions:', err);
+    }
+  };
+
+  const terminateSession = async (sessionId) => {
+    if (!confirm('Är du säker på att du vill avsluta denna session?')) {
+      return;
+    }
+
+    const reason = prompt('Ange anledning (valfritt):') || 'Manuellt avslutad av admin';
+
+    try {
+      await axios.delete(`${API_BASE_URL}/tv-codes/sessions/${sessionId}`, {
+        data: { reason }
+      });
+      setSuccess(`Session avslutad`);
+      fetchActiveSessions();
+    } catch (err) {
+      console.error('Failed to terminate session:', err);
+      setError(err.response?.data?.error || 'Kunde inte avsluta session');
     }
   };
 
@@ -413,6 +447,136 @@ const AdminTVCodes = () => {
           </div>
         )}
       </div>
+
+      {/* Active Sessions (Superadmin only) */}
+      {isSuperAdmin && (
+        <div style={{
+          background: 'white',
+          padding: '24px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          marginBottom: '24px',
+          border: '2px solid #ff9800'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div>
+              <h3 style={{ color: '#333', margin: '0 0 4px 0' }}>🔒 Aktiva TV-Sessioner</h3>
+              <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>
+                Sessioner är giltiga i 12 timmar från start
+              </p>
+            </div>
+            <button
+              onClick={fetchActiveSessions}
+              style={{
+                padding: '6px 12px',
+                background: '#00B2E3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '13px'
+              }}
+            >
+              🔄 Uppdatera
+            </button>
+          </div>
+
+          {activeSessions.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+              Inga aktiva sessioner
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse'
+              }}>
+                <thead>
+                  <tr style={{ background: '#f5f5f5' }}>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Session ID</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Kod Använd</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Skapad Av</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>IP-Adress</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Startad</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Utgår Om</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Senaste Aktivitet</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeSessions.map((session) => {
+                    const hoursRemaining = parseFloat(session.hours_remaining || 0);
+                    const minutesSinceActivity = parseFloat(session.minutes_since_activity || 0);
+
+                    return (
+                      <tr key={session.id} style={{ borderBottom: '1px solid #eee' }}>
+                        <td style={{
+                          padding: '12px',
+                          fontSize: '11px',
+                          fontFamily: 'monospace',
+                          color: '#666'
+                        }}>
+                          {session.session_id.substring(0, 8)}...
+                        </td>
+                        <td style={{
+                          padding: '12px',
+                          fontSize: '16px',
+                          fontWeight: '700',
+                          fontFamily: 'monospace',
+                          color: '#005A9C',
+                          letterSpacing: '1px'
+                        }}>
+                          {session.access_code}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '13px' }}>
+                          {session.created_by_email || '-'}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '13px', fontFamily: 'monospace' }}>
+                          {session.ip_address}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '13px' }}>
+                          {formatDate(session.started_at)}
+                        </td>
+                        <td style={{
+                          padding: '12px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: hoursRemaining < 1 ? '#f44336' : hoursRemaining < 3 ? '#ff9800' : '#4caf50'
+                        }}>
+                          {hoursRemaining.toFixed(1)}h
+                        </td>
+                        <td style={{
+                          padding: '12px',
+                          fontSize: '13px',
+                          color: minutesSinceActivity > 5 ? '#ff9800' : '#4caf50'
+                        }}>
+                          {minutesSinceActivity < 1 ? 'Just nu' : `${Math.floor(minutesSinceActivity)}m sedan`}
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          <button
+                            onClick={() => terminateSession(session.session_id)}
+                            style={{
+                              padding: '6px 12px',
+                              background: '#f44336',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '13px'
+                            }}
+                          >
+                            🔒 Avsluta
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* History Toggle */}
       <button
