@@ -74,12 +74,12 @@ export const useSlideshows = () => {
         throw new Error('Lägg till minst en slide!');
       }
 
-      // Validate leaderboard slides have leaderboardId
+      // Validate leaderboard and trend slides have leaderboardId
       const invalidLeaderboardSlides = form.slides.filter(
         slide => slide.type !== 'quotes' && !slide.leaderboardId
       );
       if (invalidLeaderboardSlides.length > 0) {
-        throw new Error('Alla leaderboard-slides måste ha en leaderboard vald!');
+        throw new Error('Alla leaderboard- och trend-slides måste ha en leaderboard vald!');
       }
 
       if (editingSlideshow) {
@@ -121,9 +121,24 @@ export const useSlideshows = () => {
 
   const addSlide = (type = 'leaderboard') => {
     setForm(prev => {
-      const newSlide = type === 'quotes'
-        ? { type: 'quotes', duration: prev.duration || 15 }
-        : { type: 'leaderboard', leaderboardId: null, duration: prev.duration || 30 };
+      let newSlide;
+
+      if (type === 'quotes') {
+        newSlide = { type: 'quotes', duration: prev.duration || 15 };
+      } else if (type === 'trend') {
+        newSlide = {
+          type: 'trend',
+          leaderboardId: null,
+          duration: prev.duration || 20,
+          config: {
+            hours: 24,
+            topN: 5,
+            metric: 'commission'
+          }
+        };
+      } else {
+        newSlide = { type: 'leaderboard', leaderboardId: null, duration: prev.duration || 30 };
+      }
 
       return {
         ...prev,

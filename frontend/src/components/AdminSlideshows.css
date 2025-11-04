@@ -648,3 +648,25 @@
   color: #667eea;
   font-weight: 600;
 }
+
+/* ==================== TREND CHART SLIDE STYLING ==================== */
+
+.slide-config-card.trend-slide {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border-left: 4px solid #10b981;
+}
+
+.trend-config-section {
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 6px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.trend-config-section h5 {
+  margin: 0 0 1rem;
+  color: #10b981;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
