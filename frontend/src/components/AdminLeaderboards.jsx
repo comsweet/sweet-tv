@@ -402,6 +402,57 @@ const AdminLeaderboards = () => {
               <small>Använd pilarna för att ändra ordningen som kolumnerna visas på slideshow.</small>
             </div>
 
+            {/* Logo Upload */}
+            <div className="form-group">
+              <label>Varumärkeslogga:</label>
+              <div className="logo-upload-section">
+                {form.logo ? (
+                  <div className="logo-preview">
+                    <img src={form.logo} alt="Leaderboard Logo" />
+                    <button
+                      type="button"
+                      className="btn-remove-logo"
+                      onClick={() => setForm({ ...form, logo: null })}
+                    >
+                      ✕ Ta bort logga
+                    </button>
+                  </div>
+                ) : (
+                  <div className="logo-upload-prompt">
+                    <input
+                      type="file"
+                      id="logo-upload"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+
+                        const formData = new FormData();
+                        formData.append('image', file);
+
+                        try {
+                          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/leaderboards/${editingLeaderboard?.id || 'temp'}/logo`, {
+                            method: 'POST',
+                            body: formData
+                          });
+                          const data = await response.json();
+                          setForm({ ...form, logo: data.logoUrl });
+                        } catch (error) {
+                          console.error('Error uploading logo:', error);
+                          alert('Fel vid uppladdning: ' + error.message);
+                        }
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                    <label htmlFor="logo-upload" className="btn-upload-logo">
+                      📸 Ladda upp logga
+                    </label>
+                    <small>PNG, JPG, SVG (max 5MB)</small>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="form-group">
               <label>Visuella element:</label>
               <div className="checkbox-group">

@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const { logoStorage } = require('../../config/cloudinary');
 const adversusAPI = require('../../services/adversusAPI');
 const database = require('../../services/database');
 const leaderboardService = require('../../services/leaderboards');
@@ -9,6 +11,12 @@ const loginTimeCache = require('../../services/loginTimeCache');
 const leaderboardCache = require('../../services/leaderboardCache');
 const campaignCache = require('../../services/campaignCache');
 const campaignBonusTiers = require('../../services/campaignBonusTiers');
+
+// Multer upload for logos
+const upload = multer({
+  storage: logoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
 
 // ==================== LEADERBOARDS ====================
 
@@ -702,6 +710,36 @@ router.delete('/:id', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Upload logo for leaderboard
+router.post('/:id/logo', upload.single('image'), async (req, res) => {
+  try {
+    const leaderboardId = req.params.id;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image provided' });
+    }
+
+    const logoUrl = req.file.path;
+
+    // Update leaderboard with logo
+    const leaderboard = await leaderboardService.getLeaderboard(leaderboardId);
+    if (!leaderboard) {
+      return res.status(404).json({ error: 'Leaderboard not found' });
+    }
+
+    await leaderboardService.updateLeaderboard(leaderboardId, {
+      ...leaderboard,
+      logo: logoUrl
+    });
+
+    console.log(`✅ Logo uploaded for leaderboard ${leaderboardId}: ${logoUrl}`);
+    res.json({ logoUrl });
+  } catch (error) {
+    console.error('Error uploading leaderboard logo:', error);
     res.status(500).json({ error: error.message });
   }
 });

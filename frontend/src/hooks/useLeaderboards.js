@@ -41,7 +41,9 @@ export const useLeaderboards = () => {
     goalValue: null, // null = auto
     goalLabel: '',
     // Auto-scroll configuration
-    enableAutoScroll: true
+    enableAutoScroll: true,
+    // Logo for this leaderboard (brand/company specific)
+    logo: null
   });
 
   const fetchLeaderboards = async () => {
@@ -84,7 +86,9 @@ export const useLeaderboards = () => {
       goalValue: null,
       goalLabel: '',
       // Auto-scroll configuration
-      enableAutoScroll: true
+      enableAutoScroll: true,
+      // Logo for this leaderboard
+      logo: null
     });
     setShowModal(true);
   };
@@ -119,7 +123,9 @@ export const useLeaderboards = () => {
       goalValue: leaderboard.goalValue || null,
       goalLabel: leaderboard.goalLabel || '',
       // Auto-scroll configuration
-      enableAutoScroll: leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true
+      enableAutoScroll: leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true,
+      // Logo for this leaderboard
+      logo: leaderboard.logo || null
     });
     setShowModal(true);
   };

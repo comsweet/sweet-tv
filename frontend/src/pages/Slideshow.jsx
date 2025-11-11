@@ -68,7 +68,7 @@ const TVSizeControl = ({ currentSize, onSizeChange }) => {
 };
 
 // ⭐ LeaderboardSlide komponent med AUTO-SCROLL och FROZEN #1
-const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize, refreshKey, logos = {} }) => {
+const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize, refreshKey }) => {
   const scrollContainerRef = useRef(null);
   const scrollContentRef = useRef(null);
   const [thresholds, setThresholds] = useState(null);
@@ -333,10 +333,10 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
         {/* Hide header for RocketRace - maximize full screen */}
         {visualizationMode !== 'rocket' && (
           <div className="slideshow-header">
-            {/* Company Logo - Left */}
-            {logos.companyLogo && (
-              <div className="slideshow-logo slideshow-logo-left">
-                <img src={logos.companyLogo} alt="Company Logo" />
+            {/* Leaderboard Logo - Centered above title */}
+            {leaderboard.logo && (
+              <div className="slideshow-logo slideshow-logo-center">
+                <img src={leaderboard.logo} alt={`${leaderboard.name} Logo`} />
               </div>
             )}
 
@@ -347,13 +347,6 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
                 📊 {totalDeals} affärer totalt • {stats.length} {leaderboard.displayMode === 'groups' ? 'grupper' : 'agenter'}
               </p>
             </div>
-
-            {/* Brand Mark - Right */}
-            {logos.brandMark && (
-              <div className="slideshow-logo slideshow-logo-right">
-                <img src={logos.brandMark} alt="Brand Mark" />
-              </div>
-            )}
           </div>
         )}
 
@@ -384,7 +377,6 @@ const Slideshow = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [logos, setLogos] = useState({ companyLogo: null, brandMark: null });
 
   // 🔑 TV ACCESS CODE STATE
   const [hasAccess, setHasAccess] = useState(() => {
@@ -764,18 +756,6 @@ const Slideshow = () => {
   useEffect(() => {
     fetchSlideshowData();
 
-    // Fetch logos
-    const fetchLogos = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/logos`);
-        const data = await response.json();
-        setLogos(data);
-      } catch (error) {
-        console.error('Error fetching logos:', error);
-      }
-    };
-    fetchLogos();
-
     // 🔄 Regular refresh every 20 seconds (silent, preserves scroll)
     refreshIntervalRef.current = setInterval(() => {
       console.log('⏰ 20-second interval - refreshing stats silently');
@@ -1035,7 +1015,6 @@ const Slideshow = () => {
             isActive={isActive}
             displaySize={displaySize}
             refreshKey={refreshKey}
-            logos={logos}
           />
         );
       })}
