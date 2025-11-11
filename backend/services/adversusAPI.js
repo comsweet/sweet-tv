@@ -37,7 +37,7 @@ class AdversusAPI {
     }
   }
 
-  async request(endpoint, params = {}) {
+  async request(endpoint, options = {}) {
     // Vänta på både rate limit OCH concurrent slot
     await this.waitForConcurrentSlot();
     await this.waitForRateLimit();
@@ -46,16 +46,34 @@ class AdversusAPI {
 
     const startTime = Date.now();
     let statusCode = 0;
+    const method = options.method || 'GET';
 
     try {
-      const response = await axios.get(`${this.baseURL}${endpoint}`, {
+      const axiosConfig = {
         headers: {
           'Authorization': `Basic ${this.auth}`,
           'Content-Type': 'application/json'
         },
-        params,
         timeout: 30000 // 30s timeout
-      });
+      };
+
+      let response;
+
+      if (method === 'POST') {
+        // POST request with data in body
+        response = await axios.post(
+          `${this.baseURL}${endpoint}`,
+          options.data || {},
+          axiosConfig
+        );
+      } else {
+        // GET request with params in query string
+        axiosConfig.params = options.params || options;
+        response = await axios.get(
+          `${this.baseURL}${endpoint}`,
+          axiosConfig
+        );
+      }
 
       statusCode = response.status;
       const responseTime = Date.now() - startTime;
@@ -64,7 +82,7 @@ class AdversusAPI {
       try {
         await postgres.logApiRequest({
           endpoint,
-          method: 'GET',
+          method,
           statusCode,
           responseTime,
           userId: null,
@@ -83,7 +101,7 @@ class AdversusAPI {
       try {
         await postgres.logApiRequest({
           endpoint,
-          method: 'GET',
+          method,
           statusCode,
           responseTime,
           userId: null,
