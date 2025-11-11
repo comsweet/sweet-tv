@@ -22,13 +22,14 @@ export const useLeaderboards = () => {
     active: true,
     sortBy: 'commission',
     visibleColumns: {
+      dealsPerHour: true,
       sms: true,
       commission: true,
       deals: true,
       campaignBonus: true,
       total: true
     },
-    columnOrder: ['deals', 'sms', 'commission', 'campaignBonus', 'total'],
+    columnOrder: ['dealsPerHour', 'deals', 'sms', 'commission', 'campaignBonus', 'total'],
     // NEW: Enhanced display options
     displayMode: 'individual', // 'individual' | 'groups'
     topN: null, // null = show all
@@ -64,13 +65,14 @@ export const useLeaderboards = () => {
       active: true,
       sortBy: 'commission',
       visibleColumns: {
+        dealsPerHour: true,
         sms: true,
         commission: true,
         deals: true,
         campaignBonus: true,
         total: true
       },
-      columnOrder: ['deals', 'sms', 'commission', 'campaignBonus', 'total'],
+      columnOrder: ['dealsPerHour', 'deals', 'sms', 'commission', 'campaignBonus', 'total'],
       // NEW: Enhanced display options
       displayMode: 'individual',
       topN: null,
@@ -98,13 +100,14 @@ export const useLeaderboards = () => {
       active: leaderboard.active,
       sortBy: leaderboard.sortBy || 'commission',
       visibleColumns: leaderboard.visibleColumns || {
+        dealsPerHour: true,
         sms: true,
         commission: true,
         deals: true,
         campaignBonus: true,
         total: true
       },
-      columnOrder: leaderboard.columnOrder || ['deals', 'sms', 'commission', 'campaignBonus', 'total'],
+      columnOrder: leaderboard.columnOrder || ['dealsPerHour', 'deals', 'sms', 'commission', 'campaignBonus', 'total'],
       // NEW: Enhanced display options
       displayMode: leaderboard.displayMode || 'individual',
       topN: leaderboard.topN || null,
