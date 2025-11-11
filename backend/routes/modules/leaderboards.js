@@ -683,7 +683,7 @@ router.get('/:id/history', async (req, res) => {
 
     res.json({
       leaderboard: {
-        id: leaderboard._id,
+        id: leaderboard.id,
         name: leaderboard.name
       },
       timeSeries: filteredTimeSeries,

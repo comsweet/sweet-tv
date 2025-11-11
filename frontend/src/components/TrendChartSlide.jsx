@@ -23,7 +23,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await getLeaderboardHistory(leaderboard._id, {
+        const response = await getLeaderboardHistory(leaderboard.id, {
           hours,
           topN,
           metric
