@@ -27,47 +27,29 @@ async function testBuildReport() {
   console.log(`📝 Requesting workforce report for: ${fromDate.toISOString().split('T')[0]} → ${toDate.toISOString().split('T')[0]}`);
   console.log(`   User ID: ${testUserId}\n`);
 
-  // Try different body structures based on API docs
+  // Try different body structures - parameters at root level, not in filters
   const testBodies = [
     {
-      name: 'Test 1: startTime filter (like other endpoints)',
+      name: 'Test 1: Direct params (correct format per your feedback)',
       body: {
-        filters: {
-          userid: testUserId,
-          startTime: {
-            $gt: fromDate.toISOString(),
-            $lt: toDate.toISOString()
-          }
-        }
+        startTime: fromDate.toISOString(),
+        endTime: toDate.toISOString(),
+        userId: parseInt(testUserId)
       }
     },
     {
-      name: 'Test 2: userId with capital I',
+      name: 'Test 2: userId as string',
       body: {
-        filters: {
-          userId: testUserId,
-          startTime: {
-            $gt: fromDate.toISOString(),
-            $lt: toDate.toISOString()
-          }
-        }
+        startTime: fromDate.toISOString(),
+        endTime: toDate.toISOString(),
+        userId: testUserId
       }
     },
     {
-      name: 'Test 3: Just startTime filter (no userid)',
+      name: 'Test 3: Without userId (all users)',
       body: {
-        filters: {
-          startTime: {
-            $gt: fromDate.toISOString(),
-            $lt: toDate.toISOString()
-          }
-        }
-      }
-    },
-    {
-      name: 'Test 4: Empty filters',
-      body: {
-        filters: {}
+        startTime: fromDate.toISOString(),
+        endTime: toDate.toISOString()
       }
     }
   ];
