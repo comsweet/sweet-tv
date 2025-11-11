@@ -27,14 +27,14 @@ async function testBuildReport() {
   console.log(`📝 Requesting workforce report for: ${fromDate.toISOString().split('T')[0]} → ${toDate.toISOString().split('T')[0]}`);
   console.log(`   User ID: ${testUserId}\n`);
 
-  // Try different body structures
+  // Try different body structures based on API docs
   const testBodies = [
     {
-      name: 'Test 1: Basic filters',
+      name: 'Test 1: startTime filter (like other endpoints)',
       body: {
         filters: {
-          userId: testUserId,
-          timestamp: {
+          userid: testUserId,
+          startTime: {
             $gt: fromDate.toISOString(),
             $lt: toDate.toISOString()
           }
@@ -42,32 +42,32 @@ async function testBuildReport() {
       }
     },
     {
-      name: 'Test 2: Date range format',
-      body: {
-        fromDate: fromDate.toISOString(),
-        toDate: toDate.toISOString(),
-        userId: testUserId
-      }
-    },
-    {
-      name: 'Test 3: Alternative structure',
-      body: {
-        users: [testUserId],
-        startDate: fromDate.toISOString(),
-        endDate: toDate.toISOString()
-      }
-    },
-    {
-      name: 'Test 4: With groupBy',
+      name: 'Test 2: userId with capital I',
       body: {
         filters: {
           userId: testUserId,
-          date: {
-            $gte: fromDate.toISOString(),
-            $lte: toDate.toISOString()
+          startTime: {
+            $gt: fromDate.toISOString(),
+            $lt: toDate.toISOString()
           }
-        },
-        groupBy: 'user'
+        }
+      }
+    },
+    {
+      name: 'Test 3: Just startTime filter (no userid)',
+      body: {
+        filters: {
+          startTime: {
+            $gt: fromDate.toISOString(),
+            $lt: toDate.toISOString()
+          }
+        }
+      }
+    },
+    {
+      name: 'Test 4: Empty filters',
+      body: {
+        filters: {}
       }
     }
   ];
@@ -83,30 +83,51 @@ async function testBuildReport() {
       });
 
       console.log(`✅ Response received!`);
-      console.log(JSON.stringify(response, null, 2));
-      console.log();
 
-      // If response has time fields, sum them up
-      if (response) {
-        const timeFields = ['active', 'paused', 'processing', 'waiting', 'dialing', 'talking', 'idle'];
+      // Response should be an array of activity records
+      if (Array.isArray(response)) {
+        console.log(`📊 Found ${response.length} activity records\n`);
+
+        // Show first few records as sample
+        console.log(`Sample records:`);
+        response.slice(0, 5).forEach((record, i) => {
+          console.log(`   ${i + 1}. userid: ${record.userid}, activity: ${record.activity}, duration: ${record.duration}s, campaign: ${record.campaignid || 'N/A'}`);
+        });
+        console.log();
+
+        // Group by activity and sum durations
+        const activityBreakdown = {};
         let totalSeconds = 0;
-        const breakdown = {};
 
-        timeFields.forEach(field => {
-          if (response[field] !== undefined && !isNaN(parseInt(response[field]))) {
-            const seconds = parseInt(response[field]);
-            breakdown[field] = seconds;
-            totalSeconds += seconds;
+        response.forEach(record => {
+          const activity = record.activity || 'unknown';
+          const duration = parseFloat(record.duration || 0);
+
+          if (!activityBreakdown[activity]) {
+            activityBreakdown[activity] = 0;
           }
+          activityBreakdown[activity] += duration;
+          totalSeconds += duration;
         });
 
-        if (Object.keys(breakdown).length > 0) {
-          console.log(`📊 Time Breakdown:`);
-          Object.entries(breakdown).forEach(([field, seconds]) => {
-            console.log(`   ${field}: ${seconds}s (${(seconds / 3600).toFixed(2)}h)`);
-          });
-          console.log(`   TOTAL: ${totalSeconds}s (${(totalSeconds / 3600).toFixed(2)}h)\n`);
+        console.log(`📊 Activity Breakdown:`);
+        Object.entries(activityBreakdown).forEach(([activity, seconds]) => {
+          console.log(`   ${activity}: ${seconds.toFixed(2)}s (${(seconds / 3600).toFixed(2)}h)`);
+        });
+        console.log(`   ────────────────────────────────────`);
+        console.log(`   TOTAL: ${totalSeconds.toFixed(2)}s (${(totalSeconds / 3600).toFixed(2)}h)\n`);
+
+        // Filter for our specific user
+        const userRecords = response.filter(r => String(r.userid) === String(testUserId));
+        if (userRecords.length > 0) {
+          console.log(`📋 Records for user ${testUserId}: ${userRecords.length}`);
+          const userTotal = userRecords.reduce((sum, r) => sum + parseFloat(r.duration || 0), 0);
+          console.log(`   Total time: ${userTotal.toFixed(2)}s (${(userTotal / 3600).toFixed(2)}h)\n`);
         }
+
+      } else {
+        console.log(`Response (not an array):`, JSON.stringify(response, null, 2));
+        console.log();
       }
 
       // Success - no need to test other formats
