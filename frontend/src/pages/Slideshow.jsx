@@ -68,7 +68,7 @@ const TVSizeControl = ({ currentSize, onSizeChange }) => {
 };
 
 // ⭐ LeaderboardSlide komponent med AUTO-SCROLL och FROZEN #1
-const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize, refreshKey }) => {
+const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize, refreshKey, logos = {} }) => {
   const scrollContainerRef = useRef(null);
   const scrollContentRef = useRef(null);
   const [thresholds, setThresholds] = useState(null);
@@ -1035,6 +1035,7 @@ const Slideshow = () => {
             isActive={isActive}
             displaySize={displaySize}
             refreshKey={refreshKey}
+            logos={logos}
           />
         );
       })}
