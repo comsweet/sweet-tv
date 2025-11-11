@@ -72,6 +72,7 @@ const AdminLeaderboards = () => {
 
   const getVisibleColumnsLabel = (visibleColumns) => {
     const cols = [];
+    if (visibleColumns.dealsPerHour) cols.push('🕒');
     if (visibleColumns.deals) cols.push('🎯');
     if (visibleColumns.sms) cols.push('📱');
     if (visibleColumns.commission) cols.push('💰');
@@ -308,6 +309,14 @@ const AdminLeaderboards = () => {
                 <label className="checkbox-label">
                   <input
                     type="checkbox"
+                    checked={form.visibleColumns.dealsPerHour}
+                    onChange={() => toggleColumn('dealsPerHour')}
+                  />
+                  <span>🕒 Affärer/timme</span>
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
                     checked={form.visibleColumns.deals}
                     onChange={() => toggleColumn('deals')}
                   />
@@ -354,6 +363,7 @@ const AdminLeaderboards = () => {
               <div className="column-order-list">
                 {form.columnOrder.map((colName, index) => {
                   const columnLabels = {
+                    dealsPerHour: '🕒 Affärer/timme',
                     deals: '🎯 Affärer',
                     sms: '📱 SMS',
                     commission: '💰 Provision',
