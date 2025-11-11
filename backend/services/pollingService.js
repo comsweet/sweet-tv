@@ -9,6 +9,7 @@ const soundLibrary = require('./soundLibrary');
 const leaderboardCache = require('./leaderboardCache');
 const dealsCache = require('./dealsCache');
 const smsCache = require('./smsCache');
+const loginTimeCache = require('./loginTimeCache');
 const notificationSettings = require('./notificationSettings');
 
 class PollingService {
@@ -287,12 +288,24 @@ class PollingService {
         // Continue anyway - SMS data might be slightly stale but deal data is fresh
       }
 
+      // 🔥 NEW: Sync login time for this user AFTER deal
+      // This keeps deals/hour accurate in real-time
+      console.log(`\n⏱️ SYNCING LOGIN TIME FOR USER ${lead.lastContactedBy}...`);
+      try {
+        const { start, end } = await this.dealsCache.getTodayWindow();
+        await loginTimeCache.syncLoginTimeForUser(this.adversusAPI, lead.lastContactedBy, start, end);
+        console.log(`✅ Login time synced for deals/hour calculation`);
+      } catch (error) {
+        console.error(`⚠️  Login time sync failed:`, error.message);
+        // Continue anyway - not critical for notification
+      }
+
       // 🗑️ Clear leaderboard cache BEFORE notification
       // This ensures next frontend request gets fresh data
       this.leaderboardCache.clear();
       console.log(`🗑️  Cleared leaderboard cache`);
 
-      // ⚡ ATOMIC OPERATION COMPLETE: Deal + SMS synced, cache cleared
+      // ⚡ ATOMIC OPERATION COMPLETE: Deal + SMS + Login time synced, cache cleared
       // Now it's safe to send notification and trigger frontend refresh
 
       // Count multiDeals

@@ -21,8 +21,11 @@ class LoginTimeCache {
     // Last sync timestamp
     this.lastSync = null;
 
-    // Sync interval: 30 minutes (login time doesn't change frequently)
-    this.syncIntervalMinutes = 30;
+    // Sync interval: 2 minutes (login time changes as agents work)
+    // Updated frequently because deals/hour changes constantly:
+    // - When deal comes: deals++ → deals/h UP
+    // - When time passes: loginTime++ → deals/h DOWN
+    this.syncIntervalMinutes = 2;
   }
 
   async init() {
@@ -206,6 +209,40 @@ class LoginTimeCache {
     console.log(`✅ Login time sync complete for ${results.length} users`);
 
     return results;
+  }
+
+  /**
+   * Sync login time for a SINGLE user (used after deal)
+   */
+  async syncLoginTimeForUser(adversusAPI, userId, fromDate, toDate) {
+    try {
+      console.log(`⏱️ Syncing login time for user ${userId} after deal...`);
+
+      // Fetch from Adversus
+      const data = await this.fetchLoginTimeFromAdversus(adversusAPI, userId, fromDate, toDate);
+
+      // Save to database
+      await this.saveLoginTime(data);
+
+      // Update cache
+      const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
+      this.cache.set(cacheKey, {
+        data,
+        cachedAt: Date.now()
+      });
+
+      console.log(`✅ Login time synced for user ${userId}: ${data.loginSeconds}s (${(data.loginSeconds / 3600).toFixed(2)}h)`);
+
+      return data;
+    } catch (error) {
+      console.error(`⚠️ Failed to sync login time for user ${userId}:`, error.message);
+      return {
+        userId,
+        loginSeconds: 0,
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString()
+      };
+    }
   }
 
   /**
