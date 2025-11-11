@@ -130,39 +130,42 @@ class LeaderboardService {
 
     switch (leaderboard.timePeriod) {
       case 'day':
-        // 🔥 FIX: Use UTC methods to avoid timezone issues
-        // This ensures "today" is calculated in UTC, matching SMS timestamps
+        // Use UTC for all calculations
         startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
         endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
         console.log(`📅 Day range (UTC): ${startDate.toISOString()} to ${endDate.toISOString()}`);
         break;
-      
+
       case 'week':
-        const dayOfWeek = now.getDay();
-        const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - diff);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now);
-        endDate.setHours(23, 59, 59, 999);
+        // Use UTC - Monday to Sunday
+        const dayOfWeek = now.getUTCDay();
+        const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday = 0 days back, Sunday = 6 days back
+        startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - diff, 0, 0, 0, 0));
+        endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+        console.log(`📅 Week range (UTC): ${startDate.toISOString()} to ${endDate.toISOString()}`);
         break;
-      
+
       case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-        endDate = new Date(now);
-        endDate.setHours(23, 59, 59, 999);
+        // Use UTC - First day of month to now
+        startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+        endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+        console.log(`📅 Month range (UTC): ${startDate.toISOString()} to ${endDate.toISOString()}`);
         break;
-      
+
       case 'custom':
-        startDate = new Date(leaderboard.customStartDate);
-        endDate = new Date(leaderboard.customEndDate);
-        endDate.setHours(23, 59, 59, 999);
+        // Use UTC - parse custom dates
+        const customStart = new Date(leaderboard.customStartDate);
+        const customEnd = new Date(leaderboard.customEndDate);
+        startDate = new Date(Date.UTC(customStart.getUTCFullYear(), customStart.getUTCMonth(), customStart.getUTCDate(), 0, 0, 0, 0));
+        endDate = new Date(Date.UTC(customEnd.getUTCFullYear(), customEnd.getUTCMonth(), customEnd.getUTCDate(), 23, 59, 59, 999));
+        console.log(`📅 Custom range (UTC): ${startDate.toISOString()} to ${endDate.toISOString()}`);
         break;
-      
+
       default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-        endDate = new Date(now);
-        endDate.setHours(23, 59, 59, 999);
+        // Default to current month
+        startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+        endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+        console.log(`📅 Default (month) range (UTC): ${startDate.toISOString()} to ${endDate.toISOString()}`);
     }
 
     return { startDate, endDate };
