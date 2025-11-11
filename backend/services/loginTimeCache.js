@@ -40,8 +40,8 @@ class LoginTimeCache {
   /**
    * Fetch login time for a user from Adversus API
    *
-   * IMPORTANT: Adversus API only returns max 7 days of login time!
-   * For longer periods, we need to split into multiple requests and sum the results.
+   * Uses timestamp filter which allows fetching ANY period (not limited to 7 days)
+   * Filter format: filters={"timestamp":{"$gt":"...","$lt":"..."}}
    */
   async fetchLoginTimeFromAdversus(adversusAPI, userId, fromDate, toDate) {
     try {
@@ -49,87 +49,28 @@ class LoginTimeCache {
 
       console.log(`🔍 Fetching login time for user ${userId} (${daysDiff} days: ${fromDate.toISOString().split('T')[0]} → ${toDate.toISOString().split('T')[0]})`);
 
-      // If period is <= 7 days, fetch directly
-      if (daysDiff <= 7) {
-        const response = await adversusAPI.request(`/users/${userId}/loginTime`, {
-          method: 'GET',
-          params: {
-            fromDate: fromDate.toISOString(),
-            toDate: toDate.toISOString()
-          }
-        });
-
-        const loginSeconds = parseInt(response.loginSeconds || 0);
-        console.log(`   ✅ User ${userId}: ${loginSeconds} seconds (${(loginSeconds / 3600).toFixed(2)} hours)`);
-
-        return {
-          userId,
-          loginSeconds,
-          fromDate: fromDate.toISOString(),
-          toDate: toDate.toISOString()
-        };
-      }
-
-      // Period > 7 days: Split into 7-day chunks and fetch each
-      console.log(`   ⚠️ Period > 7 days - splitting into chunks...`);
-
-      const chunks = [];
-      let currentStart = new Date(fromDate);
-
-      while (currentStart < toDate) {
-        const currentEnd = new Date(currentStart);
-        currentEnd.setUTCDate(currentEnd.getUTCDate() + 7);
-
-        // Don't go past toDate
-        if (currentEnd > toDate) {
-          currentEnd.setTime(toDate.getTime());
+      // Use timestamp filter - works for any period!
+      const filters = {
+        "timestamp": {
+          "$gt": fromDate.toISOString(),
+          "$lt": toDate.toISOString()
         }
+      };
 
-        chunks.push({
-          fromDate: new Date(currentStart),
-          toDate: new Date(currentEnd)
-        });
-
-        currentStart = new Date(currentEnd);
-        currentStart.setUTCSeconds(currentStart.getUTCSeconds() + 1); // Move to next second to avoid overlap
-      }
-
-      console.log(`   📊 Fetching ${chunks.length} chunks of 7 days each...`);
-
-      // Fetch all chunks (with small delay to respect rate limits)
-      let totalLoginSeconds = 0;
-      for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
-        console.log(`   📥 Chunk ${i + 1}/${chunks.length}: ${chunk.fromDate.toISOString().split('T')[0]} → ${chunk.toDate.toISOString().split('T')[0]}`);
-
-        try {
-          const response = await adversusAPI.request(`/users/${userId}/loginTime`, {
-            method: 'GET',
-            params: {
-              fromDate: chunk.fromDate.toISOString(),
-              toDate: chunk.toDate.toISOString()
-            }
-          });
-
-          const chunkSeconds = parseInt(response.loginSeconds || 0);
-          totalLoginSeconds += chunkSeconds;
-          console.log(`      → ${chunkSeconds} seconds (${(chunkSeconds / 3600).toFixed(2)} hours)`);
-
-          // Small delay between requests to avoid hitting rate limits (60 req/min)
-          if (i < chunks.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
-          }
-        } catch (chunkError) {
-          console.error(`      ❌ Failed to fetch chunk ${i + 1}:`, chunkError.message);
-          // Continue with next chunk
+      const response = await adversusAPI.request(`/users/${userId}/loginTime`, {
+        method: 'GET',
+        params: {
+          filters: JSON.stringify(filters)
         }
-      }
+      });
 
-      console.log(`   ✅ Total for user ${userId}: ${totalLoginSeconds} seconds (${(totalLoginSeconds / 3600).toFixed(2)} hours) across ${chunks.length} chunks`);
+      const loginSeconds = parseInt(response.loginSeconds || 0);
+      console.log(`   ✅ User ${userId}: ${loginSeconds} seconds (${(loginSeconds / 3600).toFixed(2)} hours)`);
+      console.log(`   📅 API returned: ${response.fromDate} → ${response.toDate}`);
 
       return {
         userId,
-        loginSeconds: totalLoginSeconds,
+        loginSeconds,
         fromDate: fromDate.toISOString(),
         toDate: toDate.toISOString()
       };
