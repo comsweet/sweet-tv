@@ -744,4 +744,62 @@ router.post('/:id/logo', upload.single('image'), async (req, res) => {
   }
 });
 
+// Migration endpoint: Add dealsPerHour to all existing leaderboards
+router.post('/migrate/add-deals-per-hour', async (req, res) => {
+  try {
+    console.log('🔄 Starting migration: Adding dealsPerHour to all leaderboards...');
+
+    const leaderboards = await leaderboardService.getLeaderboards();
+    let updatedCount = 0;
+
+    for (const leaderboard of leaderboards) {
+      let needsUpdate = false;
+
+      // Add dealsPerHour to visibleColumns if not present
+      if (!leaderboard.visibleColumns) {
+        leaderboard.visibleColumns = {
+          dealsPerHour: true,
+          deals: true,
+          sms: true,
+          commission: true,
+          campaignBonus: true,
+          total: true
+        };
+        needsUpdate = true;
+      } else if (!leaderboard.visibleColumns.hasOwnProperty('dealsPerHour')) {
+        leaderboard.visibleColumns.dealsPerHour = true;
+        needsUpdate = true;
+      }
+
+      // Add dealsPerHour to columnOrder if not present
+      if (!leaderboard.columnOrder) {
+        leaderboard.columnOrder = ['dealsPerHour', 'deals', 'sms', 'commission', 'campaignBonus', 'total'];
+        needsUpdate = true;
+      } else if (!leaderboard.columnOrder.includes('dealsPerHour')) {
+        // Add dealsPerHour at the beginning
+        leaderboard.columnOrder = ['dealsPerHour', ...leaderboard.columnOrder];
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        await leaderboardService.updateLeaderboard(leaderboard.id, leaderboard);
+        updatedCount++;
+        console.log(`✅ Updated leaderboard: ${leaderboard.name}`);
+      }
+    }
+
+    console.log(`🎉 Migration complete! Updated ${updatedCount} leaderboards`);
+
+    res.json({
+      success: true,
+      message: `Migration complete: ${updatedCount} leaderboards updated`,
+      totalLeaderboards: leaderboards.length,
+      updatedCount
+    });
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
