@@ -45,4 +45,26 @@ const soundStorage = new CloudinaryStorage({
   }
 });
 
-module.exports = { cloudinary, imageStorage, soundStorage };
+// Multer storage för LOGGOR (company logo + brand mark)
+const logoStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'sweet-tv-logos',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'svg', 'webp'],
+    transformation: [
+      {
+        width: 400,
+        height: 200,
+        crop: 'limit', // Behåll aspect ratio
+        quality: 'auto'
+      }
+    ],
+    public_id: (req, file) => {
+      // Custom filename: logo-{type}-{timestamp}
+      const type = req.body.type || 'company'; // 'company' eller 'brand'
+      return `logo-${type}-${Date.now()}`;
+    }
+  }
+});
+
+module.exports = { cloudinary, imageStorage, soundStorage, logoStorage };
