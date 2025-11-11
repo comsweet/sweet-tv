@@ -749,10 +749,27 @@ const Slideshow = () => {
       }
     };
 
+    // ⚡ NEW: Handle leaderboard refresh event (triggered after deal + SMS sync)
+    const handleLeaderboardRefresh = async (data) => {
+      console.log(`\n⚡ LEADERBOARD REFRESH EVENT RECEIVED`);
+      console.log(`   Reason: ${data.reason}`);
+      console.log(`   Lead ID: ${data.leadId}`);
+      console.log(`   User ID: ${data.userId}`);
+      console.log(`   Commission: ${data.commission} THB`);
+      console.log(`   Triggering immediate silent refresh...`);
+
+      // Trigger immediate silent refresh to show correct stats
+      await refreshStatsOnly();
+
+      console.log(`   ✅ Refresh complete - stats are now up to date`);
+    };
+
     socketService.on('new_deal', handleNewDeal);
+    socketService.on('leaderboard_refresh', handleLeaderboardRefresh);
 
     return () => {
       socketService.off('new_deal', handleNewDeal);
+      socketService.off('leaderboard_refresh', handleLeaderboardRefresh);
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
       }

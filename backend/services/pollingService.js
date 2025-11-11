@@ -276,17 +276,24 @@ class PollingService {
         this.pendingDeals.delete(lead.id);
       }
 
-      // 🔥 CRITICAL: Sync new SMS immediately so leaderboard shows correct numbers
-      // This only fetches NEW SMS since last sync (not all 85k!)
+      // 🔥 CRITICAL: Sync new SMS BEFORE sending notification
+      // This ensures frontend always sees consistent data (deals + SMS in sync)
+      console.log(`\n🔄 SYNCING SMS BEFORE NOTIFICATION...`);
       try {
         await this.smsCache.pollNewSMS(this.adversusAPI);
-        console.log(`📱 SMS synced after deal`);
+        console.log(`✅ SMS synced successfully`);
       } catch (error) {
-        console.error(`⚠️  SMS sync failed (non-critical):`, error.message);
+        console.error(`⚠️  SMS sync failed:`, error.message);
+        // Continue anyway - SMS data might be slightly stale but deal data is fresh
       }
 
-      // Clear leaderboard cache so new stats are recalculated
+      // 🗑️ Clear leaderboard cache BEFORE notification
+      // This ensures next frontend request gets fresh data
       this.leaderboardCache.clear();
+      console.log(`🗑️  Cleared leaderboard cache`);
+
+      // ⚡ ATOMIC OPERATION COMPLETE: Deal + SMS synced, cache cleared
+      // Now it's safe to send notification and trigger frontend refresh
 
       // Count multiDeals
       const multiDealsCount = parseInt(multiDeals);
@@ -366,17 +373,25 @@ class PollingService {
       this.notifiedLeads.add(lead.id);
       
       // Send notification via socket
-      console.log(`\n📡 NOTIFICATION SENT`);
+      console.log(`\n📡 SENDING NOTIFICATION & REFRESH EVENT`);
       console.log(`   📊 Daily Total: ${newTotal.toFixed(2)} THB (${((newTotal / dailyBudget) * 100).toFixed(1)}% of budget)`);
       console.log(`   🔊 Sound Type: ${soundType}`);
       console.log(`   🎵 Sound URL: ${soundUrl || 'None'}`);
-      
+
+      // Send deal notification (triggers pling + banner)
       this.io.emit('new_deal', notification);
 
-      // 🔥 CRITICAL: Invalidera cache så frontend får fresh stats!
-      this.leaderboardCache.clear();
-      console.log(`🗑️  Cleared leaderboard cache - next request will get fresh stats`);
-      
+      // ⚡ NEW: Send refresh event to force frontend to update stats immediately
+      // This ensures leaderboard shows correct numbers right after deal
+      this.io.emit('leaderboard_refresh', {
+        reason: 'new_deal',
+        leadId: lead.id,
+        userId: lead.lastContactedBy,
+        commission: commissionValue,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`   ⚡ Sent leaderboard_refresh event to frontend`);
+
       console.log(`${'='.repeat(70)}\n`);
       
     } catch (error) {
