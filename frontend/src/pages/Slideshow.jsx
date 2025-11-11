@@ -12,6 +12,7 @@ import TVAccessCodeModal from '../components/TVAccessCodeModal';
 import LeaderboardVisualizer from '../components/LeaderboardVisualizer';
 import QuotesSlide from '../components/QuotesSlide';
 import TrendChartSlide from '../components/TrendChartSlide';
+import GroupComparisonSlide from '../components/GroupComparisonSlide';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -457,6 +458,16 @@ const Slideshow = () => {
           } catch (error) {
             console.error(`   ❌ Error refreshing trend ${lbId}:`, error.message);
           }
+        }
+        // Check if this is a group comparison slide
+        else if (slideConfig.type === 'groupComparison') {
+          console.log(`   📊 Refreshing group comparison slide ${i + 1}/${slidesConfig.length}`);
+
+          leaderboardsWithStats.push({
+            type: 'groupComparison',
+            config: slideConfig.config || {},
+            duration: slideDuration
+          });
         }
         // Otherwise it's a leaderboard slide
         else {
@@ -992,6 +1003,21 @@ const Slideshow = () => {
             >
               <TrendChartSlide
                 leaderboard={slideData.leaderboard}
+                isActive={isActive}
+                config={slideData.config || {}}
+              />
+            </div>
+          );
+        }
+
+        // Render group comparison slide if type is 'groupComparison'
+        if (slideData.type === 'groupComparison') {
+          return (
+            <div
+              key={`slide-comparison-${index}-${refreshKey}`}
+              className={`slideshow-slide ${isActive ? 'active' : ''}`}
+            >
+              <GroupComparisonSlide
                 isActive={isActive}
                 config={slideData.config || {}}
               />
