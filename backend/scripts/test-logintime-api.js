@@ -7,131 +7,127 @@
  * 3. Different parameter names
  */
 
-const axios = require('axios');
-require('dotenv').config();
-
-const ADVERSUS_API_KEY = process.env.ADVERSUS_API_KEY;
-const ADVERSUS_API_URL = process.env.ADVERSUS_API_URL || 'https://api.adversus.io/v1';
+const adversusAPI = require('../services/adversusAPI');
 
 const testUserId = '236442'; // Use the user ID from your test
-const fromDate = '2025-11-01T00:00:00Z';
-const toDate = '2025-11-30T23:59:59Z';
+const fromDate = new Date('2025-11-01T00:00:00Z');
+const toDate = new Date('2025-11-30T23:59:59Z');
 
 async function test1_QueryParams() {
   console.log('\n📝 TEST 1: Query params (fromDate/toDate) - Current approach');
-  console.log(`   URL: ${ADVERSUS_API_URL}/users/${testUserId}/loginTime`);
-  console.log(`   Params: fromDate=${fromDate}, toDate=${toDate}`);
+  console.log(`   Params: fromDate=${fromDate.toISOString()}, toDate=${toDate.toISOString()}`);
 
   try {
-    const response = await axios.get(`${ADVERSUS_API_URL}/users/${testUserId}/loginTime`, {
-      headers: { 'api-key': ADVERSUS_API_KEY },
+    const response = await adversusAPI.request(`/users/${testUserId}/loginTime`, {
+      method: 'GET',
       params: {
-        fromDate,
-        toDate
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString()
       }
     });
 
-    console.log('   ✅ Response:', JSON.stringify(response.data, null, 2));
+    console.log('   ✅ Response:', JSON.stringify(response, null, 2));
 
-    const actualFrom = new Date(response.data.fromDate);
-    const actualTo = new Date(response.data.toDate);
+    const actualFrom = new Date(response.fromDate);
+    const actualTo = new Date(response.toDate);
     const daysDiff = Math.ceil((actualTo - actualFrom) / (1000 * 60 * 60 * 24));
     console.log(`   📊 Returned ${daysDiff} days of data`);
+    console.log(`   📅 Actual range: ${actualFrom.toISOString().split('T')[0]} → ${actualTo.toISOString().split('T')[0]}`);
   } catch (error) {
-    console.error('   ❌ Error:', error.response?.data || error.message);
+    console.error('   ❌ Error:', error.message);
   }
 }
 
 async function test2_FiltersParam() {
   console.log('\n📝 TEST 2: Using filters parameter (like /leads endpoint)');
 
-  const filters = JSON.stringify({
+  const filters = {
     "startTime": {
-      "$gt": fromDate,
-      "$lt": toDate
+      "$gt": fromDate.toISOString(),
+      "$lt": toDate.toISOString()
     }
-  });
+  };
 
-  console.log(`   URL: ${ADVERSUS_API_URL}/users/${testUserId}/loginTime`);
-  console.log(`   Params: filters=${filters}`);
+  console.log(`   Params: filters=${JSON.stringify(filters)}`);
 
   try {
-    const response = await axios.get(`${ADVERSUS_API_URL}/users/${testUserId}/loginTime`, {
-      headers: { 'api-key': ADVERSUS_API_KEY },
+    const response = await adversusAPI.request(`/users/${testUserId}/loginTime`, {
+      method: 'GET',
       params: {
-        filters
+        filters: JSON.stringify(filters)
       }
     });
 
-    console.log('   ✅ Response:', JSON.stringify(response.data, null, 2));
+    console.log('   ✅ Response:', JSON.stringify(response, null, 2));
 
-    const actualFrom = new Date(response.data.fromDate);
-    const actualTo = new Date(response.data.toDate);
+    const actualFrom = new Date(response.fromDate);
+    const actualTo = new Date(response.toDate);
     const daysDiff = Math.ceil((actualTo - actualFrom) / (1000 * 60 * 60 * 24));
     console.log(`   📊 Returned ${daysDiff} days of data`);
+    console.log(`   📅 Actual range: ${actualFrom.toISOString().split('T')[0]} → ${actualTo.toISOString().split('T')[0]}`);
   } catch (error) {
-    console.error('   ❌ Error:', error.response?.data || error.message);
+    console.error('   ❌ Error:', error.message);
   }
 }
 
 async function test3_AlternativeParams() {
   console.log('\n📝 TEST 3: Alternative parameter names');
-  console.log(`   URL: ${ADVERSUS_API_URL}/users/${testUserId}/loginTime`);
   console.log(`   Params: startDate/endDate instead of fromDate/toDate`);
 
   try {
-    const response = await axios.get(`${ADVERSUS_API_URL}/users/${testUserId}/loginTime`, {
-      headers: { 'api-key': ADVERSUS_API_KEY },
+    const response = await adversusAPI.request(`/users/${testUserId}/loginTime`, {
+      method: 'GET',
       params: {
-        startDate: fromDate,
-        endDate: toDate
+        startDate: fromDate.toISOString(),
+        endDate: toDate.toISOString()
       }
     });
 
-    console.log('   ✅ Response:', JSON.stringify(response.data, null, 2));
+    console.log('   ✅ Response:', JSON.stringify(response, null, 2));
 
-    const actualFrom = new Date(response.data.fromDate);
-    const actualTo = new Date(response.data.toDate);
+    const actualFrom = new Date(response.fromDate);
+    const actualTo = new Date(response.toDate);
     const daysDiff = Math.ceil((actualTo - actualFrom) / (1000 * 60 * 60 * 24));
     console.log(`   📊 Returned ${daysDiff} days of data`);
+    console.log(`   📅 Actual range: ${actualFrom.toISOString().split('T')[0]} → ${actualTo.toISOString().split('T')[0]}`);
   } catch (error) {
-    console.error('   ❌ Error:', error.response?.data || error.message);
+    console.error('   ❌ Error:', error.message);
   }
 }
 
 async function test4_CombinedParams() {
   console.log('\n📝 TEST 4: Both fromDate/toDate AND filters');
 
-  const filters = JSON.stringify({
+  const filters = {
     "fromDate": {
-      "$eq": fromDate
+      "$eq": fromDate.toISOString()
     },
     "toDate": {
-      "$eq": toDate
+      "$eq": toDate.toISOString()
     }
-  });
+  };
 
-  console.log(`   URL: ${ADVERSUS_API_URL}/users/${testUserId}/loginTime`);
-  console.log(`   Params: fromDate=${fromDate}, toDate=${toDate}, filters=${filters}`);
+  console.log(`   Params: fromDate + toDate + filters`);
 
   try {
-    const response = await axios.get(`${ADVERSUS_API_URL}/users/${testUserId}/loginTime`, {
-      headers: { 'api-key': ADVERSUS_API_KEY },
+    const response = await adversusAPI.request(`/users/${testUserId}/loginTime`, {
+      method: 'GET',
       params: {
-        fromDate,
-        toDate,
-        filters
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString(),
+        filters: JSON.stringify(filters)
       }
     });
 
-    console.log('   ✅ Response:', JSON.stringify(response.data, null, 2));
+    console.log('   ✅ Response:', JSON.stringify(response, null, 2));
 
-    const actualFrom = new Date(response.data.fromDate);
-    const actualTo = new Date(response.data.toDate);
+    const actualFrom = new Date(response.fromDate);
+    const actualTo = new Date(response.toDate);
     const daysDiff = Math.ceil((actualTo - actualFrom) / (1000 * 60 * 60 * 24));
     console.log(`   📊 Returned ${daysDiff} days of data`);
+    console.log(`   📅 Actual range: ${actualFrom.toISOString().split('T')[0]} → ${actualTo.toISOString().split('T')[0]}`);
   } catch (error) {
-    console.error('   ❌ Error:', error.response?.data || error.message);
+    console.error('   ❌ Error:', error.message);
   }
 }
 
@@ -139,7 +135,7 @@ async function runAllTests() {
   console.log('🧪 Testing Adversus /users/{userId}/loginTime API');
   console.log('═══════════════════════════════════════════════════════');
   console.log(`User ID: ${testUserId}`);
-  console.log(`Date range: ${fromDate} → ${toDate} (30 days)`);
+  console.log(`Date range: ${fromDate.toISOString().split('T')[0]} → ${toDate.toISOString().split('T')[0]} (30 days)`);
   console.log('═══════════════════════════════════════════════════════');
 
   await test1_QueryParams();
