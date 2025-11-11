@@ -5,6 +5,7 @@ const database = require('../../services/database');
 const leaderboardService = require('../../services/leaderboards');
 const dealsCache = require('../../services/dealsCache');
 const smsCache = require('../../services/smsCache');
+const loginTimeCache = require('../../services/loginTimeCache');
 const leaderboardCache = require('../../services/leaderboardCache');
 const campaignCache = require('../../services/campaignCache');
 const campaignBonusTiers = require('../../services/campaignBonusTiers');
@@ -73,6 +74,12 @@ router.get('/:id/stats', async (req, res) => {
 
     // AUTO-SYNC SMS CACHE
     await smsCache.autoSync(adversusAPI);
+
+    // AUTO-SYNC LOGIN TIME (only if needed - every 30 minutes)
+    if (await loginTimeCache.needsSync()) {
+      console.log(`⏱️ Login time sync needed, fetching for active users...`);
+      // We'll sync login time per user below when building stats
+    }
 
     // Get deals from cache
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
@@ -319,6 +326,31 @@ router.get('/:id/stats', async (req, res) => {
           console.error(`⚠️ Failed to get SMS stats for user ${stat.userId}:`, error.message);
         }
 
+        // Get login time data (for deals per hour calculation)
+        let loginTimeData = { loginSeconds: 0, loginHours: 0, dealsPerHour: 0 };
+        try {
+          // Try to get cached login time first
+          let loginTime = await loginTimeCache.getLoginTime(stat.userId, startDate, endDate);
+
+          // If no data or stale data, fetch from Adversus
+          if (!loginTime || loginTime.loginSeconds === 0) {
+            loginTime = await loginTimeCache.fetchLoginTimeFromAdversus(adversusAPI, stat.userId, startDate, endDate);
+            await loginTimeCache.saveLoginTime(loginTime);
+          }
+
+          const loginSeconds = loginTime.loginSeconds || 0;
+          const loginHours = loginSeconds > 0 ? (loginSeconds / 3600).toFixed(2) : 0;
+          const dealsPerHour = loginTimeCache.calculateDealsPerHour(stat.dealCount || 0, loginSeconds);
+
+          loginTimeData = {
+            loginSeconds,
+            loginHours: parseFloat(loginHours),
+            dealsPerHour
+          };
+        } catch (error) {
+          console.error(`⚠️ Failed to get login time for user ${stat.userId}:`, error.message);
+        }
+
         return {
           userId: stat.userId,
           dealCount: stat.dealCount || 0,
@@ -327,6 +359,9 @@ router.get('/:id/stats', async (req, res) => {
           smsSuccessRate: smsData.successRate || 0,
           campaignBonus: stat.campaignBonus || 0,
           campaignBonusDetails: stat.campaignBonusDetails || [],
+          loginSeconds: loginTimeData.loginSeconds || 0,
+          loginHours: loginTimeData.loginHours || 0,
+          dealsPerHour: loginTimeData.dealsPerHour || 0,
           agent: {
             id: stat.userId,
             userId: stat.userId,

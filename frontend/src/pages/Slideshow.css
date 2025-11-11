@@ -184,11 +184,43 @@
 
 /* Header - NORMAL SIZE (default) */
 .slideshow-header {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 1rem;
   color: white;
   animation: slideInFromTop 0.6s ease-out;
   flex-shrink: 0;
+  gap: 2rem;
+}
+
+.slideshow-header-content {
+  flex: 1;
+  text-align: center;
+}
+
+/* Logos */
+.slideshow-logo {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  max-width: 200px;
+  max-height: 100px;
+}
+
+.slideshow-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
+.slideshow-logo-left {
+  justify-content: flex-start;
+}
+
+.slideshow-logo-right {
+  justify-content: flex-end;
 }
 
 .slideshow-header h1 {
@@ -371,6 +403,25 @@
 
 .slideshow-name.zero-deals {
   color: #e74c3c;
+}
+
+/* Deals per hour column - NORMAL */
+.slideshow-deals-per-hour {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #34495e;
+  text-align: center;
+  white-space: nowrap;
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.slideshow-deals-per-hour .emoji {
+  font-size: 1.1rem;
 }
 
 /* Deals column - NORMAL */

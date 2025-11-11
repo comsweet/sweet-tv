@@ -89,10 +89,19 @@ class DealsCache {
   }
 
   getTodayWindow() {
-    const now = new Date();
+    // 🔥 FIX: Use Swedish time (Europe/Stockholm) instead of server local time
+    // This prevents timezone mismatch with Adversus API which returns Swedish timestamps
+    const nowSwedish = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Stockholm' });
+    const now = new Date(nowSwedish);
+
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    return { start, end };
+
+    // Convert back to UTC for database queries (PostgreSQL stores in UTC)
+    const startUTC = new Date(start.toLocaleString('en-US', { timeZone: 'Europe/Stockholm' }));
+    const endUTC = new Date(end.toLocaleString('en-US', { timeZone: 'Europe/Stockholm' }));
+
+    return { start: startUTC, end: endUTC };
   }
 
   getRollingWindow() {

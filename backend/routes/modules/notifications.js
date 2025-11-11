@@ -29,14 +29,18 @@ router.get('/', async (req, res) => {
           if (!groupsMap.has(groupId)) {
             groupsMap.set(groupId, {
               id: groupId,
-              name: groupName
+              name: groupName,
+              agentCount: 0
             });
           }
+
+          // 🔥 FIX: Increment agent count for this group
+          groupsMap.get(groupId).agentCount++;
         }
       });
 
       availableGroups = Array.from(groupsMap.values())
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => b.agentCount - a.agentCount); // Sort by agent count (descending)
 
       console.log(`✅ Found ${availableGroups.length} unique groups for notification settings`);
     } catch (error) {

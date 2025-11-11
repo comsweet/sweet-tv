@@ -233,6 +233,14 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
     }
 
     switch (columnName) {
+      case 'dealsPerHour':
+        return (
+          <div key="dealsPerHour" className="slideshow-deals-per-hour">
+            <span className="emoji">🕒</span>
+            <span>{item.dealsPerHour?.toFixed(2) || '0.00'}</span>
+          </div>
+        );
+
       case 'deals':
         return (
           <div key="deals" className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
@@ -283,7 +291,7 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
 
   // Function to render columns in configured order
   const renderColumnsInOrder = (item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate) => {
-    const columnOrder = leaderboard.columnOrder || ['deals', 'sms', 'commission', 'campaignBonus', 'total'];
+    const columnOrder = leaderboard.columnOrder || ['dealsPerHour', 'deals', 'sms', 'commission', 'campaignBonus', 'total'];
     return columnOrder.map(columnName =>
       renderColumn(columnName, item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate)
     );
@@ -324,11 +332,27 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
         {/* Hide header for RocketRace - maximize full screen */}
         {visualizationMode !== 'rocket' && (
           <div className="slideshow-header">
-            <h1>{leaderboard.name}</h1>
-            <p className="slideshow-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
-            <p className="slideshow-stats">
-              📊 {totalDeals} affärer totalt • {stats.length} {leaderboard.displayMode === 'groups' ? 'grupper' : 'agenter'}
-            </p>
+            {/* Company Logo - Left */}
+            {logos.companyLogo && (
+              <div className="slideshow-logo slideshow-logo-left">
+                <img src={logos.companyLogo} alt="Company Logo" />
+              </div>
+            )}
+
+            <div className="slideshow-header-content">
+              <h1>{leaderboard.name}</h1>
+              <p className="slideshow-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
+              <p className="slideshow-stats">
+                📊 {totalDeals} affärer totalt • {stats.length} {leaderboard.displayMode === 'groups' ? 'grupper' : 'agenter'}
+              </p>
+            </div>
+
+            {/* Brand Mark - Right */}
+            {logos.brandMark && (
+              <div className="slideshow-logo slideshow-logo-right">
+                <img src={logos.brandMark} alt="Brand Mark" />
+              </div>
+            )}
           </div>
         )}
 
@@ -359,6 +383,7 @@ const Slideshow = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [logos, setLogos] = useState({ companyLogo: null, brandMark: null });
 
   // 🔑 TV ACCESS CODE STATE
   const [hasAccess, setHasAccess] = useState(() => {
@@ -728,6 +753,18 @@ const Slideshow = () => {
   useEffect(() => {
     fetchSlideshowData();
 
+    // Fetch logos
+    const fetchLogos = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/logos`);
+        const data = await response.json();
+        setLogos(data);
+      } catch (error) {
+        console.error('Error fetching logos:', error);
+      }
+    };
+    fetchLogos();
+
     // 🔄 Regular refresh every 20 seconds (silent, preserves scroll)
     refreshIntervalRef.current = setInterval(() => {
       console.log('⏰ 20-second interval - refreshing stats silently');
@@ -749,10 +786,27 @@ const Slideshow = () => {
       }
     };
 
+    // ⚡ NEW: Handle leaderboard refresh event (triggered after deal + SMS sync)
+    const handleLeaderboardRefresh = async (data) => {
+      console.log(`\n⚡ LEADERBOARD REFRESH EVENT RECEIVED`);
+      console.log(`   Reason: ${data.reason}`);
+      console.log(`   Lead ID: ${data.leadId}`);
+      console.log(`   User ID: ${data.userId}`);
+      console.log(`   Commission: ${data.commission} THB`);
+      console.log(`   Triggering immediate silent refresh...`);
+
+      // Trigger immediate silent refresh to show correct stats
+      await refreshStatsOnly();
+
+      console.log(`   ✅ Refresh complete - stats are now up to date`);
+    };
+
     socketService.on('new_deal', handleNewDeal);
+    socketService.on('leaderboard_refresh', handleLeaderboardRefresh);
 
     return () => {
       socketService.off('new_deal', handleNewDeal);
+      socketService.off('leaderboard_refresh', handleLeaderboardRefresh);
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
       }
