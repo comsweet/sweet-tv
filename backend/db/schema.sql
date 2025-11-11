@@ -240,3 +240,24 @@ CREATE INDEX IF NOT EXISTS idx_quotes_times_shown ON quotes(times_shown);
 DROP TRIGGER IF EXISTS update_quotes_updated_at ON quotes;
 CREATE TRIGGER update_quotes_updated_at BEFORE UPDATE ON quotes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ==================== LOGIN TIME TRACKING ====================
+
+-- User login time table (tracks login seconds for deals per hour calculation)
+CREATE TABLE IF NOT EXISTS user_login_time (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  login_seconds INTEGER NOT NULL,
+  from_date TIMESTAMP NOT NULL,
+  to_date TIMESTAMP NOT NULL,
+  synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  -- Ensure one entry per user per date range
+  UNIQUE(user_id, from_date, to_date)
+);
+
+-- Indexes for login time queries
+CREATE INDEX IF NOT EXISTS idx_login_time_user_id ON user_login_time(user_id);
+CREATE INDEX IF NOT EXISTS idx_login_time_date_range ON user_login_time(from_date, to_date);
+CREATE INDEX IF NOT EXISTS idx_login_time_synced_at ON user_login_time(synced_at);
