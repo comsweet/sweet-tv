@@ -233,6 +233,14 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
     }
 
     switch (columnName) {
+      case 'dealsPerHour':
+        return (
+          <div key="dealsPerHour" className="slideshow-deals-per-hour">
+            <span className="emoji">🕒</span>
+            <span>{item.dealsPerHour?.toFixed(2) || '0.00'}</span>
+          </div>
+        );
+
       case 'deals':
         return (
           <div key="deals" className={`slideshow-deals-column ${isZeroDeals ? 'zero' : ''}`}>
@@ -283,7 +291,7 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
 
   // Function to render columns in configured order
   const renderColumnsInOrder = (item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate) => {
-    const columnOrder = leaderboard.columnOrder || ['deals', 'sms', 'commission', 'campaignBonus', 'total'];
+    const columnOrder = leaderboard.columnOrder || ['dealsPerHour', 'deals', 'sms', 'commission', 'campaignBonus', 'total'];
     return columnOrder.map(columnName =>
       renderColumn(columnName, item, leaderboard, isZeroDeals, uniqueSMS, smsSuccessRate)
     );

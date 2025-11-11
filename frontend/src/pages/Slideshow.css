@@ -373,6 +373,25 @@
   color: #e74c3c;
 }
 
+/* Deals per hour column - NORMAL */
+.slideshow-deals-per-hour {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #34495e;
+  text-align: center;
+  white-space: nowrap;
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.slideshow-deals-per-hour .emoji {
+  font-size: 1.1rem;
+}
+
 /* Deals column - NORMAL */
 .slideshow-deals-column {
   display: flex;
