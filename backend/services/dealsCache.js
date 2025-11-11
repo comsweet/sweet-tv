@@ -89,32 +89,23 @@ class DealsCache {
   }
 
   getTodayWindow() {
-    // 🔥 FIX: Use Swedish time (Europe/Stockholm) instead of server local time
-    // This prevents timezone mismatch with Adversus API which returns Swedish timestamps
-    const nowSwedish = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Stockholm' });
-    const now = new Date(nowSwedish);
-
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-    // Convert back to UTC for database queries (PostgreSQL stores in UTC)
-    const startUTC = new Date(start.toLocaleString('en-US', { timeZone: 'Europe/Stockholm' }));
-    const endUTC = new Date(end.toLocaleString('en-US', { timeZone: 'Europe/Stockholm' }));
-
-    return { start: startUTC, end: endUTC };
+    // Use UTC for all date calculations
+    const now = new Date();
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+    return { start, end };
   }
 
   getRollingWindow() {
+    // Use UTC for rolling window calculation
     const now = new Date();
 
-    // Start: First day of month - 7 days
-    const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    startDate.setDate(startDate.getDate() - 7);
-    startDate.setHours(0, 0, 0, 0);
+    // Start: First day of month - 7 days (UTC)
+    const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+    startDate.setUTCDate(startDate.getUTCDate() - 7);
 
-    // End: Last day of month
-    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    endDate.setHours(23, 59, 59, 999);
+    // End: Last day of month (UTC)
+    const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 
     return { startDate, endDate };
   }

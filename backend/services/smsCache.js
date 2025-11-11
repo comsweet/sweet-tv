@@ -85,32 +85,23 @@ class SMSCache {
   }
 
   getTodayWindow() {
-    // 🔥 FIX: Use Swedish time (Europe/Stockholm) instead of server local time
-    // This prevents timezone mismatch with Adversus API which returns Swedish timestamps
-    const nowSwedish = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Stockholm' });
-    const now = new Date(nowSwedish);
-
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-    // Convert back to UTC for database queries (PostgreSQL stores in UTC)
-    const startUTC = new Date(start.toLocaleString('en-US', { timeZone: 'Europe/Stockholm' }));
-    const endUTC = new Date(end.toLocaleString('en-US', { timeZone: 'Europe/Stockholm' }));
-
-    return { start: startUTC, end: endUTC };
+    // Use UTC for all date calculations
+    const now = new Date();
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+    return { start, end };
   }
 
   getRollingWindow() {
+    // Use UTC for rolling window calculation
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
 
-    // Start: 7 days before month start
-    const monthStart = new Date(currentYear, currentMonth, 1);
+    // Start: 7 days before month start (UTC)
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
     const startDate = new Date(monthStart);
-    startDate.setDate(startDate.getDate() - 7);
+    startDate.setUTCDate(startDate.getUTCDate() - 7);
 
-    // End: now
+    // End: now (UTC)
     const endDate = now;
 
     return {
