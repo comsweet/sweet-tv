@@ -13,6 +13,7 @@ import AdminSlideshows from '../components/AdminSlideshows';
 import AdminTeamBattles from '../components/AdminTeamBattles';
 import AdminQuotes from '../components/AdminQuotes';
 import AdminSounds from '../components/AdminSounds';
+import AdminSMSBlocklist from '../components/AdminSMSBlocklist';
 import AdminStats from '../components/AdminStats';
 import AdminCampaignBonusTiers from '../components/AdminCampaignBonusTiers';
 import AdminThresholds from '../components/AdminThresholds';
@@ -40,6 +41,7 @@ const Admin = () => {
     { id: 'quotes', icon: '💬', label: 'Quotes', section: 'content' },
     { id: 'sounds', icon: '🔊', label: 'Ljud', section: 'content' },
     { id: 'notifications', icon: '🔔', label: 'Notis', section: 'content' },
+    { id: 'smsBlocklist', icon: '📵', label: 'SMS Blocklist', section: 'content' },
     { id: 'stats', icon: '📊', label: 'Statistik', section: 'analytics' },
     { id: 'trendChart', icon: '📈', label: 'Trend Chart', section: 'analytics', external: true, url: '/#/trend-chart' },
     { id: 'campaignBonus', icon: '💰', label: 'Bonus', section: 'analytics' },
@@ -163,6 +165,7 @@ const Admin = () => {
           {activeTab === 'quotes' && <AdminQuotes />}
           {activeTab === 'sounds' && <AdminSounds />}
           {activeTab === 'notifications' && <NotificationSettingsAdmin />}
+          {activeTab === 'smsBlocklist' && <AdminSMSBlocklist />}
           {activeTab === 'stats' && <AdminStats />}
           {activeTab === 'campaignBonus' && <AdminCampaignBonusTiers />}
           {activeTab === 'thresholds' && <AdminThresholds />}

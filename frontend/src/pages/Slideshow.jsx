@@ -1081,18 +1081,15 @@ const Slideshow = () => {
         />
       )}
 
-      {/* SMS Notifications Overlay */}
-      {leaderboardsData[currentIndex]?.leaderboard && (
-        <SMSNotification
-          leaderboard={leaderboardsData[currentIndex].leaderboard}
-          scaleFactor={
-            displaySize === 'compact' ? 0.7 :
-            displaySize === 'large' ? 1.2 :
-            displaySize === 'xlarge' ? 1.4 :
-            1.0 // normal
-          }
-        />
-      )}
+      {/* SMS Notifications Overlay (Global - shows for all groups except blocklist) */}
+      <SMSNotification
+        scaleFactor={
+          displaySize === 'compact' ? 0.7 :
+          displaySize === 'large' ? 1.2 :
+          displaySize === 'xlarge' ? 1.4 :
+          1.0 // normal
+        }
+      />
     </div>
   );
 };

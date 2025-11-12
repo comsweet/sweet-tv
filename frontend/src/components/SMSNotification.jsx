@@ -1,19 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getRecentSMS } from '../services/api';
+import { getGlobalRecentSMS } from '../services/api';
 import './SMSNotification.css';
 
-const SMSNotification = ({ leaderboard, scaleFactor = 1 }) => {
+const SMSNotification = ({ scaleFactor = 1 }) => {
   const [notifications, setNotifications] = useState([]);
   const [lastCheckTime, setLastCheckTime] = useState(Date.now());
   const [nextId, setNextId] = useState(0);
 
   const checkForNewSMS = useCallback(async () => {
-    if (!leaderboard) return;
-
     try {
       // Get SMS from last 2 minutes (to catch any we might have missed)
-      const response = await getRecentSMS(leaderboard.id, { minutes: 2 });
-      const recentSMS = response.data || [];
+      const response = await getGlobalRecentSMS({ minutes: 2 });
+      const recentSMS = response.data.sms || [];
 
       // Filter SMS that are newer than last check
       const newSMS = recentSMS.filter(sms => {
@@ -22,7 +20,7 @@ const SMSNotification = ({ leaderboard, scaleFactor = 1 }) => {
       });
 
       if (newSMS.length > 0) {
-        // Group by userId and sum counts
+        // Group by userId and sum counts (SMS doesn't have count field, so each is 1)
         const groupedSMS = newSMS.reduce((acc, sms) => {
           const userId = sms.userId;
           if (!acc[userId]) {
@@ -33,7 +31,7 @@ const SMSNotification = ({ leaderboard, scaleFactor = 1 }) => {
               timestamp: sms.timestamp
             };
           }
-          acc[userId].count += sms.count || 1;
+          acc[userId].count += 1;
           // Keep the latest timestamp
           if (new Date(sms.timestamp) > new Date(acc[userId].timestamp)) {
             acc[userId].timestamp = sms.timestamp;
@@ -57,13 +55,11 @@ const SMSNotification = ({ leaderboard, scaleFactor = 1 }) => {
         setLastCheckTime(Date.now());
       }
     } catch (error) {
-      console.error('Error fetching recent SMS:', error);
+      console.error('Error fetching global recent SMS:', error);
     }
-  }, [leaderboard, lastCheckTime, nextId]);
+  }, [lastCheckTime, nextId]);
 
   useEffect(() => {
-    if (!leaderboard) return;
-
     // Initial check
     checkForNewSMS();
 
@@ -71,7 +67,7 @@ const SMSNotification = ({ leaderboard, scaleFactor = 1 }) => {
     const interval = setInterval(checkForNewSMS, 15000);
 
     return () => clearInterval(interval);
-  }, [leaderboard, checkForNewSMS]);
+  }, [checkForNewSMS]);
 
   // Auto-remove notifications after 8 seconds
   useEffect(() => {

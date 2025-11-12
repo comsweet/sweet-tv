@@ -170,6 +170,10 @@ export const getSMSCacheStats = () => api.get('/sms/stats');
 export const syncSMSManually = () => api.post('/sms/sync');
 export const cleanOldSMS = () => api.post('/sms/clean');
 export const clearSMSCache = () => api.delete('/sms/cache');
+export const getGlobalRecentSMS = (params) => api.get('/sms/global/recent', { params });
+export const getSMSBlocklist = () => api.get('/sms/blocklist');
+export const addToSMSBlocklist = (groupId, groupName) => api.post('/sms/blocklist', { groupId, groupName });
+export const removeFromSMSBlocklist = (id) => api.delete(`/sms/blocklist/${id}`);
 
 // Login Time Cache Management
 export const getLoginTimeCacheStats = () => api.get('/admin/login-time/stats');

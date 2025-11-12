@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const adversusAPI = require('../../services/adversusAPI');
 const smsCache = require('../../services/smsCache');
+const postgres = require('../../services/postgres');
 
 // ==================== SMS MANAGEMENT ====================
 
@@ -84,6 +85,144 @@ router.delete('/cache', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error invalidating SMS cache:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== GLOBAL SMS NOTIFICATIONS ====================
+
+// Get recent SMS globally (all groups except blocklisted)
+router.get('/global/recent', async (req, res) => {
+  try {
+    const { minutes = 2 } = req.query;
+
+    // Calculate date range (last N minutes)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMinutes(startDate.getMinutes() - parseInt(minutes));
+
+    // Get SMS from cache
+    const cachedSMS = await smsCache.getSMSInRange(startDate, endDate);
+
+    // Get blocklist
+    const blocklistResult = await postgres.query('SELECT group_id FROM sms_notification_blocklist');
+    const blockedGroupIds = blocklistResult.rows.map(row => String(row.group_id));
+
+    // Get users
+    let adversusUsers = [];
+    try {
+      const usersResult = await adversusAPI.getUsers();
+      adversusUsers = usersResult.users || [];
+    } catch (error) {
+      console.error('⚠️ Failed to load Adversus users:', error.message);
+    }
+
+    // Filter out blocklisted groups
+    const allowedUserIds = adversusUsers
+      .filter(u => {
+        if (!u.group || !u.group.id) return true; // Include users without groups
+        return !blockedGroupIds.includes(String(u.group.id));
+      })
+      .map(u => String(u.id));
+
+    const filteredSMS = cachedSMS.filter(sms =>
+      allowedUserIds.includes(String(sms.userId))
+    );
+
+    // Format SMS for display
+    const recentSMS = filteredSMS.map(sms => {
+      const user = adversusUsers.find(u => String(u.id) === String(sms.userId));
+      return {
+        id: sms.id,
+        userId: sms.userId,
+        userName: user?.name || user?.firstname || `Agent ${sms.userId}`,
+        receiver: sms.receiver,
+        timestamp: sms.timestamp,
+        status: sms.status,
+        groupName: user?.group?.name || null
+      };
+    });
+
+    res.json({
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      sms: recentSMS,
+      totalCount: recentSMS.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching global recent SMS:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== SMS NOTIFICATION BLOCKLIST ====================
+
+// Get all blocked groups
+router.get('/blocklist', async (req, res) => {
+  try {
+    const result = await postgres.query(
+      'SELECT * FROM sms_notification_blocklist ORDER BY group_name'
+    );
+    res.json({ data: result.rows });
+  } catch (error) {
+    console.error('❌ Error fetching SMS blocklist:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add group to blocklist
+router.post('/blocklist', async (req, res) => {
+  try {
+    const { groupId, groupName } = req.body;
+
+    if (!groupId || !groupName) {
+      return res.status(400).json({ error: 'groupId and groupName are required' });
+    }
+
+    // Check if already exists
+    const checkResult = await postgres.query(
+      'SELECT * FROM sms_notification_blocklist WHERE group_id = $1',
+      [groupId]
+    );
+
+    if (checkResult.rows.length > 0) {
+      return res.status(400).json({ error: 'Group already in blocklist' });
+    }
+
+    // Insert
+    const result = await postgres.query(
+      'INSERT INTO sms_notification_blocklist (group_id, group_name) VALUES ($1, $2) RETURNING *',
+      [groupId, groupName]
+    );
+
+    console.log(`✅ Added group ${groupName} (${groupId}) to SMS blocklist`);
+
+    res.json({ data: result.rows[0] });
+  } catch (error) {
+    console.error('❌ Error adding to SMS blocklist:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Remove group from blocklist
+router.delete('/blocklist/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await postgres.query(
+      'DELETE FROM sms_notification_blocklist WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Blocklist entry not found' });
+    }
+
+    console.log(`✅ Removed group ${result.rows[0].group_name} from SMS blocklist`);
+
+    res.json({ data: result.rows[0] });
+  } catch (error) {
+    console.error('❌ Error removing from SMS blocklist:', error);
     res.status(500).json({ error: error.message });
   }
 });

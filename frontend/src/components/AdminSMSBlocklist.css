@@ -1,0 +1,255 @@
+.admin-sms-blocklist {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.sms-blocklist-header {
+  margin-bottom: 2rem;
+}
+
+.sms-blocklist-header h2 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.description {
+  font-size: 1rem;
+  color: #666;
+  line-height: 1.5;
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #FF6B6B;
+}
+
+/* Add Group Section */
+.add-group-section {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.add-group-section h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.add-group-form {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.group-select {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.group-select:hover,
+.group-select:focus {
+  border-color: #FF6B6B;
+  outline: none;
+}
+
+.btn-add {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #FF6B6B, #FF4757);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-add:hover:not(:disabled) {
+  background: linear-gradient(135deg, #FF4757, #FF3838);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+.btn-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #999;
+  font-style: italic;
+}
+
+/* Blocklist Section */
+.blocklist-section {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.blocklist-section h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.no-blocklist {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #999;
+  font-size: 1.1rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 2px dashed #ddd;
+}
+
+/* Blocklist Table */
+.blocklist-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.blocklist-table thead {
+  background: linear-gradient(135deg, #f5f5f5, #e9e9e9);
+}
+
+.blocklist-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #ddd;
+}
+
+.blocklist-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.blocklist-table tbody tr {
+  transition: background 0.2s;
+}
+
+.blocklist-table tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.group-id {
+  color: #666;
+  font-family: 'Courier New', monospace;
+}
+
+.group-name strong {
+  color: #333;
+  font-size: 1.05rem;
+}
+
+.created-at {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.actions {
+  text-align: right;
+}
+
+.btn-remove {
+  padding: 0.5rem 1rem;
+  background: #fff;
+  color: #FF6B6B;
+  border: 1px solid #FF6B6B;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-remove:hover {
+  background: #FF6B6B;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+}
+
+/* Info Box */
+.info-box {
+  background: linear-gradient(135deg, #E3F2FD, #BBDEFB);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid #2196F3;
+}
+
+.info-box h4 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: #1976D2;
+}
+
+.info-box ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.info-box li {
+  padding: 0.5rem 0;
+  padding-left: 1.5rem;
+  position: relative;
+  color: #555;
+  line-height: 1.5;
+}
+
+.info-box li:before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #2196F3;
+  font-weight: bold;
+}
+
+/* Loading State */
+.loading {
+  text-align: center;
+  padding: 4rem 2rem;
+  font-size: 1.2rem;
+  color: #999;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-sms-blocklist {
+    padding: 1rem;
+  }
+
+  .add-group-form {
+    flex-direction: column;
+  }
+
+  .btn-add {
+    width: 100%;
+  }
+
+  .blocklist-table {
+    font-size: 0.9rem;
+  }
+
+  .blocklist-table th,
+  .blocklist-table td {
+    padding: 0.75rem 0.5rem;
+  }
+}

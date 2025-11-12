@@ -138,6 +138,14 @@ CREATE INDEX IF NOT EXISTS idx_sms_date ON sms_messages(DATE(timestamp));
 CREATE INDEX IF NOT EXISTS idx_sms_receiver_date ON sms_messages(receiver, DATE(timestamp));
 CREATE INDEX IF NOT EXISTS idx_sms_lead_id ON sms_messages(lead_id);
 
+-- SMS Notification Blocklist (for global SMS notifications)
+CREATE TABLE IF NOT EXISTS sms_notification_blocklist (
+  id SERIAL PRIMARY KEY,
+  group_id INTEGER NOT NULL UNIQUE,
+  group_name VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Deals table (migrated from deals-cache.json)
 CREATE TABLE IF NOT EXISTS deals (
   id SERIAL PRIMARY KEY,
