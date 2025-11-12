@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLeaderboards } from '../hooks/useLeaderboards';
-import { getAvailableGroups, migrateLeaderboardsDealsPerHour } from '../services/api';
+import { getAvailableGroups, migrateLeaderboardsDealsPerHour, getLogosLibrary } from '../services/api';
 import { useState } from 'react';
 import './AdminLeaderboards.css';
 
@@ -24,7 +24,9 @@ const AdminLeaderboards = () => {
   } = useLeaderboards();
 
   const [userGroups, setUserGroups] = useState([]);
+  const [logosLibrary, setLogosLibrary] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showLogosManagement, setShowLogosManagement] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -36,6 +38,10 @@ const AdminLeaderboards = () => {
       await fetchLeaderboards();
       const groupsRes = await getAvailableGroups();
       setUserGroups(groupsRes.data.groups || []);
+
+      // Load logos library
+      const logosRes = await getLogosLibrary();
+      setLogosLibrary(logosRes.data.logos || []);
     } catch (error) {
       console.error('Error loading data:', error);
       alert('Fel vid laddning: ' + error.message);
@@ -427,54 +433,44 @@ const AdminLeaderboards = () => {
               <small>Använd pilarna för att ändra ordningen som kolumnerna visas på slideshow.</small>
             </div>
 
-            {/* Logo Upload */}
+            {/* Logo Selection */}
             <div className="form-group">
               <label>Varumärkeslogga:</label>
-              <div className="logo-upload-section">
-                {form.logo ? (
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', flexDirection: 'column' }}>
+                <select
+                  value={form.logo || ''}
+                  onChange={(e) => setForm({ ...form, logo: e.target.value || null })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '2px solid #e1e8ed',
+                    borderRadius: '6px',
+                    fontSize: '0.95rem'
+                  }}
+                >
+                  <option value="">Ingen logga</option>
+                  {logosLibrary.map(logo => (
+                    <option key={logo.id} value={logo.url}>
+                      {logo.name}
+                    </option>
+                  ))}
+                </select>
+
+                {form.logo && (
                   <div className="logo-preview">
-                    <img src={form.logo} alt="Leaderboard Logo" />
-                    <button
-                      type="button"
-                      className="btn-remove-logo"
-                      onClick={() => setForm({ ...form, logo: null })}
-                    >
-                      ✕ Ta bort logga
-                    </button>
-                  </div>
-                ) : (
-                  <div className="logo-upload-prompt">
-                    <input
-                      type="file"
-                      id="logo-upload"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-
-                        const formData = new FormData();
-                        formData.append('image', file);
-
-                        try {
-                          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/leaderboards/${editingLeaderboard?.id || 'temp'}/logo`, {
-                            method: 'POST',
-                            body: formData
-                          });
-                          const data = await response.json();
-                          setForm({ ...form, logo: data.logoUrl });
-                        } catch (error) {
-                          console.error('Error uploading logo:', error);
-                          alert('Fel vid uppladdning: ' + error.message);
-                        }
-                      }}
-                      style={{ display: 'none' }}
-                    />
-                    <label htmlFor="logo-upload" className="btn-upload-logo">
-                      📸 Ladda upp logga
-                    </label>
-                    <small>PNG, JPG, SVG (max 5MB)</small>
+                    <img src={form.logo} alt="Selected Logo" style={{ maxWidth: '150px', maxHeight: '80px', objectFit: 'contain' }} />
                   </div>
                 )}
+
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ background: '#3498db', fontSize: '0.85rem' }}
+                  onClick={() => setShowLogosManagement(true)}
+                >
+                  🖼️ Hantera Logoer
+                </button>
+                <small>Välj en logga från biblioteket eller hantera logoer för att ladda upp nya</small>
               </div>
             </div>
 

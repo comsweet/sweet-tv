@@ -214,4 +214,13 @@ export const createQuote = (data) => api.post('/quotes-slide/quote', data);
 export const updateQuote = (id, data) => api.put(`/quotes-slide/quote/${id}`, data);
 export const deleteQuote = (id) => api.delete(`/quotes-slide/quote/${id}`);
 
+// Company Logos Library
+export const getLogosLibrary = () => api.get('/logos/library');
+export const getLogoFromLibrary = (id) => api.get(`/logos/library/${id}`);
+export const uploadLogoToLibrary = (formData) => api.post('/logos/library', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const updateLogoInLibrary = (id, data) => api.put(`/logos/library/${id}`, data);
+export const deleteLogoFromLibrary = (id) => api.delete(`/logos/library/${id}`);
+
 export default api;

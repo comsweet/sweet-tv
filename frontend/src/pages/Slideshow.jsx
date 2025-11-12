@@ -330,16 +330,16 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
   return (
     <div className={`slideshow-slide ${isActive ? 'active' : ''}`}>
       <div className="slideshow-content">
+        {/* Company Logo - Top right corner */}
+        {leaderboard.logo && (
+          <div className="slideshow-logo-corner">
+            <img src={leaderboard.logo} alt={`${leaderboard.name} Logo`} />
+          </div>
+        )}
+
         {/* Hide header for RocketRace - maximize full screen */}
         {visualizationMode !== 'rocket' && (
           <div className="slideshow-header">
-            {/* Leaderboard Logo - Centered above title */}
-            {leaderboard.logo && (
-              <div className="slideshow-logo slideshow-logo-center">
-                <img src={leaderboard.logo} alt={`${leaderboard.name} Logo`} />
-              </div>
-            )}
-
             <div className="slideshow-header-content">
               <h1>{leaderboard.name}</h1>
               <p className="slideshow-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
