@@ -55,6 +55,7 @@ class LeaderboardService {
     const newLeaderboard = {
       id: Date.now().toString(),
       name: leaderboard.name,
+      type: leaderboard.type || 'standard', // 'standard' | 'metrics-grid'
       userGroups: leaderboard.userGroups || [],
       timePeriod: leaderboard.timePeriod || 'month',
       customStartDate: leaderboard.customStartDate || null,
@@ -84,6 +85,10 @@ class LeaderboardService {
       goalLabel: leaderboard.goalLabel || '', // e.g., "Race mot 100k!"
       // Auto-scroll configuration
       enableAutoScroll: leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true,
+      // METRICS GRID specific fields
+      selectedGroups: leaderboard.selectedGroups || [], // Array of group IDs to compare
+      metrics: leaderboard.metrics || [], // Array of metric configs: [{id, label, timePeriod, metric}, ...]
+      colorRules: leaderboard.colorRules || {}, // Color coding rules per metric
       active: leaderboard.active !== undefined ? leaderboard.active : true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
