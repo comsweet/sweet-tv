@@ -15,27 +15,35 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
   const [groupMetrics, setGroupMetrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     if (!isActive) return;
 
     const fetchData = async () => {
       try {
-        setLoading(true);
+        // Only show loading spinner on initial load, not on refresh
+        if (isInitialLoad) {
+          setLoading(true);
+        }
+
         const response = await getGroupMetrics(leaderboard.id);
         setGroupMetrics(response.data.groupMetrics || []);
         setError(null);
+        setIsInitialLoad(false);
       } catch (err) {
         console.error('Error fetching metrics grid data:', err);
         setError(err.message);
       } finally {
-        setLoading(false);
+        if (isInitialLoad) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
 
-    // Auto-refresh every 30 seconds
+    // Auto-refresh every 30 seconds (silent, no loading spinner)
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [isActive, leaderboard.id, refreshKey]);
@@ -43,7 +51,7 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
   // Determine grid layout based on number of groups
   const getGridLayout = (numGroups) => {
     if (numGroups <= 2) return 'grid-2x1';
-    if (numGroups <= 4) return 'grid-2x2';
+    if (numGroups <= 4) return 'grid-2x2'; // 2 columns, 2 rows = 4 groups max
     if (numGroups <= 6) return 'grid-3x2';
     return 'grid-3x3';
   };

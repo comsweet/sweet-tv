@@ -27,10 +27,8 @@
   font-size: 3rem;
   font-weight: 700;
   margin: 0;
-  background: linear-gradient(to right, #60a5fa, #a78bfa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff; /* Vit istället för gradient */
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 /* Grid Layouts */
@@ -67,33 +65,32 @@
 
 /* Metric Cards */
 .metric-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.4); /* Mörkare bakgrund för bättre läsbarhet */
   border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
   overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
-.metric-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
+/* Ingen hover-effekt på TV */
 
 /* Card Header */
 .card-header {
-  background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), rgba(167, 139, 250, 0.2));
+  background: rgba(255, 255, 255, 0.1); /* Subtle header bakgrund */
   padding: 1.5rem;
   text-align: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .card-header h2 {
   margin: 0;
   font-size: 1.8rem;
   font-weight: 600;
+  color: #ffffff; /* Vit text istället för svart */
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 /* Card Body */
@@ -112,21 +109,19 @@
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 1.5rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 0.5rem;
-  transition: background 0.2s ease;
-  gap: 2rem; /* Add gap between label and value */
+  gap: 1.5rem; /* Gap mellan label och value */
 }
 
-.metric-row:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
+/* Ingen hover-effekt på TV */
 
 .metric-label {
-  font-size: 1.5rem;
-  color: rgba(255, 255, 255, 0.95);
+  font-size: 2rem; /* Ökat från 1.5rem */
+  color: #ffffff;
   font-weight: 600;
   flex: 1;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .metric-value {
@@ -134,10 +129,9 @@
   font-weight: 700;
   padding: 0.6rem 1.5rem;
   border-radius: 0.5rem;
-  min-width: 180px;
+  min-width: 200px;
   text-align: right;
   background: rgba(255, 255, 255, 0.15);
-  transition: all 0.3s ease;
   white-space: nowrap;
 }
 
@@ -212,22 +206,22 @@
 }
 
 .metrics-grid-slide.compact .card-header h2 {
-  font-size: 1.6rem;
+  font-size: 1.8rem;
 }
 
 .metrics-grid-slide.compact .metric-label {
-  font-size: 1.2rem;
+  font-size: 1.6rem; /* Ökat från 1.2rem */
 }
 
 .metrics-grid-slide.compact .metric-value {
-  font-size: 1.8rem;
+  font-size: 2rem; /* Ökat från 1.8rem */
   padding: 0.5rem 1rem;
-  min-width: 140px;
+  min-width: 160px;
 }
 
 .metrics-grid-slide.compact .metric-row {
-  padding: 1rem 1.2rem;
-  gap: 1.5rem;
+  padding: 1.2rem 1.2rem;
+  gap: 1.2rem;
 }
 
 /* Normal - 1080p/2K TVs (default - better base sizes) */
@@ -236,22 +230,22 @@
 }
 
 .metrics-grid-slide.normal .card-header h2 {
-  font-size: 2rem;
+  font-size: 2.2rem;
 }
 
 .metrics-grid-slide.normal .metric-label {
-  font-size: 1.6rem;
+  font-size: 2.2rem; /* Ökat från 1.6rem */
 }
 
 .metrics-grid-slide.normal .metric-value {
-  font-size: 2.8rem;
+  font-size: 3rem; /* Ökat från 2.8rem */
   padding: 0.7rem 1.5rem;
-  min-width: 200px;
+  min-width: 220px;
 }
 
 .metrics-grid-slide.normal .metric-row {
   padding: 1.5rem 1.5rem;
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
 /* Large - 2K TVs */
@@ -260,22 +254,22 @@
 }
 
 .metrics-grid-slide.large .card-header h2 {
-  font-size: 2.6rem;
+  font-size: 2.8rem;
 }
 
 .metrics-grid-slide.large .metric-label {
-  font-size: 2rem;
+  font-size: 2.6rem; /* Ökat från 2rem */
 }
 
 .metrics-grid-slide.large .metric-value {
-  font-size: 3.4rem;
+  font-size: 3.6rem; /* Ökat från 3.4rem */
   padding: 0.8rem 1.8rem;
-  min-width: 240px;
+  min-width: 260px;
 }
 
 .metrics-grid-slide.large .metric-row {
   padding: 1.8rem 1.8rem;
-  gap: 2.5rem;
+  gap: 2rem;
 }
 
 /* Extra Large - 4K TVs */
@@ -284,20 +278,20 @@
 }
 
 .metrics-grid-slide.xlarge .card-header h2 {
-  font-size: 3.2rem;
+  font-size: 3.4rem;
 }
 
 .metrics-grid-slide.xlarge .metric-label {
-  font-size: 2.4rem;
+  font-size: 3rem; /* Ökat från 2.4rem */
 }
 
 .metrics-grid-slide.xlarge .metric-value {
-  font-size: 4rem;
+  font-size: 4.2rem; /* Ökat från 4rem */
   padding: 1rem 2rem;
-  min-width: 280px;
+  min-width: 300px;
 }
 
 .metrics-grid-slide.xlarge .metric-row {
   padding: 2rem 2rem;
-  gap: 3rem;
+  gap: 2.5rem;
 }
