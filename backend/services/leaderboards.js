@@ -69,6 +69,9 @@ class LeaderboardService {
       },
       columnOrder: leaderboard.columnOrder || ['dealsPerHour', 'deals', 'sms', 'commission', 'campaignBonus', 'total'],
       sortBy: leaderboard.sortBy || 'commission',
+      // Logos
+      brandLogo: leaderboard.brandLogo || null, // Left side - varumärke
+      companyLogo: leaderboard.companyLogo || null, // Right side - företag
       // NEW: Enhanced display options
       displayMode: leaderboard.displayMode || 'individual', // 'individual' | 'groups'
       topN: leaderboard.topN || null, // null = show all, otherwise limit to top N

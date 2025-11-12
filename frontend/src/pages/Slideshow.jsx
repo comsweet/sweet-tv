@@ -330,16 +330,19 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
   return (
     <div className={`slideshow-slide ${isActive ? 'active' : ''}`}>
       <div className="slideshow-content">
-        {/* Company Logo - Top right corner */}
-        {leaderboard.logo && (
-          <div className="slideshow-logo-corner">
-            <img src={leaderboard.logo} alt={`${leaderboard.name} Logo`} />
-          </div>
-        )}
-
         {/* Hide header for RocketRace - maximize full screen */}
         {visualizationMode !== 'rocket' && (
           <div className="slideshow-header">
+            {/* Brand Logo - Left (varumärke) */}
+            {leaderboard.brandLogo ? (
+              <div className="slideshow-logo-left">
+                <img src={leaderboard.brandLogo} alt="Brand Logo" />
+              </div>
+            ) : (
+              <div className="slideshow-logo-left" style={{ visibility: 'hidden' }}></div>
+            )}
+
+            {/* Title & Info - Center */}
             <div className="slideshow-header-content">
               <h1>{leaderboard.name}</h1>
               <p className="slideshow-period">{getTimePeriodLabel(leaderboard.timePeriod)}</p>
@@ -347,6 +350,15 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
                 📊 {totalDeals} affärer totalt • {stats.length} {leaderboard.displayMode === 'groups' ? 'grupper' : 'agenter'}
               </p>
             </div>
+
+            {/* Company Logo - Right (företag) */}
+            {leaderboard.companyLogo ? (
+              <div className="slideshow-logo-right">
+                <img src={leaderboard.companyLogo} alt="Company Logo" />
+              </div>
+            ) : (
+              <div className="slideshow-logo-right" style={{ visibility: 'hidden' }}></div>
+            )}
           </div>
         )}
 
