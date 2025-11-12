@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const database = require('../../services/database');
+const postgres = require('../../services/postgres');
 const dealsCache = require('../../services/dealsCache');
 const smsCache = require('../../services/smsCache');
 const loginTimeCache = require('../../services/loginTimeCache');
@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
       ORDER BY tb.created_at DESC
     `;
 
-    const result = await database.query(query);
+    const result = await postgres.query(query);
     res.json(result.rows);
   } catch (error) {
     console.error('❌ Error fetching team battles:', error);
@@ -60,7 +60,7 @@ router.get('/:id', async (req, res) => {
       GROUP BY tb.id
     `;
 
-    const result = await database.query(query, [battleId]);
+    const result = await postgres.query(query, [battleId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Team battle not found' });
@@ -98,7 +98,7 @@ router.post('/', async (req, res) => {
     }
 
     // Start transaction
-    const client = await database.getClient();
+    const client = await postgres.getClient();
     try {
       await client.query('BEGIN');
 
@@ -182,7 +182,7 @@ router.put('/:id', async (req, res) => {
       teams
     } = req.body;
 
-    const client = await database.getClient();
+    const client = await postgres.getClient();
     try {
       await client.query('BEGIN');
 
@@ -268,7 +268,7 @@ router.put('/:id', async (req, res) => {
         GROUP BY tb.id
       `;
 
-      const finalResult = await database.query(finalQuery, [battleId]);
+      const finalResult = await postgres.query(finalQuery, [battleId]);
       res.json(finalResult.rows[0]);
     } catch (error) {
       await client.query('ROLLBACK');
@@ -287,7 +287,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const battleId = req.params.id;
 
-    const result = await database.query(
+    const result = await postgres.query(
       'DELETE FROM team_battles WHERE id = $1 RETURNING *',
       [battleId]
     );
@@ -329,7 +329,7 @@ router.get('/:id/live-score', async (req, res) => {
       GROUP BY tb.id
     `;
 
-    const battleResult = await database.query(battleQuery, [battleId]);
+    const battleResult = await postgres.query(battleQuery, [battleId]);
 
     if (battleResult.rows.length === 0) {
       return res.status(404).json({ error: 'Team battle not found' });
