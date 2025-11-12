@@ -1,5 +1,6 @@
 .trend-chart-slide {
-  background: linear-gradient(135deg, #005A9C 0%, #003d6b 100%);
+  /* Brand gradient: Primary #005A9C → Accent #00B2E3 */
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   min-height: 100vh;
   height: 100%;
   padding: 2rem;

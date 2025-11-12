@@ -296,11 +296,11 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
                         key={group.groupId}
                         className={`metric-value ${color ? `color-${color}` : ''}`}
                         style={color ? {
-                          backgroundColor: getColorHex(color),
-                          color: getTextColor(color),
-                          fontWeight: 700
+                          color: getColorHex(color),
+                          fontWeight: 700,
+                          textShadow: `0 0 10px ${getColorHex(color)}40`
                         } : columnColor ? {
-                          backgroundColor: `${getColorHex(columnColor)}08`
+                          backgroundColor: `${getColorHex(columnColor)}05`
                         } : {}}
                       >
                         {formatValue(metricData, metricConfig)}
