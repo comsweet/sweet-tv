@@ -361,6 +361,17 @@ BEGIN
   END IF;
 END$$;
 
+-- Drop foreign key constraint that prevents team battle creation
+DO $$
+BEGIN
+  -- Drop the foreign key constraint if it exists
+  ALTER TABLE team_battles DROP CONSTRAINT IF EXISTS team_battles_leaderboard_id_fkey;
+  RAISE NOTICE '✅ Dropped team_battles_leaderboard_id_fkey constraint';
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE '⚠️  Could not drop FK constraint: %', SQLERRM;
+END$$;
+
 -- Update victory_metric CHECK constraint to include commission_per_hour
 DO $$
 BEGIN
