@@ -76,6 +76,15 @@ class PostgresService {
       }
     }
 
+    // Run migrations after schema initialization
+    try {
+      const { runMigrations } = require('../db/migrations/auto-migrate');
+      await runMigrations();
+    } catch (error) {
+      console.error('⚠️  Migration script error:', error.message);
+      // Don't throw - allow server to continue
+    }
+
     try {
       // Update statistics for query planner (run regardless of schema creation)
       await this.pool.query('VACUUM ANALYZE sms_messages');
