@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getGroupMetrics } from '../services/api';
 import './MetricsGridSlide.css';
 
@@ -10,10 +10,14 @@ import './MetricsGridSlide.css';
  * - Color-coding based on rules
  * - Responsive grid layout (2x2, 2x3, 3x2)
  * - Adapts to TV size (compact/normal/large/xlarge)
+ * - Auto-scales to fit content without scrolling
  */
 const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refreshKey }) => {
   const [groupMetrics, setGroupMetrics] = useState([]);
   const [error, setError] = useState(null);
+  const [scaleFactor, setScaleFactor] = useState(1);
+  const containerRef = useRef(null);
+  const tableRef = useRef(null);
 
   useEffect(() => {
     if (!isActive) return;
@@ -35,6 +39,44 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [isActive, leaderboard.id, refreshKey]);
+
+  // Auto-scale to fit content without scrolling
+  useEffect(() => {
+    if (!isActive || !containerRef.current || !tableRef.current || groupMetrics.length === 0) {
+      return;
+    }
+
+    const calculateScale = () => {
+      const container = containerRef.current;
+      const table = tableRef.current;
+
+      if (!container || !table) return;
+
+      // Get available height (container height minus header and padding)
+      const containerHeight = container.clientHeight;
+      const tableHeight = table.scrollHeight;
+
+      // Calculate scale factor to fit content (with 5% margin for safety)
+      const newScale = Math.min(1, (containerHeight * 0.95) / tableHeight);
+
+      // Only scale down if content doesn't fit
+      if (newScale < 1) {
+        console.log(`📏 [MetricsGrid] Auto-scaling: ${(newScale * 100).toFixed(1)}% (${tableHeight}px → ${containerHeight}px)`);
+        setScaleFactor(newScale);
+      } else {
+        setScaleFactor(1);
+      }
+    };
+
+    // Calculate after content loads and on resize
+    const timer = setTimeout(calculateScale, 100);
+    window.addEventListener('resize', calculateScale);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', calculateScale);
+    };
+  }, [isActive, groupMetrics, displaySize]);
 
   // Determine grid layout based on number of groups
   const getGridLayout = (numGroups) => {
@@ -142,8 +184,16 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
 
       {/* Modern Table Layout - Always render if we have data */}
       {groupMetrics.length > 0 && (
-        <div className="metrics-table-container">
-          <table className="metrics-table">
+        <div className="metrics-table-container" ref={containerRef}>
+          <table
+            className="metrics-table"
+            ref={tableRef}
+            style={{
+              transform: `scale(${scaleFactor})`,
+              transformOrigin: 'top center',
+              transition: 'transform 0.3s ease'
+            }}
+          >
             <thead>
               <tr>
                 <th className="metric-name-header">Metric</th>
