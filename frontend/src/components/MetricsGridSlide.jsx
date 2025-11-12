@@ -20,12 +20,20 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
 
     const fetchData = async () => {
       try {
+        console.log('🔄 [MetricsGrid] Fetching data for leaderboard:', leaderboard.id);
         const response = await getGroupMetrics(leaderboard.id);
+        console.log('✅ [MetricsGrid] Response:', response.data);
+
         setGroupMetrics(response.data.groupMetrics || []);
         setError(null);
+
+        if (!response.data.groupMetrics || response.data.groupMetrics.length === 0) {
+          console.warn('⚠️ [MetricsGrid] No group metrics returned');
+        }
       } catch (err) {
-        console.error('Error fetching metrics grid data:', err);
-        setError(err.message);
+        console.error('❌ [MetricsGrid] Error fetching data:', err);
+        console.error('Error details:', err.response?.data || err.message);
+        setError(err.response?.data?.error || err.message || 'Kunde inte ladda data');
       }
     };
 
@@ -127,16 +135,42 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
         <h1>{leaderboard.name}</h1>
       </div>
 
-      {/* Show error or no data message subtly */}
+      {/* Debug info - shows config */}
+      {(error || showNoData) && (
+        <div style={{
+          background: 'rgba(0,0,0,0.5)',
+          padding: '1rem',
+          margin: '1rem',
+          borderRadius: '0.5rem',
+          fontSize: '0.9rem',
+          color: '#ccc',
+          textAlign: 'left'
+        }}>
+          <strong>🔍 Debug Info:</strong><br/>
+          Leaderboard ID: {leaderboard.id}<br/>
+          Type: {leaderboard.type}<br/>
+          Selected Groups: {(leaderboard.selectedGroups || []).length} grupper<br/>
+          Configured Metrics: {(leaderboard.metrics || []).length} metrics<br/>
+          Groups in response: {groupMetrics.length}<br/>
+        </div>
+      )}
+
+      {/* Show error or no data message */}
       {error && (
         <div className="metrics-error-subtle">
-          <p>⚠️ {error}</p>
+          <p>⚠️ FEL: {error}</p>
+          <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>
+            Kolla console (F12) för mer info
+          </p>
         </div>
       )}
 
       {showNoData && !error && (
         <div className="metrics-no-data-subtle">
           <p>📊 Ingen data tillgänglig</p>
+          <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>
+            Kontrollera att grupper och metrics är konfigurerade
+          </p>
         </div>
       )}
 

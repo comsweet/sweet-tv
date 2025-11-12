@@ -143,22 +143,31 @@
   50% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.8); }
 }
 
-/* Subtle Error/No Data Messages - NO SPINNERS! */
+/* Error/No Data Messages - VERY VISIBLE! */
 .metrics-error-subtle {
   text-align: center;
-  padding: 2rem;
-  color: #fbbf24;
-  font-size: 1.5rem;
-  font-weight: 500;
+  padding: 3rem;
+  background: rgba(239, 68, 68, 0.2);
+  border: 3px solid #ef4444;
+  border-radius: 1rem;
+  margin: 2rem;
+  color: #ffffff;
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
 }
 
 .metrics-no-data-subtle {
   text-align: center;
-  padding: 2rem;
+  padding: 3rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 1rem;
+  margin: 2rem;
   color: #ffffff;
-  font-size: 1.8rem;
-  font-weight: 500;
-  opacity: 0.7;
+  font-size: 2.5rem;
+  font-weight: 600;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 /* ==================================================
