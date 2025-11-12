@@ -333,10 +333,10 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
         {/* Hide header for RocketRace - maximize full screen */}
         {visualizationMode !== 'rocket' && (
           <div className="slideshow-header">
-            {/* Brand Logo - Left (varumärke) */}
-            {leaderboard.brandLogo ? (
+            {/* Brand Logo - Left (varumärke) - Fallback to legacy logo */}
+            {(leaderboard.brandLogo || leaderboard.logo) ? (
               <div className="slideshow-logo-left">
-                <img src={leaderboard.brandLogo} alt="Brand Logo" />
+                <img src={leaderboard.brandLogo || leaderboard.logo} alt="Brand Logo" />
               </div>
             ) : (
               <div className="slideshow-logo-left" style={{ visibility: 'hidden' }}></div>
@@ -412,9 +412,17 @@ const Slideshow = () => {
   const intervalRef = useRef(null);
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
+  const lastOptimisticUpdateRef = useRef(0); // Track last optimistic update
 
   // 🔄 NEW: Silent stats refresh without affecting scroll
   const refreshStatsOnly = async () => {
+    // 🛡️ SAFETY: Skip refresh if optimistic update happened recently (< 10 seconds ago)
+    // This prevents race condition where server cache overwrites local optimistic updates
+    const timeSinceLastOptimistic = Date.now() - lastOptimisticUpdateRef.current;
+    if (timeSinceLastOptimistic < 10000) {
+      console.log(`⏸️  Skipping refresh - optimistic update ${Math.round(timeSinceLastOptimistic / 1000)}s ago`);
+      return;
+    }
     console.log('\n🔄 ═══════════════════════════════════════════');
     console.log('🔄 refreshStatsOnly CALLED - Silent stats update');
     console.log(`⏰ Time: ${new Date().toLocaleTimeString()}`);
@@ -523,6 +531,10 @@ const Slideshow = () => {
       console.log('❌ No notification data');
       return;
     }
+
+    // 🛡️ SAFETY: Track timestamp of optimistic update
+    // This prevents refreshStatsOnly from overwriting our changes too soon
+    lastOptimisticUpdateRef.current = Date.now();
 
     const userId = notification.agent.userId || notification.agent.id;
     const newCommission = parseFloat(notification.commission || 0);
