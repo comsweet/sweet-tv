@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLeaderboards } from '../hooks/useLeaderboards';
-import { getAvailableGroups, migrateLeaderboardsDealsPerHour, getLogosLibrary } from '../services/api';
+import { getAvailableGroups, migrateLeaderboardsDealsPerHour, getLogosLibrary, uploadLogoToLibrary, deleteLogoFromLibrary } from '../services/api';
 import { useState } from 'react';
 import './AdminLeaderboards.css';
 
@@ -76,6 +76,46 @@ const AdminLeaderboards = () => {
       await fetchLeaderboards(); // Reload to show changes
     } catch (error) {
       alert('❌ Migrations-fel: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Logo management handlers
+  const handleUploadLogo = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const name = prompt('Namn på logotypen (t.ex. "Sweet TV", "Företag AB"):');
+    if (!name) return;
+
+    const formData = new FormData();
+    formData.append('logo', file);
+    formData.append('name', name);
+
+    setIsLoading(true);
+    try {
+      await uploadLogoToLibrary(formData);
+      alert(`✅ Logotyp "${name}" uppladdad!`);
+      await loadData(); // Reload logos
+    } catch (error) {
+      alert('❌ Uppladdningsfel: ' + error.message);
+    } finally {
+      setIsLoading(false);
+      e.target.value = ''; // Reset file input
+    }
+  };
+
+  const handleDeleteLogo = async (logoId, logoName) => {
+    if (!confirm(`🗑️ Radera logotyp "${logoName}"?\n\nObs: Kan inte raderas om den används av någon leaderboard.`)) return;
+
+    setIsLoading(true);
+    try {
+      await deleteLogoFromLibrary(logoId);
+      alert(`✅ Logotyp "${logoName}" raderad!`);
+      await loadData(); // Reload logos
+    } catch (error) {
+      alert('❌ Raderingsfel: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -565,6 +605,140 @@ const AdminLeaderboards = () => {
               </button>
               <button onClick={handleSave} className="btn-primary">
                 Spara
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logo Management Modal */}
+      {showLogosManagement && (
+        <div className="modal-overlay" onClick={() => setShowLogosManagement(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+            <h3>🖼️ Hantera Logoer</h3>
+
+            {/* Upload Section */}
+            <div style={{
+              background: '#f8f9fa',
+              padding: '1rem',
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              border: '2px dashed #dee2e6'
+            }}>
+              <h4 style={{ marginTop: 0 }}>📤 Ladda upp ny logotyp</h4>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleUploadLogo}
+                style={{ width: '100%', padding: '0.5rem' }}
+              />
+              <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
+                Godkända format: PNG, JPG, GIF, SVG. Max 5 MB.
+              </small>
+            </div>
+
+            {/* Logos Grid */}
+            <h4>📚 Logoer i biblioteket ({logosLibrary.length})</h4>
+            {logosLibrary.length === 0 ? (
+              <div style={{
+                padding: '2rem',
+                textAlign: 'center',
+                background: '#f8f9fa',
+                borderRadius: '8px',
+                color: '#666'
+              }}>
+                <p>Inga logoer uppladdade än.</p>
+                <p>Ladda upp din första logotyp ovan!</p>
+              </div>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                gap: '1rem',
+                maxHeight: '400px',
+                overflowY: 'auto',
+                padding: '1rem',
+                background: '#f8f9fa',
+                borderRadius: '8px'
+              }}>
+                {logosLibrary.map(logo => (
+                  <div key={logo.id} style={{
+                    background: 'white',
+                    padding: '1rem',
+                    borderRadius: '8px',
+                    border: '1px solid #dee2e6',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem'
+                  }}>
+                    {/* Logo Preview */}
+                    <div style={{
+                      height: '100px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: '#f8f9fa',
+                      borderRadius: '4px',
+                      overflow: 'hidden'
+                    }}>
+                      <img
+                        src={logo.url}
+                        alt={logo.name}
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain'
+                        }}
+                      />
+                    </div>
+
+                    {/* Logo Name */}
+                    <div style={{
+                      fontWeight: '500',
+                      fontSize: '0.9rem',
+                      textAlign: 'center',
+                      wordBreak: 'break-word'
+                    }}>
+                      {logo.name}
+                    </div>
+
+                    {/* Usage Info */}
+                    {logo.usedBy && logo.usedBy.length > 0 && (
+                      <div style={{
+                        fontSize: '0.75rem',
+                        color: '#666',
+                        textAlign: 'center'
+                      }}>
+                        Används av {logo.usedBy.length} leaderboard{logo.usedBy.length !== 1 ? 's' : ''}
+                      </div>
+                    )}
+
+                    {/* Delete Button */}
+                    <button
+                      onClick={() => handleDeleteLogo(logo.id, logo.name)}
+                      style={{
+                        padding: '0.5rem',
+                        background: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem'
+                      }}
+                      onMouseOver={(e) => e.target.style.background = '#c82333'}
+                      onMouseOut={(e) => e.target.style.background = '#dc3545'}
+                    >
+                      🗑️ Radera
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Close Button */}
+            <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
+              <button onClick={() => setShowLogosManagement(false)} className="btn-primary">
+                Stäng
               </button>
             </div>
           </div>
