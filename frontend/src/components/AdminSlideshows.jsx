@@ -212,13 +212,10 @@ const AdminSlideshows = () => {
 
               <div className="form-group">
                 <div className="section-header-inline">
-                  <label>📊 Slides (Leaderboards, Trend Charts & Quotes med individuella tider):</label>
+                  <label>📊 Slides (Leaderboards & Quotes med individuella tider):</label>
                   <div className="add-slide-buttons">
                     <button onClick={() => addSlide('leaderboard')} className="btn-secondary btn-sm">
                       ➕ Leaderboard
-                    </button>
-                    <button onClick={() => addSlide('trend')} className="btn-secondary btn-sm">
-                      ➕ Trend Chart
                     </button>
                     <button onClick={() => addSlide('quotes')} className="btn-secondary btn-sm">
                       ➕ Quotes
@@ -236,14 +233,13 @@ const AdminSlideshows = () => {
                       {form.slides.map((slide, index) => {
                         const selectedLb = leaderboards.find(lb => lb.id === slide.leaderboardId);
                         const isQuotes = slide.type === 'quotes';
-                        const isTrend = slide.type === 'trend';
 
                         return (
-                          <div key={index} className={`slide-config-card ${isQuotes ? 'quotes-slide' : ''} ${isTrend ? 'trend-slide' : ''}`}>
+                          <div key={index} className={`slide-config-card ${isQuotes ? 'quotes-slide' : ''}`}>
                             <div className="slide-config-header">
                               <div className="slide-number">
                                 <span className="slide-badge">#{index + 1}</span>
-                                <h4>{isQuotes ? '💬 Quotes Slide' : isTrend ? '📈 Trend Chart' : `📊 Slide ${index + 1}`}</h4>
+                                <h4>{isQuotes ? '💬 Quotes Slide' : `📊 Slide ${index + 1}`}</h4>
                               </div>
                               <div className="slide-actions">
                                 <button
@@ -278,86 +274,6 @@ const AdminSlideshows = () => {
                                   <p>✨ Visar 2 motiverande citat från databasen</p>
                                   <p>Konfigureras i <strong>Quotes</strong>-sektionen</p>
                                 </div>
-                              ) : isTrend ? (
-                                <>
-                                  <div className="form-group">
-                                    <label>Leaderboard:</label>
-                                    <select
-                                      value={slide.leaderboardId || ''}
-                                      onChange={(e) => updateSlide(index, 'leaderboardId', e.target.value)}
-                                      className={!slide.leaderboardId ? 'select-error' : ''}
-                                    >
-                                      <option value="">Välj leaderboard...</option>
-                                      {leaderboards.map(lb => (
-                                        <option key={lb.id} value={lb.id}>
-                                          {lb.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    {selectedLb && (
-                                      <div className="lb-meta-badges">
-                                        <span className="meta-badge">
-                                          {selectedLb.timePeriod === 'day' && '📅 Dag'}
-                                          {selectedLb.timePeriod === 'week' && '📅 Vecka'}
-                                          {selectedLb.timePeriod === 'month' && '📅 Månad'}
-                                          {selectedLb.timePeriod === 'custom' && '📅 Anpassad'}
-                                        </span>
-                                        <span className="meta-badge">
-                                          {selectedLb.userGroups?.length === 0 ? '👥 Alla' : `👥 ${selectedLb.userGroups.length}`}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="trend-config-section">
-                                    <h5>📊 Trend Chart Konfiguration</h5>
-
-                                    <div className="form-group">
-                                      <label>⏰ Tidsperiod (timmar):</label>
-                                      <input
-                                        type="number"
-                                        min="1"
-                                        max="72"
-                                        value={slide.config?.hours || 24}
-                                        onChange={(e) => {
-                                          const config = { ...(slide.config || {}), hours: parseInt(e.target.value) };
-                                          updateSlide(index, 'config', config);
-                                        }}
-                                      />
-                                      <small className="form-hint">Visa data för senaste X timmar (1-72h)</small>
-                                    </div>
-
-                                    <div className="form-group">
-                                      <label>🏆 Antal top performers:</label>
-                                      <input
-                                        type="number"
-                                        min="1"
-                                        max="10"
-                                        value={slide.config?.topN || 5}
-                                        onChange={(e) => {
-                                          const config = { ...(slide.config || {}), topN: parseInt(e.target.value) };
-                                          updateSlide(index, 'config', config);
-                                        }}
-                                      />
-                                      <small className="form-hint">Visa top 1-10 agents</small>
-                                    </div>
-
-                                    <div className="form-group">
-                                      <label>📈 Metrik:</label>
-                                      <select
-                                        value={slide.config?.metric || 'commission'}
-                                        onChange={(e) => {
-                                          const config = { ...(slide.config || {}), metric: e.target.value };
-                                          updateSlide(index, 'config', config);
-                                        }}
-                                      >
-                                        <option value="commission">💰 Commission (THB)</option>
-                                        <option value="deals">🎯 Deals (Antal)</option>
-                                      </select>
-                                      <small className="form-hint">Välj vad som ska visas i grafen</small>
-                                    </div>
-                                  </div>
-                                </>
                               ) : (
                                 <div className="form-group">
                                   <label>Leaderboard:</label>
