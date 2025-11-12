@@ -382,27 +382,30 @@ class LoginTimeCache {
 
   /**
    * Sync login time for a SINGLE user (used after deal)
+   *
+   * Uses workforce API even for single user - avoids old individual /loginTime endpoint
+   * This ensures we get accurate data without rate limiting issues
    */
   async syncLoginTimeForUser(adversusAPI, userId, fromDate, toDate) {
     try {
       console.log(`⏱️ Syncing login time for user ${userId} after deal...`);
 
-      // Fetch from Adversus
-      const data = await this.fetchLoginTimeFromAdversus(adversusAPI, userId, fromDate, toDate);
+      // Use syncLoginTimeForUsers (workforce API) even for single user
+      // Much more reliable than individual /loginTime calls
+      const results = await this.syncLoginTimeForUsers(adversusAPI, [userId], fromDate, toDate);
 
-      // Save to database
-      await this.saveLoginTime(data);
+      if (results && results.length > 0) {
+        console.log(`✅ Login time synced for user ${userId}: ${results[0].loginSeconds}s`);
+        return results[0];
+      }
 
-      // Update cache
-      const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
-      this.cache.set(cacheKey, {
-        data,
-        cachedAt: Date.now()
-      });
-
-      console.log(`✅ Login time synced for user ${userId}: ${data.loginSeconds}s (${(data.loginSeconds / 3600).toFixed(2)}h)`);
-
-      return data;
+      // Fallback if sync failed
+      return {
+        userId,
+        loginSeconds: 0,
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString()
+      };
     } catch (error) {
       console.error(`⚠️ Failed to sync login time for user ${userId}:`, error.message);
       return {
