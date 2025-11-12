@@ -349,16 +349,10 @@ router.get('/:id/stats', async (req, res) => {
         // Get login time data (for deals per hour calculation)
         let loginTimeData = { loginSeconds: 0, loginHours: 0, dealsPerHour: 0 };
         try {
-          // Try to get cached login time first
+          // Get cached login time (already synced above via syncLoginTimeForUsers)
           let loginTime = await loginTimeCache.getLoginTime(stat.userId, startDate, endDate);
 
-          // If no data or stale data, fetch from Adversus
-          if (!loginTime || loginTime.loginSeconds === 0) {
-            loginTime = await loginTimeCache.fetchLoginTimeFromAdversus(adversusAPI, stat.userId, startDate, endDate);
-            await loginTimeCache.saveLoginTime(loginTime);
-          }
-
-          const loginSeconds = loginTime.loginSeconds || 0;
+          const loginSeconds = loginTime?.loginSeconds || 0;
           const loginHours = loginSeconds > 0 ? (loginSeconds / 3600).toFixed(2) : 0;
           const dealsPerHour = loginTimeCache.calculateDealsPerHour(stat.dealCount || 0, loginSeconds);
 
