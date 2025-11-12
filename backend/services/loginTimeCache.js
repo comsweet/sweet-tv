@@ -21,9 +21,10 @@ class LoginTimeCache {
     // Last sync timestamp
     this.lastSync = null;
 
-    // Sync interval: 2 minutes (good balance)
-    // Fast enough for real-time updates but not too aggressive on API
-    this.syncIntervalMinutes = 2;
+    // Sync interval: 5 minutes (reduces API load)
+    // Login time changes slowly, no need for frequent updates
+    // Changed from 2 min to reduce rate limiting
+    this.syncIntervalMinutes = 5;
 
     // Last time we synced TODAY'S data specifically
     // Used to avoid re-fetching same day data for different leaderboards
