@@ -7,6 +7,7 @@ import Admin from './pages/Admin'
 import Slideshow from './pages/Slideshow'
 import SlideshowsList from './pages/SlideshowsList'
 import AgentUpload from './pages/AgentUpload'
+import TrendChart from './pages/TrendChart'
 import './App.css'
 
 function App() {
@@ -30,6 +31,16 @@ function App() {
             element={
               <ProtectedRoute requireAdmin={true}>
                 <Admin />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Trend Chart (kräver admin) */}
+          <Route
+            path="/trend-chart"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <TrendChart />
               </ProtectedRoute>
             }
           />

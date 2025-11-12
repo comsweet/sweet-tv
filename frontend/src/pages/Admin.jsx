@@ -41,6 +41,7 @@ const Admin = () => {
     { id: 'sounds', icon: '🔊', label: 'Ljud', section: 'content' },
     { id: 'notifications', icon: '🔔', label: 'Notis', section: 'content' },
     { id: 'stats', icon: '📊', label: 'Statistik', section: 'analytics' },
+    { id: 'trendChart', icon: '📈', label: 'Trend Chart', section: 'analytics', external: true, url: '/#/trend-chart' },
     { id: 'campaignBonus', icon: '💰', label: 'Bonus', section: 'analytics' },
     { id: 'thresholds', icon: '🎨', label: 'Tröskelvärden', section: 'analytics' },
     { id: 'auditLogs', icon: '📋', label: 'Audit Logs', section: 'monitoring' },
@@ -52,16 +53,37 @@ const Admin = () => {
     { id: 'users', icon: '👤', label: 'Användare', section: 'account', superadmin: isSuperAdmin },
   ];
 
-  const renderMenuItem = (item) => (
-    <div
-      key={item.id}
-      className={`sidebar-item ${activeTab === item.id ? 'active' : ''} ${item.superadmin ? 'superadmin' : ''}`}
-      onClick={() => setActiveTab(item.id)}
-    >
-      <span className="sidebar-item-icon">{item.icon}</span>
-      {!sidebarCollapsed && <span className="sidebar-item-label">{item.label}</span>}
-    </div>
-  );
+  const renderMenuItem = (item) => {
+    if (item.external) {
+      return (
+        <div
+          key={item.id}
+          className={`sidebar-item ${item.superadmin ? 'superadmin' : ''}`}
+          onClick={() => window.open(item.url, '_blank')}
+          style={{ cursor: 'pointer' }}
+        >
+          <span className="sidebar-item-icon">{item.icon}</span>
+          {!sidebarCollapsed && (
+            <>
+              <span className="sidebar-item-label">{item.label}</span>
+              <span style={{ marginLeft: 'auto', fontSize: '0.8rem' }}>🔗</span>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={item.id}
+        className={`sidebar-item ${activeTab === item.id ? 'active' : ''} ${item.superadmin ? 'superadmin' : ''}`}
+        onClick={() => setActiveTab(item.id)}
+      >
+        <span className="sidebar-item-icon">{item.icon}</span>
+        {!sidebarCollapsed && <span className="sidebar-item-label">{item.label}</span>}
+      </div>
+    );
+  };
 
   const sections = {
     main: menuItems.filter(item => item.section === 'main'),

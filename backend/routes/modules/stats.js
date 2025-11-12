@@ -4,6 +4,7 @@ const adversusAPI = require('../../services/adversusAPI');
 const database = require('../../services/database');
 const dealsCache = require('../../services/dealsCache');
 const smsCache = require('../../services/smsCache');
+const loginTimeCache = require('../../services/loginTimeCache');
 const campaignCache = require('../../services/campaignCache');
 const campaignBonusTiers = require('../../services/campaignBonusTiers');
 
@@ -238,6 +239,264 @@ router.get('/leaderboard', async (req, res) => {
     res.json(leaderboard);
   } catch (error) {
     console.error('❌ Error fetching stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get standalone trend chart history (not tied to leaderboard)
+router.get('/history', async (req, res) => {
+  try {
+    const {
+      days = 30,
+      topN = 5,
+      metric = 'commission',
+      userGroups // comma-separated list of user group IDs
+    } = req.query;
+
+    // Calculate date range
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+
+    const groupByDay = true; // Always group by day for standalone charts
+
+    console.log(`📈 [Standalone] Fetching history from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`   📊 Grouping by: DAY, Metric: ${metric}, TopN: ${topN}`);
+    if (userGroups) {
+      console.log(`   👥 User groups filter: ${userGroups}`);
+    }
+
+    // Get data from caches
+    const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
+    const cachedSMS = await smsCache.getSMSInRange(startDate, endDate);
+
+    // Get users
+    let adversusUsers = [];
+    try {
+      const usersResult = await adversusAPI.getUsers();
+      adversusUsers = usersResult.users || [];
+    } catch (error) {
+      console.error('⚠️ Failed to load Adversus users:', error.message);
+    }
+
+    // Filter by user groups if specified
+    let filteredDeals = cachedDeals;
+    let filteredSMS = cachedSMS;
+    let allowedUserIds = [];
+
+    if (userGroups && userGroups.trim() !== '') {
+      const normalizedGroups = userGroups.split(',').map(g => String(g.trim()));
+      allowedUserIds = adversusUsers
+        .filter(u => u.group && u.group.id && normalizedGroups.includes(String(u.group.id)))
+        .map(u => String(u.id));
+
+      console.log(`   ✅ Filtered to ${allowedUserIds.length} users in groups: ${normalizedGroups.join(', ')}`);
+
+      filteredDeals = cachedDeals.filter(deal =>
+        allowedUserIds.includes(String(deal.userId))
+      );
+      filteredSMS = cachedSMS.filter(sms =>
+        allowedUserIds.includes(String(sms.userId))
+      );
+    } else {
+      allowedUserIds = adversusUsers.map(u => String(u.id));
+    }
+
+    // Group data by time period (day)
+    const timeData = {};
+
+    for (const deal of filteredDeals) {
+      const dealDate = new Date(deal.orderDate);
+      const timeKey = new Date(dealDate.getFullYear(), dealDate.getMonth(), dealDate.getDate()).toISOString();
+      const userId = String(deal.userId);
+
+      if (!timeData[timeKey]) {
+        timeData[timeKey] = {};
+      }
+
+      if (!timeData[timeKey][userId]) {
+        timeData[timeKey][userId] = {
+          commission: 0,
+          deals: 0,
+          loginSeconds: 0,
+          smsSent: 0,
+          smsDelivered: 0
+        };
+      }
+
+      timeData[timeKey][userId].commission += parseFloat(deal.commission || 0);
+      timeData[timeKey][userId].deals += parseInt(deal.multiDeals || '1');
+    }
+
+    // Add SMS data
+    for (const sms of filteredSMS) {
+      const smsDate = new Date(sms.timestamp);
+      const timeKey = new Date(smsDate.getFullYear(), smsDate.getMonth(), smsDate.getDate()).toISOString();
+      const userId = String(sms.userId);
+
+      if (!timeData[timeKey]) {
+        timeData[timeKey] = {};
+      }
+
+      if (!timeData[timeKey][userId]) {
+        timeData[timeKey][userId] = {
+          commission: 0,
+          deals: 0,
+          loginSeconds: 0,
+          smsSent: 0,
+          smsDelivered: 0
+        };
+      }
+
+      timeData[timeKey][userId].smsSent += sms.count || 1;
+      if (sms.status === 'delivered') {
+        timeData[timeKey][userId].smsDelivered += sms.count || 1;
+      }
+    }
+
+    // Add login time data for each time period
+    const sortedTimes = Object.keys(timeData).sort();
+
+    for (const timeKey of sortedTimes) {
+      const periodStart = new Date(timeKey);
+      const periodEnd = new Date(timeKey);
+      periodEnd.setDate(periodEnd.getDate() + 1);
+
+      for (const userId of allowedUserIds) {
+        if (timeData[timeKey][userId]) {
+          const loginTime = await loginTimeCache.getLoginTime(userId, periodStart, periodEnd);
+          timeData[timeKey][userId].loginSeconds = loginTime?.loginSeconds || 0;
+        }
+      }
+    }
+
+    // Calculate cumulative values per user
+    const userTotals = {};
+
+    for (const userId of new Set([...filteredDeals.map(d => String(d.userId)), ...filteredSMS.map(s => String(s.userId))])) {
+      userTotals[userId] = {
+        totalCommission: 0,
+        totalDeals: 0,
+        totalLoginSeconds: 0,
+        totalSmsSent: 0,
+        totalSmsDelivered: 0
+      };
+    }
+
+    // Build time series
+    const timeSeries = sortedTimes.map(timeKey => {
+      const periodData = timeData[timeKey];
+
+      // Update cumulative totals
+      for (const userId in periodData) {
+        if (userTotals[userId]) {
+          userTotals[userId].totalCommission += periodData[userId].commission;
+          userTotals[userId].totalDeals += periodData[userId].deals;
+          userTotals[userId].totalLoginSeconds += periodData[userId].loginSeconds;
+          userTotals[userId].totalSmsSent += periodData[userId].smsSent;
+          userTotals[userId].totalSmsDelivered += periodData[userId].smsDelivered;
+        }
+      }
+
+      // Build data point
+      const dataPoint = { time: timeKey };
+
+      for (const userId in userTotals) {
+        const adversusUser = adversusUsers.find(u => String(u.id) === userId);
+        const userName = adversusUser?.name || adversusUser?.firstname || `Agent ${userId}`;
+        const totals = userTotals[userId];
+
+        // Calculate metric value based on requested metric
+        let value = 0;
+
+        switch (metric) {
+          case 'deals':
+            value = totals.totalDeals;
+            break;
+          case 'sms_rate':
+            value = totals.totalSmsSent > 0
+              ? Math.round((totals.totalSmsDelivered / totals.totalSmsSent) * 100)
+              : 0;
+            break;
+          case 'order_per_hour':
+            value = totals.totalLoginSeconds > 0
+              ? parseFloat(loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds))
+              : 0;
+            break;
+          case 'commission_per_hour':
+            value = totals.totalLoginSeconds > 0
+              ? parseFloat((totals.totalCommission / (totals.totalLoginSeconds / 3600)).toFixed(2))
+              : 0;
+            break;
+          default: // commission
+            value = Math.round(totals.totalCommission);
+        }
+
+        dataPoint[userName] = value;
+      }
+
+      return dataPoint;
+    });
+
+    // Find top N users by final total
+    const finalTotals = Object.entries(userTotals)
+      .map(([userId, totals]) => {
+        const adversusUser = adversusUsers.find(u => String(u.id) === userId);
+        const userName = adversusUser?.name || adversusUser?.firstname || `Agent ${userId}`;
+
+        let total = 0;
+        switch (metric) {
+          case 'deals':
+            total = totals.totalDeals;
+            break;
+          case 'sms_rate':
+            total = totals.totalSmsSent > 0
+              ? (totals.totalSmsDelivered / totals.totalSmsSent) * 100
+              : 0;
+            break;
+          case 'order_per_hour':
+            total = totals.totalLoginSeconds > 0
+              ? parseFloat(loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds))
+              : 0;
+            break;
+          case 'commission_per_hour':
+            total = totals.totalLoginSeconds > 0
+              ? totals.totalCommission / (totals.totalLoginSeconds / 3600)
+              : 0;
+            break;
+          default:
+            total = totals.totalCommission;
+        }
+
+        return { userId, name: userName, total };
+      })
+      .sort((a, b) => b.total - a.total)
+      .slice(0, parseInt(topN));
+
+    // Filter time series to only include top N users
+    const topUserNames = finalTotals.map(u => u.name);
+    const filteredTimeSeries = timeSeries.map(point => {
+      const filtered = { time: point.time };
+      for (const name of topUserNames) {
+        filtered[name] = point[name] || 0;
+      }
+      return filtered;
+    });
+
+    console.log(`✅ Standalone history data generated: ${filteredTimeSeries.length} time points, ${topUserNames.length} users`);
+
+    res.json({
+      timeSeries: filteredTimeSeries,
+      topUsers: finalTotals,
+      metric: metric,
+      groupedBy: 'day',
+      dateRange: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching standalone history:', error);
     res.status(500).json({ error: error.message });
   }
 });
