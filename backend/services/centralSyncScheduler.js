@@ -97,28 +97,28 @@ class CentralSyncScheduler {
       // 3. Sync login time cache
       console.log('\n⏱️  [3/3] Syncing login time cache...');
       try {
-        if (await loginTimeCache.needsSync()) {
-          // Get all active users
-          const usersResult = await adversusAPI.getUsers();
-          const users = usersResult.users || [];
-          const activeUserIds = users.map(u => u.id);
+        // ALWAYS sync login time, regardless of lastSync timestamp
+        // Why: Per-deal syncs update lastSync but only for ONE user
+        //      We need to refresh ALL users every cycle to keep deals/hour accurate
 
-          if (activeUserIds.length > 0) {
-            // Calculate date range (today)
-            const now = new Date();
-            const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-            const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+        // Get all active users
+        const usersResult = await adversusAPI.getUsers();
+        const users = usersResult.users || [];
+        const activeUserIds = users.map(u => u.id);
 
-            console.log(`   📅 Date range: ${startDate.toISOString()} → ${endDate.toISOString()}`);
-            console.log(`   👥 Syncing login time for ${activeUserIds.length} users...`);
+        if (activeUserIds.length > 0) {
+          // Calculate date range (today)
+          const now = new Date();
+          const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+          const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
-            await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, startDate, endDate);
-            console.log('✅ Login time cache synced');
-          } else {
-            console.log('⚠️  No active users found, skipping login time sync');
-          }
+          console.log(`   📅 Date range: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+          console.log(`   👥 Syncing login time for ${activeUserIds.length} users...`);
+
+          await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, startDate, endDate);
+          console.log('✅ Login time cache synced for all users');
         } else {
-          console.log('✅ Login time cache is fresh (no sync needed)');
+          console.log('⚠️  No active users found, skipping login time sync');
         }
       } catch (error) {
         console.error('❌ Failed to sync login time:', error.message);
