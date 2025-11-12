@@ -6,6 +6,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const apiRoutes = require('./routes/api');
 const PollingService = require('./services/pollingService');
+const centralSyncScheduler = require('./services/centralSyncScheduler');
 
 const app = express();
 const server = http.createServer(app);
@@ -69,6 +70,9 @@ async function startServer() {
     const pollingService = new PollingService(io);
     app.set('pollingService', pollingService);
     pollingService.start();
+
+    // Start central sync scheduler (syncs all caches every 3 minutes)
+    centralSyncScheduler.start();
 
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {

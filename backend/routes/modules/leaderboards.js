@@ -84,17 +84,8 @@ router.get('/:id/stats', async (req, res) => {
       return res.json(cached);
     }
 
-    // AUTO-SYNC DEALS CACHE
-    await dealsCache.autoSync(adversusAPI);
-
-    // AUTO-SYNC SMS CACHE
-    await smsCache.autoSync(adversusAPI);
-
-    // AUTO-SYNC LOGIN TIME (only if needed - every 30 minutes)
-    if (await loginTimeCache.needsSync()) {
-      console.log(`⏱️ Login time sync needed, fetching for active users...`);
-      // We'll sync login time per user below when building stats
-    }
+    // NOTE: Central sync scheduler handles all cache updates every 3 minutes
+    // This endpoint just reads from cache (no sync calls to avoid rate limiting)
 
     // Get deals from cache
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
@@ -953,19 +944,8 @@ router.get('/:id/group-metrics', async (req, res) => {
         // Calculate date range for this metric
         const { startDate, endDate } = leaderboardService.getDateRange({ timePeriod });
 
-        // AUTO-SYNC CACHES
-        await dealsCache.autoSync(adversusAPI);
-        await smsCache.autoSync(adversusAPI);
-
-        // BATCH SYNC login time for ALL users in group at once (avoids rate limiting!)
-        if (await loginTimeCache.needsSync() && userIds.length > 0) {
-          try {
-            console.log(`⏱️ Batch syncing login time for ${userIds.length} users in group ${groupName}...`);
-            await loginTimeCache.syncLoginTimeForUsers(adversusAPI, userIds, startDate, endDate);
-          } catch (err) {
-            console.warn(`⚠️ Failed to batch sync login time for group ${groupName}:`, err.message);
-          }
-        }
+        // NOTE: Central sync scheduler handles all cache updates every 3 minutes
+        // This endpoint just reads from cache (no sync calls to avoid rate limiting)
 
         // Get deals for this group in date range
         const allDeals = await dealsCache.getDealsInRange(startDate, endDate);
