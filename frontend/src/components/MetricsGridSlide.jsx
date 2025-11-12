@@ -35,11 +35,57 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
           return;
         }
 
-        setGroupMetrics(response.data.groupMetrics || []);
+        // VALIDATION: Check data integrity before setting state
+        const validatedMetrics = response.data.groupMetrics.map((group, groupIndex) => {
+          console.log(`🔍 [MetricsGrid] Validating group ${groupIndex}:`, group);
+
+          // Validate groupId and groupName
+          if (!group.groupId || !group.groupName) {
+            console.error(`❌ [MetricsGrid] Invalid group structure:`, group);
+            return null;
+          }
+
+          // Validate metrics object
+          if (!group.metrics || typeof group.metrics !== 'object') {
+            console.error(`❌ [MetricsGrid] Invalid metrics for group ${group.groupName}:`, group.metrics);
+            return { ...group, metrics: {} };
+          }
+
+          // Validate each metric value
+          const validatedMetricsObj = {};
+          for (const [metricId, metricData] of Object.entries(group.metrics)) {
+            if (!metricData || typeof metricData !== 'object') {
+              console.error(`❌ [MetricsGrid] Invalid metric data for ${metricId} in ${group.groupName}:`, metricData);
+              continue;
+            }
+
+            // Check if value is actually a number (not a string with group name!)
+            const value = metricData.value;
+            if (value !== null && value !== undefined) {
+              const numValue = Number(value);
+              if (isNaN(numValue)) {
+                console.error(`❌ [MetricsGrid] Metric value is not a number! Group: ${group.groupName}, Metric: ${metricId}, Value:`, value);
+                validatedMetricsObj[metricId] = { ...metricData, value: null };
+              } else {
+                validatedMetricsObj[metricId] = metricData;
+              }
+            } else {
+              validatedMetricsObj[metricId] = metricData;
+            }
+          }
+
+          return {
+            ...group,
+            metrics: validatedMetricsObj
+          };
+        }).filter(g => g !== null);
+
+        console.log('✅ [MetricsGrid] Validated metrics:', validatedMetrics);
+        setGroupMetrics(validatedMetrics);
         setError(null);
 
-        if (response.data.groupMetrics.length === 0) {
-          console.warn('⚠️ [MetricsGrid] No group metrics returned');
+        if (validatedMetrics.length === 0) {
+          console.warn('⚠️ [MetricsGrid] No valid group metrics after validation');
         }
       } catch (err) {
         console.error('❌ [MetricsGrid] Error fetching data:', err);

@@ -344,20 +344,36 @@ class DealsCache {
 
         const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
 
+        // VALIDATION: Ensure all IDs are valid integers
+        const leadId = parseInt(lead.id);
+        const userId = parseInt(lead.lastContactedBy);
+        const campaignId = parseInt(lead.campaignId);
+
+        if (isNaN(leadId) || isNaN(userId) || isNaN(campaignId)) {
+          console.error(`❌ [DealsCache/pollNewDeals] Invalid ID in lead data:`, {
+            leadId: lead.id,
+            userId: lead.lastContactedBy,
+            campaignId: lead.campaignId,
+            leadName: lead.name,
+            campaignName: lead.campaign?.name
+          });
+          return null; // Mark as invalid
+        }
+
         return {
-          leadId: lead.id,
-          userId: lead.lastContactedBy,
-          campaignId: lead.campaignId,
+          leadId,
+          userId,
+          campaignId,
           commission: commission,
           multiDeals: multiDeals,
           orderDate: orderDateField?.value || lead.lastUpdatedTime,
           status: lead.status
         };
-      });
+      }).filter(deal => deal !== null); // Remove invalid deals
 
       // Filter out deals without userId (required field)
       const validDeals = deals.filter(deal => deal.userId != null);
-      const skippedDeals = deals.length - validDeals.length;
+      const skippedDeals = leads.length - deals.length + (deals.length - validDeals.length);
 
       if (skippedDeals > 0) {
         console.log(`⚠️  Skipped ${skippedDeals} deals without user_id`);
@@ -408,20 +424,36 @@ class DealsCache {
 
         const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
 
+        // VALIDATION: Ensure all IDs are valid integers
+        const leadId = parseInt(lead.id);
+        const userId = parseInt(lead.lastContactedBy);
+        const campaignId = parseInt(lead.campaignId);
+
+        if (isNaN(leadId) || isNaN(userId) || isNaN(campaignId)) {
+          console.error(`❌ [DealsCache/syncDeals] Invalid ID in lead data:`, {
+            leadId: lead.id,
+            userId: lead.lastContactedBy,
+            campaignId: lead.campaignId,
+            leadName: lead.name,
+            campaignName: lead.campaign?.name
+          });
+          return null; // Mark as invalid
+        }
+
         return {
-          leadId: lead.id,
-          userId: lead.lastContactedBy,
-          campaignId: lead.campaignId,
+          leadId,
+          userId,
+          campaignId,
           commission: commission,
           multiDeals: multiDeals,
           orderDate: orderDateField?.value || lead.lastUpdatedTime,
           status: lead.status
         };
-      });
+      }).filter(deal => deal !== null); // Remove invalid deals
 
       // Filter out deals without userId (required field)
       const validDeals = deals.filter(deal => deal.userId != null);
-      const skippedDeals = deals.length - validDeals.length;
+      const skippedDeals = leads.length - deals.length + (deals.length - validDeals.length);
 
       if (skippedDeals > 0) {
         console.log(`⚠️  Skipped ${skippedDeals} deals without user_id`);
