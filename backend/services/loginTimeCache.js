@@ -163,7 +163,7 @@ class LoginTimeCache {
           LIMIT 1
         `;
 
-        result = await db.pool.query(overlapQuery, [userId, toDate, fromDate]);
+        result = await db.pool.query(overlapQuery, [userId, fromDate, toDate]);
       }
 
       if (result.rows.length > 0) {

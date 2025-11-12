@@ -763,6 +763,7 @@ router.get('/:id/history', async (req, res) => {
 
     // Add login time data for each time period (sum all users in group)
     const sortedTimes = Object.keys(timeData).sort();
+    console.log(`⏱️  [${leaderboard.name}] Processing ${sortedTimes.length} time periods for login time data...`);
 
     // OPTIMIZED: Fetch all login times in parallel instead of sequentially
     for (const timeKey of sortedTimes) {
@@ -787,6 +788,7 @@ router.get('/:id/history', async (req, res) => {
       }
 
       // Execute all login time fetches in parallel
+      console.log(`   🔄 Fetching login time for ${loginTimePromises.length} users in period ${timeKey.split('T')[0]}...`);
       const loginTimeResults = await Promise.all(loginTimePromises);
 
       // Sum up login times per group
@@ -806,6 +808,8 @@ router.get('/:id/history', async (req, res) => {
         timeData[timeKey][groupId].userIds = Array.from(timeData[timeKey][groupId].userIds);
       }
     }
+
+    console.log(`✅ [${leaderboard.name}] Login time data processing complete`);
 
     // Calculate cumulative values per GROUP (not user)
     const groupTotals = {};
