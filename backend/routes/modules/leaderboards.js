@@ -877,6 +877,67 @@ router.get('/:id/history', async (req, res) => {
   }
 });
 
+// Get recent SMS for notifications
+router.get('/:id/recent-sms', async (req, res) => {
+  try {
+    const leaderboardId = req.params.id;
+    const { minutes = 2 } = req.query;
+
+    // Get leaderboard config
+    const leaderboard = await leaderboardService.getLeaderboard(leaderboardId);
+    if (!leaderboard) {
+      return res.status(404).json({ error: 'Leaderboard not found' });
+    }
+
+    // Calculate date range (last N minutes)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMinutes(startDate.getMinutes() - parseInt(minutes));
+
+    // Get SMS from cache
+    const cachedSMS = await smsCache.getSMSInRange(startDate, endDate);
+
+    // Get users for name mapping
+    let adversusUsers = [];
+    try {
+      const usersResult = await adversusAPI.getUsers();
+      adversusUsers = usersResult.users || [];
+    } catch (error) {
+      console.error('⚠️ Failed to load Adversus users:', error.message);
+    }
+
+    // Filter by user groups if specified
+    let filteredSMS = cachedSMS;
+    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
+      const normalizedGroups = leaderboard.userGroups.map(g => String(g));
+      const allowedUserIds = adversusUsers
+        .filter(u => u.group && u.group.id && normalizedGroups.includes(String(u.group.id)))
+        .map(u => String(u.id));
+
+      filteredSMS = cachedSMS.filter(sms =>
+        allowedUserIds.includes(String(sms.userId))
+      );
+    }
+
+    // Add user names
+    const smsWithNames = filteredSMS.map(sms => {
+      const user = adversusUsers.find(u => String(u.id) === String(sms.userId));
+      return {
+        ...sms,
+        userName: user?.name || user?.firstname || `Agent ${sms.userId}`
+      };
+    });
+
+    // Sort by timestamp (newest first)
+    smsWithNames.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    res.json(smsWithNames);
+  } catch (error) {
+    console.error('❌ Error fetching recent SMS:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete leaderboard
 router.delete('/:id', async (req, res) => {
   try {
