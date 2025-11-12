@@ -24,23 +24,46 @@ class UserCache {
   }
 
   /**
-   * Get cached users
-   * Returns cached data without making API calls
+   * Get cached users with optional fallback to API
+   * @param {Object} options - Options for getting users
+   * @param {Object} options.adversusAPI - Optional adversusAPI instance for fallback
+   * @returns {Promise<Array>} Array of users
    */
-  getUsers() {
+  async getUsers(options = {}) {
+    const { adversusAPI } = options;
     const age = this.lastUpdate ? Date.now() - this.lastUpdate : Infinity;
     const ageMinutes = Math.round(age / 1000 / 60);
 
+    // If cache is not initialized and we have adversusAPI for fallback
+    if (!this.lastUpdate && adversusAPI) {
+      console.warn('⚠️  User cache not initialized yet, falling back to API call...');
+      try {
+        const result = await adversusAPI.getUsers();
+        const users = result.users || [];
+
+        // Update cache with the fetched data
+        this.update(users);
+
+        console.log(`✅ Fallback successful, cached ${users.length} users`);
+        return users;
+      } catch (error) {
+        console.error('❌ Fallback to API failed:', error.message);
+        return [];
+      }
+    }
+
+    // If cache is not initialized and no fallback available
     if (!this.lastUpdate) {
       console.warn('⚠️  User cache not initialized yet, returning empty array');
       return [];
     }
 
+    // Warn if cache is stale but return it anyway
     if (age > this.maxAge) {
       console.warn(`⚠️  User cache is stale (${ageMinutes} min old), but returning anyway`);
     }
 
-    // Always return cached data, never make API calls
+    // Return cached data
     return this.users;
   }
 
