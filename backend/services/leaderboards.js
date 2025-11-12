@@ -60,11 +60,14 @@ class LeaderboardService {
       customStartDate: leaderboard.customStartDate || null,
       customEndDate: leaderboard.customEndDate || null,
       visibleColumns: leaderboard.visibleColumns || {
+        dealsPerHour: true,
+        deals: true,
         sms: true,
         commission: true,
-        deals: true
+        campaignBonus: true,
+        total: true
       },
-      columnOrder: leaderboard.columnOrder || ['deals', 'sms', 'commission', 'campaignBonus', 'total'],
+      columnOrder: leaderboard.columnOrder || ['dealsPerHour', 'deals', 'sms', 'commission', 'campaignBonus', 'total'],
       sortBy: leaderboard.sortBy || 'commission',
       // NEW: Enhanced display options
       displayMode: leaderboard.displayMode || 'individual', // 'individual' | 'groups'
@@ -122,6 +125,69 @@ class LeaderboardService {
     await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards: filtered }, null, 2));
     console.log(`🗑️  Deleted leaderboard from persistent disk`);
     return true;
+  }
+
+  async migrateDealsPerHour() {
+    console.log('🔄 Starting migration: Adding dealsPerHour to all leaderboards...\n');
+
+    const leaderboards = await this.getLeaderboards();
+    console.log(`📊 Found ${leaderboards.length} leaderboards\n`);
+
+    let updatedCount = 0;
+
+    for (const leaderboard of leaderboards) {
+      let needsUpdate = false;
+
+      // Add dealsPerHour to visibleColumns if not present
+      if (!leaderboard.visibleColumns) {
+        leaderboard.visibleColumns = {
+          dealsPerHour: true,
+          deals: true,
+          sms: true,
+          commission: true,
+          campaignBonus: true,
+          total: true
+        };
+        needsUpdate = true;
+      } else if (!leaderboard.visibleColumns.hasOwnProperty('dealsPerHour')) {
+        leaderboard.visibleColumns.dealsPerHour = true;
+        needsUpdate = true;
+      }
+
+      // Add dealsPerHour to columnOrder if not present
+      if (!leaderboard.columnOrder) {
+        leaderboard.columnOrder = ['dealsPerHour', 'deals', 'sms', 'commission', 'campaignBonus', 'total'];
+        needsUpdate = true;
+      } else if (!leaderboard.columnOrder.includes('dealsPerHour')) {
+        // Add dealsPerHour at the beginning
+        leaderboard.columnOrder = ['dealsPerHour', ...leaderboard.columnOrder];
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        leaderboard.updatedAt = new Date().toISOString();
+        updatedCount++;
+        console.log(`✅ Updated: ${leaderboard.name}`);
+        console.log(`   - visibleColumns.dealsPerHour: ${leaderboard.visibleColumns.dealsPerHour}`);
+        console.log(`   - columnOrder: [${leaderboard.columnOrder.join(', ')}]`);
+      } else {
+        console.log(`⏭️  Skipped: ${leaderboard.name} (already has dealsPerHour)`);
+      }
+    }
+
+    // Write back to file
+    await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards }, null, 2));
+
+    console.log(`\n🎉 Migration complete!`);
+    console.log(`   Total leaderboards: ${leaderboards.length}`);
+    console.log(`   Updated: ${updatedCount}`);
+    console.log(`   Skipped: ${leaderboards.length - updatedCount}`);
+
+    return {
+      total: leaderboards.length,
+      updated: updatedCount,
+      skipped: leaderboards.length - updatedCount
+    };
   }
 
   getDateRange(leaderboard) {
