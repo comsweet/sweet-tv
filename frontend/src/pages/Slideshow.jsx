@@ -586,19 +586,43 @@ const Slideshow = () => {
         const stats = [...leaderboardSlide.stats];
 
         // Find agent in this leaderboard
-        const agentIndex = stats.findIndex(s => String(s.userId) === String(userId));
+        let agentIndex = stats.findIndex(s => String(s.userId) === String(userId));
 
         if (agentIndex === -1) {
-          console.log(`  ℹ️ Agent ${userId} not in this leaderboard - skipping`);
-          return leaderboardSlide;
-        }
+          console.log(`  ➕ Agent ${userId} not in stats yet - adding them`);
 
-        // Update agent's stats optimistically
-        stats[agentIndex] = {
-          ...stats[agentIndex],
-          totalCommission: (stats[agentIndex].totalCommission || 0) + newCommission,
-          dealCount: (stats[agentIndex].dealCount || 0) + multiDeals
-        };
+          // Agent not in leaderboard yet - add them with this first deal
+          const newAgent = {
+            userId: userId,
+            dealCount: multiDeals,
+            totalCommission: newCommission,
+            uniqueSMS: 0,
+            smsSuccessRate: 0,
+            campaignBonus: 0,
+            campaignBonusDetails: [],
+            loginSeconds: 0,
+            loginHours: 0,
+            dealsPerHour: 0,
+            agent: {
+              id: userId,
+              userId: userId,
+              name: notification.agent.name || `Agent ${userId}`,
+              email: notification.agent.email || '',
+              profileImage: notification.agent.profileImage || null,
+              groupName: notification.agent.groupName || null
+            }
+          };
+
+          stats.push(newAgent);
+          agentIndex = stats.length - 1;
+        } else {
+          // Update existing agent's stats optimistically
+          stats[agentIndex] = {
+            ...stats[agentIndex],
+            totalCommission: (stats[agentIndex].totalCommission || 0) + newCommission,
+            dealCount: (stats[agentIndex].dealCount || 0) + multiDeals
+          };
+        }
 
         console.log(`  ✅ Updated ${notification.agent.name}: ${stats[agentIndex].totalCommission} THB, ${stats[agentIndex].dealCount} deals`);
 
@@ -842,9 +866,16 @@ const Slideshow = () => {
       console.log(`   Lead ID: ${data.leadId}`);
       console.log(`   User ID: ${data.userId}`);
       console.log(`   Commission: ${data.commission} THB`);
-      console.log(`   Triggering immediate silent refresh...`);
 
-      // Trigger immediate silent refresh to show correct stats
+      // 🛡️ IMPORTANT: Wait a bit to ensure backend cache has been updated
+      // This event is triggered immediately after deal is saved, but cache
+      // reload might not have completed yet
+      console.log(`   ⏰ Waiting 2 seconds for backend cache to update...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      console.log(`   🔄 Triggering silent refresh...`);
+
+      // Trigger silent refresh (respects optimistic update debounce)
       await refreshStatsOnly();
 
       console.log(`   ✅ Refresh complete - stats are now up to date`);
