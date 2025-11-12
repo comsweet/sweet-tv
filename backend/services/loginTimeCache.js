@@ -441,6 +441,7 @@ class LoginTimeCache {
         // Save combined total to DB (not just cache!)
         // This ensures getLoginTime() can retrieve it even after cache expires
         await this.saveLoginTime(data);
+        console.log(`   💾 Saved to DB: ${userId} → ${totalSeconds}s for period ${fromDate.toISOString().split('T')[0]} to ${toDate.toISOString().split('T')[0]}`);
 
         // Update memory cache
         const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;

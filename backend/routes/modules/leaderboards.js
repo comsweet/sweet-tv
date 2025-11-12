@@ -364,6 +364,14 @@ router.get('/:id/stats', async (req, res) => {
           const loginHours = loginSeconds > 0 ? (loginSeconds / 3600).toFixed(2) : 0;
           const dealsPerHour = loginTimeCache.calculateDealsPerHour(stat.dealCount || 0, loginSeconds);
 
+          // 🔍 DEBUG: Log order/h calculation details
+          if (dealsPerHour > 0) {
+            console.log(`   🕒 User ${stat.userId} (${agentName}) order/h: ${dealsPerHour} = ${stat.dealCount} deals / ${loginHours}h (${loginSeconds}s)`);
+            if (loginTime?.fromDate && loginTime?.toDate) {
+              console.log(`      📅 Login time period: ${new Date(loginTime.fromDate).toISOString().split('T')[0]} → ${new Date(loginTime.toDate).toISOString().split('T')[0]}`);
+            }
+          }
+
           loginTimeData = {
             loginSeconds,
             loginHours: parseFloat(loginHours),
@@ -520,20 +528,54 @@ router.get('/:id/stats', async (req, res) => {
       };
     }
 
-    const response = {
-      leaderboard: leaderboard,
-      stats: finalStats,
-      miniStats: miniStats,
-      dateRange: {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString()
+    // 🛡️ ULTIMATE SAFETY: If empty stats AND we have fallback data, use it!
+    let response;
+    if (!finalStats || finalStats.length === 0) {
+      console.warn(`\n⚠️ ⚠️ ⚠️  EMPTY STATS DETECTED for "${leaderboard.name}"!`);
+      console.warn(`   📊 Deals in cache: ${cachedDeals.length}`);
+      console.warn(`   📊 Filtered deals (after group filter): ${filteredLeads.length}`);
+      console.warn(`   📊 Stats object keys: ${Object.keys(stats).length}`);
+      console.warn(`   📊 Stats array (after processing): ${statsArray.length}`);
+      console.warn(`   📊 Final stats (after sorting/filtering): ${finalStats.length}`);
+      console.warn(`   👥 User groups filter: ${leaderboard.userGroups && leaderboard.userGroups.length > 0 ? leaderboard.userGroups.join(', ') : 'NONE'}`);
+      console.warn(`   📅 Date range: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+      console.warn(`   ⏰ Current UTC time: ${new Date().toISOString()}`);
+
+      // Try to use fallback data
+      const fallbackData = leaderboardCache.getLastGood(leaderboardId, startDate.toISOString(), endDate.toISOString());
+      if (fallbackData) {
+        console.warn(`   🆘 Using FALLBACK data instead of empty stats!`);
+        response = fallbackData;
+      } else {
+        console.warn(`   ❌ No fallback data available - returning empty stats`);
+        console.warn(`   🔍 This should ONLY happen on first load or if legitimately NO deals exist!\n`);
+
+        response = {
+          leaderboard: leaderboard,
+          stats: finalStats,
+          miniStats: miniStats,
+          dateRange: {
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString()
+          }
+        };
       }
-    };
+    } else {
+      response = {
+        leaderboard: leaderboard,
+        stats: finalStats,
+        miniStats: miniStats,
+        dateRange: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
+        }
+      };
 
-    // Cache the result
-    leaderboardCache.set(leaderboardId, startDate.toISOString(), endDate.toISOString(), response);
+      // Cache the result (and save as fallback if non-empty)
+      leaderboardCache.set(leaderboardId, startDate.toISOString(), endDate.toISOString(), response);
+    }
 
-    console.log(`📈 Leaderboard "${leaderboard.name}" with ${finalStats.length} ${leaderboard.displayMode === 'groups' ? 'groups' : 'agents'}`);
+    console.log(`📈 Returning leaderboard "${leaderboard.name}" with ${response.stats.length} ${leaderboard.displayMode === 'groups' ? 'groups' : 'agents'}`);
 
     res.json(response);
   } catch (error) {
