@@ -199,17 +199,17 @@
   text-align: center;
 }
 
-/* Logo - Centered above title */
-.slideshow-logo-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  max-width: 300px;
-  max-height: 120px;
-  margin-bottom: 0.5rem;
+/* Logo - Top right corner */
+.slideshow-logo-corner {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  max-width: 180px;
+  max-height: 80px;
+  z-index: 10;
 }
 
-.slideshow-logo-center img {
+.slideshow-logo-corner img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
