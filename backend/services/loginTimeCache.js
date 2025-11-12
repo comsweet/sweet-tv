@@ -382,29 +382,31 @@ class LoginTimeCache {
 
   /**
    * Sync login time for a SINGLE user (used after deal)
+   *
+   * OPTIMIZATION: Don't make individual API calls here!
+   * Just invalidate cache so next leaderboard sync will fetch fresh data.
+   * This avoids rate limiting from frequent individual calls.
    */
   async syncLoginTimeForUser(adversusAPI, userId, fromDate, toDate) {
     try {
-      console.log(`⏱️ Syncing login time for user ${userId} after deal...`);
+      console.log(`⏱️ Invalidating login time cache for user ${userId} after deal...`);
 
-      // Fetch from Adversus
-      const data = await this.fetchLoginTimeFromAdversus(adversusAPI, userId, fromDate, toDate);
-
-      // Save to database
-      await this.saveLoginTime(data);
-
-      // Update cache
+      // Invalidate cache for this user - forces fresh fetch on next leaderboard sync
       const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
-      this.cache.set(cacheKey, {
-        data,
-        cachedAt: Date.now()
-      });
+      this.cache.delete(cacheKey);
 
-      console.log(`✅ Login time synced for user ${userId}: ${data.loginSeconds}s (${(data.loginSeconds / 3600).toFixed(2)}h)`);
+      console.log(`✅ Cache invalidated for user ${userId} - will refresh on next sync`);
 
-      return data;
+      // Return placeholder - actual data will be fetched on next leaderboard sync
+      return {
+        userId,
+        loginSeconds: 0, // Placeholder - will be updated on next sync
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString(),
+        invalidated: true
+      };
     } catch (error) {
-      console.error(`⚠️ Failed to sync login time for user ${userId}:`, error.message);
+      console.error(`⚠️ Failed to invalidate cache for user ${userId}:`, error.message);
       return {
         userId,
         loginSeconds: 0,
