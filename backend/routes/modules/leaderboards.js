@@ -771,6 +771,7 @@ router.get('/:id/history', async (req, res) => {
     // Add login time data for each time period (sum all users in group)
     const sortedTimes = Object.keys(timeData).sort();
 
+    // OPTIMIZED: Fetch all login times in parallel instead of sequentially
     for (const timeKey of sortedTimes) {
       const periodStart = new Date(timeKey);
       const periodEnd = new Date(timeKey);
@@ -781,17 +782,33 @@ router.get('/:id/history', async (req, res) => {
         periodEnd.setHours(periodEnd.getHours() + 1);
       }
 
+      // Collect all login time promises for this time period
+      const loginTimePromises = [];
+      const groupUserMapping = []; // Track which group each promise belongs to
+
       for (const groupId in timeData[timeKey]) {
-        let groupLoginSeconds = 0;
-
-        // Sum login time for all users in this group
         for (const userId of timeData[timeKey][groupId].userIds) {
-          const loginTime = await loginTimeCache.getLoginTime(userId, periodStart, periodEnd);
-          groupLoginSeconds += loginTime?.loginSeconds || 0;
+          loginTimePromises.push(loginTimeCache.getLoginTime(userId, periodStart, periodEnd));
+          groupUserMapping.push({ groupId, userId });
         }
+      }
 
-        timeData[timeKey][groupId].loginSeconds = groupLoginSeconds;
+      // Execute all login time fetches in parallel
+      const loginTimeResults = await Promise.all(loginTimePromises);
 
+      // Sum up login times per group
+      const groupLoginTimes = {};
+      loginTimeResults.forEach((loginTime, index) => {
+        const { groupId } = groupUserMapping[index];
+        if (!groupLoginTimes[groupId]) {
+          groupLoginTimes[groupId] = 0;
+        }
+        groupLoginTimes[groupId] += loginTime?.loginSeconds || 0;
+      });
+
+      // Assign to timeData
+      for (const groupId in timeData[timeKey]) {
+        timeData[timeKey][groupId].loginSeconds = groupLoginTimes[groupId] || 0;
         // Convert Set to Array for serialization
         timeData[timeKey][groupId].userIds = Array.from(timeData[timeKey][groupId].userIds);
       }

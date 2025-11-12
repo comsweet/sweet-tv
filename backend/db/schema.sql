@@ -361,6 +361,22 @@ BEGIN
   END IF;
 END$$;
 
+-- Update victory_metric CHECK constraint to include commission_per_hour
+DO $$
+BEGIN
+  -- Drop old constraint if it exists
+  ALTER TABLE team_battles DROP CONSTRAINT IF EXISTS team_battles_victory_metric_check;
+
+  -- Add updated constraint with all metrics
+  ALTER TABLE team_battles ADD CONSTRAINT team_battles_victory_metric_check
+    CHECK (victory_metric IN ('commission', 'deals', 'order_per_hour', 'commission_per_hour', 'sms_rate'));
+
+  RAISE NOTICE '✅ Updated team_battles victory_metric constraint';
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE '⚠️  Could not update victory_metric constraint: %', SQLERRM;
+END$$;
+
 -- Indexes for team battles
 CREATE INDEX IF NOT EXISTS idx_team_battles_leaderboard_id ON team_battles(leaderboard_id);
 CREATE INDEX IF NOT EXISTS idx_team_battles_is_active ON team_battles(is_active);
