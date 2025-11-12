@@ -11,6 +11,7 @@ import './MetricsGridConfigForm.css';
  */
 const MetricsGridConfigForm = ({ form, setForm, userGroups }) => {
   const [expandedMetric, setExpandedMetric] = useState(null);
+  const [selectedGroupForRules, setSelectedGroupForRules] = useState(null); // Track which group's rules we're editing
 
   // Toggle group selection
   const toggleSelectedGroup = (groupId) => {
@@ -76,9 +77,11 @@ const MetricsGridConfigForm = ({ form, setForm, userGroups }) => {
     setForm({ ...form, metrics });
   };
 
-  // Add color rule
-  const addColorRule = (metricId) => {
-    const existingRules = (form.colorRules || {})[metricId] || [];
+  // Add color rule (per-group)
+  const addColorRule = (metricId, groupId) => {
+    const metricRules = (form.colorRules || {})[metricId] || {};
+    const groupRules = Array.isArray(metricRules) ? [] : (metricRules[groupId] || []);
+
     const newRule = {
       min: 0,
       max: 1,
@@ -89,27 +92,37 @@ const MetricsGridConfigForm = ({ form, setForm, userGroups }) => {
       ...form,
       colorRules: {
         ...(form.colorRules || {}),
-        [metricId]: [...existingRules, newRule]
+        [metricId]: {
+          ...(Array.isArray(metricRules) ? {} : metricRules),
+          [groupId]: [...groupRules, newRule]
+        }
       }
     });
   };
 
-  // Remove color rule
-  const removeColorRule = (metricId, ruleIndex) => {
-    const existingRules = (form.colorRules || {})[metricId] || [];
+  // Remove color rule (per-group)
+  const removeColorRule = (metricId, groupId, ruleIndex) => {
+    const metricRules = (form.colorRules || {})[metricId] || {};
+    const groupRules = Array.isArray(metricRules) ? [] : (metricRules[groupId] || []);
+
     setForm({
       ...form,
       colorRules: {
         ...(form.colorRules || {}),
-        [metricId]: existingRules.filter((_, i) => i !== ruleIndex)
+        [metricId]: {
+          ...(Array.isArray(metricRules) ? {} : metricRules),
+          [groupId]: groupRules.filter((_, i) => i !== ruleIndex)
+        }
       }
     });
   };
 
-  // Update color rule
-  const updateColorRule = (metricId, ruleIndex, field, value) => {
-    const existingRules = (form.colorRules || {})[metricId] || [];
-    const updatedRules = existingRules.map((rule, i) =>
+  // Update color rule (per-group)
+  const updateColorRule = (metricId, groupId, ruleIndex, field, value) => {
+    const metricRules = (form.colorRules || {})[metricId] || {};
+    const groupRules = Array.isArray(metricRules) ? [] : (metricRules[groupId] || []);
+
+    const updatedRules = groupRules.map((rule, i) =>
       i === ruleIndex ? { ...rule, [field]: value } : rule
     );
 
@@ -117,7 +130,10 @@ const MetricsGridConfigForm = ({ form, setForm, userGroups }) => {
       ...form,
       colorRules: {
         ...(form.colorRules || {}),
-        [metricId]: updatedRules
+        [metricId]: {
+          ...(Array.isArray(metricRules) ? {} : metricRules),
+          [groupId]: updatedRules
+        }
       }
     });
   };
@@ -250,91 +266,140 @@ const MetricsGridConfigForm = ({ form, setForm, userGroups }) => {
                 </div>
               </div>
 
-              {/* Color Rules */}
+              {/* Color Rules - Per Group */}
               <div className="color-rules-section">
                 <button
                   type="button"
                   className="btn-toggle-rules"
-                  onClick={() => setExpandedMetric(expandedMetric === metric.id ? null : metric.id)}
+                  onClick={() => {
+                    if (expandedMetric === metric.id) {
+                      setExpandedMetric(null);
+                      setSelectedGroupForRules(null);
+                    } else {
+                      setExpandedMetric(metric.id);
+                      // Auto-select first group
+                      if ((form.selectedGroups || []).length > 0) {
+                        setSelectedGroupForRules((form.selectedGroups || [])[0]);
+                      }
+                    }
+                  }}
                 >
-                  🎨 Färgkodning ({((form.colorRules || {})[metric.id] || []).length} regler)
+                  🎨 Färgkodning per grupp
                   {expandedMetric === metric.id ? ' ▼' : ' ▶'}
                 </button>
 
                 {expandedMetric === metric.id && (
                   <div className="color-rules-list">
-                    <button
-                      type="button"
-                      className="btn-add-rule"
-                      onClick={() => addColorRule(metric.id)}
-                    >
-                      + Lägg till regel
-                    </button>
-
-                    {((form.colorRules || {})[metric.id] || []).map((rule, ruleIndex) => (
-                      <div key={ruleIndex} className="color-rule">
-                        <div className="rule-fields">
-                          <div className="rule-field">
-                            <label>Min:</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={rule.min !== undefined ? rule.min : ''}
-                              onChange={(e) =>
-                                updateColorRule(metric.id, ruleIndex, 'min', e.target.value ? parseFloat(e.target.value) : undefined)
-                              }
-                              placeholder="Valfri"
-                            />
-                          </div>
-
-                          <div className="rule-field">
-                            <label>Max:</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={rule.max !== undefined ? rule.max : ''}
-                              onChange={(e) =>
-                                updateColorRule(metric.id, ruleIndex, 'max', e.target.value ? parseFloat(e.target.value) : undefined)
-                              }
-                              placeholder="Valfri"
-                            />
-                          </div>
-
-                          <div className="rule-field">
-                            <label>Färg:</label>
-                            <select
-                              value={rule.color}
-                              onChange={(e) => updateColorRule(metric.id, ruleIndex, 'color', e.target.value)}
-                              style={{
-                                backgroundColor: colors.find(c => c.value === rule.color)?.hex,
-                                color: ['red', 'blue', 'green'].includes(rule.color) ? 'white' : 'black'
-                              }}
-                            >
-                              {colors.map(c => (
-                                <option key={c.value} value={c.value}>{c.label}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <button
-                            type="button"
-                            className="btn-remove-rule"
-                            onClick={() => removeColorRule(metric.id, ruleIndex)}
+                    {/* Group Selector */}
+                    {(form.selectedGroups || []).length > 0 ? (
+                      <>
+                        <div className="group-selector">
+                          <label>Välj grupp att konfigurera:</label>
+                          <select
+                            value={selectedGroupForRules || ''}
+                            onChange={(e) => setSelectedGroupForRules(e.target.value)}
+                            className="group-select"
                           >
-                            ✕
-                          </button>
+                            {(form.selectedGroups || []).map((groupId) => {
+                              const group = userGroups.find(g => g.id === groupId);
+                              const metricRules = (form.colorRules || {})[metric.id] || {};
+                              const rulesCount = Array.isArray(metricRules) ? 0 : ((metricRules[groupId] || []).length);
+                              return (
+                                <option key={groupId} value={groupId}>
+                                  {group?.name || groupId} ({rulesCount} regler)
+                                </option>
+                              );
+                            })}
+                          </select>
                         </div>
-                        <small className="rule-description">
-                          {rule.min !== undefined && rule.max !== undefined
-                            ? `${rule.min} ≤ värde < ${rule.max}`
-                            : rule.min !== undefined
-                            ? `värde ≥ ${rule.min}`
-                            : rule.max !== undefined
-                            ? `värde < ${rule.max}`
-                            : 'Ange min och/eller max'}
-                        </small>
-                      </div>
-                    ))}
+
+                        {/* Rules for selected group */}
+                        {selectedGroupForRules && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn-add-rule"
+                              onClick={() => addColorRule(metric.id, selectedGroupForRules)}
+                            >
+                              + Lägg till regel för {userGroups.find(g => g.id === selectedGroupForRules)?.name}
+                            </button>
+
+                            {(() => {
+                              const metricRules = (form.colorRules || {})[metric.id] || {};
+                              const groupRules = Array.isArray(metricRules) ? [] : (metricRules[selectedGroupForRules] || []);
+                              return groupRules.map((rule, ruleIndex) => (
+                                <div key={ruleIndex} className="color-rule">
+                                  <div className="rule-fields">
+                                    <div className="rule-field">
+                                      <label>Min:</label>
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={rule.min !== undefined ? rule.min : ''}
+                                        onChange={(e) =>
+                                          updateColorRule(metric.id, selectedGroupForRules, ruleIndex, 'min', e.target.value ? parseFloat(e.target.value) : undefined)
+                                        }
+                                        placeholder="Valfri"
+                                      />
+                                    </div>
+
+                                    <div className="rule-field">
+                                      <label>Max:</label>
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={rule.max !== undefined ? rule.max : ''}
+                                        onChange={(e) =>
+                                          updateColorRule(metric.id, selectedGroupForRules, ruleIndex, 'max', e.target.value ? parseFloat(e.target.value) : undefined)
+                                        }
+                                        placeholder="Valfri"
+                                      />
+                                    </div>
+
+                                    <div className="rule-field">
+                                      <label>Färg:</label>
+                                      <select
+                                        value={rule.color}
+                                        onChange={(e) => updateColorRule(metric.id, selectedGroupForRules, ruleIndex, 'color', e.target.value)}
+                                        style={{
+                                          backgroundColor: colors.find(c => c.value === rule.color)?.hex,
+                                          color: ['red', 'blue', 'green'].includes(rule.color) ? 'white' : 'black'
+                                        }}
+                                      >
+                                        {colors.map(c => (
+                                          <option key={c.value} value={c.value}>{c.label}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      className="btn-remove-rule"
+                                      onClick={() => removeColorRule(metric.id, selectedGroupForRules, ruleIndex)}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                  <small className="rule-description">
+                                    {rule.min !== undefined && rule.max !== undefined
+                                      ? `${rule.min} ≤ värde < ${rule.max}`
+                                      : rule.min !== undefined
+                                      ? `värde ≥ ${rule.min}`
+                                      : rule.max !== undefined
+                                      ? `värde < ${rule.max}`
+                                      : 'Ange min och/eller max'}
+                                  </small>
+                                </div>
+                              ));
+                            })()}
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <p style={{ textAlign: 'center', color: '#999', padding: '1rem' }}>
+                        Välj grupper först för att konfigurera färgkodning
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
