@@ -185,31 +185,50 @@
 /* Header - NORMAL SIZE (default) */
 .slideshow-header {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   margin-bottom: 1rem;
+  padding: 0 2rem;
   color: white;
   animation: slideInFromTop 0.6s ease-out;
   flex-shrink: 0;
-  gap: 1rem;
+  gap: 2rem;
 }
 
 .slideshow-header-content {
+  flex: 1;
   text-align: center;
 }
 
-/* Logo - Top right corner */
-.slideshow-logo-corner {
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  max-width: 180px;
-  max-height: 80px;
-  z-index: 10;
+/* Brand Logo - Left side, aligned with title */
+.slideshow-logo-left {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  max-width: 250px;
+  max-height: 120px;
+  min-width: 150px;
 }
 
-.slideshow-logo-corner img {
+.slideshow-logo-left img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+}
+
+/* Company Logo - Right side, aligned with title */
+.slideshow-logo-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: 250px;
+  max-height: 120px;
+  min-width: 150px;
+}
+
+.slideshow-logo-right img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;

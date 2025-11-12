@@ -433,13 +433,18 @@ const AdminLeaderboards = () => {
               <small>Använd pilarna för att ändra ordningen som kolumnerna visas på slideshow.</small>
             </div>
 
-            {/* Logo Selection */}
+            {/* Logos Selection */}
             <div className="form-group">
-              <label>Varumärkeslogga:</label>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', flexDirection: 'column' }}>
+              <label>Logoer:</label>
+
+              {/* Brand Logo - Left */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem', display: 'block' }}>
+                  Varumärkeslogga (vänster):
+                </label>
                 <select
-                  value={form.logo || ''}
-                  onChange={(e) => setForm({ ...form, logo: e.target.value || null })}
+                  value={form.brandLogo || ''}
+                  onChange={(e) => setForm({ ...form, brandLogo: e.target.value || null })}
                   style={{
                     width: '100%',
                     padding: '0.75rem',
@@ -448,30 +453,61 @@ const AdminLeaderboards = () => {
                     fontSize: '0.95rem'
                   }}
                 >
-                  <option value="">Ingen logga</option>
+                  <option value="">Ingen varumärkeslogga</option>
                   {logosLibrary.map(logo => (
                     <option key={logo.id} value={logo.url}>
                       {logo.name}
                     </option>
                   ))}
                 </select>
-
-                {form.logo && (
-                  <div className="logo-preview">
-                    <img src={form.logo} alt="Selected Logo" style={{ maxWidth: '150px', maxHeight: '80px', objectFit: 'contain' }} />
+                {form.brandLogo && (
+                  <div className="logo-preview" style={{ marginTop: '0.5rem' }}>
+                    <img src={form.brandLogo} alt="Brand Logo" style={{ maxWidth: '150px', maxHeight: '80px', objectFit: 'contain' }} />
                   </div>
                 )}
-
-                <button
-                  type="button"
-                  className="btn-primary"
-                  style={{ background: '#3498db', fontSize: '0.85rem' }}
-                  onClick={() => setShowLogosManagement(true)}
-                >
-                  🖼️ Hantera Logoer
-                </button>
-                <small>Välj en logga från biblioteket eller hantera logoer för att ladda upp nya</small>
               </div>
+
+              {/* Company Logo - Right */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem', display: 'block' }}>
+                  Företagslogga (höger):
+                </label>
+                <select
+                  value={form.companyLogo || ''}
+                  onChange={(e) => setForm({ ...form, companyLogo: e.target.value || null })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '2px solid #e1e8ed',
+                    borderRadius: '6px',
+                    fontSize: '0.95rem'
+                  }}
+                >
+                  <option value="">Ingen företagslogga</option>
+                  {logosLibrary.map(logo => (
+                    <option key={logo.id} value={logo.url}>
+                      {logo.name}
+                    </option>
+                  ))}
+                </select>
+                {form.companyLogo && (
+                  <div className="logo-preview" style={{ marginTop: '0.5rem' }}>
+                    <img src={form.companyLogo} alt="Company Logo" style={{ maxWidth: '150px', maxHeight: '80px', objectFit: 'contain' }} />
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ background: '#3498db', fontSize: '0.85rem' }}
+                onClick={() => setShowLogosManagement(true)}
+              >
+                🖼️ Hantera Logoer
+              </button>
+              <small style={{ display: 'block', marginTop: '0.5rem' }}>
+                Välj logoer från biblioteket eller hantera logoer för att ladda upp nya
+              </small>
             </div>
 
             <div className="form-group">
