@@ -311,6 +311,18 @@ router.get('/:id/stats', async (req, res) => {
 
     console.log(`✅ Campaign bonus calculated for ${Object.keys(campaignBonusPerAgent).length} agents`);
 
+    // SYNC LOGIN TIME FOR ALL USERS (before processing each one)
+    // This avoids rate limiting by using workforce API - ONE call for ALL users!
+    const userIds = Object.keys(stats);
+    if (userIds.length > 0 && await loginTimeCache.needsSync()) {
+      console.log(`\n⏱️ Syncing login time for ${userIds.length} users before building stats...`);
+      try {
+        await loginTimeCache.syncLoginTimeForUsers(adversusAPI, userIds, startDate, endDate);
+      } catch (error) {
+        console.error(`⚠️ Failed to sync login times (will try individually):`, error.message);
+      }
+    }
+
     // Build complete stats array with SMS and campaign bonus data
     const statsArray = await Promise.all(
       Object.values(stats).map(async (stat) => {

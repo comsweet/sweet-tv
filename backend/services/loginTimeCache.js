@@ -383,30 +383,31 @@ class LoginTimeCache {
   /**
    * Sync login time for a SINGLE user (used after deal)
    *
-   * OPTIMIZATION: Don't make individual API calls here!
-   * Just invalidate cache so next leaderboard sync will fetch fresh data.
-   * This avoids rate limiting from frequent individual calls.
+   * Uses workforce API even for single user - avoids old individual /loginTime endpoint
+   * This ensures we get accurate data without rate limiting issues
    */
   async syncLoginTimeForUser(adversusAPI, userId, fromDate, toDate) {
     try {
-      console.log(`⏱️ Invalidating login time cache for user ${userId} after deal...`);
+      console.log(`⏱️ Syncing login time for user ${userId} after deal...`);
 
-      // Invalidate cache for this user - forces fresh fetch on next leaderboard sync
-      const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
-      this.cache.delete(cacheKey);
+      // Use syncLoginTimeForUsers (workforce API) even for single user
+      // Much more reliable than individual /loginTime calls
+      const results = await this.syncLoginTimeForUsers(adversusAPI, [userId], fromDate, toDate);
 
-      console.log(`✅ Cache invalidated for user ${userId} - will refresh on next sync`);
+      if (results && results.length > 0) {
+        console.log(`✅ Login time synced for user ${userId}: ${results[0].loginSeconds}s`);
+        return results[0];
+      }
 
-      // Return placeholder - actual data will be fetched on next leaderboard sync
+      // Fallback if sync failed
       return {
         userId,
-        loginSeconds: 0, // Placeholder - will be updated on next sync
+        loginSeconds: 0,
         fromDate: fromDate.toISOString(),
-        toDate: toDate.toISOString(),
-        invalidated: true
+        toDate: toDate.toISOString()
       };
     } catch (error) {
-      console.error(`⚠️ Failed to invalidate cache for user ${userId}:`, error.message);
+      console.error(`⚠️ Failed to sync login time for user ${userId}:`, error.message);
       return {
         userId,
         loginSeconds: 0,
