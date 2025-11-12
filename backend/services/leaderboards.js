@@ -55,7 +55,7 @@ class LeaderboardService {
     const newLeaderboard = {
       id: Date.now().toString(),
       name: leaderboard.name,
-      type: leaderboard.type || 'standard', // 'standard' | 'metrics-grid'
+      type: leaderboard.type || 'standard', // 'standard' | 'metrics-grid' | 'team-battle' | 'trend-chart'
       userGroups: leaderboard.userGroups || [],
       timePeriod: leaderboard.timePeriod || 'month',
       customStartDate: leaderboard.customStartDate || null,
@@ -89,10 +89,89 @@ class LeaderboardService {
       selectedGroups: leaderboard.selectedGroups || [], // Array of group IDs to compare
       metrics: leaderboard.metrics || [], // Array of metric configs: [{id, label, timePeriod, metric}, ...]
       colorRules: leaderboard.colorRules || {}, // Color coding rules per metric
+      // TEAM BATTLE specific fields
+      description: leaderboard.description || '',
+      battleStartDate: leaderboard.battleStartDate || null,
+      battleEndDate: leaderboard.battleEndDate || null,
+      victoryCondition: leaderboard.victoryCondition || 'highest_at_end',
+      victoryMetric: leaderboard.victoryMetric || 'commission',
+      targetValue: leaderboard.targetValue || null,
+      teams: leaderboard.teams || [],
+      // TREND CHART specific fields
+      trendDays: leaderboard.trendDays || null,
+      trendHours: leaderboard.trendHours || null,
+      trendMetrics: leaderboard.trendMetrics || [],
+      refreshInterval: leaderboard.refreshInterval || 300000,
       active: leaderboard.active !== undefined ? leaderboard.active : true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+
+    // If type is team-battle, create corresponding team_battles entry in Postgres
+    if (newLeaderboard.type === 'team-battle') {
+      const postgres = require('./postgres');
+
+      try {
+        const client = await postgres.getClient();
+        try {
+          await client.query('BEGIN');
+
+          // Insert battle
+          const battleQuery = `
+            INSERT INTO team_battles (
+              leaderboard_id, name, description, start_date, end_date,
+              victory_condition, victory_metric, target_value, is_active
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING id
+          `;
+
+          const battleResult = await client.query(battleQuery, [
+            newLeaderboard.id,
+            newLeaderboard.name,
+            newLeaderboard.description || null,
+            newLeaderboard.battleStartDate,
+            newLeaderboard.battleEndDate,
+            newLeaderboard.victoryCondition,
+            newLeaderboard.victoryMetric,
+            newLeaderboard.targetValue || null,
+            true
+          ]);
+
+          const battleId = battleResult.rows[0].id;
+
+          // Insert teams
+          for (let i = 0; i < newLeaderboard.teams.length; i++) {
+            const team = newLeaderboard.teams[i];
+            await client.query(
+              `INSERT INTO team_battle_teams (
+                battle_id, team_name, team_emoji, color, user_group_ids, display_order
+              )
+              VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                battleId,
+                team.teamName,
+                team.teamEmoji || null,
+                team.color,
+                team.userGroupIds,
+                i
+              ]
+            );
+          }
+
+          await client.query('COMMIT');
+          console.log(`⚔️ Created team battle with ID ${battleId} for leaderboard "${newLeaderboard.name}"`);
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        } finally {
+          client.release();
+        }
+      } catch (error) {
+        console.error(`❌ Failed to create team battle for leaderboard "${newLeaderboard.name}":`, error);
+        throw new Error(`Failed to create team battle: ${error.message}`);
+      }
+    }
 
     leaderboards.push(newLeaderboard);
     await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards }, null, 2));
@@ -109,27 +188,125 @@ class LeaderboardService {
     const leaderboards = await this.getLeaderboards();
     const index = leaderboards.findIndex(lb => lb.id === id);
 
-    if (index !== -1) {
-      leaderboards[index] = {
-        ...leaderboards[index],
-        ...updates,
-        updatedAt: new Date().toISOString()
-      };
-      await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards }, null, 2));
-      console.log(`💾 Updated leaderboard "${leaderboards[index].name}" on persistent disk`);
-      return leaderboards[index];
+    if (index === -1) {
+      throw new Error(`Leaderboard with id ${id} not found`);
     }
-    throw new Error(`Leaderboard with id ${id} not found`);
+
+    const existingLeaderboard = leaderboards[index];
+    const updatedLeaderboard = {
+      ...existingLeaderboard,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    // If this is a team-battle leaderboard, update the team_battles table too
+    if (updatedLeaderboard.type === 'team-battle') {
+      const postgres = require('./postgres');
+
+      try {
+        // First, find the team_battle by leaderboard_id
+        const battleResult = await postgres.query(
+          'SELECT id FROM team_battles WHERE leaderboard_id = $1',
+          [id]
+        );
+
+        if (battleResult.rows.length > 0) {
+          const battleId = battleResult.rows[0].id;
+
+          const client = await postgres.getClient();
+          try {
+            await client.query('BEGIN');
+
+            // Update battle
+            await client.query(
+              `UPDATE team_battles
+               SET name = $1, description = $2, start_date = $3, end_date = $4,
+                   victory_condition = $5, victory_metric = $6, target_value = $7,
+                   updated_at = CURRENT_TIMESTAMP
+               WHERE id = $8`,
+              [
+                updatedLeaderboard.name,
+                updatedLeaderboard.description || null,
+                updatedLeaderboard.battleStartDate,
+                updatedLeaderboard.battleEndDate,
+                updatedLeaderboard.victoryCondition,
+                updatedLeaderboard.victoryMetric,
+                updatedLeaderboard.targetValue || null,
+                battleId
+              ]
+            );
+
+            // Delete existing teams
+            await client.query('DELETE FROM team_battle_teams WHERE battle_id = $1', [battleId]);
+
+            // Insert new teams
+            if (updatedLeaderboard.teams && updatedLeaderboard.teams.length > 0) {
+              for (let i = 0; i < updatedLeaderboard.teams.length; i++) {
+                const team = updatedLeaderboard.teams[i];
+                await client.query(
+                  `INSERT INTO team_battle_teams (
+                    battle_id, team_name, team_emoji, color, user_group_ids, display_order
+                  )
+                  VALUES ($1, $2, $3, $4, $5, $6)`,
+                  [
+                    battleId,
+                    team.teamName,
+                    team.teamEmoji || null,
+                    team.color,
+                    team.userGroupIds,
+                    i
+                  ]
+                );
+              }
+            }
+
+            await client.query('COMMIT');
+            console.log(`⚔️ Updated team battle with ID ${battleId} for leaderboard "${updatedLeaderboard.name}"`);
+          } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+          } finally {
+            client.release();
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Failed to update team battle for leaderboard "${updatedLeaderboard.name}":`, error);
+        throw new Error(`Failed to update team battle: ${error.message}`);
+      }
+    }
+
+    leaderboards[index] = updatedLeaderboard;
+    await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards }, null, 2));
+    console.log(`💾 Updated leaderboard "${updatedLeaderboard.name}" on persistent disk`);
+    return updatedLeaderboard;
   }
 
   async deleteLeaderboard(id) {
     const leaderboards = await this.getLeaderboards();
-    const filtered = leaderboards.filter(lb => lb.id !== id);
+    const leaderboard = leaderboards.find(lb => lb.id === id);
 
-    if (filtered.length === leaderboards.length) {
+    if (!leaderboard) {
       throw new Error(`Leaderboard with id ${id} not found`);
     }
 
+    // If this is a team-battle leaderboard, delete the team_battles entry too
+    if (leaderboard.type === 'team-battle') {
+      const postgres = require('./postgres');
+
+      try {
+        // team_battle_teams will be cascade deleted via ON DELETE CASCADE
+        const result = await postgres.query(
+          'DELETE FROM team_battles WHERE leaderboard_id = $1',
+          [id]
+        );
+        console.log(`⚔️  Deleted ${result.rowCount} team battle(s) for leaderboard "${leaderboard.name}"`);
+      } catch (error) {
+        console.error(`❌ Failed to delete team battle for leaderboard "${leaderboard.name}":`, error);
+        // Don't throw - continue with leaderboard deletion
+      }
+    }
+
+    const filtered = leaderboards.filter(lb => lb.id !== id);
     await fs.writeFile(this.leaderboardsFile, JSON.stringify({ leaderboards: filtered }, null, 2));
     console.log(`🗑️  Deleted leaderboard from persistent disk`);
     return true;
