@@ -113,6 +113,7 @@ export const updateLeaderboard = (id, data) => api.put(`/leaderboards/${id}`, da
 export const deleteLeaderboard = (id) => api.delete(`/leaderboards/${id}`);
 export const getLeaderboardStats2 = (id) => api.get(`/leaderboards/${id}/stats`);
 export const getLeaderboardHistory = (id, params) => api.get(`/leaderboards/${id}/history`, { params });
+export const getGroupMetrics = (id) => api.get(`/leaderboards/${id}/group-metrics`);
 export const migrateLeaderboardsDealsPerHour = () => api.post('/leaderboards/migrate/add-deals-per-hour');
 
 // Slideshows

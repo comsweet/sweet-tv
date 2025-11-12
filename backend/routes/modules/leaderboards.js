@@ -858,4 +858,175 @@ router.post('/migrate/add-deals-per-hour', async (req, res) => {
   }
 });
 
+// ==================== METRICS GRID - GROUP COMPARISON ====================
+
+// Get aggregated metrics by user groups
+router.get('/:id/group-metrics', async (req, res) => {
+  try {
+    const leaderboardId = req.params.id;
+
+    // Get leaderboard config
+    const leaderboard = await leaderboardService.getLeaderboard(leaderboardId);
+    if (!leaderboard) {
+      return res.status(404).json({ error: 'Leaderboard not found' });
+    }
+
+    // Validate it's a metrics-grid type
+    if (leaderboard.type !== 'metrics-grid') {
+      return res.status(400).json({ error: 'This endpoint is only for metrics-grid leaderboards' });
+    }
+
+    console.log(`📊 [Metrics Grid: ${leaderboard.name}] Aggregating data for groups: ${leaderboard.selectedGroups.join(', ')}`);
+
+    // Get Adversus users and groups
+    let adversusUsers = [];
+    let adversusGroups = [];
+
+    try {
+      const usersResult = await adversusAPI.getUsers();
+      adversusUsers = usersResult.users || [];
+      const groupsResult = await adversusAPI.getUserGroups();
+      adversusGroups = groupsResult.groups || [];
+    } catch (error) {
+      console.error('⚠️ Failed to load Adversus data:', error.message);
+      return res.status(500).json({ error: 'Failed to load Adversus data' });
+    }
+
+    // Build group metrics for each selected group
+    const groupMetrics = [];
+
+    for (const groupId of leaderboard.selectedGroups) {
+      const group = adversusGroups.find(g => String(g.id) === String(groupId));
+      const groupName = group?.name || `Group ${groupId}`;
+
+      console.log(`\n📊 Processing group: ${groupName} (ID: ${groupId})`);
+
+      // Get all users in this group
+      const usersInGroup = adversusUsers.filter(u => String(u.group?.id) === String(groupId));
+      const userIds = usersInGroup.map(u => String(u.id));
+
+      console.log(`   👥 Found ${usersInGroup.length} users in group`);
+
+      // Initialize metrics object for this group
+      const metrics = {
+        groupId,
+        groupName,
+        metrics: {}
+      };
+
+      // Calculate each metric
+      for (const metricConfig of leaderboard.metrics) {
+        const { id, label, timePeriod, metric } = metricConfig;
+
+        console.log(`   📈 Calculating: ${label} (${metric}, ${timePeriod})`);
+
+        // Calculate date range for this metric
+        const { startDate, endDate } = leaderboardService.getDateRange({ timePeriod });
+
+        // AUTO-SYNC CACHES
+        await dealsCache.autoSync(adversusAPI);
+        await smsCache.autoSync(adversusAPI);
+        if (await loginTimeCache.needsSync()) {
+          // Sync login time for users in this group
+          for (const userId of userIds) {
+            try {
+              await loginTimeCache.syncUserLoginTime(userId, adversusAPI, startDate, endDate);
+            } catch (err) {
+              console.warn(`⚠️ Failed to sync login time for user ${userId}:`, err.message);
+            }
+          }
+        }
+
+        // Get deals for this group in date range
+        const allDeals = await dealsCache.getDealsInRange(startDate, endDate);
+        const groupDeals = allDeals.filter(deal => userIds.includes(String(deal.userId)));
+
+        // Get SMS for this group in date range
+        const allSMS = await smsCache.getSMSInRange(startDate, endDate);
+        const groupSMS = allSMS.filter(sms => userIds.includes(String(sms.userId)));
+
+        // Calculate metric value
+        let value = 0;
+
+        switch (metric) {
+          case 'ordersPerHour':
+          case 'order_per_hour':
+          case 'dealsPerHour': {
+            const totalDeals = groupDeals.reduce((sum, d) => sum + (d.multiDeals || 1), 0);
+            let totalLoginSeconds = 0;
+
+            for (const userId of userIds) {
+              const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate);
+              totalLoginSeconds += loginTime?.loginSeconds || 0;
+            }
+
+            const loginHours = totalLoginSeconds / 3600;
+            value = loginHours > 0 ? (totalDeals / loginHours) : 0;
+            value = Math.round(value * 100) / 100; // Round to 2 decimals
+            break;
+          }
+
+          case 'orders':
+          case 'deals': {
+            value = groupDeals.reduce((sum, d) => sum + (d.multiDeals || 1), 0);
+            break;
+          }
+
+          case 'sms_success_rate':
+          case 'smsSuccessRate': {
+            // Get unique receivers (successful SMS)
+            const uniqueReceivers = new Set(groupSMS.map(sms => sms.receiver));
+            const uniqueSMS = uniqueReceivers.size;
+            const totalDeals = groupDeals.length;
+
+            value = totalDeals > 0 ? Math.round((totalDeals / uniqueSMS) * 100) : 0;
+            break;
+          }
+
+          case 'sms_unique':
+          case 'uniqueSMS': {
+            const uniqueReceivers = new Set(groupSMS.map(sms => sms.receiver));
+            value = uniqueReceivers.size;
+            break;
+          }
+
+          case 'commission':
+          case 'totalCommission': {
+            value = groupDeals.reduce((sum, d) => sum + parseFloat(d.commission || 0), 0);
+            value = Math.round(value);
+            break;
+          }
+
+          default:
+            console.warn(`   ⚠️ Unknown metric type: ${metric}`);
+            value = 0;
+        }
+
+        metrics.metrics[id] = {
+          label,
+          value,
+          timePeriod,
+          metric
+        };
+
+        console.log(`   ✅ ${label}: ${value}`);
+      }
+
+      groupMetrics.push(metrics);
+    }
+
+    console.log(`\n✅ Completed metrics grid calculation for ${groupMetrics.length} groups`);
+
+    res.json({
+      leaderboard,
+      groupMetrics,
+      calculatedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error calculating group metrics:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

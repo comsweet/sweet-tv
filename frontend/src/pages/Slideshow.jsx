@@ -13,6 +13,7 @@ import LeaderboardVisualizer from '../components/LeaderboardVisualizer';
 import QuotesSlide from '../components/QuotesSlide';
 import TrendChartSlide from '../components/TrendChartSlide';
 import GroupComparisonSlide from '../components/GroupComparisonSlide';
+import MetricsGridSlide from '../components/MetricsGridSlide';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -1094,7 +1095,24 @@ const Slideshow = () => {
           );
         }
 
-        // Otherwise render leaderboard slide
+        // Render metrics grid slide if leaderboard type is 'metrics-grid'
+        if (slideData.leaderboard?.type === 'metrics-grid') {
+          return (
+            <div
+              key={`slide-metrics-grid-${slideData.leaderboard.id}-${refreshKey}`}
+              className={`slideshow-slide ${isActive ? 'active' : ''}`}
+            >
+              <MetricsGridSlide
+                leaderboard={slideData.leaderboard}
+                isActive={isActive}
+                displaySize={displaySize}
+                refreshKey={refreshKey}
+              />
+            </div>
+          );
+        }
+
+        // Otherwise render standard leaderboard slide
         return (
           <LeaderboardSlide
             key={`slide-${slideData.leaderboard.id}-${refreshKey}`}
