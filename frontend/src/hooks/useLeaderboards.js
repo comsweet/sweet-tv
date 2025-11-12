@@ -15,6 +15,7 @@ export const useLeaderboards = () => {
   const [editingLeaderboard, setEditingLeaderboard] = useState(null);
   const [form, setForm] = useState({
     name: '',
+    type: 'standard', // 'standard' | 'metrics-grid'
     userGroups: [],
     timePeriod: 'month',
     customStartDate: '',
@@ -45,7 +46,11 @@ export const useLeaderboards = () => {
     // Logos
     brandLogo: null, // Left side - varumärke
     companyLogo: null, // Right side - företag
-    logo: null // Legacy fallback
+    logo: null, // Legacy fallback
+    // METRICS GRID specific fields
+    selectedGroups: [], // Array of group IDs to compare
+    metrics: [], // Array of metric configs
+    colorRules: {} // Color coding rules per metric
   });
 
   const fetchLeaderboards = async () => {
@@ -62,6 +67,7 @@ export const useLeaderboards = () => {
     setEditingLeaderboard(null);
     setForm({
       name: '',
+      type: 'standard',
       userGroups: [],
       timePeriod: 'month',
       customStartDate: '',
@@ -92,7 +98,11 @@ export const useLeaderboards = () => {
       // Logos
       brandLogo: null,
       companyLogo: null,
-      logo: null
+      logo: null,
+      // METRICS GRID specific fields
+      selectedGroups: [],
+      metrics: [],
+      colorRules: {}
     });
     setShowModal(true);
   };
@@ -101,6 +111,7 @@ export const useLeaderboards = () => {
     setEditingLeaderboard(leaderboard);
     setForm({
       name: leaderboard.name,
+      type: leaderboard.type || 'standard',
       userGroups: leaderboard.userGroups || [],
       timePeriod: leaderboard.timePeriod,
       customStartDate: leaderboard.customStartDate || '',
@@ -131,7 +142,11 @@ export const useLeaderboards = () => {
       // Logos
       brandLogo: leaderboard.brandLogo || null,
       companyLogo: leaderboard.companyLogo || null,
-      logo: leaderboard.logo || null
+      logo: leaderboard.logo || null,
+      // METRICS GRID specific fields
+      selectedGroups: leaderboard.selectedGroups || [],
+      metrics: leaderboard.metrics || [],
+      colorRules: leaderboard.colorRules || {}
     });
     setShowModal(true);
   };

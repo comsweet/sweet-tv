@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLeaderboards } from '../hooks/useLeaderboards';
 import { getAvailableGroups, migrateLeaderboardsDealsPerHour, getLogosLibrary, uploadLogoToLibrary, deleteLogoFromLibrary } from '../services/api';
 import { useState } from 'react';
+import MetricsGridConfigForm from './MetricsGridConfigForm';
 import './AdminLeaderboards.css';
 
 const AdminLeaderboards = () => {
@@ -174,10 +175,10 @@ const AdminLeaderboards = () => {
           <thead>
             <tr>
               <th>Status</th>
+              <th>Typ</th>
               <th>Namn</th>
-              <th>Period</th>
-              <th>Grupper</th>
-              <th>Kolumner</th>
+              <th>Period/Grupper</th>
+              <th>Info</th>
               <th>Åtgärder</th>
             </tr>
           </thead>
@@ -194,6 +195,18 @@ const AdminLeaderboards = () => {
                     <span className="toggle-slider-compact"></span>
                   </label>
                 </td>
+                <td className="type-cell">
+                  <span className="type-badge" style={{
+                    background: lb.type === 'metrics-grid' ? '#dbeafe' : '#f3f4f6',
+                    color: lb.type === 'metrics-grid' ? '#1e40af' : '#374151',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '4px',
+                    fontSize: '0.85rem',
+                    fontWeight: '500'
+                  }}>
+                    {lb.type === 'metrics-grid' ? '📈 Grid' : '📊 Standard'}
+                  </span>
+                </td>
                 <td className="name-cell">
                   <strong>{lb.name}</strong>
                   {lb.timePeriod === 'custom' && (
@@ -203,17 +216,36 @@ const AdminLeaderboards = () => {
                   )}
                 </td>
                 <td className="period-cell">
-                  <span className="period-badge">{getPeriodLabel(lb.timePeriod)}</span>
-                </td>
-                <td className="groups-cell">
-                  {lb.userGroups?.length === 0 ? (
-                    <span className="groups-all">Alla agenter</span>
+                  {lb.type === 'metrics-grid' ? (
+                    // Metrics Grid: Show selected groups
+                    <span className="groups-count">
+                      {lb.selectedGroups?.length || 0} grupper
+                    </span>
                   ) : (
-                    <span className="groups-count">{lb.userGroups.length} grupper</span>
+                    // Standard: Show period
+                    <>
+                      <span className="period-badge">{getPeriodLabel(lb.timePeriod)}</span>
+                      <br />
+                      {lb.userGroups?.length === 0 ? (
+                        <span className="groups-all" style={{ fontSize: '0.85rem' }}>Alla</span>
+                      ) : (
+                        <span className="groups-count" style={{ fontSize: '0.85rem' }}>
+                          {lb.userGroups.length} grupper
+                        </span>
+                      )}
+                    </>
                   )}
                 </td>
                 <td className="columns-cell">
-                  <span className="columns-icons">{getVisibleColumnsLabel(lb.visibleColumns)}</span>
+                  {lb.type === 'metrics-grid' ? (
+                    // Metrics Grid: Show metrics count
+                    <span className="metrics-count">
+                      {lb.metrics?.length || 0} metrics
+                    </span>
+                  ) : (
+                    // Standard: Show columns
+                    <span className="columns-icons">{getVisibleColumnsLabel(lb.visibleColumns)}</span>
+                  )}
                 </td>
                 <td className="actions-cell">
                   <button onClick={() => openEditModal(lb)} className="btn-edit" title="Redigera">
@@ -246,17 +278,43 @@ const AdminLeaderboards = () => {
             </div>
 
             <div className="form-group">
-              <label>Tidsperiod:</label>
+              <label>Leaderboard-typ:</label>
               <select
-                value={form.timePeriod}
-                onChange={(e) => setForm({ ...form, timePeriod: e.target.value })}
+                value={form.type || 'standard'}
+                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                style={{
+                  padding: '0.75rem',
+                  fontSize: '1rem',
+                  border: '2px solid #3b82f6',
+                  borderRadius: '8px',
+                  background: '#f0f9ff'
+                }}
               >
-                <option value="day">Dag</option>
-                <option value="week">Vecka</option>
-                <option value="month">Månad</option>
-                <option value="custom">Anpassad</option>
+                <option value="standard">📊 Standard (Individuell ranking)</option>
+                <option value="metrics-grid">📈 Metrics Grid (Grupps jämförelse)</option>
               </select>
+              <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
+                {form.type === 'metrics-grid'
+                  ? '🎯 Jämför user groups side-by-side med anpassade metrics och färgkodning'
+                  : '📋 Klassisk leaderboard med ranking av individuella agenter'}
+              </small>
             </div>
+
+            {/* ==================== STANDARD LEADERBOARD FIELDS ==================== */}
+            {form.type === 'standard' && (
+              <>
+                <div className="form-group">
+                  <label>Tidsperiod:</label>
+                  <select
+                    value={form.timePeriod}
+                    onChange={(e) => setForm({ ...form, timePeriod: e.target.value })}
+                  >
+                    <option value="day">Dag</option>
+                    <option value="week">Vecka</option>
+                    <option value="month">Månad</option>
+                    <option value="custom">Anpassad</option>
+                  </select>
+                </div>
 
             <div className="form-group">
               <label>Visa per:</label>
@@ -587,7 +645,19 @@ const AdminLeaderboards = () => {
                 </label>
               </div>
             </div>
+              </>
+            )}
 
+            {/* ==================== METRICS GRID FIELDS ==================== */}
+            {form.type === 'metrics-grid' && (
+              <MetricsGridConfigForm
+                form={form}
+                setForm={setForm}
+                userGroups={userGroups}
+              />
+            )}
+
+            {/* ==================== COMMON FIELDS ==================== */}
             <div className="form-group">
               <label className="checkbox-label">
                 <input
