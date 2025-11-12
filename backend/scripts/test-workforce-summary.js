@@ -26,13 +26,29 @@ async function getWorkforceSummary() {
       }
     });
 
-    console.log(`✅ Got ${response.length} activity records\n`);
+    // Check response structure
+    let records = [];
+    if (Array.isArray(response)) {
+      records = response;
+    } else if (response.data && Array.isArray(response.data)) {
+      records = response.data;
+    } else if (response.records && Array.isArray(response.records)) {
+      records = response.records;
+    } else {
+      console.log('⚠️  Unexpected response structure. Showing first 500 chars:');
+      console.log(JSON.stringify(response).substring(0, 500));
+      console.log('\nFull response type:', typeof response);
+      console.log('Response keys:', Object.keys(response));
+      process.exit(1);
+    }
+
+    console.log(`✅ Got ${records.length} activity records\n`);
 
     // Group by activity and sum durations
     const activityMap = {};
     let totalDuration = 0;
 
-    response.forEach(record => {
+    records.forEach(record => {
       const activity = record.activity || 'unknown';
       const duration = parseFloat(record.duration || 0);
 
