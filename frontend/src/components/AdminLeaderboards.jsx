@@ -703,29 +703,39 @@ const AdminLeaderboards = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Victory Condition:</label>
+                  <label>Victory Metric (avgör vinnaren):</label>
+                  <select
+                    value={form.victoryMetric || 'commission_per_hour'}
+                    onChange={(e) => setForm({ ...form, victoryMetric: e.target.value })}
+                  >
+                    <option value="commission_per_hour">💸 Commission per timme (THB/h)</option>
+                    <option value="order_per_hour">🕒 Affärer per timme</option>
+                    <option value="deals">🎯 Antal affärer</option>
+                    <option value="sms_rate">📱 SMS Success Rate (%)</option>
+                    <option value="commission">💰 Total Commission (THB)</option>
+                  </select>
+                  <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
+                    OBS: Alla metrics (order/h, deals, SMS%, commission/h) visas i tabellen, men denna metric avgör vem som vinner.
+                  </small>
+                </div>
+
+                <div className="form-group">
+                  <label>Victory Condition (hur man mäter):</label>
                   <select
                     value={form.victoryCondition || 'highest_at_end'}
                     onChange={(e) => setForm({ ...form, victoryCondition: e.target.value })}
                   >
                     <option value="highest_at_end">🏆 Högst värde vid slutdatum</option>
+                    <option value="best_average">📊 Bästa genomsnitt över perioden</option>
                     <option value="first_to_target">🎯 Först till målvärde</option>
-                    <option value="best_average">📊 Bästa genomsnitt</option>
                   </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Victory Metric:</label>
-                  <select
-                    value={form.victoryMetric || 'commission'}
-                    onChange={(e) => setForm({ ...form, victoryMetric: e.target.value })}
-                  >
-                    <option value="commission">💰 Commission (THB)</option>
-                    <option value="deals">🎯 Affärer</option>
-                    <option value="sms_rate">📱 SMS Success Rate (%)</option>
-                    <option value="order_per_hour">🕒 Affärer per timme</option>
-                    <option value="commission_per_hour">💸 Commission per timme (THB/h)</option>
-                  </select>
+                  <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
+                    {form.victoryCondition === 'highest_at_end'
+                      ? 'Laget med högst värde när tiden är slut vinner'
+                      : form.victoryCondition === 'best_average'
+                      ? 'Laget med bästa genomsnittet över hela perioden vinner (total / login tid)'
+                      : 'Första laget som når målvärdet vinner direkt'}
+                  </small>
                 </div>
 
                 {form.victoryCondition === 'first_to_target' && (
