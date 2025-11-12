@@ -333,10 +333,10 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
         {/* Hide header for RocketRace - maximize full screen */}
         {visualizationMode !== 'rocket' && (
           <div className="slideshow-header">
-            {/* Brand Logo - Left (varumärke) */}
-            {leaderboard.brandLogo ? (
+            {/* Brand Logo - Left (varumärke) - Fallback to legacy logo */}
+            {(leaderboard.brandLogo || leaderboard.logo) ? (
               <div className="slideshow-logo-left">
-                <img src={leaderboard.brandLogo} alt="Brand Logo" />
+                <img src={leaderboard.brandLogo || leaderboard.logo} alt="Brand Logo" />
               </div>
             ) : (
               <div className="slideshow-logo-left" style={{ visibility: 'hidden' }}></div>
