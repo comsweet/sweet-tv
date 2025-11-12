@@ -225,4 +225,12 @@ export const uploadLogoToLibrary = (formData) => api.post('/logos/library', form
 export const updateLogoInLibrary = (id, data) => api.put(`/logos/library/${id}`, data);
 export const deleteLogoFromLibrary = (id) => api.delete(`/logos/library/${id}`);
 
+// Team Battles
+export const getTeamBattles = () => api.get('/team-battles');
+export const getTeamBattle = (id) => api.get(`/team-battles/${id}`);
+export const createTeamBattle = (data) => api.post('/team-battles', data);
+export const updateTeamBattle = (id, data) => api.put(`/team-battles/${id}`, data);
+export const deleteTeamBattle = (id) => api.delete(`/team-battles/${id}`);
+export const getTeamBattleLiveScore = (id) => api.get(`/team-battles/${id}/live-score`);
+
 export default api;
