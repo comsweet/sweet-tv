@@ -15,6 +15,7 @@ import QuotesSlide from '../components/QuotesSlide';
 import TrendChartSlide from '../components/TrendChartSlide';
 import GroupComparisonSlide from '../components/GroupComparisonSlide';
 import MetricsGridSlide from '../components/MetricsGridSlide';
+import TeamBattleSlide from '../components/TeamBattleSlide';
 import '../components/DealNotification.css';
 import './Slideshow.css';
 
@@ -1113,6 +1114,23 @@ const Slideshow = () => {
           );
         }
 
+        // Render team battle slide if leaderboard type is 'team-battle'
+        if (slideData.leaderboard?.type === 'team-battle') {
+          return (
+            <div
+              key={`slide-team-battle-${slideData.leaderboard.id}-${refreshKey}`}
+              className={`slideshow-slide ${isActive ? 'active' : ''}`}
+            >
+              <TeamBattleSlide
+                leaderboard={slideData.leaderboard}
+                isActive={isActive}
+                displaySize={displaySize}
+                refreshKey={refreshKey}
+              />
+            </div>
+          );
+        }
+
         // Render trend chart slide if leaderboard type is 'trend-chart'
         if (slideData.leaderboard?.type === 'trend-chart') {
           return (
@@ -1121,6 +1139,7 @@ const Slideshow = () => {
               className={`slideshow-slide ${isActive ? 'active' : ''}`}
             >
               <TrendChartSlide
+                leaderboard={slideData.leaderboard}
                 config={{
                   leaderboardId: slideData.leaderboard.id,
                   days: slideData.leaderboard.trendDays,
