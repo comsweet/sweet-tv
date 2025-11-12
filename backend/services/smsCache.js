@@ -70,12 +70,16 @@ class SMSCache {
       const { start, end } = this.getTodayWindow();
       const todaySMS = await db.getSMSInRange(start, end);
 
-      // Populate cache
-      this.todayCache.clear();
+      // 🔒 ATOMIC SWAP: Build new cache first, then replace in one operation
+      // This prevents race condition where cache is temporarily empty
+      const newCache = new Map();
 
       for (const sms of todaySMS) {
-        this.todayCache.set(sms.id, this.dbToCache(sms));
+        newCache.set(sms.id, this.dbToCache(sms));
       }
+
+      // Atomic swap - cache is never empty
+      this.todayCache = newCache;
 
       console.log(`📱 Loaded ${todaySMS.length} SMS into today's cache`);
     } catch (error) {
