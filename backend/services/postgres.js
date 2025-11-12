@@ -76,14 +76,16 @@ class PostgresService {
       }
     }
 
+    // DISABLED: Migration was hanging server startup
     // Run migrations after schema initialization
-    try {
-      const { runMigrations } = require('../db/migrations/auto-migrate');
-      await runMigrations();
-    } catch (error) {
-      console.error('⚠️  Migration script error:', error.message);
-      // Don't throw - allow server to continue
-    }
+    // try {
+    //   const { runMigrations } = require('../db/migrations/auto-migrate');
+    //   await runMigrations();
+    // } catch (error) {
+    //   console.error('⚠️  Migration script error:', error.message);
+    //   // Don't throw - allow server to continue
+    // }
+    console.log('⏭️  Skipping auto-migrations (disabled)');
 
     try {
       // Update statistics for query planner (run regardless of schema creation)
