@@ -667,7 +667,20 @@ router.get('/:id/history', async (req, res) => {
       allowedUserIds = adversusUsers.map(u => String(u.id));
     }
 
-    // Group data by time period (hour or day)
+    // Create userId to groupId mapping
+    const userGroupMap = {};
+    const groupNames = {};
+
+    for (const user of adversusUsers) {
+      if (user.group && user.group.id) {
+        const userId = String(user.id);
+        const groupId = String(user.group.id);
+        userGroupMap[userId] = groupId;
+        groupNames[groupId] = user.group.name || `Group ${groupId}`;
+      }
+    }
+
+    // Group data by time period (hour or day) and user GROUP instead of individual user
     const timeData = {};
 
     for (const deal of filteredDeals) {
@@ -681,26 +694,31 @@ router.get('/:id/history', async (req, res) => {
       }
 
       const userId = String(deal.userId);
+      const groupId = userGroupMap[userId];
+
+      if (!groupId) continue; // Skip users without groups
 
       if (!timeData[timeKey]) {
         timeData[timeKey] = {};
       }
 
-      if (!timeData[timeKey][userId]) {
-        timeData[timeKey][userId] = {
+      if (!timeData[timeKey][groupId]) {
+        timeData[timeKey][groupId] = {
           commission: 0,
           deals: 0,
           loginSeconds: 0,
           smsSent: 0,
-          smsDelivered: 0
+          smsDelivered: 0,
+          userIds: new Set()
         };
       }
 
-      timeData[timeKey][userId].commission += parseFloat(deal.commission || 0);
-      timeData[timeKey][userId].deals += parseInt(deal.multiDeals || '1');
+      timeData[timeKey][groupId].commission += parseFloat(deal.commission || 0);
+      timeData[timeKey][groupId].deals += parseInt(deal.multiDeals || '1');
+      timeData[timeKey][groupId].userIds.add(userId);
     }
 
-    // Add SMS data
+    // Add SMS data (grouped by user group)
     for (const sms of filteredSMS) {
       const smsDate = new Date(sms.timestamp);
       let timeKey;
@@ -712,28 +730,33 @@ router.get('/:id/history', async (req, res) => {
       }
 
       const userId = String(sms.userId);
+      const groupId = userGroupMap[userId];
+
+      if (!groupId) continue; // Skip users without groups
 
       if (!timeData[timeKey]) {
         timeData[timeKey] = {};
       }
 
-      if (!timeData[timeKey][userId]) {
-        timeData[timeKey][userId] = {
+      if (!timeData[timeKey][groupId]) {
+        timeData[timeKey][groupId] = {
           commission: 0,
           deals: 0,
           loginSeconds: 0,
           smsSent: 0,
-          smsDelivered: 0
+          smsDelivered: 0,
+          userIds: new Set()
         };
       }
 
-      timeData[timeKey][userId].smsSent += sms.count || 1;
+      timeData[timeKey][groupId].smsSent += sms.count || 1;
       if (sms.status === 'delivered') {
-        timeData[timeKey][userId].smsDelivered += sms.count || 1;
+        timeData[timeKey][groupId].smsDelivered += sms.count || 1;
       }
+      timeData[timeKey][groupId].userIds.add(userId);
     }
 
-    // Add login time data for each time period
+    // Add login time data for each time period (sum all users in group)
     const sortedTimes = Object.keys(timeData).sort();
 
     for (const timeKey of sortedTimes) {
@@ -746,19 +769,28 @@ router.get('/:id/history', async (req, res) => {
         periodEnd.setHours(periodEnd.getHours() + 1);
       }
 
-      for (const userId of allowedUserIds) {
-        if (timeData[timeKey][userId]) {
+      for (const groupId in timeData[timeKey]) {
+        let groupLoginSeconds = 0;
+
+        // Sum login time for all users in this group
+        for (const userId of timeData[timeKey][groupId].userIds) {
           const loginTime = await loginTimeCache.getLoginTime(userId, periodStart, periodEnd);
-          timeData[timeKey][userId].loginSeconds = loginTime?.loginSeconds || 0;
+          groupLoginSeconds += loginTime?.loginSeconds || 0;
         }
+
+        timeData[timeKey][groupId].loginSeconds = groupLoginSeconds;
+
+        // Convert Set to Array for serialization
+        timeData[timeKey][groupId].userIds = Array.from(timeData[timeKey][groupId].userIds);
       }
     }
 
-    // Calculate cumulative or average values per metric
-    const userTotals = {};
+    // Calculate cumulative values per GROUP (not user)
+    const groupTotals = {};
 
-    for (const userId of new Set([...filteredDeals.map(d => String(d.userId)), ...filteredSMS.map(s => String(s.userId))])) {
-      userTotals[userId] = {
+    // Initialize groupTotals for all groups found in data
+    for (const groupId in groupNames) {
+      groupTotals[groupId] = {
         totalCommission: 0,
         totalDeals: 0,
         totalLoginSeconds: 0,
@@ -767,28 +799,27 @@ router.get('/:id/history', async (req, res) => {
       };
     }
 
-    // Build time series
+    // Build time series (grouped by user group)
     const timeSeries = sortedTimes.map(timeKey => {
       const periodData = timeData[timeKey];
 
-      // Update cumulative totals
-      for (const userId in periodData) {
-        if (userTotals[userId]) {
-          userTotals[userId].totalCommission += periodData[userId].commission;
-          userTotals[userId].totalDeals += periodData[userId].deals;
-          userTotals[userId].totalLoginSeconds += periodData[userId].loginSeconds;
-          userTotals[userId].totalSmsSent += periodData[userId].smsSent;
-          userTotals[userId].totalSmsDelivered += periodData[userId].smsDelivered;
+      // Update cumulative totals per GROUP
+      for (const groupId in periodData) {
+        if (groupTotals[groupId]) {
+          groupTotals[groupId].totalCommission += periodData[groupId].commission;
+          groupTotals[groupId].totalDeals += periodData[groupId].deals;
+          groupTotals[groupId].totalLoginSeconds += periodData[groupId].loginSeconds;
+          groupTotals[groupId].totalSmsSent += periodData[groupId].smsSent;
+          groupTotals[groupId].totalSmsDelivered += periodData[groupId].smsDelivered;
         }
       }
 
       // Build data point
       const dataPoint = { time: timeKey };
 
-      for (const userId in userTotals) {
-        const adversusUser = adversusUsers.find(u => String(u.id) === userId);
-        const userName = adversusUser?.name || adversusUser?.firstname || `Agent ${userId}`;
-        const totals = userTotals[userId];
+      for (const groupId in groupTotals) {
+        const groupName = groupNames[groupId] || `Group ${groupId}`;
+        const totals = groupTotals[groupId];
 
         // Calculate metric value based on requested metric
         let value = 0;
@@ -811,17 +842,16 @@ router.get('/:id/history', async (req, res) => {
             value = Math.round(totals.totalCommission);
         }
 
-        dataPoint[userName] = value;
+        dataPoint[groupName] = value;
       }
 
       return dataPoint;
     });
 
-    // Find top N users by final total
-    const finalTotals = Object.entries(userTotals)
-      .map(([userId, totals]) => {
-        const adversusUser = adversusUsers.find(u => String(u.id) === userId);
-        const userName = adversusUser?.name || adversusUser?.firstname || `Agent ${userId}`;
+    // Get all groups (no topN filtering - show all groups)
+    const allGroups = Object.entries(groupTotals)
+      .map(([groupId, totals]) => {
+        const groupName = groupNames[groupId] || `Group ${groupId}`;
 
         let total = 0;
         switch (metric) {
@@ -842,20 +872,12 @@ router.get('/:id/history', async (req, res) => {
             total = totals.totalCommission;
         }
 
-        return { userId, name: userName, total };
+        return { groupId, name: groupName, total };
       })
-      .sort((a, b) => b.total - a.total)
-      .slice(0, parseInt(topN));
+      .sort((a, b) => b.total - a.total);
 
-    // Filter time series to only include top N users
-    const topUserNames = finalTotals.map(u => u.name);
-    const filteredTimeSeries = timeSeries.map(point => {
-      const filtered = { time: point.time };
-      for (const name of topUserNames) {
-        filtered[name] = point[name] || 0;
-      }
-      return filtered;
-    });
+    // No filtering - show all groups in time series
+    const filteredTimeSeries = timeSeries;
 
     res.json({
       leaderboard: {
@@ -863,7 +885,8 @@ router.get('/:id/history', async (req, res) => {
         name: leaderboard.name
       },
       timeSeries: filteredTimeSeries,
-      topUsers: finalTotals,
+      topUsers: allGroups, // Changed from individual users to user groups
+      groupBy: 'user_group', // Indicate that data is grouped by user group
       metric: metric,
       groupedBy: groupByDay ? 'day' : 'hour',
       dateRange: {

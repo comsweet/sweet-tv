@@ -244,7 +244,8 @@ const AdminTeamBattles = () => {
       commission: 'Commission',
       deals: 'Affärer',
       sms_rate: 'SMS Success Rate',
-      order_per_hour: 'Affärer per timme'
+      order_per_hour: 'Affärer per timme',
+      commission_per_hour: 'Commission per timme'
     };
     return labels[metric] || metric;
   };
@@ -435,6 +436,7 @@ const AdminTeamBattles = () => {
                     <option value="deals">Affärer</option>
                     <option value="sms_rate">SMS Success Rate (%)</option>
                     <option value="order_per_hour">Affärer per timme</option>
+                    <option value="commission_per_hour">Commission per timme (THB/h)</option>
                   </select>
                 </div>
 

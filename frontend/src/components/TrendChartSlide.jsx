@@ -13,7 +13,6 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const {
     hours,
     days = 30, // Default to 30 days (monthly view)
-    topN = 5,
     metric = 'commission', // 'commission', 'deals', 'sms_rate', 'order_per_hour'
     refreshInterval = 300000 // 5 minutes
   } = config;
@@ -24,7 +23,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const params = { topN, metric };
+        const params = { metric };
 
         // Use days if provided, otherwise fall back to hours
         if (days) {
@@ -49,7 +48,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     // Auto-refresh
     const interval = setInterval(fetchData, refreshInterval);
     return () => clearInterval(interval);
-  }, [leaderboard, isActive, hours, days, topN, metric, refreshInterval]);
+  }, [leaderboard, isActive, hours, days, metric, refreshInterval]);
 
   if (loading) {
     return (
@@ -132,15 +131,15 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const title = data?.leaderboard?.name || 'Trendanalys';
   const periodLabel = days ? `${days} dagar` : `${hours}h`;
 
-  // Get user names for the lines (excluding 'time')
-  const userNames = data.topUsers.map(u => u.name);
+  // Get group names for the lines (excluding 'time')
+  const groupNames = data.topUsers.map(u => u.name);
 
   return (
     <div className="trend-chart-slide">
       <div className="trend-header">
         <h1>{title}</h1>
         <p className="trend-subtitle">
-          Top {topN} - {metricLabel} - Senaste {periodLabel}
+          {metricLabel} per User Group - Senaste {periodLabel}
         </p>
       </div>
 
@@ -189,7 +188,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 </span>
               )}
             />
-            {userNames.map((name, index) => (
+            {groupNames.map((name, index) => (
               <Line
                 key={name}
                 type="monotone"

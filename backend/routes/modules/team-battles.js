@@ -410,6 +410,12 @@ router.get('/:id/live-score', async (req, res) => {
             : 0;
           formattedScore = `${score.toFixed(2)} affärer/h`;
           break;
+        case 'commission_per_hour':
+          score = totalLoginSeconds > 0
+            ? (totalCommission / totalLoginSeconds) * 3600
+            : 0;
+          formattedScore = `${Math.round(score).toLocaleString()} THB/h`;
+          break;
       }
 
       teamScores.push({
@@ -490,6 +496,8 @@ function formatLeadingBy(leadingBy, metric) {
       return `${leadingBy.toFixed(1)}%`;
     case 'order_per_hour':
       return `${leadingBy.toFixed(2)} affärer/h`;
+    case 'commission_per_hour':
+      return `${Math.round(leadingBy).toLocaleString()} THB/h`;
     default:
       return String(leadingBy);
   }
