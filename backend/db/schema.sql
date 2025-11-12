@@ -262,12 +262,54 @@ CREATE INDEX IF NOT EXISTS idx_login_time_user_id ON user_login_time(user_id);
 CREATE INDEX IF NOT EXISTS idx_login_time_date_range ON user_login_time(from_date, to_date);
 CREATE INDEX IF NOT EXISTS idx_login_time_synced_at ON user_login_time(synced_at);
 
+-- ==================== LEADERBOARDS ====================
+
+-- Leaderboards table (configuration for different leaderboard displays)
+CREATE TABLE IF NOT EXISTS leaderboards (
+  id VARCHAR(255) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  type VARCHAR(50) DEFAULT 'standard' CHECK (type IN ('standard', 'metrics-grid')),
+  user_groups JSONB DEFAULT '[]',
+  time_period VARCHAR(50) DEFAULT 'month' CHECK (time_period IN ('day', 'week', 'month', 'custom')),
+  custom_start_date TIMESTAMP,
+  custom_end_date TIMESTAMP,
+  visible_columns JSONB DEFAULT '{"dealsPerHour": true, "deals": true, "sms": true, "commission": true, "campaignBonus": true, "total": true}',
+  column_order JSONB DEFAULT '["dealsPerHour", "deals", "sms", "commission", "campaignBonus", "total"]',
+  sort_by VARCHAR(50) DEFAULT 'commission',
+  brand_logo VARCHAR(500),
+  company_logo VARCHAR(500),
+  display_mode VARCHAR(50) DEFAULT 'individual' CHECK (display_mode IN ('individual', 'groups')),
+  top_n INTEGER,
+  visualization_mode VARCHAR(50) DEFAULT 'table' CHECK (visualization_mode IN ('table', 'cards', 'progress', 'rocket', 'race')),
+  show_graphs BOOLEAN DEFAULT false,
+  show_gap BOOLEAN DEFAULT true,
+  show_mini_stats BOOLEAN DEFAULT false,
+  goal_value DECIMAL(10, 2),
+  goal_label VARCHAR(255),
+  enable_auto_scroll BOOLEAN DEFAULT true,
+  selected_groups JSONB DEFAULT '[]',
+  metrics JSONB DEFAULT '[]',
+  color_rules JSONB DEFAULT '{}',
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for leaderboards
+CREATE INDEX IF NOT EXISTS idx_leaderboards_active ON leaderboards(active);
+CREATE INDEX IF NOT EXISTS idx_leaderboards_type ON leaderboards(type);
+
+-- Apply trigger to leaderboards table
+DROP TRIGGER IF EXISTS update_leaderboards_updated_at ON leaderboards;
+CREATE TRIGGER update_leaderboards_updated_at BEFORE UPDATE ON leaderboards
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- ==================== TEAM BATTLES ====================
 
 -- Team battles table (competition between 2-4 teams)
 CREATE TABLE IF NOT EXISTS team_battles (
   id SERIAL PRIMARY KEY,
-  leaderboard_id INTEGER REFERENCES leaderboards(id) ON DELETE CASCADE,
+  leaderboard_id VARCHAR(255) REFERENCES leaderboards(id) ON DELETE SET NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT,
   start_date TIMESTAMP NOT NULL,
