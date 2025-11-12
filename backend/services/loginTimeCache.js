@@ -21,11 +21,16 @@ class LoginTimeCache {
     // Last sync timestamp
     this.lastSync = null;
 
-    // Sync interval: 2 minutes (login time changes as agents work)
-    // Updated frequently because deals/hour changes constantly:
-    // - When deal comes: deals++ → deals/h UP
-    // - When time passes: loginTime++ → deals/h DOWN
+    // Sync interval: 2 minutes (good balance)
+    // Fast enough for real-time updates but not too aggressive on API
     this.syncIntervalMinutes = 2;
+
+    // Last time we synced TODAY'S data specifically
+    // Used to avoid re-fetching same day data for different leaderboards
+    this.lastTodaySync = null;
+
+    // Ongoing sync lock - prevents multiple simultaneous syncs
+    this.ongoingSync = null;
   }
 
   async init() {
@@ -250,6 +255,29 @@ class LoginTimeCache {
    * - Total: Sum both = Complete accurate data with minimal API calls!
    */
   async syncLoginTimeForUsers(adversusAPI, userIds, fromDate, toDate) {
+    // If a sync is already ongoing, wait for it instead of starting a new one
+    if (this.ongoingSync) {
+      console.log(`⏳ Sync already in progress, waiting for it to complete...`);
+      try {
+        await this.ongoingSync;
+        console.log(`✅ Previous sync completed, returning cached data`);
+
+        // Return cached data for these users
+        return userIds.map(userId => {
+          const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
+          const cached = this.cache.get(cacheKey);
+          return cached ? cached.data : {
+            userId,
+            loginSeconds: 0,
+            fromDate: fromDate.toISOString(),
+            toDate: toDate.toISOString()
+          };
+        });
+      } catch (error) {
+        console.error(`⚠️ Previous sync failed:`, error.message);
+      }
+    }
+
     console.log(`\n⏱️ SYNCING LOGIN TIME FOR ${userIds.length} USERS...`);
     console.log(`   Date range: ${fromDate.toISOString().split('T')[0]} → ${toDate.toISOString().split('T')[0]}`);
 
@@ -264,6 +292,8 @@ class LoginTimeCache {
 
     console.log(`   📅 Strategy: Historical=${includesPastDays}, Today=${includesToday}`);
 
+    // Create sync promise and store it
+    const syncPromise = (async () => {
     try {
       let historicalMap = new Map(); // userId -> loginSeconds
       let todayMap = new Map();      // userId -> loginSeconds
@@ -316,17 +346,38 @@ class LoginTimeCache {
 
       // PART 2: Fetch today's data live (if needed)
       if (includesToday) {
-        console.log(`   🏭 Fetching TODAY's data from workforce API...`);
-        todayMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, todayStart, todayEnd);
+        // Check if we already have fresh today's data
+        const minutesSinceLastTodaySync = this.lastTodaySync
+          ? (Date.now() - new Date(this.lastTodaySync).getTime()) / (1000 * 60)
+          : Infinity;
 
-        // Save today's data (with short cache)
-        for (const [userId, loginSeconds] of todayMap) {
-          await this.saveLoginTime({
-            userId: userId.toString(),
-            loginSeconds: Math.round(loginSeconds),
-            fromDate: todayStart.toISOString(),
-            toDate: todayEnd.toISOString()
-          });
+        if (minutesSinceLastTodaySync < this.syncIntervalMinutes) {
+          console.log(`   ⚡ Using cached TODAY's data (synced ${Math.round(minutesSinceLastTodaySync)} min ago)`);
+
+          // Load from cache instead of API
+          for (const userId of userIds) {
+            const cacheKey = `${userId}-${todayStart.toISOString()}-${todayEnd.toISOString()}`;
+            const cached = this.cache.get(cacheKey);
+            if (cached) {
+              todayMap.set(parseInt(userId), cached.data.loginSeconds);
+            }
+          }
+        } else {
+          console.log(`   🏭 Fetching TODAY's data from workforce API...`);
+          todayMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, todayStart, todayEnd);
+
+          // Save today's data (with short cache)
+          for (const [userId, loginSeconds] of todayMap) {
+            await this.saveLoginTime({
+              userId: userId.toString(),
+              loginSeconds: Math.round(loginSeconds),
+              fromDate: todayStart.toISOString(),
+              toDate: todayEnd.toISOString()
+            });
+          }
+
+          // Mark that we just synced today's data
+          this.lastTodaySync = new Date().toISOString();
         }
       }
 
@@ -377,6 +428,18 @@ class LoginTimeCache {
         fromDate: fromDate.toISOString(),
         toDate: toDate.toISOString()
       }));
+    }
+    })();
+
+    // Store ongoing sync promise
+    this.ongoingSync = syncPromise;
+
+    // Wait for sync and clear lock
+    try {
+      const result = await syncPromise;
+      return result;
+    } finally {
+      this.ongoingSync = null;
     }
   }
 
