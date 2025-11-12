@@ -197,14 +197,20 @@ const AdminLeaderboards = () => {
                 </td>
                 <td className="type-cell">
                   <span className="type-badge" style={{
-                    background: lb.type === 'metrics-grid' ? '#dbeafe' : '#f3f4f6',
-                    color: lb.type === 'metrics-grid' ? '#1e40af' : '#374151',
+                    background: lb.type === 'metrics-grid' ? '#dbeafe' :
+                               lb.type === 'team-battle' ? '#fef3c7' :
+                               lb.type === 'trend-chart' ? '#dcfce7' : '#f3f4f6',
+                    color: lb.type === 'metrics-grid' ? '#1e40af' :
+                           lb.type === 'team-battle' ? '#92400e' :
+                           lb.type === 'trend-chart' ? '#166534' : '#374151',
                     padding: '0.25rem 0.5rem',
                     borderRadius: '4px',
                     fontSize: '0.85rem',
                     fontWeight: '500'
                   }}>
-                    {lb.type === 'metrics-grid' ? '📈 Grid' : '📊 Standard'}
+                    {lb.type === 'metrics-grid' ? '📈 Grid' :
+                     lb.type === 'team-battle' ? '⚔️ Battle' :
+                     lb.type === 'trend-chart' ? '📉 Trend' : '📊 Standard'}
                   </span>
                 </td>
                 <td className="name-cell">
@@ -292,10 +298,16 @@ const AdminLeaderboards = () => {
               >
                 <option value="standard">📊 Standard (Individuell ranking)</option>
                 <option value="metrics-grid">📈 Metrics Grid (Grupps jämförelse)</option>
+                <option value="team-battle">⚔️ Team Battle (Tävling mellan lag)</option>
+                <option value="trend-chart">📉 Trend Chart (Tidsserier)</option>
               </select>
               <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
                 {form.type === 'metrics-grid'
                   ? '🎯 Jämför user groups side-by-side med anpassade metrics och färgkodning'
+                  : form.type === 'team-battle'
+                  ? '⚔️ Tävling mellan 2-4 lag med olika victory conditions'
+                  : form.type === 'trend-chart'
+                  ? '📉 Visa trender över tid med line charts och dual Y-axis'
                   : '📋 Klassisk leaderboard med ranking av individuella agenter'}
               </small>
             </div>
@@ -655,6 +667,402 @@ const AdminLeaderboards = () => {
                 setForm={setForm}
                 userGroups={userGroups}
               />
+            )}
+
+            {/* ==================== TEAM BATTLE FIELDS ==================== */}
+            {form.type === 'team-battle' && (
+              <>
+                <div className="form-group">
+                  <label>Beskrivning (valfri):</label>
+                  <textarea
+                    value={form.description || ''}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    placeholder="T.ex. 'Thailand vs Sverige - Vem säljer mest under Q4?'"
+                    rows={3}
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '1rem' }}
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Startdatum & tid:</label>
+                    <input
+                      type="datetime-local"
+                      value={form.battleStartDate || ''}
+                      onChange={(e) => setForm({ ...form, battleStartDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Slutdatum & tid:</label>
+                    <input
+                      type="datetime-local"
+                      value={form.battleEndDate || ''}
+                      onChange={(e) => setForm({ ...form, battleEndDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Victory Condition:</label>
+                  <select
+                    value={form.victoryCondition || 'highest_at_end'}
+                    onChange={(e) => setForm({ ...form, victoryCondition: e.target.value })}
+                  >
+                    <option value="highest_at_end">🏆 Högst värde vid slutdatum</option>
+                    <option value="first_to_target">🎯 Först till målvärde</option>
+                    <option value="best_average">📊 Bästa genomsnitt</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Victory Metric:</label>
+                  <select
+                    value={form.victoryMetric || 'commission'}
+                    onChange={(e) => setForm({ ...form, victoryMetric: e.target.value })}
+                  >
+                    <option value="commission">💰 Commission (THB)</option>
+                    <option value="deals">🎯 Affärer</option>
+                    <option value="sms_rate">📱 SMS Success Rate (%)</option>
+                    <option value="order_per_hour">🕒 Affärer per timme</option>
+                    <option value="commission_per_hour">💸 Commission per timme (THB/h)</option>
+                  </select>
+                </div>
+
+                {form.victoryCondition === 'first_to_target' && (
+                  <div className="form-group">
+                    <label>Målvärde:</label>
+                    <input
+                      type="number"
+                      value={form.targetValue || ''}
+                      onChange={(e) => setForm({ ...form, targetValue: e.target.value })}
+                      placeholder="T.ex. 100000"
+                    />
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label>Lag (2-4 lag):</label>
+                  {(form.teams || []).map((team, index) => (
+                    <div key={index} style={{
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '1rem',
+                      marginBottom: '1rem',
+                      background: '#f9fafb'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <h4 style={{ margin: 0 }}>Lag {index + 1}</h4>
+                        {form.teams.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newTeams = form.teams.filter((_, i) => i !== index);
+                              setForm({ ...form, teams: newTeams });
+                            }}
+                            style={{
+                              background: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              padding: '0.25rem 0.5rem',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🗑️ Ta bort
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="form-group">
+                        <label>Lagnamn:</label>
+                        <input
+                          type="text"
+                          value={team.teamName || ''}
+                          onChange={(e) => {
+                            const newTeams = [...form.teams];
+                            newTeams[index].teamName = e.target.value;
+                            setForm({ ...form, teams: newTeams });
+                          }}
+                          placeholder="T.ex. 'Team Thailand'"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Emoji (valfri):</label>
+                        <input
+                          type="text"
+                          value={team.teamEmoji || ''}
+                          onChange={(e) => {
+                            const newTeams = [...form.teams];
+                            newTeams[index].teamEmoji = e.target.value;
+                            setForm({ ...form, teams: newTeams });
+                          }}
+                          placeholder="T.ex. 🇹🇭"
+                          maxLength={2}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Färg:</label>
+                        <input
+                          type="color"
+                          value={team.color || '#FF6B6B'}
+                          onChange={(e) => {
+                            const newTeams = [...form.teams];
+                            newTeams[index].color = e.target.value;
+                            setForm({ ...form, teams: newTeams });
+                          }}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>User Groups:</label>
+                        <div className="checkbox-group">
+                          {userGroups.map(group => (
+                            <label key={group.id} className="checkbox-label">
+                              <input
+                                type="checkbox"
+                                checked={(team.userGroupIds || []).includes(group.id)}
+                                onChange={() => {
+                                  const newTeams = [...form.teams];
+                                  const groupIds = newTeams[index].userGroupIds || [];
+                                  if (groupIds.includes(group.id)) {
+                                    newTeams[index].userGroupIds = groupIds.filter(id => id !== group.id);
+                                  } else {
+                                    newTeams[index].userGroupIds = [...groupIds, group.id];
+                                  }
+                                  setForm({ ...form, teams: newTeams });
+                                }}
+                              />
+                              <span>{group.name} ({group.agentCount} agenter)</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {(!form.teams || form.teams.length < 4) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#A8E6CF'];
+                        const nextColor = colors[(form.teams?.length || 0) % colors.length];
+                        setForm({
+                          ...form,
+                          teams: [
+                            ...(form.teams || []),
+                            { teamName: '', teamEmoji: '', color: nextColor, userGroupIds: [] }
+                          ]
+                        });
+                      }}
+                      className="btn-primary"
+                      style={{ background: '#10b981', width: '100%' }}
+                    >
+                      ➕ Lägg till lag
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ==================== TREND CHART FIELDS ==================== */}
+            {form.type === 'trend-chart' && (
+              <>
+                <div className="form-group">
+                  <label>Tidsperiod:</label>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <label className="checkbox-label">
+                      <input
+                        type="radio"
+                        name="trendPeriodType"
+                        checked={(form.trendDays !== undefined && form.trendDays !== null)}
+                        onChange={() => setForm({ ...form, trendDays: 30, trendHours: undefined })}
+                      />
+                      <span>Dagar</span>
+                    </label>
+                    <label className="checkbox-label">
+                      <input
+                        type="radio"
+                        name="trendPeriodType"
+                        checked={(form.trendHours !== undefined && form.trendHours !== null)}
+                        onChange={() => setForm({ ...form, trendHours: 24, trendDays: undefined })}
+                      />
+                      <span>Timmar</span>
+                    </label>
+                  </div>
+                </div>
+
+                {form.trendDays !== undefined && (
+                  <div className="form-group">
+                    <label>Antal dagar:</label>
+                    <input
+                      type="number"
+                      value={form.trendDays || 30}
+                      onChange={(e) => setForm({ ...form, trendDays: parseInt(e.target.value) })}
+                      min={1}
+                      max={365}
+                    />
+                  </div>
+                )}
+
+                {form.trendHours !== undefined && (
+                  <div className="form-group">
+                    <label>Antal timmar:</label>
+                    <input
+                      type="number"
+                      value={form.trendHours || 24}
+                      onChange={(e) => setForm({ ...form, trendHours: parseInt(e.target.value) })}
+                      min={1}
+                      max={168}
+                    />
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label>Metrics (välj 1-2):</label>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={(form.trendMetrics || []).some(m => m.metric === 'commission')}
+                        onChange={(e) => {
+                          const metrics = form.trendMetrics || [];
+                          if (e.target.checked) {
+                            setForm({ ...form, trendMetrics: [...metrics, { metric: 'commission', axis: 'left' }] });
+                          } else {
+                            setForm({ ...form, trendMetrics: metrics.filter(m => m.metric !== 'commission') });
+                          }
+                        }}
+                        disabled={(form.trendMetrics || []).length >= 2 && !(form.trendMetrics || []).some(m => m.metric === 'commission')}
+                      />
+                      <span>💰 Commission (THB)</span>
+                    </label>
+                  </div>
+
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={(form.trendMetrics || []).some(m => m.metric === 'deals')}
+                        onChange={(e) => {
+                          const metrics = form.trendMetrics || [];
+                          if (e.target.checked) {
+                            setForm({ ...form, trendMetrics: [...metrics, { metric: 'deals', axis: 'left' }] });
+                          } else {
+                            setForm({ ...form, trendMetrics: metrics.filter(m => m.metric !== 'deals') });
+                          }
+                        }}
+                        disabled={(form.trendMetrics || []).length >= 2 && !(form.trendMetrics || []).some(m => m.metric === 'deals')}
+                      />
+                      <span>🎯 Affärer</span>
+                    </label>
+                  </div>
+
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={(form.trendMetrics || []).some(m => m.metric === 'sms_rate')}
+                        onChange={(e) => {
+                          const metrics = form.trendMetrics || [];
+                          if (e.target.checked) {
+                            setForm({ ...form, trendMetrics: [...metrics, { metric: 'sms_rate', axis: metrics.length === 0 ? 'left' : 'right' }] });
+                          } else {
+                            setForm({ ...form, trendMetrics: metrics.filter(m => m.metric !== 'sms_rate') });
+                          }
+                        }}
+                        disabled={(form.trendMetrics || []).length >= 2 && !(form.trendMetrics || []).some(m => m.metric === 'sms_rate')}
+                      />
+                      <span>📱 SMS Success Rate (%)</span>
+                    </label>
+                  </div>
+
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={(form.trendMetrics || []).some(m => m.metric === 'order_per_hour')}
+                        onChange={(e) => {
+                          const metrics = form.trendMetrics || [];
+                          if (e.target.checked) {
+                            setForm({ ...form, trendMetrics: [...metrics, { metric: 'order_per_hour', axis: 'left' }] });
+                          } else {
+                            setForm({ ...form, trendMetrics: metrics.filter(m => m.metric !== 'order_per_hour') });
+                          }
+                        }}
+                        disabled={(form.trendMetrics || []).length >= 2 && !(form.trendMetrics || []).some(m => m.metric === 'order_per_hour')}
+                      />
+                      <span>🕒 Affärer per timme</span>
+                    </label>
+                  </div>
+
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={(form.trendMetrics || []).some(m => m.metric === 'commission_per_hour')}
+                        onChange={(e) => {
+                          const metrics = form.trendMetrics || [];
+                          if (e.target.checked) {
+                            setForm({ ...form, trendMetrics: [...metrics, { metric: 'commission_per_hour', axis: 'left' }] });
+                          } else {
+                            setForm({ ...form, trendMetrics: metrics.filter(m => m.metric !== 'commission_per_hour') });
+                          }
+                        }}
+                        disabled={(form.trendMetrics || []).length >= 2 && !(form.trendMetrics || []).some(m => m.metric === 'commission_per_hour')}
+                      />
+                      <span>💸 Commission per timme (THB/h)</span>
+                    </label>
+                  </div>
+
+                  <small style={{ display: 'block', color: '#666', marginTop: '0.5rem' }}>
+                    Vid 2 metrics kan du tilldela olika Y-axlar nedan för dual Y-axis
+                  </small>
+                </div>
+
+                {(form.trendMetrics || []).length === 2 && (
+                  <div className="form-group">
+                    <label>Y-Axis Konfiguration:</label>
+                    {form.trendMetrics.map((m, idx) => (
+                      <div key={idx} style={{ marginBottom: '0.5rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ minWidth: '200px' }}>
+                            {m.metric === 'commission' ? '💰 Commission' :
+                             m.metric === 'deals' ? '🎯 Affärer' :
+                             m.metric === 'sms_rate' ? '📱 SMS Rate' :
+                             m.metric === 'order_per_hour' ? '🕒 Affärer/h' :
+                             m.metric === 'commission_per_hour' ? '💸 Commission/h' : m.metric}
+                          </span>
+                          <select
+                            value={m.axis}
+                            onChange={(e) => {
+                              const newMetrics = [...form.trendMetrics];
+                              newMetrics[idx].axis = e.target.value;
+                              setForm({ ...form, trendMetrics: newMetrics });
+                            }}
+                          >
+                            <option value="left">Vänster Y-axis</option>
+                            <option value="right">Höger Y-axis</option>
+                          </select>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label>Uppdateringsintervall (minuter):</label>
+                  <input
+                    type="number"
+                    value={(form.refreshInterval || 300000) / 60000}
+                    onChange={(e) => setForm({ ...form, refreshInterval: parseInt(e.target.value) * 60000 })}
+                    min={1}
+                    max={60}
+                  />
+                  <small>Hur ofta datan ska uppdateras (standard: 5 minuter)</small>
+                </div>
+              </>
             )}
 
             {/* ==================== COMMON FIELDS ==================== */}

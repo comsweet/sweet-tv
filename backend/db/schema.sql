@@ -268,7 +268,7 @@ CREATE INDEX IF NOT EXISTS idx_login_time_synced_at ON user_login_time(synced_at
 CREATE TABLE IF NOT EXISTS leaderboards (
   id VARCHAR(255) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
-  type VARCHAR(50) DEFAULT 'standard' CHECK (type IN ('standard', 'metrics-grid')),
+  type VARCHAR(50) DEFAULT 'standard' CHECK (type IN ('standard', 'metrics-grid', 'team-battle', 'trend-chart')),
   user_groups JSONB DEFAULT '[]',
   time_period VARCHAR(50) DEFAULT 'month' CHECK (time_period IN ('day', 'week', 'month', 'custom')),
   custom_start_date TIMESTAMP,

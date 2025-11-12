@@ -15,7 +15,7 @@ export const useLeaderboards = () => {
   const [editingLeaderboard, setEditingLeaderboard] = useState(null);
   const [form, setForm] = useState({
     name: '',
-    type: 'standard', // 'standard' | 'metrics-grid'
+    type: 'standard', // 'standard' | 'metrics-grid' | 'team-battle' | 'trend-chart'
     userGroups: [],
     timePeriod: 'month',
     customStartDate: '',
@@ -50,7 +50,23 @@ export const useLeaderboards = () => {
     // METRICS GRID specific fields
     selectedGroups: [], // Array of group IDs to compare
     metrics: [], // Array of metric configs
-    colorRules: {} // Color coding rules per metric
+    colorRules: {}, // Color coding rules per metric
+    // TEAM BATTLE specific fields
+    description: '',
+    battleStartDate: '',
+    battleEndDate: '',
+    victoryCondition: 'highest_at_end',
+    victoryMetric: 'commission',
+    targetValue: null,
+    teams: [
+      { teamName: '', teamEmoji: '', color: '#FF6B6B', userGroupIds: [] },
+      { teamName: '', teamEmoji: '', color: '#4ECDC4', userGroupIds: [] }
+    ],
+    // TREND CHART specific fields
+    trendDays: 30,
+    trendHours: undefined,
+    trendMetrics: [{ metric: 'commission', axis: 'left' }],
+    refreshInterval: 300000 // 5 minutes default
   });
 
   const fetchLeaderboards = async () => {
@@ -102,7 +118,23 @@ export const useLeaderboards = () => {
       // METRICS GRID specific fields
       selectedGroups: [],
       metrics: [],
-      colorRules: {}
+      colorRules: {},
+      // TEAM BATTLE specific fields
+      description: '',
+      battleStartDate: '',
+      battleEndDate: '',
+      victoryCondition: 'highest_at_end',
+      victoryMetric: 'commission',
+      targetValue: null,
+      teams: [
+        { teamName: '', teamEmoji: '', color: '#FF6B6B', userGroupIds: [] },
+        { teamName: '', teamEmoji: '', color: '#4ECDC4', userGroupIds: [] }
+      ],
+      // TREND CHART specific fields
+      trendDays: 30,
+      trendHours: undefined,
+      trendMetrics: [{ metric: 'commission', axis: 'left' }],
+      refreshInterval: 300000
     });
     setShowModal(true);
   };
@@ -146,7 +178,23 @@ export const useLeaderboards = () => {
       // METRICS GRID specific fields
       selectedGroups: leaderboard.selectedGroups || [],
       metrics: leaderboard.metrics || [],
-      colorRules: leaderboard.colorRules || {}
+      colorRules: leaderboard.colorRules || {},
+      // TEAM BATTLE specific fields
+      description: leaderboard.description || '',
+      battleStartDate: leaderboard.battleStartDate || '',
+      battleEndDate: leaderboard.battleEndDate || '',
+      victoryCondition: leaderboard.victoryCondition || 'highest_at_end',
+      victoryMetric: leaderboard.victoryMetric || 'commission',
+      targetValue: leaderboard.targetValue || null,
+      teams: leaderboard.teams || [
+        { teamName: '', teamEmoji: '', color: '#FF6B6B', userGroupIds: [] },
+        { teamName: '', teamEmoji: '', color: '#4ECDC4', userGroupIds: [] }
+      ],
+      // TREND CHART specific fields
+      trendDays: leaderboard.trendDays !== undefined ? leaderboard.trendDays : 30,
+      trendHours: leaderboard.trendHours || undefined,
+      trendMetrics: leaderboard.trendMetrics || [{ metric: 'commission', axis: 'left' }],
+      refreshInterval: leaderboard.refreshInterval || 300000
     });
     setShowModal(true);
   };
