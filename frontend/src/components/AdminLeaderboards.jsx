@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLeaderboards } from '../hooks/useLeaderboards';
-import { getAvailableGroups } from '../services/api';
+import { getAvailableGroups, migrateLeaderboardsDealsPerHour } from '../services/api';
 import { useState } from 'react';
 import './AdminLeaderboards.css';
 
@@ -60,6 +60,21 @@ const AdminLeaderboards = () => {
     }
   };
 
+  const handleMigrateDealsPerHour = async () => {
+    if (!confirm('🔄 Detta kommer att lägga till "Affärer/timme" (order/h) kolumn i alla befintliga leaderboards.\n\nFortsätta?')) return;
+
+    setIsLoading(true);
+    try {
+      const result = await migrateLeaderboardsDealsPerHour();
+      alert(`✅ Migration klar!\n\nTotalt: ${result.data.totalLeaderboards}\nUppdaterade: ${result.data.updatedCount}`);
+      await fetchLeaderboards(); // Reload to show changes
+    } catch (error) {
+      alert('❌ Migrations-fel: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getPeriodLabel = (timePeriod) => {
     const labels = {
       day: 'Dag',
@@ -89,9 +104,19 @@ const AdminLeaderboards = () => {
     <div className="admin-leaderboards-compact">
       <div className="leaderboards-header">
         <h2>📊 Leaderboards ({leaderboards.length})</h2>
-        <button onClick={openAddModal} className="btn-primary">
-          ➕ Skapa Leaderboard
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={handleMigrateDealsPerHour}
+            className="btn-primary"
+            style={{ background: '#f59e0b' }}
+            title="Lägg till order/h kolumn i alla befintliga leaderboards"
+          >
+            🔄 Migrera Order/h
+          </button>
+          <button onClick={openAddModal} className="btn-primary">
+            ➕ Skapa Leaderboard
+          </button>
+        </div>
       </div>
 
       {leaderboards.length === 0 ? (
