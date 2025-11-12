@@ -327,16 +327,20 @@ const LeaderboardSlide = ({ leaderboard, stats, miniStats, isActive, displaySize
 
   const visualizationMode = leaderboard.visualizationMode || 'table';
 
+  // Determine if we should use new logo system (two separate logos) or legacy fallback
+  // Only use legacy fallback if BOTH new logo fields are empty
+  const useNewLogoSystem = leaderboard.brandLogo || leaderboard.companyLogo;
+
   return (
     <div className={`slideshow-slide ${isActive ? 'active' : ''}`}>
       <div className="slideshow-content">
         {/* Hide header for RocketRace - maximize full screen */}
         {visualizationMode !== 'rocket' && (
           <div className="slideshow-header">
-            {/* Brand Logo - Left (varumärke) - Fallback to legacy logo */}
-            {(leaderboard.brandLogo || leaderboard.logo) ? (
+            {/* Brand Logo - Left (varumärke) */}
+            {(useNewLogoSystem ? leaderboard.brandLogo : leaderboard.logo) ? (
               <div className="slideshow-logo-left">
-                <img src={leaderboard.brandLogo || leaderboard.logo} alt="Brand Logo" />
+                <img src={useNewLogoSystem ? leaderboard.brandLogo : leaderboard.logo} alt="Brand Logo" />
               </div>
             ) : (
               <div className="slideshow-logo-left" style={{ visibility: 'hidden' }}></div>
@@ -413,9 +417,16 @@ const Slideshow = () => {
   const progressIntervalRef = useRef(null);
   const refreshIntervalRef = useRef(null);
   const lastOptimisticUpdateRef = useRef(0); // Track last optimistic update
+  const ongoingRefreshRef = useRef(null); // Lock to prevent concurrent refreshes
 
   // 🔄 NEW: Silent stats refresh without affecting scroll
   const refreshStatsOnly = async () => {
+    // 🔒 LOCK: If refresh is already ongoing, skip this call
+    if (ongoingRefreshRef.current) {
+      console.log(`⏳ Refresh already in progress - skipping duplicate call`);
+      return;
+    }
+
     // 🛡️ SAFETY: Skip refresh if optimistic update happened recently (< 10 seconds ago)
     // This prevents race condition where server cache overwrites local optimistic updates
     const timeSinceLastOptimistic = Date.now() - lastOptimisticUpdateRef.current;
@@ -427,6 +438,9 @@ const Slideshow = () => {
     console.log('🔄 refreshStatsOnly CALLED - Silent stats update');
     console.log(`⏰ Time: ${new Date().toLocaleTimeString()}`);
     console.log('═══════════════════════════════════════════');
+
+    // 🔒 Set lock
+    ongoingRefreshRef.current = true;
 
     try {
       // Get slideshow config
@@ -506,18 +520,34 @@ const Slideshow = () => {
             }
           } catch (error) {
             console.error(`   ❌ Error refreshing leaderboard ${lbId}:`, error.message);
+            // On error, keep existing data for this slide (don't push empty data)
+            // Find existing slide data
+            const existingSlide = leaderboardsData.find(s =>
+              s.type === 'leaderboard' && s.leaderboard?.id === lbId
+            );
+            if (existingSlide) {
+              console.log(`   📦 Using cached data for ${lbId} due to error`);
+              leaderboardsWithStats.push(existingSlide);
+            }
           }
         }
       }
 
-      // Update ONLY the leaderboardsData state - do NOT touch refreshKey!
-      setLeaderboardsData(leaderboardsWithStats);
-
-      console.log('✅ Stats refreshed silently - scroll position preserved');
+      // 🛡️ SAFETY: Only update if we got valid data for all slides
+      if (leaderboardsWithStats.length === slidesConfig.length) {
+        // Update ONLY the leaderboardsData state - do NOT touch refreshKey!
+        setLeaderboardsData(leaderboardsWithStats);
+        console.log('✅ Stats refreshed silently - scroll position preserved');
+      } else {
+        console.warn(`⚠️ Incomplete refresh: got ${leaderboardsWithStats.length}/${slidesConfig.length} slides - keeping old data`);
+      }
       console.log('═══════════════════════════════════════════\n');
 
     } catch (error) {
       console.error('❌ Error refreshing stats:', error);
+    } finally {
+      // 🔓 Release lock
+      ongoingRefreshRef.current = null;
     }
   };
 
