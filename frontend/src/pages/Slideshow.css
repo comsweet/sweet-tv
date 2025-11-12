@@ -2,7 +2,8 @@
 
 .slideshow-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #005A9C 0%, #003d6b 100%);
+  /* Brand gradient: Primary #005A9C → Accent #00B2E3 (same as MetricsGrid) */
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   position: relative;
   overflow: hidden;
 }
