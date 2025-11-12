@@ -239,36 +239,116 @@ class LoginTimeCache {
 
   /**
    * Sync login time for multiple users (used by leaderboard)
-   * Uses workforce API for efficiency - ONE call instead of N calls!
+   *
+   * SMART STRATEGY: Split historical data + today's data
+   * - Historical data (past days): Cached permanently in DB, never changes
+   * - Today's data: Fetched live from workforce API
+   *
+   * Example: For "this month" (Nov 1-12)
+   * - Historical (Nov 1-11): Load from DB (1 query) - cached forever
+   * - Today (Nov 12): Fetch from API (1 call) - live data
+   * - Total: Sum both = Complete accurate data with minimal API calls!
    */
   async syncLoginTimeForUsers(adversusAPI, userIds, fromDate, toDate) {
     console.log(`\n⏱️ SYNCING LOGIN TIME FOR ${userIds.length} USERS...`);
-    console.log(`   Date range: ${fromDate.toISOString()} → ${toDate.toISOString()}`);
+    console.log(`   Date range: ${fromDate.toISOString().split('T')[0]} → ${toDate.toISOString().split('T')[0]}`);
 
     const results = [];
+    const now = new Date();
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+
+    // Check if period includes past days
+    const includesPastDays = fromDate < todayStart;
+    const includesToday = toDate >= todayStart;
+
+    console.log(`   📅 Strategy: Historical=${includesPastDays}, Today=${includesToday}`);
 
     try {
-      // Use workforce API - ONE call for ALL users!
-      const workforceMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, fromDate, toDate);
+      let historicalMap = new Map(); // userId -> loginSeconds
+      let todayMap = new Map();      // userId -> loginSeconds
 
-      // Process each user
+      // PART 1: Load historical data from DB (if needed)
+      if (includesPastDays) {
+        const histEnd = includesToday
+          ? new Date(todayStart.getTime() - 1) // Yesterday 23:59:59
+          : toDate;
+
+        console.log(`   📚 Loading historical data from DB: ${fromDate.toISOString().split('T')[0]} → ${histEnd.toISOString().split('T')[0]}`);
+
+        for (const userId of userIds) {
+          try {
+            const cached = await this.getLoginTime(userId, fromDate, histEnd);
+            if (cached && cached.loginSeconds > 0) {
+              historicalMap.set(userId, cached.loginSeconds);
+              console.log(`   💾 User ${userId}: ${cached.loginSeconds}s from DB (historical)`);
+            } else {
+              // No cached data, fetch from workforce for this historical period
+              console.log(`   ⚠️  User ${userId}: No historical data in DB, will fetch from API`);
+            }
+          } catch (error) {
+            console.warn(`   ⚠️  Failed to load historical data for user ${userId}:`, error.message);
+          }
+        }
+
+        // If some users are missing historical data, fetch it
+        const missingUsers = userIds.filter(id => !historicalMap.has(id));
+        if (missingUsers.length > 0) {
+          console.log(`   🏭 Fetching missing historical data for ${missingUsers.length} users from workforce API...`);
+          const missingMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, fromDate, histEnd);
+
+          for (const userId of missingUsers) {
+            const loginSeconds = Math.round(missingMap.get(parseInt(userId)) || 0);
+            historicalMap.set(userId, loginSeconds);
+
+            // Save historical data permanently
+            await this.saveLoginTime({
+              userId,
+              loginSeconds,
+              fromDate: fromDate.toISOString(),
+              toDate: histEnd.toISOString()
+            });
+
+            console.log(`   👤 User ${userId}: ${loginSeconds}s fetched and saved (historical)`);
+          }
+        }
+      }
+
+      // PART 2: Fetch today's data live (if needed)
+      if (includesToday) {
+        console.log(`   🏭 Fetching TODAY's data from workforce API...`);
+        todayMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, todayStart, todayEnd);
+
+        // Save today's data (with short cache)
+        for (const [userId, loginSeconds] of todayMap) {
+          await this.saveLoginTime({
+            userId: userId.toString(),
+            loginSeconds: Math.round(loginSeconds),
+            fromDate: todayStart.toISOString(),
+            toDate: todayEnd.toISOString()
+          });
+        }
+      }
+
+      // PART 3: Combine historical + today for each user
       for (const userId of userIds) {
-        const loginSeconds = Math.round(workforceMap.get(parseInt(userId)) || 0);
+        const historicalSeconds = historicalMap.get(userId) || 0;
+        const todaySeconds = Math.round(todayMap.get(parseInt(userId)) || 0);
+        const totalSeconds = historicalSeconds + todaySeconds;
 
         const data = {
           userId,
-          loginSeconds,
+          loginSeconds: totalSeconds,
           fromDate: fromDate.toISOString(),
           toDate: toDate.toISOString()
         };
 
-        console.log(`   👤 User ${userId}: ${loginSeconds}s (${(loginSeconds / 3600).toFixed(2)}h)`);
-
-        // Save to database
-        try {
-          await this.saveLoginTime(data);
-        } catch (error) {
-          console.error(`⚠️  Failed to save login time for user ${userId}:`, error.message);
+        if (includesPastDays && includesToday) {
+          console.log(`   👤 User ${userId}: ${totalSeconds}s (${historicalSeconds}s historical + ${todaySeconds}s today)`);
+        } else if (includesPastDays) {
+          console.log(`   👤 User ${userId}: ${totalSeconds}s (historical only)`);
+        } else {
+          console.log(`   👤 User ${userId}: ${totalSeconds}s (today only)`);
         }
 
         // Update cache
@@ -282,48 +362,21 @@ class LoginTimeCache {
       }
 
       this.lastSync = new Date().toISOString();
-      console.log(`✅ Login time sync complete for ${results.length} users (via workforce API)`);
+      console.log(`✅ Login time sync complete for ${results.length} users`);
+      console.log(`   📊 Strategy used: Historical=${includesPastDays ? 'YES' : 'NO'}, Today=${includesToday ? 'YES' : 'NO'}`);
 
       return results;
 
     } catch (error) {
-      console.error(`❌ Workforce API failed, falling back to individual calls:`, error.message);
+      console.error(`❌ Sync failed:`, error.message);
 
-      // Fallback: fetch individually (slower but works)
-      for (const userId of userIds) {
-        try {
-          // Fetch from Adversus
-          const data = await this.fetchLoginTimeFromAdversus(adversusAPI, userId, fromDate, toDate);
-
-          // Save to database
-          await this.saveLoginTime(data);
-
-          // Update cache
-          const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
-          this.cache.set(cacheKey, {
-            data,
-            cachedAt: Date.now()
-          });
-
-          results.push(data);
-
-          // Rate limiting: wait 100ms between requests
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (error) {
-          console.error(`⚠️  Failed to sync login time for user ${userId}:`, error.message);
-          results.push({
-            userId,
-            loginSeconds: 0,
-            fromDate: fromDate.toISOString(),
-            toDate: toDate.toISOString()
-          });
-        }
-      }
-
-      this.lastSync = new Date().toISOString();
-      console.log(`✅ Login time sync complete for ${results.length} users (via fallback)`);
-
-      return results;
+      // Return zero data rather than failing completely
+      return userIds.map(userId => ({
+        userId,
+        loginSeconds: 0,
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString()
+      }));
     }
   }
 
