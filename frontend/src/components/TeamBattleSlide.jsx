@@ -2,13 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { getTeamBattleLiveScore } from '../services/api';
 import './TeamBattleSlide.css';
 
-const TeamBattleSlide = ({ battleId, isActive, config = {} }) => {
+const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
   const [liveScore, setLiveScore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [scaleFactor, setScaleFactor] = useState(1);
   const containerRef = useRef(null);
   const contentRef = useRef(null);
+
+  // Get battleId from prop or leaderboard
+  const effectiveBattleId = battleId || leaderboard?.battleId;
 
   const { refreshInterval = 15000 } = config; // 15 seconds default
 
@@ -44,12 +47,12 @@ const TeamBattleSlide = ({ battleId, isActive, config = {} }) => {
   }, [isActive, liveScore]);
 
   useEffect(() => {
-    if (!isActive || !battleId) return;
+    if (!isActive || !effectiveBattleId) return;
 
     const fetchLiveScore = async () => {
       try {
         setLoading(true);
-        const response = await getTeamBattleLiveScore(battleId);
+        const response = await getTeamBattleLiveScore(effectiveBattleId);
         setLiveScore(response.data);
         setError(null);
       } catch (err) {
@@ -65,7 +68,7 @@ const TeamBattleSlide = ({ battleId, isActive, config = {} }) => {
     // Auto-refresh
     const interval = setInterval(fetchLiveScore, refreshInterval);
     return () => clearInterval(interval);
-  }, [battleId, isActive, refreshInterval]);
+  }, [effectiveBattleId, isActive, refreshInterval]);
 
   if (loading) {
     return (

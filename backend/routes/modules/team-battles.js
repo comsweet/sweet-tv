@@ -5,6 +5,7 @@ const dealsCache = require('../../services/dealsCache');
 const smsCache = require('../../services/smsCache');
 const loginTimeCache = require('../../services/loginTimeCache');
 const adversusAPI = require('../../services/adversusAPI');
+const userCache = require('../../services/userCache');
 
 // ==================== TEAM BATTLES CRUD ====================
 
@@ -339,14 +340,8 @@ router.get('/:id/live-score', async (req, res) => {
     const startDate = new Date(battle.start_date);
     const endDate = new Date(battle.end_date);
 
-    // Get users
-    let adversusUsers = [];
-    try {
-      const usersResult = await adversusAPI.getUsers();
-      adversusUsers = usersResult.users || [];
-    } catch (error) {
-      console.error('⚠️ Failed to load Adversus users:', error.message);
-    }
+    // Get users from cache (with fallback to API if cache not initialized)
+    const adversusUsers = await userCache.getUsers({ adversusAPI });
 
     // Get deals and SMS from cache
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);

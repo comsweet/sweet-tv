@@ -229,12 +229,12 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
             data={data.timeSeries}
             margin={{ top: 20, right: rightMetric ? 80 : 50, left: 80, bottom: 60 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.2)" />
             <XAxis
               dataKey="time"
               tickFormatter={formatTime}
               stroke="#ffffff"
-              tick={{ fill: '#ffffff', fontSize: 14 }}
+              tick={{ fill: '#ffffff', fontSize: 16, fontWeight: 600 }}
               angle={-45}
               textAnchor="end"
               height={80}
@@ -244,12 +244,12 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
             <YAxis
               yAxisId="left"
               stroke="#ffffff"
-              tick={{ fill: '#ffffff', fontSize: 16 }}
+              tick={{ fill: '#ffffff', fontSize: 18, fontWeight: 600 }}
               label={{
                 value: getMetricLabel(leftMetric.metric),
                 angle: -90,
                 position: 'insideLeft',
-                style: { fill: '#ffffff', fontSize: 16, fontWeight: 'bold' }
+                style: { fill: '#ffffff', fontSize: 18, fontWeight: 'bold' }
               }}
             />
 
@@ -259,12 +259,12 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 yAxisId="right"
                 orientation="right"
                 stroke="#ffffff"
-                tick={{ fill: '#ffffff', fontSize: 16 }}
+                tick={{ fill: '#ffffff', fontSize: 18, fontWeight: 600 }}
                 label={{
                   value: getMetricLabel(rightMetric.metric),
                   angle: 90,
                   position: 'insideRight',
-                  style: { fill: '#ffffff', fontSize: 16, fontWeight: 'bold' }
+                  style: { fill: '#ffffff', fontSize: 18, fontWeight: 'bold' }
                 }}
               />
             )}
@@ -288,9 +288,9 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 type="monotone"
                 dataKey={dataKey}
                 stroke={COLORS[index % COLORS.length]}
-                strokeWidth={3}
-                dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
+                strokeWidth={5}
+                dot={{ r: 6, strokeWidth: 2 }}
+                activeDot={{ r: 8, strokeWidth: 3 }}
                 animationDuration={1000}
               />
             ))}
@@ -303,11 +303,11 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 type="monotone"
                 dataKey={dataKey}
                 stroke={COLORS[(leftAxisKeys.length + index) % COLORS.length]}
-                strokeWidth={3}
-                dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
+                strokeWidth={5}
+                dot={{ r: 6, strokeWidth: 2 }}
+                activeDot={{ r: 8, strokeWidth: 3 }}
                 animationDuration={1000}
-                strokeDasharray="5 5" // Dashed line to differentiate from left axis
+                strokeDasharray="8 4" // Dashed line to differentiate from left axis
               />
             ))}
           </LineChart>

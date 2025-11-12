@@ -140,6 +140,9 @@ class LeaderboardService {
 
           const battleId = battleResult.rows[0].id;
 
+          // Store battle ID in leaderboard for easy reference
+          newLeaderboard.battleId = battleId;
+
           // Insert teams
           for (let i = 0; i < newLeaderboard.teams.length; i++) {
             const team = newLeaderboard.teams[i];
