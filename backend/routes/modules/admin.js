@@ -4,6 +4,7 @@ const db = require('../../services/postgres');
 const dealsCache = require('../../services/dealsCache');
 const smsCache = require('../../services/smsCache');
 const loginTimeCache = require('../../services/loginTimeCache');
+const leaderboardCache = require('../../services/leaderboardCache');
 const adversusAPI = require('../../services/adversusAPI');
 
 /**
@@ -460,13 +461,63 @@ router.post('/cache/invalidate', async (req, res) => {
     await dealsCache.invalidateCache();
     await smsCache.invalidateCache();
     await loginTimeCache.invalidateCache();
+    leaderboardCache.clear(); // Clear leaderboard cache too
 
     res.json({
       success: true,
-      message: 'Caches invalidated and reloaded from database'
+      message: 'All caches invalidated and reloaded from database'
     });
   } catch (error) {
     console.error('❌ Error invalidating cache:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /admin/cache/invalidate/:leaderboardId
+ * Invalidate cache for a specific leaderboard
+ */
+router.post('/cache/invalidate/:leaderboardId', async (req, res) => {
+  try {
+    const { leaderboardId } = req.params;
+    leaderboardCache.invalidate(leaderboardId);
+
+    res.json({
+      success: true,
+      message: `Cache invalidated for leaderboard ${leaderboardId}`
+    });
+  } catch (error) {
+    console.error('❌ Error invalidating leaderboard cache:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /admin/cache/stats
+ * Get cache statistics
+ */
+router.get('/cache/stats', async (req, res) => {
+  try {
+    const leaderboardStats = leaderboardCache.getStats();
+    const dealsStats = await dealsCache.getStats();
+    const smsStats = await smsCache.getStats();
+    const loginTimeStats = await loginTimeCache.getStats();
+
+    res.json({
+      success: true,
+      leaderboards: leaderboardStats,
+      deals: dealsStats,
+      sms: smsStats,
+      loginTime: loginTimeStats
+    });
+  } catch (error) {
+    console.error('❌ Error fetching cache stats:', error);
     res.status(500).json({
       success: false,
       error: error.message
