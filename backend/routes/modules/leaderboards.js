@@ -364,6 +364,14 @@ router.get('/:id/stats', async (req, res) => {
           const loginHours = loginSeconds > 0 ? (loginSeconds / 3600).toFixed(2) : 0;
           const dealsPerHour = loginTimeCache.calculateDealsPerHour(stat.dealCount || 0, loginSeconds);
 
+          // 🔍 DEBUG: Log order/h calculation details
+          if (dealsPerHour > 0) {
+            console.log(`   🕒 User ${stat.userId} (${agentName}) order/h: ${dealsPerHour} = ${stat.dealCount} deals / ${loginHours}h (${loginSeconds}s)`);
+            if (loginTime?.fromDate && loginTime?.toDate) {
+              console.log(`      📅 Login time period: ${new Date(loginTime.fromDate).toISOString().split('T')[0]} → ${new Date(loginTime.toDate).toISOString().split('T')[0]}`);
+            }
+          }
+
           loginTimeData = {
             loginSeconds,
             loginHours: parseFloat(loginHours),
