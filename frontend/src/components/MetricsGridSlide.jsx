@@ -13,31 +13,19 @@ import './MetricsGridSlide.css';
  */
 const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refreshKey }) => {
   const [groupMetrics, setGroupMetrics] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     if (!isActive) return;
 
     const fetchData = async () => {
       try {
-        // Only show loading spinner on initial load, not on refresh
-        if (isInitialLoad) {
-          setLoading(true);
-        }
-
         const response = await getGroupMetrics(leaderboard.id);
         setGroupMetrics(response.data.groupMetrics || []);
         setError(null);
-        setIsInitialLoad(false);
       } catch (err) {
         console.error('Error fetching metrics grid data:', err);
         setError(err.message);
-      } finally {
-        if (isInitialLoad) {
-          setLoading(false);
-        }
       }
     };
 
@@ -109,37 +97,8 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
     return value.toString();
   };
 
-  if (loading) {
-    return (
-      <div className={`metrics-grid-slide ${displaySize}`}>
-        <div className="metrics-loading">
-          <div className="spinner"></div>
-          <p>Laddar metrics...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={`metrics-grid-slide ${displaySize}`}>
-        <div className="metrics-error">
-          <p>⚠️ Kunde inte ladda data</p>
-          <p className="error-message">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (groupMetrics.length === 0) {
-    return (
-      <div className={`metrics-grid-slide ${displaySize}`}>
-        <div className="metrics-no-data">
-          <p>📊 Ingen data tillgänglig</p>
-        </div>
-      </div>
-    );
-  }
+  // Show error or no data message if needed, but keep it subtle
+  const showNoData = groupMetrics.length === 0 && !error;
 
   // Build metrics list (all metrics from first group, in order)
   const metricsList = leaderboard.metrics || [];
@@ -168,64 +127,79 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
         <h1>{leaderboard.name}</h1>
       </div>
 
-      {/* Modern Table Layout */}
-      <div className="metrics-table-container">
-        <table className="metrics-table">
-          <thead>
-            <tr>
-              <th className="metric-name-header">Metric</th>
-              {groupMetrics.map((group) => {
-                const columnColor = getGroupColumnColor(group);
-                return (
-                  <th
-                    key={group.groupId}
-                    className={`group-header ${columnColor ? `color-${columnColor}` : ''}`}
-                    style={columnColor ? {
-                      backgroundColor: `${getColorHex(columnColor)}15`,
-                      borderBottom: `3px solid ${getColorHex(columnColor)}`,
-                      boxShadow: `0 0 15px ${getColorHex(columnColor)}30`
-                    } : {}}
-                  >
-                    {group.groupName}
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {metricsList.map((metricConfig) => (
-              <tr key={metricConfig.id} className="metric-row">
-                <td className="metric-name">{metricConfig.label}</td>
+      {/* Show error or no data message subtly */}
+      {error && (
+        <div className="metrics-error-subtle">
+          <p>⚠️ {error}</p>
+        </div>
+      )}
+
+      {showNoData && !error && (
+        <div className="metrics-no-data-subtle">
+          <p>📊 Ingen data tillgänglig</p>
+        </div>
+      )}
+
+      {/* Modern Table Layout - Always render if we have data */}
+      {groupMetrics.length > 0 && (
+        <div className="metrics-table-container">
+          <table className="metrics-table">
+            <thead>
+              <tr>
+                <th className="metric-name-header">Metric</th>
                 {groupMetrics.map((group) => {
-                  const metricData = group.metrics[metricConfig.id];
-                  if (!metricData) {
-                    return <td key={group.groupId} className="metric-value">-</td>;
-                  }
-
-                  const color = getMetricColor(metricConfig.id, group.groupId, metricData.value);
                   const columnColor = getGroupColumnColor(group);
-
                   return (
-                    <td
+                    <th
                       key={group.groupId}
-                      className={`metric-value ${color ? `color-${color}` : ''}`}
-                      style={color ? {
-                        backgroundColor: getColorHex(color),
-                        color: getTextColor(color),
-                        fontWeight: 700
-                      } : columnColor ? {
-                        backgroundColor: `${getColorHex(columnColor)}08`
+                      className={`group-header ${columnColor ? `color-${columnColor}` : ''}`}
+                      style={columnColor ? {
+                        backgroundColor: `${getColorHex(columnColor)}15`,
+                        borderBottom: `3px solid ${getColorHex(columnColor)}`,
+                        boxShadow: `0 0 15px ${getColorHex(columnColor)}30`
                       } : {}}
                     >
-                      {formatValue(metricData, metricConfig)}
-                    </td>
+                      {group.groupName}
+                    </th>
                   );
                 })}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {metricsList.map((metricConfig) => (
+                <tr key={metricConfig.id} className="metric-row">
+                  <td className="metric-name">{metricConfig.label}</td>
+                  {groupMetrics.map((group) => {
+                    const metricData = group.metrics[metricConfig.id];
+                    if (!metricData) {
+                      return <td key={group.groupId} className="metric-value">-</td>;
+                    }
+
+                    const color = getMetricColor(metricConfig.id, group.groupId, metricData.value);
+                    const columnColor = getGroupColumnColor(group);
+
+                    return (
+                      <td
+                        key={group.groupId}
+                        className={`metric-value ${color ? `color-${color}` : ''}`}
+                        style={color ? {
+                          backgroundColor: getColorHex(color),
+                          color: getTextColor(color),
+                          fontWeight: 700
+                        } : columnColor ? {
+                          backgroundColor: `${getColorHex(columnColor)}08`
+                        } : {}}
+                      >
+                        {formatValue(metricData, metricConfig)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
