@@ -904,11 +904,22 @@ router.get('/:id/group-metrics', async (req, res) => {
     // Build group metrics for each selected group
     const groupMetrics = [];
 
+    // Log available groups for debugging
+    console.log(`\n📋 Available groups (${adversusGroups.length} total):`);
+    adversusGroups.forEach(g => {
+      console.log(`   - ID: ${g.id} (type: ${typeof g.id}), Name: "${g.name}"`);
+    });
+
     for (const groupId of leaderboard.selectedGroups) {
+      console.log(`\n🔍 Looking for group ID: ${groupId} (type: ${typeof groupId})`);
       const group = adversusGroups.find(g => String(g.id) === String(groupId));
       const groupName = group?.name || `Group ${groupId}`;
 
-      console.log(`\n📊 Processing group: ${groupName} (ID: ${groupId})`);
+      if (!group) {
+        console.warn(`⚠️ Could not find group with ID ${groupId} in adversusGroups! Using fallback name.`);
+      }
+
+      console.log(`📊 Processing group: ${groupName} (ID: ${groupId})`);
 
       // Get all users in this group
       const usersInGroup = adversusUsers.filter(u => String(u.group?.id) === String(groupId));
