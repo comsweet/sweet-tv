@@ -56,9 +56,16 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
     return 'grid-3x3';
   };
 
-  // Get color for metric value based on rules
-  const getMetricColor = (metricId, value) => {
-    const rules = leaderboard.colorRules?.[metricId];
+  // Get color for metric value based on per-group rules
+  const getMetricColor = (metricId, groupId, value) => {
+    const metricRules = leaderboard.colorRules?.[metricId];
+    if (!metricRules) return null;
+
+    // Support both old (array) and new (per-group object) structure
+    const rules = Array.isArray(metricRules)
+      ? metricRules  // Old structure: global rules
+      : metricRules[groupId] || []; // New structure: per-group rules
+
     if (!rules || rules.length === 0) return null;
 
     // Sort rules by threshold for proper evaluation
@@ -134,7 +141,25 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
     );
   }
 
-  const gridLayout = getGridLayout(groupMetrics.length);
+  // Build metrics list (all metrics from first group, in order)
+  const metricsList = leaderboard.metrics || [];
+
+  // Calculate column colors based on worst metric in each group
+  const getGroupColumnColor = (group) => {
+    const colorPriority = { red: 1, orange: 2, yellow: 3, white: 4, green: 5, blue: 6 };
+    let worstColor = null;
+    let lowestPriority = 999;
+
+    Object.entries(group.metrics).forEach(([metricId, metricData]) => {
+      const color = getMetricColor(metricId, group.groupId, metricData.value);
+      if (color && colorPriority[color] < lowestPriority) {
+        worstColor = color;
+        lowestPriority = colorPriority[color];
+      }
+    });
+
+    return worstColor;
+  };
 
   return (
     <div className={`metrics-grid-slide ${displaySize}`}>
@@ -143,67 +168,63 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
         <h1>{leaderboard.name}</h1>
       </div>
 
-      {/* Widget Grid */}
-      <div className={`metrics-grid ${gridLayout}`}>
-        {groupMetrics.map((group) => {
-          // Determine card color based on worst metric color (priority: red > orange > yellow > white > green)
-          const colorPriority = { red: 1, orange: 2, yellow: 3, white: 4, green: 5, blue: 6 };
-          let cardColor = null;
-          let lowestPriority = 999;
+      {/* Modern Table Layout */}
+      <div className="metrics-table-container">
+        <table className="metrics-table">
+          <thead>
+            <tr>
+              <th className="metric-name-header">Metric</th>
+              {groupMetrics.map((group) => {
+                const columnColor = getGroupColumnColor(group);
+                return (
+                  <th
+                    key={group.groupId}
+                    className={`group-header ${columnColor ? `color-${columnColor}` : ''}`}
+                    style={columnColor ? {
+                      backgroundColor: `${getColorHex(columnColor)}15`,
+                      borderBottom: `3px solid ${getColorHex(columnColor)}`,
+                      boxShadow: `0 0 15px ${getColorHex(columnColor)}30`
+                    } : {}}
+                  >
+                    {group.groupName}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {metricsList.map((metricConfig) => (
+              <tr key={metricConfig.id} className="metric-row">
+                <td className="metric-name">{metricConfig.label}</td>
+                {groupMetrics.map((group) => {
+                  const metricData = group.metrics[metricConfig.id];
+                  if (!metricData) {
+                    return <td key={group.groupId} className="metric-value">-</td>;
+                  }
 
-          Object.entries(group.metrics).forEach(([metricId, metricData]) => {
-            const color = getMetricColor(metricId, metricData.value);
-            if (color && colorPriority[color] < lowestPriority) {
-              cardColor = color;
-              lowestPriority = colorPriority[color];
-            }
-          });
-
-          return (
-            <div
-              key={group.groupId}
-              className={`metric-card ${cardColor ? `card-color-${cardColor}` : ''}`}
-              style={cardColor ? {
-                borderColor: getColorHex(cardColor),
-                boxShadow: `0 0 20px ${getColorHex(cardColor)}40`
-              } : {}}
-            >
-              {/* Card Header - Group Name */}
-              <div
-                className="card-header"
-                style={cardColor ? {
-                  backgroundColor: `${getColorHex(cardColor)}20`,
-                  borderBottom: `2px solid ${getColorHex(cardColor)}`
-                } : {}}
-              >
-                <h2>{group.groupName}</h2>
-              </div>
-
-              {/* Card Body - Metrics */}
-              <div className="card-body">
-                {Object.entries(group.metrics).map(([metricId, metricData]) => {
-                  const color = getMetricColor(metricId, metricData.value);
-                  const metricConfig = leaderboard.metrics.find(m => m.id === metricId);
+                  const color = getMetricColor(metricConfig.id, group.groupId, metricData.value);
+                  const columnColor = getGroupColumnColor(group);
 
                   return (
-                    <div key={metricId} className="metric-row">
-                      <div className="metric-label">{metricData.label}</div>
-                      <div
-                        className={`metric-value ${color ? `color-${color}` : ''}`}
-                        style={color ? {
-                          backgroundColor: getColorHex(color),
-                          color: getTextColor(color)
-                        } : {}}
-                      >
-                        {formatValue(metricData, metricConfig)}
-                      </div>
-                    </div>
+                    <td
+                      key={group.groupId}
+                      className={`metric-value ${color ? `color-${color}` : ''}`}
+                      style={color ? {
+                        backgroundColor: getColorHex(color),
+                        color: getTextColor(color),
+                        fontWeight: 700
+                      } : columnColor ? {
+                        backgroundColor: `${getColorHex(columnColor)}08`
+                      } : {}}
+                    >
+                      {formatValue(metricData, metricConfig)}
+                    </td>
                   );
                 })}
-              </div>
-            </div>
-          );
-        })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
