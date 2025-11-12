@@ -1041,6 +1041,12 @@ router.get('/:id/group-metrics', async (req, res) => {
             value = 0;
         }
 
+        // VALIDATION: Ensure value is a valid number
+        if (typeof value !== 'number' || isNaN(value)) {
+          console.error(`   ❌ INVALID VALUE for ${label}: ${typeof value} = ${JSON.stringify(value)}`);
+          value = 0; // Fallback to 0 for safety
+        }
+
         metrics.metrics[id] = {
           label,
           value,
@@ -1048,10 +1054,14 @@ router.get('/:id/group-metrics', async (req, res) => {
           metric
         };
 
-        console.log(`   ✅ ${label}: ${value}`);
+        console.log(`   ✅ ${label}: ${value} (type: ${typeof value})`);
       }
 
-      groupMetrics.push(metrics);
+      // VALIDATION: Final check before pushing
+      console.log(`\n🔍 Final metrics for ${groupName}:`, JSON.stringify(metrics, null, 2));
+
+      // Deep clone to prevent mutation
+      groupMetrics.push(JSON.parse(JSON.stringify(metrics)));
     }
 
     console.log(`\n✅ Completed metrics grid calculation for ${groupMetrics.length} groups`);
