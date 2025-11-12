@@ -172,11 +172,13 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
 
     for (const rule of sortedRules) {
       if (rule.min !== undefined && rule.max !== undefined) {
-        if (value >= rule.min && value < rule.max) return rule.color;
+        // Use <= for max to include boundary value (e.g., 0.24 included in 0.01-0.24)
+        if (value >= rule.min && value <= rule.max) return rule.color;
       } else if (rule.min !== undefined) {
         if (value >= rule.min) return rule.color;
       } else if (rule.max !== undefined) {
-        if (value < rule.max) return rule.color;
+        // Use <= for max-only rules too
+        if (value <= rule.max) return rule.color;
       }
     }
 
@@ -197,11 +199,11 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
       return Number(value).toFixed(2);
     }
     if (metric.includes('rate') || metric.includes('Rate') || metric.includes('success')) {
-      // Show SMS count if available
+      // Show SMS count if available (no decimals)
       if (additionalData?.uniqueSMS) {
-        return `${Number(value).toFixed(1)}% (${additionalData.uniqueSMS} SMS)`;
+        return `${Math.round(Number(value))}% (${additionalData.uniqueSMS} SMS)`;
       }
-      return `${Number(value).toFixed(1)}%`;
+      return `${Math.round(Number(value))}%`;
     }
     if (metric.includes('commission') || metric.includes('Commission')) {
       return `${Math.round(Number(value)).toLocaleString('sv-SE')} kr`;
