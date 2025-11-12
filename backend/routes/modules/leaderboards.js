@@ -606,10 +606,22 @@ router.get('/:id/history', async (req, res) => {
     const {
       hours,
       days,
-      topN = 5,
       metric = 'commission',
-      metrics // Optional: comma-separated list for multi-metric
+      metrics // Optional: JSON array for multi-metric e.g. [{"metric":"commission","axis":"left"},{"metric":"sms_rate","axis":"right"}]
     } = req.query;
+
+    // Parse metrics if provided (for dual Y-axis support)
+    let metricsToFetch = [];
+    if (metrics) {
+      try {
+        metricsToFetch = JSON.parse(metrics);
+      } catch (e) {
+        metricsToFetch = [{ metric, axis: 'left' }];
+      }
+    } else {
+      // Single metric mode (backward compatible)
+      metricsToFetch = [{ metric, axis: 'left' }];
+    }
 
     // Get leaderboard config
     const leaderboard = await leaderboardService.getLeaderboard(leaderboardId);
@@ -799,7 +811,29 @@ router.get('/:id/history', async (req, res) => {
       };
     }
 
-    // Build time series (grouped by user group)
+    // Helper function to calculate metric value
+    const calculateMetricValue = (metricName, totals) => {
+      switch (metricName) {
+        case 'deals':
+          return totals.totalDeals;
+        case 'sms_rate':
+          return totals.totalSmsSent > 0
+            ? Math.round((totals.totalSmsDelivered / totals.totalSmsSent) * 100)
+            : 0;
+        case 'order_per_hour':
+          return totals.totalLoginSeconds > 0
+            ? parseFloat(loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds))
+            : 0;
+        case 'commission_per_hour':
+          return totals.totalLoginSeconds > 0
+            ? Math.round((totals.totalCommission / totals.totalLoginSeconds) * 3600)
+            : 0;
+        default: // commission
+          return Math.round(totals.totalCommission);
+      }
+    };
+
+    // Build time series (grouped by user group) - supports multiple metrics
     const timeSeries = sortedTimes.map(timeKey => {
       const periodData = timeData[timeKey];
 
@@ -814,64 +848,36 @@ router.get('/:id/history', async (req, res) => {
         }
       }
 
-      // Build data point
+      // Build data point with support for multiple metrics
       const dataPoint = { time: timeKey };
 
       for (const groupId in groupTotals) {
         const groupName = groupNames[groupId] || `Group ${groupId}`;
         const totals = groupTotals[groupId];
 
-        // Calculate metric value based on requested metric
-        let value = 0;
+        // Add values for each metric
+        for (const metricConfig of metricsToFetch) {
+          const metricName = metricConfig.metric;
+          const value = calculateMetricValue(metricName, totals);
 
-        switch (metric) {
-          case 'deals':
-            value = totals.totalDeals;
-            break;
-          case 'sms_rate':
-            value = totals.totalSmsSent > 0
-              ? Math.round((totals.totalSmsDelivered / totals.totalSmsSent) * 100)
-              : 0;
-            break;
-          case 'order_per_hour':
-            value = totals.totalLoginSeconds > 0
-              ? parseFloat(loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds))
-              : 0;
-            break;
-          default: // commission
-            value = Math.round(totals.totalCommission);
+          // Use naming convention: "GroupName_metric" for multiple metrics
+          const dataKey = metricsToFetch.length > 1
+            ? `${groupName}_${metricName}`
+            : groupName;
+
+          dataPoint[dataKey] = value;
         }
-
-        dataPoint[groupName] = value;
       }
 
       return dataPoint;
     });
 
-    // Get all groups (no topN filtering - show all groups)
+    // Get all groups with values for the primary metric (used for sorting/display)
+    const primaryMetric = metricsToFetch[0].metric;
     const allGroups = Object.entries(groupTotals)
       .map(([groupId, totals]) => {
         const groupName = groupNames[groupId] || `Group ${groupId}`;
-
-        let total = 0;
-        switch (metric) {
-          case 'deals':
-            total = totals.totalDeals;
-            break;
-          case 'sms_rate':
-            total = totals.totalSmsSent > 0
-              ? (totals.totalSmsDelivered / totals.totalSmsSent) * 100
-              : 0;
-            break;
-          case 'order_per_hour':
-            total = totals.totalLoginSeconds > 0
-              ? parseFloat(loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds))
-              : 0;
-            break;
-          default:
-            total = totals.totalCommission;
-        }
-
+        const total = calculateMetricValue(primaryMetric, totals);
         return { groupId, name: groupName, total };
       })
       .sort((a, b) => b.total - a.total);
@@ -887,7 +893,8 @@ router.get('/:id/history', async (req, res) => {
       timeSeries: filteredTimeSeries,
       topUsers: allGroups, // Changed from individual users to user groups
       groupBy: 'user_group', // Indicate that data is grouped by user group
-      metric: metric,
+      metrics: metricsToFetch, // Array of metric configs with axis info
+      metric: primaryMetric, // For backward compatibility
       groupedBy: groupByDay ? 'day' : 'hour',
       dateRange: {
         startDate: startDate.toISOString(),

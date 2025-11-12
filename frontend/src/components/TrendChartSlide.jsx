@@ -13,9 +13,14 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const {
     hours,
     days = 30, // Default to 30 days (monthly view)
-    metric = 'commission', // 'commission', 'deals', 'sms_rate', 'order_per_hour'
+    metric = 'commission', // Single metric (backward compatible)
+    metrics, // Array of metrics: [{ metric: 'commission', axis: 'left' }, { metric: 'sms_rate', axis: 'right' }]
     refreshInterval = 300000 // 5 minutes
   } = config;
+
+  // Determine metrics configuration
+  const metricsConfig = metrics || [{ metric, axis: 'left' }];
+  const hasMultipleMetrics = metricsConfig.length > 1;
 
   useEffect(() => {
     if (!isActive || !leaderboard) return;
@@ -23,13 +28,20 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const params = { metric };
+        const params = {};
 
         // Use days if provided, otherwise fall back to hours
         if (days) {
           params.days = days;
         } else if (hours) {
           params.hours = hours;
+        }
+
+        // Send metrics array if multiple metrics
+        if (hasMultipleMetrics) {
+          params.metrics = JSON.stringify(metricsConfig);
+        } else {
+          params.metric = metricsConfig[0].metric;
         }
 
         const response = await getLeaderboardHistory(leaderboard.id, params);
@@ -48,7 +60,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     // Auto-refresh
     const interval = setInterval(fetchData, refreshInterval);
     return () => clearInterval(interval);
-  }, [leaderboard, isActive, hours, days, metric, refreshInterval]);
+  }, [leaderboard, isActive, hours, days, JSON.stringify(metricsConfig), refreshInterval]);
 
   if (loading) {
     return (
@@ -87,10 +99,8 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     const groupedBy = data?.groupedBy || 'hour';
 
     if (groupedBy === 'day') {
-      // Show date for day-based data (e.g., "12 Nov")
       return date.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
     } else {
-      // Show time for hour-based data
       const now = new Date();
       const diffHours = Math.floor((now - date) / (1000 * 60 * 60));
 
@@ -101,53 +111,123 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     }
   };
 
-  const formatValue = (value) => {
-    switch (metric) {
+  const formatValueForMetric = (value, metricName) => {
+    switch (metricName) {
       case 'deals':
         return `${value} affärer`;
       case 'sms_rate':
         return `${value}%`;
       case 'order_per_hour':
         return `${value.toFixed(2)} affärer/h`;
+      case 'commission_per_hour':
+        return `${Math.round(value).toLocaleString('sv-SE')} THB/h`;
       default: // commission
-        return `${value.toLocaleString('sv-SE')} THB`;
+        return `${Math.round(value).toLocaleString('sv-SE')} THB`;
     }
   };
 
-  const getMetricLabel = () => {
-    switch (metric) {
+  const getMetricLabel = (metricName) => {
+    switch (metricName) {
       case 'deals':
         return 'Antal affärer';
       case 'sms_rate':
         return 'SMS Success Rate (%)';
       case 'order_per_hour':
         return 'Affärer per timme';
+      case 'commission_per_hour':
+        return 'Commission per timme (THB/h)';
       default:
         return 'Commission (THB)';
     }
   };
 
-  const metricLabel = getMetricLabel();
   const title = data?.leaderboard?.name || 'Trendanalys';
   const periodLabel = days ? `${days} dagar` : `${hours}h`;
 
-  // Get group names for the lines (excluding 'time')
+  // Get group names from topUsers
   const groupNames = data.topUsers.map(u => u.name);
+
+  // Build subtitle based on metrics
+  let subtitle;
+  if (hasMultipleMetrics) {
+    const metricLabels = metricsConfig.map(m => getMetricLabel(m.metric)).join(' + ');
+    subtitle = `${metricLabels} per User Group - Senaste ${periodLabel}`;
+  } else {
+    subtitle = `${getMetricLabel(metricsConfig[0].metric)} per User Group - Senaste ${periodLabel}`;
+  }
+
+  // Get unique data keys (for lines)
+  const firstDataPoint = data.timeSeries[0];
+  const dataKeys = Object.keys(firstDataPoint).filter(key => key !== 'time');
+
+  // Custom tooltip for multi-metric support
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload || !payload.length) return null;
+
+    return (
+      <div style={{
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        border: '1px solid #00B2E3',
+        borderRadius: '8px',
+        padding: '10px',
+        color: '#ffffff'
+      }}>
+        <p style={{ marginBottom: '5px', fontWeight: 'bold' }}>{formatTime(label)}</p>
+        {payload.map((entry, index) => {
+          // Extract metric from dataKey if multi-metric
+          let metricName = metricsConfig[0].metric;
+          if (hasMultipleMetrics) {
+            const parts = entry.dataKey.split('_');
+            metricName = parts[parts.length - 1];
+          }
+
+          return (
+            <p key={index} style={{ margin: '2px 0', color: entry.color }}>
+              {entry.name}: {formatValueForMetric(entry.value, metricName)}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Group lines by axis for dual Y-axis
+  const leftAxisKeys = [];
+  const rightAxisKeys = [];
+
+  if (hasMultipleMetrics) {
+    // Multi-metric mode: dataKey format is "GroupName_metric"
+    dataKeys.forEach(dataKey => {
+      const parts = dataKey.split('_');
+      const metricName = parts[parts.length - 1];
+      const metricConfig = metricsConfig.find(m => m.metric === metricName);
+
+      if (metricConfig && metricConfig.axis === 'right') {
+        rightAxisKeys.push(dataKey);
+      } else {
+        leftAxisKeys.push(dataKey);
+      }
+    });
+  } else {
+    // Single metric mode: dataKey is just groupName
+    leftAxisKeys.push(...dataKeys);
+  }
+
+  const leftMetric = metricsConfig.find(m => m.axis === 'left' || !m.axis) || metricsConfig[0];
+  const rightMetric = metricsConfig.find(m => m.axis === 'right');
 
   return (
     <div className="trend-chart-slide">
       <div className="trend-header">
         <h1>{title}</h1>
-        <p className="trend-subtitle">
-          {metricLabel} per User Group - Senaste {periodLabel}
-        </p>
+        <p className="trend-subtitle">{subtitle}</p>
       </div>
 
       <div className="trend-chart-container">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data.timeSeries}
-            margin={{ top: 20, right: 50, left: 50, bottom: 60 }}
+            margin={{ top: 20, right: rightMetric ? 80 : 50, left: 80, bottom: 60 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
             <XAxis
@@ -159,26 +239,37 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
               textAnchor="end"
               height={80}
             />
+
+            {/* Left Y-Axis */}
             <YAxis
+              yAxisId="left"
               stroke="#ffffff"
               tick={{ fill: '#ffffff', fontSize: 16 }}
               label={{
-                value: metricLabel,
+                value: getMetricLabel(leftMetric.metric),
                 angle: -90,
                 position: 'insideLeft',
-                style: { fill: '#ffffff', fontSize: 18, fontWeight: 'bold' }
+                style: { fill: '#ffffff', fontSize: 16, fontWeight: 'bold' }
               }}
             />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                border: '1px solid #00B2E3',
-                borderRadius: '8px',
-                color: '#ffffff'
-              }}
-              labelFormatter={formatTime}
-              formatter={(value) => formatValue(value)}
-            />
+
+            {/* Right Y-Axis (if dual metric) */}
+            {rightMetric && (
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                stroke="#ffffff"
+                tick={{ fill: '#ffffff', fontSize: 16 }}
+                label={{
+                  value: getMetricLabel(rightMetric.metric),
+                  angle: 90,
+                  position: 'insideRight',
+                  style: { fill: '#ffffff', fontSize: 16, fontWeight: 'bold' }
+                }}
+              />
+            )}
+
+            <Tooltip content={<CustomTooltip />} />
             <Legend
               wrapperStyle={{ paddingTop: '20px' }}
               iconType="line"
@@ -188,16 +279,35 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 </span>
               )}
             />
-            {groupNames.map((name, index) => (
+
+            {/* Render lines for left axis */}
+            {leftAxisKeys.map((dataKey, index) => (
               <Line
-                key={name}
+                key={dataKey}
+                yAxisId="left"
                 type="monotone"
-                dataKey={name}
+                dataKey={dataKey}
                 stroke={COLORS[index % COLORS.length]}
                 strokeWidth={3}
                 dot={{ r: 4 }}
                 activeDot={{ r: 6 }}
                 animationDuration={1000}
+              />
+            ))}
+
+            {/* Render lines for right axis */}
+            {rightAxisKeys.map((dataKey, index) => (
+              <Line
+                key={dataKey}
+                yAxisId="right"
+                type="monotone"
+                dataKey={dataKey}
+                stroke={COLORS[(leftAxisKeys.length + index) % COLORS.length]}
+                strokeWidth={3}
+                dot={{ r: 4 }}
+                activeDot={{ r: 6 }}
+                animationDuration={1000}
+                strokeDasharray="5 5" // Dashed line to differentiate from left axis
               />
             ))}
           </LineChart>
@@ -206,11 +316,11 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
 
       <div className="trend-footer">
         <div className="trend-leaders">
-          {data.topUsers.map((user, index) => (
-            <div key={user.userId} className="trend-leader-badge" style={{ borderColor: COLORS[index % COLORS.length] }}>
+          {data.topUsers.slice(0, 5).map((user, index) => (
+            <div key={user.groupId} className="trend-leader-badge" style={{ borderColor: COLORS[index % COLORS.length] }}>
               <span className="trend-rank">#{index + 1}</span>
               <span className="trend-name">{user.name}</span>
-              <span className="trend-total">{formatValue(user.total)}</span>
+              <span className="trend-total">{formatValueForMetric(user.total, metricsConfig[0].metric)}</span>
             </div>
           ))}
         </div>
