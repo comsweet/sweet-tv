@@ -571,21 +571,118 @@ class LoginTimeCache {
   /**
    * Get stats
    */
-  getStats() {
-    return {
-      cachedUsers: this.cache.size,
-      lastSync: this.lastSync,
-      syncIntervalMinutes: this.syncIntervalMinutes
-    };
+  async getStats() {
+    try {
+      const db = require('./postgres');
+
+      // Get database stats
+      const dbResult = await db.query('SELECT COUNT(*) as count FROM login_time_cache');
+      const totalRecords = parseInt(dbResult.rows[0]?.count || 0);
+
+      // Get today's record count
+      const today = new Date();
+      const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
+      const todayEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
+
+      const todayResult = await db.query(
+        'SELECT COUNT(*) as count FROM login_time_cache WHERE from_date >= $1 AND to_date <= $2',
+        [todayStart, todayEnd]
+      );
+      const todayRecords = parseInt(todayResult.rows[0]?.count || 0);
+
+      return {
+        cachedUsers: this.cache.size,
+        lastSync: this.lastSync,
+        lastTodaySync: this.lastTodaySync,
+        syncIntervalMinutes: this.syncIntervalMinutes,
+        totalRecords,
+        todayRecords,
+        ongoingSync: !!this.ongoingSync
+      };
+    } catch (error) {
+      console.error('❌ Error getting login time cache stats:', error);
+      return {
+        cachedUsers: this.cache.size,
+        lastSync: this.lastSync,
+        lastTodaySync: this.lastTodaySync,
+        syncIntervalMinutes: this.syncIntervalMinutes,
+        totalRecords: 0,
+        todayRecords: 0,
+        ongoingSync: !!this.ongoingSync
+      };
+    }
   }
 
   /**
-   * Clear cache
+   * Clear in-memory cache
    */
   clear() {
     const size = this.cache.size;
     this.cache.clear();
+    this.lastSync = null;
+    this.lastTodaySync = null;
     console.log(`🗑️  Cleared ${size} login time cache entries`);
+  }
+
+  /**
+   * Invalidate cache and reload from database
+   */
+  async invalidateCache() {
+    console.log('🔄 Invalidating login time cache...');
+    this.clear();
+
+    // Reload today's data from database
+    const db = require('./postgres');
+    const today = new Date();
+    const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
+    const todayEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
+
+    try {
+      const result = await db.query(
+        `SELECT user_id, from_date, to_date, login_seconds, fetched_at
+         FROM login_time_cache
+         WHERE from_date >= $1 AND to_date <= $2`,
+        [todayStart, todayEnd]
+      );
+
+      // Reload into cache
+      for (const row of result.rows) {
+        const cacheKey = `${row.user_id}-${row.from_date.toISOString()}-${row.to_date.toISOString()}`;
+        this.cache.set(cacheKey, {
+          data: {
+            loginSeconds: row.login_seconds,
+            fromDate: row.from_date,
+            toDate: row.to_date
+          },
+          timestamp: row.fetched_at
+        });
+      }
+
+      this.lastSync = new Date();
+      this.lastTodaySync = new Date();
+      console.log(`✅ Reloaded ${result.rows.length} today's records from database`);
+    } catch (error) {
+      console.error('❌ Error reloading cache from database:', error);
+    }
+  }
+
+  /**
+   * Force full resync from API
+   */
+  async forceSync(adversusAPI, userIds, fromDate, toDate) {
+    console.log(`🔄 Force syncing login time for ${userIds.length} users...`);
+    this.clear();
+    return await this.syncLoginTimeForUsers(adversusAPI, userIds, fromDate, toDate);
+  }
+
+  /**
+   * Clear database
+   */
+  async clearDatabase() {
+    const db = require('./postgres');
+    await db.query('TRUNCATE TABLE login_time_cache CASCADE');
+    this.clear();
+    console.log('🗑️  Cleared login time database and cache');
   }
 }
 
