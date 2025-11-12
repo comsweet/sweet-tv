@@ -7,15 +7,25 @@ class AdversusAPI {
     this.username = process.env.ADVERSUS_USERNAME;
     this.password = process.env.ADVERSUS_PASSWORD;
     this.auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
-    
+
     // Rate limiting
     this.lastRequestTime = 0;
     this.minRequestInterval = 3000; // 3s mellan requests (Adversus burst limit är sträng!)
-    
+
     // Concurrent request limiting (max 2 samtidigt)
     this.requestQueue = [];
     this.activeRequests = 0;
     this.maxConcurrent = 2;
+
+    // 🛡️ User cache - fallback when rate limited
+    this.lastSuccessfulUsers = null;
+    this.lastSuccessfulUsersTimestamp = 0;
+    this.usersCacheMaxAge = 5 * 60 * 1000; // 5 minutes
+
+    // 🛡️ Groups cache - fallback when rate limited
+    this.lastSuccessfulGroups = null;
+    this.lastSuccessfulGroupsTimestamp = 0;
+    this.groupsCacheMaxAge = 5 * 60 * 1000; // 5 minutes
   }
 
   async waitForRateLimit() {
@@ -290,12 +300,40 @@ class AdversusAPI {
       includeMeta: true,
       ...params
     };
-    
+
     console.log('👥 Fetching all users...');
-    const response = await this.request('/users', defaultParams);
-    console.log(`   ✅ Got ${response.users?.length || 0} users\n`);
-    
-    return response;
+
+    try {
+      const response = await this.request('/users', defaultParams);
+      console.log(`   ✅ Got ${response.users?.length || 0} users\n`);
+
+      // 🛡️ Cache successful response
+      if (response.users && response.users.length > 0) {
+        this.lastSuccessfulUsers = response;
+        this.lastSuccessfulUsersTimestamp = Date.now();
+        console.log(`   💾 Cached ${response.users.length} users as fallback`);
+      }
+
+      return response;
+
+    } catch (error) {
+      // 🆘 FALLBACK: Use cached users if rate limited
+      if (error.message === 'RATE_LIMIT_EXCEEDED' && this.lastSuccessfulUsers) {
+        const cacheAge = Date.now() - this.lastSuccessfulUsersTimestamp;
+        const cacheAgeMinutes = Math.round(cacheAge / 1000 / 60);
+
+        if (cacheAge <= this.usersCacheMaxAge) {
+          console.warn(`   🆘 Rate limited! Using CACHED users (${cacheAgeMinutes} min old, ${this.lastSuccessfulUsers.users.length} users)`);
+          return this.lastSuccessfulUsers;
+        } else {
+          console.error(`   ❌ Rate limited AND cache expired (${cacheAgeMinutes} min old) - returning empty`);
+          return { users: [], meta: {} };
+        }
+      }
+
+      // For other errors, throw
+      throw error;
+    }
   }
 
  async getSMS(filters = {}, page = 1, pageSize = 1000) {
@@ -334,10 +372,38 @@ class AdversusAPI {
     };
 
     console.log('👥 Fetching all groups...');
-    const response = await this.request('/groups', defaultParams);
-    console.log(`   ✅ Got ${response.groups?.length || 0} groups\n`);
 
-    return response;
+    try {
+      const response = await this.request('/groups', defaultParams);
+      console.log(`   ✅ Got ${response.groups?.length || 0} groups\n`);
+
+      // 🛡️ Cache successful response
+      if (response.groups && response.groups.length > 0) {
+        this.lastSuccessfulGroups = response;
+        this.lastSuccessfulGroupsTimestamp = Date.now();
+        console.log(`   💾 Cached ${response.groups.length} groups as fallback`);
+      }
+
+      return response;
+
+    } catch (error) {
+      // 🆘 FALLBACK: Use cached groups if rate limited
+      if (error.message === 'RATE_LIMIT_EXCEEDED' && this.lastSuccessfulGroups) {
+        const cacheAge = Date.now() - this.lastSuccessfulGroupsTimestamp;
+        const cacheAgeMinutes = Math.round(cacheAge / 1000 / 60);
+
+        if (cacheAge <= this.groupsCacheMaxAge) {
+          console.warn(`   🆘 Rate limited! Using CACHED groups (${cacheAgeMinutes} min old, ${this.lastSuccessfulGroups.groups.length} groups)`);
+          return this.lastSuccessfulGroups;
+        } else {
+          console.error(`   ❌ Rate limited AND cache expired (${cacheAgeMinutes} min old) - returning empty`);
+          return { groups: [], meta: {} };
+        }
+      }
+
+      // For other errors, throw
+      throw error;
+    }
   }
 
   // Alias for clarity - same as getUserGroups
