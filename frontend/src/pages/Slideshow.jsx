@@ -418,6 +418,7 @@ const Slideshow = () => {
   const refreshIntervalRef = useRef(null);
   const lastOptimisticUpdateRef = useRef(0); // Track last optimistic update
   const ongoingRefreshRef = useRef(null); // Lock to prevent concurrent refreshes
+  const lastSuccessfulDataRef = useRef([]); // Keep last successful data as backup
 
   // 🔄 NEW: Silent stats refresh without affecting scroll
   const refreshStatsOnly = async () => {
@@ -520,13 +521,12 @@ const Slideshow = () => {
             }
           } catch (error) {
             console.error(`   ❌ Error refreshing leaderboard ${lbId}:`, error.message);
-            // On error, keep existing data for this slide (don't push empty data)
-            // Find existing slide data
-            const existingSlide = leaderboardsData.find(s =>
+            // On error, use last successful data for this slide (don't push empty data)
+            const existingSlide = lastSuccessfulDataRef.current.find(s =>
               s.type === 'leaderboard' && s.leaderboard?.id === lbId
             );
             if (existingSlide) {
-              console.log(`   📦 Using cached data for ${lbId} due to error`);
+              console.log(`   📦 Using backup data for ${lbId} due to error`);
               leaderboardsWithStats.push(existingSlide);
             }
           }
@@ -535,6 +535,9 @@ const Slideshow = () => {
 
       // 🛡️ SAFETY: Only update if we got valid data for all slides
       if (leaderboardsWithStats.length === slidesConfig.length) {
+        // Save as last successful data before updating state
+        lastSuccessfulDataRef.current = leaderboardsWithStats;
+
         // Update ONLY the leaderboardsData state - do NOT touch refreshKey!
         setLeaderboardsData(leaderboardsWithStats);
         console.log('✅ Stats refreshed silently - scroll position preserved');
@@ -726,8 +729,9 @@ const Slideshow = () => {
         }
 
         console.log(`✅ Setting ${leaderboardsWithStats.length} slides to state...`);
+        lastSuccessfulDataRef.current = leaderboardsWithStats; // Save as backup
         setLeaderboardsData(leaderboardsWithStats);
-      
+
       console.log(`🔑 Updating refreshKey from ${refreshKey} to ${refreshKey + 1}`);
       setRefreshKey(prev => prev + 1);
       

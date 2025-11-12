@@ -42,8 +42,10 @@ export const useLeaderboards = () => {
     goalLabel: '',
     // Auto-scroll configuration
     enableAutoScroll: true,
-    // Logo for this leaderboard (brand/company specific)
-    logo: null
+    // Logos
+    brandLogo: null, // Left side - varumärke
+    companyLogo: null, // Right side - företag
+    logo: null // Legacy fallback
   });
 
   const fetchLeaderboards = async () => {
@@ -87,7 +89,9 @@ export const useLeaderboards = () => {
       goalLabel: '',
       // Auto-scroll configuration
       enableAutoScroll: true,
-      // Logo for this leaderboard
+      // Logos
+      brandLogo: null,
+      companyLogo: null,
       logo: null
     });
     setShowModal(true);
@@ -124,7 +128,9 @@ export const useLeaderboards = () => {
       goalLabel: leaderboard.goalLabel || '',
       // Auto-scroll configuration
       enableAutoScroll: leaderboard.enableAutoScroll !== undefined ? leaderboard.enableAutoScroll : true,
-      // Logo for this leaderboard
+      // Logos
+      brandLogo: leaderboard.brandLogo || null,
+      companyLogo: leaderboard.companyLogo || null,
       logo: leaderboard.logo || null
     });
     setShowModal(true);
