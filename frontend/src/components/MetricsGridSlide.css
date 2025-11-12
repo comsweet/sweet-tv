@@ -35,10 +35,10 @@
 .metrics-table-container {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Changed from center to allow scale from top */
   justify-content: center;
   padding: 1rem 0;
-  overflow: auto;
+  overflow: hidden; /* Changed from auto to prevent scrollbars */
 }
 
 .metrics-table {
@@ -246,29 +246,29 @@
   font-size: 3.2rem;
 }
 
-/* Extra Large - 4K TVs */
+/* Extra Large - 4K TVs (optimized to avoid overflow) */
 .metrics-grid-slide.xlarge .metrics-grid-header h1 {
-  font-size: 5rem;
+  font-size: 4rem; /* Reduced from 5rem */
 }
 
 .metrics-grid-slide.xlarge .metrics-table th {
-  font-size: 3.2rem;
-  padding: 2rem 3rem;
+  font-size: 2.8rem; /* Reduced from 3.2rem */
+  padding: 1.5rem 2.5rem; /* Reduced padding */
 }
 
 .metrics-grid-slide.xlarge .metrics-table th.metric-name-header {
-  min-width: 350px;
+  min-width: 300px; /* Reduced from 350px */
 }
 
 .metrics-grid-slide.xlarge .metrics-table td {
-  font-size: 3.4rem;
-  padding: 2rem 3rem;
+  font-size: 3rem; /* Reduced from 3.4rem */
+  padding: 1.5rem 2.5rem; /* Reduced padding */
 }
 
 .metrics-grid-slide.xlarge .metrics-table td.metric-name {
-  font-size: 3.2rem;
+  font-size: 2.8rem; /* Reduced from 3.2rem */
 }
 
 .metrics-grid-slide.xlarge .metrics-table td.metric-value {
-  font-size: 4rem;
+  font-size: 3.5rem; /* Reduced from 4rem */
 }
