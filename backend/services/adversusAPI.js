@@ -112,8 +112,8 @@ class AdversusAPI {
       }
 
       if (error.response?.status === 429) {
-        console.error('⏰ Rate limit exceeded - backing off');
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.error('⏰ Rate limit exceeded - backing off for 10 seconds');
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Wait longer
         throw new Error('RATE_LIMIT_EXCEEDED');
       }
 
