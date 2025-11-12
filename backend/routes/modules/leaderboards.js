@@ -112,8 +112,8 @@ router.get('/:id/stats', async (req, res) => {
     let adversusUsers = [];
     let localAgents = [];
 
-    // Use cached users instead of making API call
-    adversusUsers = userCache.getUsers();
+    // Use cached users with fallback to API if not initialized
+    adversusUsers = await userCache.getUsers({ adversusAPI });
 
     try {
       localAgents = await database.getAgents();
@@ -648,8 +648,8 @@ router.get('/:id/history', async (req, res) => {
 
     // Get users
     let adversusUsers = [];
-    // Use cached users instead of making API call
-    adversusUsers = userCache.getUsers();
+    // Use cached users with fallback to API if not initialized
+    adversusUsers = await userCache.getUsers({ adversusAPI });
 
     // Filter by user groups if specified
     let filteredDeals = cachedDeals;
@@ -939,8 +939,8 @@ router.get('/:id/recent-sms', async (req, res) => {
 
     // Get users for name mapping
     let adversusUsers = [];
-    // Use cached users instead of making API call
-    adversusUsers = userCache.getUsers();
+    // Use cached users with fallback to API if not initialized
+    adversusUsers = await userCache.getUsers({ adversusAPI });
 
     // Filter by user groups if specified
     let filteredSMS = cachedSMS;
@@ -1109,8 +1109,8 @@ router.get('/:id/group-metrics', async (req, res) => {
     let adversusUsers = [];
     let adversusGroups = [];
 
-    // Use cached users instead of making API call
-    adversusUsers = userCache.getUsers();
+    // Use cached users with fallback to API if not initialized
+    adversusUsers = await userCache.getUsers({ adversusAPI });
 
     try {
       const groupsResult = await adversusAPI.getUserGroups();
