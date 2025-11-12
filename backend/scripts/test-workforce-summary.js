@@ -26,19 +26,32 @@ async function getWorkforceSummary() {
       }
     });
 
-    // Check response structure
+    // Response is NDJSON (newline-delimited JSON) - each line is a separate JSON object
     let records = [];
-    if (Array.isArray(response)) {
+
+    if (typeof response === 'string') {
+      // Split by newlines and parse each line as JSON
+      const lines = response.trim().split('\n');
+      records = lines.map(line => {
+        try {
+          return JSON.parse(line);
+        } catch (err) {
+          console.warn('⚠️  Failed to parse line:', line.substring(0, 100));
+          return null;
+        }
+      }).filter(r => r !== null);
+
+      // Filter for our specific user
+      records = records.filter(r => r.userid === parseInt(testUserId) || r.userId === parseInt(testUserId));
+
+    } else if (Array.isArray(response)) {
       records = response;
     } else if (response.data && Array.isArray(response.data)) {
       records = response.data;
-    } else if (response.records && Array.isArray(response.records)) {
-      records = response.records;
     } else {
       console.log('⚠️  Unexpected response structure. Showing first 500 chars:');
       console.log(JSON.stringify(response).substring(0, 500));
       console.log('\nFull response type:', typeof response);
-      console.log('Response keys:', Object.keys(response));
       process.exit(1);
     }
 
