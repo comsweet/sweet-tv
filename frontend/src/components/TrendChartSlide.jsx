@@ -11,9 +11,10 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const [error, setError] = useState(null);
 
   const {
-    hours = 24,
+    hours,
+    days = 30, // Default to 30 days (monthly view)
     topN = 5,
-    metric = 'commission', // 'commission' or 'deals'
+    metric = 'commission', // 'commission', 'deals', 'sms_rate', 'order_per_hour'
     refreshInterval = 300000 // 5 minutes
   } = config;
 
@@ -23,11 +24,16 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await getLeaderboardHistory(leaderboard.id, {
-          hours,
-          topN,
-          metric
-        });
+        const params = { topN, metric };
+
+        // Use days if provided, otherwise fall back to hours
+        if (days) {
+          params.days = days;
+        } else if (hours) {
+          params.hours = hours;
+        }
+
+        const response = await getLeaderboardHistory(leaderboard.id, params);
         setData(response.data);
         setError(null);
       } catch (err) {
@@ -43,7 +49,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     // Auto-refresh
     const interval = setInterval(fetchData, refreshInterval);
     return () => clearInterval(interval);
-  }, [leaderboard, isActive, hours, topN, metric, refreshInterval]);
+  }, [leaderboard, isActive, hours, days, topN, metric, refreshInterval]);
 
   if (loading) {
     return (
@@ -79,24 +85,52 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
 
   const formatTime = (timeString) => {
     const date = new Date(timeString);
-    const now = new Date();
-    const diffHours = Math.floor((now - date) / (1000 * 60 * 60));
+    const groupedBy = data?.groupedBy || 'hour';
 
-    if (diffHours < 24) {
-      return date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+    if (groupedBy === 'day') {
+      // Show date for day-based data (e.g., "12 Nov")
+      return date.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
+    } else {
+      // Show time for hour-based data
+      const now = new Date();
+      const diffHours = Math.floor((now - date) / (1000 * 60 * 60));
+
+      if (diffHours < 24) {
+        return date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+      }
+      return date.toLocaleDateString('sv-SE', { month: 'short', day: 'numeric', hour: '2-digit' });
     }
-    return date.toLocaleDateString('sv-SE', { month: 'short', day: 'numeric', hour: '2-digit' });
   };
 
   const formatValue = (value) => {
-    if (metric === 'deals') {
-      return value;
+    switch (metric) {
+      case 'deals':
+        return `${value} affärer`;
+      case 'sms_rate':
+        return `${value}%`;
+      case 'order_per_hour':
+        return `${value.toFixed(2)} affärer/h`;
+      default: // commission
+        return `${value.toLocaleString('sv-SE')} THB`;
     }
-    return `${value.toLocaleString('sv-SE')} THB`;
   };
 
-  const metricLabel = metric === 'deals' ? 'Antal affärer' : 'Commission (THB)';
-  const title = data.leaderboard?.name || 'Trendanalys';
+  const getMetricLabel = () => {
+    switch (metric) {
+      case 'deals':
+        return 'Antal affärer';
+      case 'sms_rate':
+        return 'SMS Success Rate (%)';
+      case 'order_per_hour':
+        return 'Affärer per timme';
+      default:
+        return 'Commission (THB)';
+    }
+  };
+
+  const metricLabel = getMetricLabel();
+  const title = data?.leaderboard?.name || 'Trendanalys';
+  const periodLabel = days ? `${days} dagar` : `${hours}h`;
 
   // Get user names for the lines (excluding 'time')
   const userNames = data.topUsers.map(u => u.name);
@@ -106,7 +140,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
       <div className="trend-header">
         <h1>{title}</h1>
         <p className="trend-subtitle">
-          Top {topN} - {metricLabel} - Senaste {hours}h
+          Top {topN} - {metricLabel} - Senaste {periodLabel}
         </p>
       </div>
 

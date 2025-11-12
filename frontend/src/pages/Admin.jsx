@@ -10,6 +10,7 @@ import AdminAgents from '../components/AdminAgents';
 import AdminGroups from '../components/AdminGroups';
 import AdminLeaderboards from '../components/AdminLeaderboards';
 import AdminSlideshows from '../components/AdminSlideshows';
+import AdminTeamBattles from '../components/AdminTeamBattles';
 import AdminQuotes from '../components/AdminQuotes';
 import AdminSounds from '../components/AdminSounds';
 import AdminStats from '../components/AdminStats';
@@ -35,6 +36,7 @@ const Admin = () => {
     { id: 'groups', icon: '👨‍👩‍👧‍👦', label: 'Groups', section: 'content' },
     { id: 'leaderboards', icon: '🏆', label: 'Leaderboards', section: 'content' },
     { id: 'slideshows', icon: '🎬', label: 'Slideshows', section: 'content' },
+    { id: 'teamBattles', icon: '⚔️', label: 'Team Battles', section: 'content' },
     { id: 'quotes', icon: '💬', label: 'Quotes', section: 'content' },
     { id: 'sounds', icon: '🔊', label: 'Ljud', section: 'content' },
     { id: 'notifications', icon: '🔔', label: 'Notis', section: 'content' },
@@ -135,6 +137,7 @@ const Admin = () => {
           {activeTab === 'groups' && <AdminGroups />}
           {activeTab === 'leaderboards' && <AdminLeaderboards />}
           {activeTab === 'slideshows' && <AdminSlideshows />}
+          {activeTab === 'teamBattles' && <AdminTeamBattles />}
           {activeTab === 'quotes' && <AdminQuotes />}
           {activeTab === 'sounds' && <AdminSounds />}
           {activeTab === 'notifications' && <NotificationSettingsAdmin />}

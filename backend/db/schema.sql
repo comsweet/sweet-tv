@@ -261,3 +261,71 @@ CREATE TABLE IF NOT EXISTS user_login_time (
 CREATE INDEX IF NOT EXISTS idx_login_time_user_id ON user_login_time(user_id);
 CREATE INDEX IF NOT EXISTS idx_login_time_date_range ON user_login_time(from_date, to_date);
 CREATE INDEX IF NOT EXISTS idx_login_time_synced_at ON user_login_time(synced_at);
+
+-- ==================== TEAM BATTLES ====================
+
+-- Team battles table (competition between 2-4 teams)
+CREATE TABLE IF NOT EXISTS team_battles (
+  id SERIAL PRIMARY KEY,
+  leaderboard_id INTEGER REFERENCES leaderboards(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  start_date TIMESTAMP NOT NULL,
+  end_date TIMESTAMP NOT NULL,
+
+  -- Victory condition: how to determine the winner
+  victory_condition VARCHAR(50) NOT NULL CHECK (victory_condition IN ('first_to_target', 'highest_at_end', 'best_average')),
+
+  -- Victory metric: what to measure
+  victory_metric VARCHAR(50) NOT NULL CHECK (victory_metric IN ('commission', 'deals', 'order_per_hour', 'sms_rate')),
+
+  -- Target value (only used for first_to_target)
+  target_value DECIMAL(10, 2),
+
+  -- Status
+  is_active BOOLEAN DEFAULT true,
+  winner_team_id INTEGER, -- Will reference team_battle_teams(id) after creation
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Team battle teams table (2-4 teams per battle)
+CREATE TABLE IF NOT EXISTS team_battle_teams (
+  id SERIAL PRIMARY KEY,
+  battle_id INTEGER REFERENCES team_battles(id) ON DELETE CASCADE,
+  team_name VARCHAR(255) NOT NULL,
+  team_emoji VARCHAR(10), -- Optional emoji (🇹🇭, 🇸🇪, etc)
+  color VARCHAR(7) NOT NULL, -- Hex color (#FF6B6B)
+  user_group_ids INTEGER[] NOT NULL, -- Array of Adversus group IDs
+  display_order INTEGER DEFAULT 0,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  -- Ensure unique team names within a battle
+  UNIQUE(battle_id, team_name)
+);
+
+-- Add foreign key for winner after team_battle_teams is created
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_team_battles_winner'
+  ) THEN
+    ALTER TABLE team_battles
+    ADD CONSTRAINT fk_team_battles_winner
+    FOREIGN KEY (winner_team_id) REFERENCES team_battle_teams(id) ON DELETE SET NULL;
+  END IF;
+END$$;
+
+-- Indexes for team battles
+CREATE INDEX IF NOT EXISTS idx_team_battles_leaderboard_id ON team_battles(leaderboard_id);
+CREATE INDEX IF NOT EXISTS idx_team_battles_is_active ON team_battles(is_active);
+CREATE INDEX IF NOT EXISTS idx_team_battles_dates ON team_battles(start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_team_battle_teams_battle_id ON team_battle_teams(battle_id);
+
+-- Trigger for updated_at on team_battles
+DROP TRIGGER IF EXISTS update_team_battles_updated_at ON team_battles;
+CREATE TRIGGER update_team_battles_updated_at BEFORE UPDATE ON team_battles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

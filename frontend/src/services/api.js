@@ -113,6 +113,7 @@ export const updateLeaderboard = (id, data) => api.put(`/leaderboards/${id}`, da
 export const deleteLeaderboard = (id) => api.delete(`/leaderboards/${id}`);
 export const getLeaderboardStats2 = (id) => api.get(`/leaderboards/${id}/stats`);
 export const getLeaderboardHistory = (id, params) => api.get(`/leaderboards/${id}/history`, { params });
+export const getRecentSMS = (id, params) => api.get(`/leaderboards/${id}/recent-sms`, { params });
 export const getGroupMetrics = (id) => api.get(`/leaderboards/${id}/group-metrics`);
 export const migrateLeaderboardsDealsPerHour = () => api.post('/leaderboards/migrate/add-deals-per-hour');
 
@@ -223,5 +224,13 @@ export const uploadLogoToLibrary = (formData) => api.post('/logos/library', form
 });
 export const updateLogoInLibrary = (id, data) => api.put(`/logos/library/${id}`, data);
 export const deleteLogoFromLibrary = (id) => api.delete(`/logos/library/${id}`);
+
+// Team Battles
+export const getTeamBattles = () => api.get('/team-battles');
+export const getTeamBattle = (id) => api.get(`/team-battles/${id}`);
+export const createTeamBattle = (data) => api.post('/team-battles', data);
+export const updateTeamBattle = (id, data) => api.put(`/team-battles/${id}`, data);
+export const deleteTeamBattle = (id) => api.delete(`/team-battles/${id}`);
+export const getTeamBattleLiveScore = (id) => api.get(`/team-battles/${id}/live-score`);
 
 export default api;

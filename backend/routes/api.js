@@ -21,6 +21,7 @@ const thresholdsRouter = require('./modules/thresholds');
 const monitoringRouter = require('./modules/monitoring');
 const tvCodesRouter = require('./modules/tvCodes');
 const adminRouter = require('./modules/admin');
+const teamBattlesRouter = require('./modules/team-battles');
 
 // Mount all modular routes
 router.use('/auth', authRouter);
@@ -40,6 +41,7 @@ router.use('/thresholds', thresholdsRouter);
 router.use('/monitoring', monitoringRouter);
 router.use('/tv-codes', tvCodesRouter);
 router.use('/admin', adminRouter);
+router.use('/team-battles', teamBattlesRouter);
 
 // ==================== CORE ENDPOINTS ====================
 
