@@ -603,7 +603,13 @@ router.put('/:id', async (req, res) => {
 router.get('/:id/history', async (req, res) => {
   try {
     const leaderboardId = req.params.id;
-    const { hours = 24, topN = 5, metric = 'commission' } = req.query;
+    const {
+      hours,
+      days,
+      topN = 5,
+      metric = 'commission',
+      metrics // Optional: comma-separated list for multi-metric
+    } = req.query;
 
     // Get leaderboard config
     const leaderboard = await leaderboardService.getLeaderboard(leaderboardId);
@@ -611,15 +617,25 @@ router.get('/:id/history', async (req, res) => {
       return res.status(404).json({ error: 'Leaderboard not found' });
     }
 
-    // Calculate date range (last N hours)
+    // Calculate date range
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setHours(startDate.getHours() - parseInt(hours));
+
+    // Support both hours (old) and days (new)
+    if (days) {
+      startDate.setDate(startDate.getDate() - parseInt(days));
+    } else {
+      startDate.setHours(startDate.getHours() - parseInt(hours || 24));
+    }
+
+    const groupByDay = !!days; // Group by day if days param is used
 
     console.log(`📈 [${leaderboard.name}] Fetching history from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`   📊 Grouping by: ${groupByDay ? 'DAY' : 'HOUR'}, Metrics: ${metrics || metric}`);
 
-    // Get deals from cache
+    // Get data from caches
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
+    const cachedSMS = await smsCache.getSMSInRange(startDate, endDate);
 
     // Get users
     let adversusUsers = [];
@@ -632,74 +648,170 @@ router.get('/:id/history', async (req, res) => {
 
     // Filter by user groups if specified
     let filteredDeals = cachedDeals;
+    let filteredSMS = cachedSMS;
+    let allowedUserIds = [];
+
     if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
       const normalizedGroups = leaderboard.userGroups.map(g => String(g));
-      const allowedUserIds = adversusUsers
+      allowedUserIds = adversusUsers
         .filter(u => u.group && u.group.id && normalizedGroups.includes(String(u.group.id)))
         .map(u => String(u.id));
 
       filteredDeals = cachedDeals.filter(deal =>
         allowedUserIds.includes(String(deal.userId))
       );
+      filteredSMS = cachedSMS.filter(sms =>
+        allowedUserIds.includes(String(sms.userId))
+      );
+    } else {
+      allowedUserIds = adversusUsers.map(u => String(u.id));
     }
 
-    // Group deals by hour and userId
-    const hourlyData = {};
+    // Group data by time period (hour or day)
+    const timeData = {};
 
     for (const deal of filteredDeals) {
       const dealDate = new Date(deal.orderDate);
-      const hourKey = new Date(dealDate.getFullYear(), dealDate.getMonth(), dealDate.getDate(), dealDate.getHours()).toISOString();
-      const userId = String(deal.userId);
+      let timeKey;
 
-      if (!hourlyData[hourKey]) {
-        hourlyData[hourKey] = {};
+      if (groupByDay) {
+        timeKey = new Date(dealDate.getFullYear(), dealDate.getMonth(), dealDate.getDate()).toISOString();
+      } else {
+        timeKey = new Date(dealDate.getFullYear(), dealDate.getMonth(), dealDate.getDate(), dealDate.getHours()).toISOString();
       }
 
-      if (!hourlyData[hourKey][userId]) {
-        hourlyData[hourKey][userId] = {
+      const userId = String(deal.userId);
+
+      if (!timeData[timeKey]) {
+        timeData[timeKey] = {};
+      }
+
+      if (!timeData[timeKey][userId]) {
+        timeData[timeKey][userId] = {
           commission: 0,
-          deals: 0
+          deals: 0,
+          loginSeconds: 0,
+          smsSent: 0,
+          smsDelivered: 0
         };
       }
 
-      hourlyData[hourKey][userId].commission += parseFloat(deal.commission || 0);
-      hourlyData[hourKey][userId].deals += parseInt(deal.multiDeals || '1');
+      timeData[timeKey][userId].commission += parseFloat(deal.commission || 0);
+      timeData[timeKey][userId].deals += parseInt(deal.multiDeals || '1');
     }
 
-    // Calculate cumulative totals for each user
-    const userTotals = {};
-    const sortedHours = Object.keys(hourlyData).sort();
+    // Add SMS data
+    for (const sms of filteredSMS) {
+      const smsDate = new Date(sms.timestamp);
+      let timeKey;
 
-    for (const userId of new Set(filteredDeals.map(d => String(d.userId)))) {
+      if (groupByDay) {
+        timeKey = new Date(smsDate.getFullYear(), smsDate.getMonth(), smsDate.getDate()).toISOString();
+      } else {
+        timeKey = new Date(smsDate.getFullYear(), smsDate.getMonth(), smsDate.getDate(), smsDate.getHours()).toISOString();
+      }
+
+      const userId = String(sms.userId);
+
+      if (!timeData[timeKey]) {
+        timeData[timeKey] = {};
+      }
+
+      if (!timeData[timeKey][userId]) {
+        timeData[timeKey][userId] = {
+          commission: 0,
+          deals: 0,
+          loginSeconds: 0,
+          smsSent: 0,
+          smsDelivered: 0
+        };
+      }
+
+      timeData[timeKey][userId].smsSent += sms.count || 1;
+      if (sms.status === 'delivered') {
+        timeData[timeKey][userId].smsDelivered += sms.count || 1;
+      }
+    }
+
+    // Add login time data for each time period
+    const sortedTimes = Object.keys(timeData).sort();
+
+    for (const timeKey of sortedTimes) {
+      const periodStart = new Date(timeKey);
+      const periodEnd = new Date(timeKey);
+
+      if (groupByDay) {
+        periodEnd.setDate(periodEnd.getDate() + 1);
+      } else {
+        periodEnd.setHours(periodEnd.getHours() + 1);
+      }
+
+      for (const userId of allowedUserIds) {
+        if (timeData[timeKey][userId]) {
+          const loginTime = await loginTimeCache.getLoginTime(userId, periodStart, periodEnd);
+          timeData[timeKey][userId].loginSeconds = loginTime?.loginSeconds || 0;
+        }
+      }
+    }
+
+    // Calculate cumulative or average values per metric
+    const userTotals = {};
+
+    for (const userId of new Set([...filteredDeals.map(d => String(d.userId)), ...filteredSMS.map(s => String(s.userId))])) {
       userTotals[userId] = {
         totalCommission: 0,
-        totalDeals: 0
+        totalDeals: 0,
+        totalLoginSeconds: 0,
+        totalSmsSent: 0,
+        totalSmsDelivered: 0
       };
     }
 
     // Build time series
-    const timeSeries = sortedHours.map(hourKey => {
-      const hour = hourlyData[hourKey];
+    const timeSeries = sortedTimes.map(timeKey => {
+      const periodData = timeData[timeKey];
 
       // Update cumulative totals
-      for (const userId in hour) {
+      for (const userId in periodData) {
         if (userTotals[userId]) {
-          userTotals[userId].totalCommission += hour[userId].commission;
-          userTotals[userId].totalDeals += hour[userId].deals;
+          userTotals[userId].totalCommission += periodData[userId].commission;
+          userTotals[userId].totalDeals += periodData[userId].deals;
+          userTotals[userId].totalLoginSeconds += periodData[userId].loginSeconds;
+          userTotals[userId].totalSmsSent += periodData[userId].smsSent;
+          userTotals[userId].totalSmsDelivered += periodData[userId].smsDelivered;
         }
       }
 
-      // Build data point with cumulative values
-      const dataPoint = { time: hourKey };
+      // Build data point
+      const dataPoint = { time: timeKey };
+
       for (const userId in userTotals) {
         const adversusUser = adversusUsers.find(u => String(u.id) === userId);
         const userName = adversusUser?.name || adversusUser?.firstname || `Agent ${userId}`;
+        const totals = userTotals[userId];
 
-        if (metric === 'deals') {
-          dataPoint[userName] = userTotals[userId].totalDeals;
-        } else {
-          dataPoint[userName] = Math.round(userTotals[userId].totalCommission);
+        // Calculate metric value based on requested metric
+        let value = 0;
+
+        switch (metric) {
+          case 'deals':
+            value = totals.totalDeals;
+            break;
+          case 'sms_rate':
+            value = totals.totalSmsSent > 0
+              ? Math.round((totals.totalSmsDelivered / totals.totalSmsSent) * 100)
+              : 0;
+            break;
+          case 'order_per_hour':
+            value = totals.totalLoginSeconds > 0
+              ? parseFloat(loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds))
+              : 0;
+            break;
+          default: // commission
+            value = Math.round(totals.totalCommission);
         }
+
+        dataPoint[userName] = value;
       }
 
       return dataPoint;
@@ -709,11 +821,28 @@ router.get('/:id/history', async (req, res) => {
     const finalTotals = Object.entries(userTotals)
       .map(([userId, totals]) => {
         const adversusUser = adversusUsers.find(u => String(u.id) === userId);
-        return {
-          userId,
-          name: adversusUser?.name || adversusUser?.firstname || `Agent ${userId}`,
-          total: metric === 'deals' ? totals.totalDeals : totals.totalCommission
-        };
+        const userName = adversusUser?.name || adversusUser?.firstname || `Agent ${userId}`;
+
+        let total = 0;
+        switch (metric) {
+          case 'deals':
+            total = totals.totalDeals;
+            break;
+          case 'sms_rate':
+            total = totals.totalSmsSent > 0
+              ? (totals.totalSmsDelivered / totals.totalSmsSent) * 100
+              : 0;
+            break;
+          case 'order_per_hour':
+            total = totals.totalLoginSeconds > 0
+              ? parseFloat(loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds))
+              : 0;
+            break;
+          default:
+            total = totals.totalCommission;
+        }
+
+        return { userId, name: userName, total };
       })
       .sort((a, b) => b.total - a.total)
       .slice(0, parseInt(topN));
@@ -736,6 +865,7 @@ router.get('/:id/history', async (req, res) => {
       timeSeries: filteredTimeSeries,
       topUsers: finalTotals,
       metric: metric,
+      groupedBy: groupByDay ? 'day' : 'hour',
       dateRange: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
