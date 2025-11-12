@@ -10,25 +10,9 @@
   color: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 2rem;
+  padding: 1rem; /* Reduced from 2rem to use more space */
   box-sizing: border-box;
   overflow: hidden;
-}
-
-/* Header */
-.metrics-grid-header {
-  text-align: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-.metrics-grid-header h1 {
-  font-size: 3rem;
-  font-weight: 700;
-  margin: 0;
-  color: #ffffff; /* Vit istället för gradient */
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 /* Modern Table Layout */
@@ -57,8 +41,23 @@
   background: rgba(0, 0, 0, 0.5);
 }
 
+/* Title row - integrated into table */
+.metrics-table thead tr.title-row {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.metrics-table thead tr.title-row th.table-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  padding: 1rem;
+  text-align: center;
+  color: #ffffff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  border-bottom: 3px solid rgba(255, 255, 255, 0.3);
+}
+
 .metrics-table th {
-  padding: 1.5rem 2rem;
+  padding: 1rem 1.5rem; /* Reduced from 1.5rem 2rem */
   text-align: center;
   font-size: 2rem;
   font-weight: 700;
@@ -90,7 +89,7 @@
 }
 
 .metrics-table td {
-  padding: 1.5rem 2rem;
+  padding: 1rem 1.5rem; /* Reduced from 1.5rem 2rem */
   text-align: center;
   font-size: 2.2rem;
   font-weight: 600;
@@ -166,22 +165,23 @@
    ================================================== */
 
 /* Compact - 1080p TVs */
-.metrics-grid-slide.compact .metrics-grid-header h1 {
-  font-size: 2.5rem;
+.metrics-grid-slide.compact .metrics-table thead tr.title-row th.table-title {
+  font-size: 2rem;
+  padding: 0.8rem;
 }
 
 .metrics-grid-slide.compact .metrics-table th {
   font-size: 1.6rem;
-  padding: 1rem 1.5rem;
+  padding: 0.8rem 1rem;
 }
 
 .metrics-grid-slide.compact .metrics-table th.metric-name-header {
-  min-width: 200px;
+  min-width: 180px;
 }
 
 .metrics-grid-slide.compact .metrics-table td {
   font-size: 1.8rem;
-  padding: 1rem 1.5rem;
+  padding: 0.8rem 1rem;
 }
 
 .metrics-grid-slide.compact .metrics-table td.metric-name {
@@ -193,22 +193,23 @@
 }
 
 /* Normal - 1080p/2K TVs (default) */
-.metrics-grid-slide.normal .metrics-grid-header h1 {
-  font-size: 3rem;
+.metrics-grid-slide.normal .metrics-table thead tr.title-row th.table-title {
+  font-size: 2.5rem;
+  padding: 1rem;
 }
 
 .metrics-grid-slide.normal .metrics-table th {
   font-size: 2rem;
-  padding: 1.5rem 2rem;
+  padding: 1rem 1.5rem;
 }
 
 .metrics-grid-slide.normal .metrics-table th.metric-name-header {
-  min-width: 250px;
+  min-width: 220px;
 }
 
 .metrics-grid-slide.normal .metrics-table td {
   font-size: 2.2rem;
-  padding: 1.5rem 2rem;
+  padding: 1rem 1.5rem;
 }
 
 .metrics-grid-slide.normal .metrics-table td.metric-name {
@@ -220,55 +221,57 @@
 }
 
 /* Large - 2K TVs */
-.metrics-grid-slide.large .metrics-grid-header h1 {
-  font-size: 4rem;
+.metrics-grid-slide.large .metrics-table thead tr.title-row th.table-title {
+  font-size: 3.2rem;
+  padding: 1.2rem;
 }
 
 .metrics-grid-slide.large .metrics-table th {
-  font-size: 2.6rem;
-  padding: 1.8rem 2.5rem;
+  font-size: 2.4rem;
+  padding: 1.2rem 2rem;
 }
 
 .metrics-grid-slide.large .metrics-table th.metric-name-header {
-  min-width: 300px;
+  min-width: 260px;
 }
 
 .metrics-grid-slide.large .metrics-table td {
-  font-size: 2.8rem;
-  padding: 1.8rem 2.5rem;
+  font-size: 2.6rem;
+  padding: 1.2rem 2rem;
 }
 
 .metrics-grid-slide.large .metrics-table td.metric-name {
-  font-size: 2.6rem;
+  font-size: 2.4rem;
 }
 
 .metrics-grid-slide.large .metrics-table td.metric-value {
-  font-size: 3.2rem;
+  font-size: 3rem;
 }
 
 /* Extra Large - 4K TVs (optimized to avoid overflow) */
-.metrics-grid-slide.xlarge .metrics-grid-header h1 {
-  font-size: 4rem; /* Reduced from 5rem */
+.metrics-grid-slide.xlarge .metrics-table thead tr.title-row th.table-title {
+  font-size: 3.5rem;
+  padding: 1.2rem;
 }
 
 .metrics-grid-slide.xlarge .metrics-table th {
-  font-size: 2.8rem; /* Reduced from 3.2rem */
-  padding: 1.5rem 2.5rem; /* Reduced padding */
+  font-size: 2.6rem;
+  padding: 1.2rem 2rem;
 }
 
 .metrics-grid-slide.xlarge .metrics-table th.metric-name-header {
-  min-width: 300px; /* Reduced from 350px */
+  min-width: 280px;
 }
 
 .metrics-grid-slide.xlarge .metrics-table td {
-  font-size: 3rem; /* Reduced from 3.4rem */
-  padding: 1.5rem 2.5rem; /* Reduced padding */
+  font-size: 2.8rem;
+  padding: 1.2rem 2rem;
 }
 
 .metrics-grid-slide.xlarge .metrics-table td.metric-name {
-  font-size: 2.8rem; /* Reduced from 3.2rem */
+  font-size: 2.6rem;
 }
 
 .metrics-grid-slide.xlarge .metrics-table td.metric-value {
-  font-size: 3.5rem; /* Reduced from 4rem */
+  font-size: 3.2rem;
 }
