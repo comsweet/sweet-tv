@@ -139,9 +139,6 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
     return value.toString();
   };
 
-  // Show error or no data message if needed, but keep it subtle
-  const showNoData = groupMetrics.length === 0 && !error;
-
   // Build metrics list (all metrics from first group, in order)
   const metricsList = leaderboard.metrics || [];
 
@@ -164,21 +161,10 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
 
   return (
     <div className={`metrics-grid-slide ${displaySize}`}>
-      {/* Header with leaderboard name */}
-      <div className="metrics-grid-header">
-        <h1>{leaderboard.name}</h1>
-      </div>
-
-      {/* Show error or no data message subtly */}
+      {/* Show error message if needed */}
       {error && (
         <div className="metrics-error-subtle">
           <p>⚠️ {error}</p>
-        </div>
-      )}
-
-      {showNoData && !error && (
-        <div className="metrics-no-data-subtle">
-          <p>📊 Ingen data tillgänglig</p>
         </div>
       )}
 
@@ -195,6 +181,13 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
             }}
           >
             <thead>
+              {/* Title row spanning all columns */}
+              <tr className="title-row">
+                <th colSpan={groupMetrics.length + 1} className="table-title">
+                  {leaderboard.name}
+                </th>
+              </tr>
+              {/* Column headers */}
               <tr>
                 <th className="metric-name-header">Metric</th>
                 {groupMetrics.map((group) => {
