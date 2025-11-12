@@ -74,13 +74,18 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
   };
 
   // Format metric value for display
-  const formatValue = (metricConfig, value) => {
+  const formatValue = (metricData, metricConfig) => {
+    const { value, additionalData } = metricData;
     const { metric } = metricConfig;
 
     if (metric.includes('PerHour') || metric.includes('per_hour')) {
       return value.toFixed(2);
     }
-    if (metric.includes('rate') || metric.includes('Rate') || metric.includes('%')) {
+    if (metric.includes('rate') || metric.includes('Rate') || metric.includes('success')) {
+      // Show SMS count if available
+      if (additionalData?.uniqueSMS) {
+        return `${value}% (${additionalData.uniqueSMS} SMS)`;
+      }
       return `${value}%`;
     }
     if (metric.includes('commission') || metric.includes('Commission')) {
@@ -132,37 +137,65 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
 
       {/* Widget Grid */}
       <div className={`metrics-grid ${gridLayout}`}>
-        {groupMetrics.map((group) => (
-          <div key={group.groupId} className="metric-card">
-            {/* Card Header - Group Name */}
-            <div className="card-header">
-              <h2>{group.groupName}</h2>
-            </div>
+        {groupMetrics.map((group) => {
+          // Determine card color based on worst metric color (priority: red > orange > yellow > white > green)
+          const colorPriority = { red: 1, orange: 2, yellow: 3, white: 4, green: 5, blue: 6 };
+          let cardColor = null;
+          let lowestPriority = 999;
 
-            {/* Card Body - Metrics */}
-            <div className="card-body">
-              {Object.entries(group.metrics).map(([metricId, metricData]) => {
-                const color = getMetricColor(metricId, metricData.value);
-                const metricConfig = leaderboard.metrics.find(m => m.id === metricId);
+          Object.entries(group.metrics).forEach(([metricId, metricData]) => {
+            const color = getMetricColor(metricId, metricData.value);
+            if (color && colorPriority[color] < lowestPriority) {
+              cardColor = color;
+              lowestPriority = colorPriority[color];
+            }
+          });
 
-                return (
-                  <div key={metricId} className="metric-row">
-                    <div className="metric-label">{metricData.label}</div>
-                    <div
-                      className={`metric-value ${color ? `color-${color}` : ''}`}
-                      style={color ? {
-                        backgroundColor: getColorHex(color),
-                        color: getTextColor(color)
-                      } : {}}
-                    >
-                      {formatValue(metricConfig, metricData.value)}
+          return (
+            <div
+              key={group.groupId}
+              className={`metric-card ${cardColor ? `card-color-${cardColor}` : ''}`}
+              style={cardColor ? {
+                borderColor: getColorHex(cardColor),
+                boxShadow: `0 0 20px ${getColorHex(cardColor)}40`
+              } : {}}
+            >
+              {/* Card Header - Group Name */}
+              <div
+                className="card-header"
+                style={cardColor ? {
+                  backgroundColor: `${getColorHex(cardColor)}20`,
+                  borderBottom: `2px solid ${getColorHex(cardColor)}`
+                } : {}}
+              >
+                <h2>{group.groupName}</h2>
+              </div>
+
+              {/* Card Body - Metrics */}
+              <div className="card-body">
+                {Object.entries(group.metrics).map(([metricId, metricData]) => {
+                  const color = getMetricColor(metricId, metricData.value);
+                  const metricConfig = leaderboard.metrics.find(m => m.id === metricId);
+
+                  return (
+                    <div key={metricId} className="metric-row">
+                      <div className="metric-label">{metricData.label}</div>
+                      <div
+                        className={`metric-value ${color ? `color-${color}` : ''}`}
+                        style={color ? {
+                          backgroundColor: getColorHex(color),
+                          color: getTextColor(color)
+                        } : {}}
+                      >
+                        {formatValue(metricData, metricConfig)}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

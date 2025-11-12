@@ -876,6 +876,15 @@ router.get('/:id/group-metrics', async (req, res) => {
       return res.status(400).json({ error: 'This endpoint is only for metrics-grid leaderboards' });
     }
 
+    // Validate configuration
+    if (!leaderboard.selectedGroups || leaderboard.selectedGroups.length === 0) {
+      return res.status(400).json({ error: 'No groups selected for this metrics-grid leaderboard' });
+    }
+
+    if (!leaderboard.metrics || leaderboard.metrics.length === 0) {
+      return res.status(400).json({ error: 'No metrics configured for this metrics-grid leaderboard' });
+    }
+
     console.log(`📊 [Metrics Grid: ${leaderboard.name}] Aggregating data for groups: ${leaderboard.selectedGroups.join(', ')}`);
 
     // Get Adversus users and groups
@@ -980,7 +989,16 @@ router.get('/:id/group-metrics', async (req, res) => {
             const totalDeals = groupDeals.length;
 
             value = totalDeals > 0 ? Math.round((totalDeals / uniqueSMS) * 100) : 0;
-            break;
+            // Store uniqueSMS as additional data for display
+            metrics.metrics[id] = {
+              label,
+              value,
+              timePeriod,
+              metric,
+              additionalData: { uniqueSMS }
+            };
+            console.log(`   ✅ ${label}: ${value}% (${uniqueSMS} SMS)`);
+            continue; // Skip the generic assignment below
           }
 
           case 'sms_unique':
