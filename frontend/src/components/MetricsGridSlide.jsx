@@ -24,12 +24,28 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
 
     const fetchData = async () => {
       try {
+        console.log('🔄 [MetricsGrid] Fetching data for leaderboard:', leaderboard.id);
         const response = await getGroupMetrics(leaderboard.id);
+        console.log('✅ [MetricsGrid] Response:', response.data);
+
+        // Validate response data
+        if (!response.data || !response.data.groupMetrics) {
+          console.warn('⚠️ [MetricsGrid] Invalid response structure:', response.data);
+          setError('Invalid response from server');
+          return;
+        }
+
         setGroupMetrics(response.data.groupMetrics || []);
         setError(null);
+
+        if (response.data.groupMetrics.length === 0) {
+          console.warn('⚠️ [MetricsGrid] No group metrics returned');
+        }
       } catch (err) {
-        console.error('Error fetching metrics grid data:', err);
-        setError(err.message);
+        console.error('❌ [MetricsGrid] Error fetching data:', err);
+        console.error('Error details:', err.response?.data || err.message);
+        setError(err.response?.data?.error || err.message || 'Kunde inte ladda data');
+        // Keep showing old data on error instead of clearing it
       }
     };
 
@@ -88,6 +104,9 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
 
   // Get color for metric value based on per-group rules
   const getMetricColor = (metricId, groupId, value) => {
+    // Handle null/undefined values
+    if (value === null || value === undefined) return null;
+
     const metricRules = leaderboard.colorRules?.[metricId];
     if (!metricRules) return null;
 
@@ -123,20 +142,25 @@ const MetricsGridSlide = ({ leaderboard, isActive, displaySize = 'normal', refre
     const { value, additionalData } = metricData;
     const { metric } = metricConfig;
 
+    // Handle null/undefined values
+    if (value === null || value === undefined) {
+      return '-';
+    }
+
     if (metric.includes('PerHour') || metric.includes('per_hour')) {
-      return value.toFixed(2);
+      return Number(value).toFixed(2);
     }
     if (metric.includes('rate') || metric.includes('Rate') || metric.includes('success')) {
       // Show SMS count if available
       if (additionalData?.uniqueSMS) {
-        return `${value}% (${additionalData.uniqueSMS} SMS)`;
+        return `${Number(value).toFixed(1)}% (${additionalData.uniqueSMS} SMS)`;
       }
-      return `${value}%`;
+      return `${Number(value).toFixed(1)}%`;
     }
     if (metric.includes('commission') || metric.includes('Commission')) {
-      return `${Math.round(value).toLocaleString('sv-SE')} kr`;
+      return `${Math.round(Number(value)).toLocaleString('sv-SE')} kr`;
     }
-    return value.toString();
+    return String(value);
   };
 
   // Build metrics list (all metrics from first group, in order)

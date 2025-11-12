@@ -904,15 +904,36 @@ router.get('/:id/group-metrics', async (req, res) => {
     // Build group metrics for each selected group
     const groupMetrics = [];
 
-    for (const groupId of leaderboard.selectedGroups) {
-      const group = adversusGroups.find(g => String(g.id) === String(groupId));
-      const groupName = group?.name || `Group ${groupId}`;
+    // Log available groups for debugging
+    console.log(`\n📋 Available groups (${adversusGroups.length} total):`);
+    adversusGroups.forEach(g => {
+      console.log(`   - ID: ${g.id} (type: ${typeof g.id}), Name: "${g.name}"`);
+    });
 
-      console.log(`\n📊 Processing group: ${groupName} (ID: ${groupId})`);
+    for (const groupId of leaderboard.selectedGroups) {
+      console.log(`\n🔍 Looking for group ID: ${groupId} (type: ${typeof groupId})`);
+
+      // Try to find group in adversusGroups first
+      let group = adversusGroups.find(g => String(g.id) === String(groupId));
 
       // Get all users in this group
       const usersInGroup = adversusUsers.filter(u => String(u.group?.id) === String(groupId));
       const userIds = usersInGroup.map(u => String(u.id));
+
+      // FALLBACK: If group not found in adversusGroups, try to get name from users in group
+      let groupName = group?.name;
+      if (!groupName && usersInGroup.length > 0 && usersInGroup[0].group?.name) {
+        groupName = usersInGroup[0].group.name;
+        console.log(`   ℹ️ Group not in adversusGroups, but found name from user: "${groupName}"`);
+      }
+
+      // Final fallback
+      if (!groupName) {
+        groupName = `Group ${groupId}`;
+        console.warn(`⚠️ Could not find group name for ID ${groupId}! Using fallback.`);
+      }
+
+      console.log(`📊 Processing group: ${groupName} (ID: ${groupId})`);
 
       console.log(`   👥 Found ${usersInGroup.length} users in group`);
 
