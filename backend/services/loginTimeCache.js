@@ -21,11 +21,13 @@ class LoginTimeCache {
     // Last sync timestamp
     this.lastSync = null;
 
-    // Sync interval: 5 minutes (balance between freshness and API limits)
-    // Workforce API is expensive, so we cache longer
-    // Login time changes slowly (agents work for hours)
-    // 5 min delay is acceptable for deals/hour metric
-    this.syncIntervalMinutes = 5;
+    // Sync interval: 2 minutes (good balance)
+    // Fast enough for real-time updates but not too aggressive on API
+    this.syncIntervalMinutes = 2;
+
+    // Last time we synced TODAY'S data specifically
+    // Used to avoid re-fetching same day data for different leaderboards
+    this.lastTodaySync = null;
 
     // Ongoing sync lock - prevents multiple simultaneous syncs
     this.ongoingSync = null;
@@ -344,17 +346,38 @@ class LoginTimeCache {
 
       // PART 2: Fetch today's data live (if needed)
       if (includesToday) {
-        console.log(`   🏭 Fetching TODAY's data from workforce API...`);
-        todayMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, todayStart, todayEnd);
+        // Check if we already have fresh today's data
+        const minutesSinceLastTodaySync = this.lastTodaySync
+          ? (Date.now() - new Date(this.lastTodaySync).getTime()) / (1000 * 60)
+          : Infinity;
 
-        // Save today's data (with short cache)
-        for (const [userId, loginSeconds] of todayMap) {
-          await this.saveLoginTime({
-            userId: userId.toString(),
-            loginSeconds: Math.round(loginSeconds),
-            fromDate: todayStart.toISOString(),
-            toDate: todayEnd.toISOString()
-          });
+        if (minutesSinceLastTodaySync < this.syncIntervalMinutes) {
+          console.log(`   ⚡ Using cached TODAY's data (synced ${Math.round(minutesSinceLastTodaySync)} min ago)`);
+
+          // Load from cache instead of API
+          for (const userId of userIds) {
+            const cacheKey = `${userId}-${todayStart.toISOString()}-${todayEnd.toISOString()}`;
+            const cached = this.cache.get(cacheKey);
+            if (cached) {
+              todayMap.set(parseInt(userId), cached.data.loginSeconds);
+            }
+          }
+        } else {
+          console.log(`   🏭 Fetching TODAY's data from workforce API...`);
+          todayMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, todayStart, todayEnd);
+
+          // Save today's data (with short cache)
+          for (const [userId, loginSeconds] of todayMap) {
+            await this.saveLoginTime({
+              userId: userId.toString(),
+              loginSeconds: Math.round(loginSeconds),
+              fromDate: todayStart.toISOString(),
+              toDate: todayEnd.toISOString()
+            });
+          }
+
+          // Mark that we just synced today's data
+          this.lastTodaySync = new Date().toISOString();
         }
       }
 
