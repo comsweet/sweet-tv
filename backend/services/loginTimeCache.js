@@ -21,8 +21,8 @@ class LoginTimeCache {
     // Last sync timestamp
     this.lastSync = null;
 
-    // Sync interval: 2 minutes (good balance)
-    // Fast enough for real-time updates but not too aggressive on API
+    // Sync interval: 2 minutes (same as deals cache)
+    // With batch sync optimization (95% fewer API calls), 2 min is safe
     this.syncIntervalMinutes = 2;
 
     // Last time we synced TODAY'S data specifically

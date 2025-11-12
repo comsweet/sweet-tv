@@ -956,14 +956,14 @@ router.get('/:id/group-metrics', async (req, res) => {
         // AUTO-SYNC CACHES
         await dealsCache.autoSync(adversusAPI);
         await smsCache.autoSync(adversusAPI);
-        if (await loginTimeCache.needsSync()) {
-          // Sync login time for users in this group
-          for (const userId of userIds) {
-            try {
-              await loginTimeCache.syncUserLoginTime(userId, adversusAPI, startDate, endDate);
-            } catch (err) {
-              console.warn(`⚠️ Failed to sync login time for user ${userId}:`, err.message);
-            }
+
+        // BATCH SYNC login time for ALL users in group at once (avoids rate limiting!)
+        if (await loginTimeCache.needsSync() && userIds.length > 0) {
+          try {
+            console.log(`⏱️ Batch syncing login time for ${userIds.length} users in group ${groupName}...`);
+            await loginTimeCache.syncLoginTimeForUsers(adversusAPI, userIds, startDate, endDate);
+          } catch (err) {
+            console.warn(`⚠️ Failed to batch sync login time for group ${groupName}:`, err.message);
           }
         }
 

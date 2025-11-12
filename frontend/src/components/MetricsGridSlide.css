@@ -115,7 +115,7 @@
 
 /* Color-coded values - text only, no background */
 .metric-value.color-red {
-  animation: pulse-text-red 1.5s infinite;
+  animation: pulse-text-red 2s infinite;
 }
 
 .metric-value.color-green {
@@ -129,17 +129,8 @@
 }
 
 @keyframes pulse-text-red {
-  0%, 100% {
-    text-shadow:
-      0 0 20px rgba(239, 68, 68, 0.9),
-      0 0 40px rgba(239, 68, 68, 0.5);
-  }
-  50% {
-    text-shadow:
-      0 0 30px rgba(239, 68, 68, 1),
-      0 0 60px rgba(239, 68, 68, 0.7),
-      0 0 80px rgba(239, 68, 68, 0.4);
-  }
+  0%, 100% { text-shadow: 0 0 10px rgba(239, 68, 68, 0.6); }
+  50% { text-shadow: 0 0 20px rgba(239, 68, 68, 0.9); }
 }
 
 @keyframes pulse-text-warning {
