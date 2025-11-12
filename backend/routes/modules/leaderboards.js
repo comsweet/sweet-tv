@@ -67,13 +67,20 @@ router.get('/:id/stats', async (req, res) => {
     // Calculate date range
     const { startDate, endDate } = leaderboardService.getDateRange(leaderboard);
     console.log(`📊 [${leaderboard.name}] Fetching stats from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`   ⏰ Current server time (UTC): ${new Date().toISOString()}`);
+    console.log(`   📅 Time period: ${leaderboard.timePeriod}`);
+    if (leaderboard.userGroups && leaderboard.userGroups.length > 0) {
+      console.log(`   👥 User groups filter: ${leaderboard.userGroups.join(', ')}`);
+    }
 
     // Check cache first
     const cacheKey = `${leaderboardId}-${startDate.toISOString()}-${endDate.toISOString()}`;
     const cached = leaderboardCache.get(leaderboardId, startDate.toISOString(), endDate.toISOString());
 
     if (cached) {
-      console.log(`✅ Returning cached stats for ${leaderboard.name}`);
+      const statsCount = cached.stats?.length || 0;
+      const dealsCount = cached.stats?.reduce((sum, s) => sum + (s.dealCount || 0), 0) || 0;
+      console.log(`✅ Returning cached stats for ${leaderboard.name}: ${statsCount} agents, ${dealsCount} deals`);
       return res.json(cached);
     }
 
@@ -91,6 +98,7 @@ router.get('/:id/stats', async (req, res) => {
 
     // Get deals from cache
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
+    console.log(`   💾 Found ${cachedDeals.length} deals in cache for date range`);
 
     // Convert cached deals to lead format
     const leads = cachedDeals.map(deal => ({

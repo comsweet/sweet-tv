@@ -69,17 +69,22 @@ class DealsCache {
         console.log(`   First deal: lead_id=${todayDeals[0].lead_id}, user_id=${todayDeals[0].user_id}, commission=${todayDeals[0].commission}`);
       }
 
-      // Populate cache
-      this.todayCache.clear();
-      this.todayUserTotals.clear();
+      // 🔒 ATOMIC SWAP: Build new cache first, then replace in one operation
+      // This prevents race condition where cache is temporarily empty
+      const newCache = new Map();
+      const newUserTotals = new Map();
 
       for (const deal of todayDeals) {
-        this.todayCache.set(deal.lead_id, this.dbToCache(deal));
+        newCache.set(deal.lead_id, this.dbToCache(deal));
 
         // Update user totals
-        const currentTotal = this.todayUserTotals.get(deal.user_id) || 0;
-        this.todayUserTotals.set(deal.user_id, currentTotal + parseFloat(deal.commission || 0));
+        const currentTotal = newUserTotals.get(deal.user_id) || 0;
+        newUserTotals.set(deal.user_id, currentTotal + parseFloat(deal.commission || 0));
       }
+
+      // Atomic swap - cache is never empty
+      this.todayCache = newCache;
+      this.todayUserTotals = newUserTotals;
 
       console.log(`💾 Loaded ${todayDeals.length} deals into today's cache (cache size: ${this.todayCache.size})`);
     } catch (error) {
