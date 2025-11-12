@@ -277,7 +277,7 @@ CREATE TABLE IF NOT EXISTS team_battles (
   victory_condition VARCHAR(50) NOT NULL CHECK (victory_condition IN ('first_to_target', 'highest_at_end', 'best_average')),
 
   -- Victory metric: what to measure
-  victory_metric VARCHAR(50) NOT NULL CHECK (victory_metric IN ('commission', 'deals', 'order_per_hour', 'sms_rate')),
+  victory_metric VARCHAR(50) NOT NULL CHECK (victory_metric IN ('commission', 'deals', 'order_per_hour', 'commission_per_hour', 'sms_rate')),
 
   -- Target value (only used for first_to_target)
   target_value DECIMAL(10, 2),

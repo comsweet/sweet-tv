@@ -241,7 +241,8 @@ const AdminTeamBattles = () => {
 
   const getVictoryMetricLabel = (metric) => {
     const labels = {
-      commission: 'Commission',
+      commission: 'Commission (totalt)',
+      commission_per_hour: 'Commission per timme',
       deals: 'Affärer',
       sms_rate: 'SMS Success Rate',
       order_per_hour: 'Affärer per timme'
@@ -431,7 +432,8 @@ const AdminTeamBattles = () => {
                     value={form.victoryMetric}
                     onChange={(e) => setForm({ ...form, victoryMetric: e.target.value })}
                   >
-                    <option value="commission">Commission (THB)</option>
+                    <option value="commission">Commission (THB totalt)</option>
+                    <option value="commission_per_hour">Commission per timme (THB/h)</option>
                     <option value="deals">Affärer</option>
                     <option value="sms_rate">SMS Success Rate (%)</option>
                     <option value="order_per_hour">Affärer per timme</option>
@@ -489,12 +491,12 @@ const AdminTeamBattles = () => {
                       </div>
 
                       <div className="form-group">
-                        <label>Emoji</label>
+                        <label>Emoji (valfritt)</label>
                         <input
                           type="text"
                           value={team.teamEmoji}
                           onChange={(e) => updateTeam(index, 'teamEmoji', e.target.value)}
-                          placeholder="🇹🇭"
+                          placeholder="🇹🇭 (valfritt)"
                           maxLength={2}
                         />
                       </div>

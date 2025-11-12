@@ -123,7 +123,9 @@ const TeamBattleSlide = ({ battleId, isActive, config = {} }) => {
   const getMetricLabel = () => {
     switch (battle.victoryMetric) {
       case 'commission':
-        return 'Commission';
+        return 'Commission (totalt)';
+      case 'commission_per_hour':
+        return 'Commission per timme';
       case 'deals':
         return 'Affärer';
       case 'sms_rate':
