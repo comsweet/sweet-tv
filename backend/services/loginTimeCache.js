@@ -179,7 +179,67 @@ class LoginTimeCache {
   }
 
   /**
+   * Fetch login time for ALL users from Adversus workforce API
+   * Much more efficient than individual calls - avoids rate limiting!
+   *
+   * Returns: Map<userId, loginSeconds>
+   */
+  async fetchLoginTimeFromWorkforce(adversusAPI, fromDate, toDate) {
+    try {
+      console.log(`🏭 Fetching workforce data for all users...`);
+      console.log(`   Date range: ${fromDate.toISOString().split('T')[0]} → ${toDate.toISOString().split('T')[0]}`);
+
+      const response = await adversusAPI.request('/workforce/buildReport', {
+        method: 'POST',
+        data: {
+          start: fromDate.toISOString(),
+          end: toDate.toISOString()
+          // No userId = get ALL users
+        }
+      });
+
+      // Parse NDJSON response (newline-delimited JSON)
+      if (typeof response !== 'string') {
+        throw new Error('Expected NDJSON string response from workforce API');
+      }
+
+      const lines = response.trim().split('\n');
+      const records = lines.map(line => {
+        try {
+          return JSON.parse(line);
+        } catch (err) {
+          console.warn('⚠️  Failed to parse NDJSON line:', line.substring(0, 100));
+          return null;
+        }
+      }).filter(r => r !== null);
+
+      console.log(`   ✅ Parsed ${records.length} workforce records`);
+
+      // Group by userId and sum durations
+      const userLoginMap = new Map();
+
+      records.forEach(record => {
+        const userId = record.userid || record.userId;
+        const duration = parseFloat(record.duration || 0);
+
+        if (userId) {
+          const current = userLoginMap.get(userId) || 0;
+          userLoginMap.set(userId, current + duration);
+        }
+      });
+
+      console.log(`   📊 Calculated login time for ${userLoginMap.size} users`);
+
+      return userLoginMap;
+    } catch (error) {
+      console.error(`❌ Error fetching workforce data:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Sync login time for multiple users (used by leaderboard)
+   * Uses workforce API for efficiency - ONE call instead of N calls!
    */
   async syncLoginTimeForUsers(adversusAPI, userIds, fromDate, toDate) {
     console.log(`\n⏱️ SYNCING LOGIN TIME FOR ${userIds.length} USERS...`);
@@ -187,13 +247,29 @@ class LoginTimeCache {
 
     const results = [];
 
-    for (const userId of userIds) {
-      try {
-        // Fetch from Adversus
-        const data = await this.fetchLoginTimeFromAdversus(adversusAPI, userId, fromDate, toDate);
+    try {
+      // Use workforce API - ONE call for ALL users!
+      const workforceMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, fromDate, toDate);
+
+      // Process each user
+      for (const userId of userIds) {
+        const loginSeconds = Math.round(workforceMap.get(parseInt(userId)) || 0);
+
+        const data = {
+          userId,
+          loginSeconds,
+          fromDate: fromDate.toISOString(),
+          toDate: toDate.toISOString()
+        };
+
+        console.log(`   👤 User ${userId}: ${loginSeconds}s (${(loginSeconds / 3600).toFixed(2)}h)`);
 
         // Save to database
-        await this.saveLoginTime(data);
+        try {
+          await this.saveLoginTime(data);
+        } catch (error) {
+          console.error(`⚠️  Failed to save login time for user ${userId}:`, error.message);
+        }
 
         // Update cache
         const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
@@ -203,24 +279,52 @@ class LoginTimeCache {
         });
 
         results.push(data);
-
-        // Rate limiting: wait 100ms between requests
-        await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (error) {
-        console.error(`⚠️  Failed to sync login time for user ${userId}:`, error.message);
-        results.push({
-          userId,
-          loginSeconds: 0,
-          fromDate: fromDate.toISOString(),
-          toDate: toDate.toISOString()
-        });
       }
+
+      this.lastSync = new Date().toISOString();
+      console.log(`✅ Login time sync complete for ${results.length} users (via workforce API)`);
+
+      return results;
+
+    } catch (error) {
+      console.error(`❌ Workforce API failed, falling back to individual calls:`, error.message);
+
+      // Fallback: fetch individually (slower but works)
+      for (const userId of userIds) {
+        try {
+          // Fetch from Adversus
+          const data = await this.fetchLoginTimeFromAdversus(adversusAPI, userId, fromDate, toDate);
+
+          // Save to database
+          await this.saveLoginTime(data);
+
+          // Update cache
+          const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
+          this.cache.set(cacheKey, {
+            data,
+            cachedAt: Date.now()
+          });
+
+          results.push(data);
+
+          // Rate limiting: wait 100ms between requests
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error(`⚠️  Failed to sync login time for user ${userId}:`, error.message);
+          results.push({
+            userId,
+            loginSeconds: 0,
+            fromDate: fromDate.toISOString(),
+            toDate: toDate.toISOString()
+          });
+        }
+      }
+
+      this.lastSync = new Date().toISOString();
+      console.log(`✅ Login time sync complete for ${results.length} users (via fallback)`);
+
+      return results;
     }
-
-    this.lastSync = new Date().toISOString();
-    console.log(`✅ Login time sync complete for ${results.length} users`);
-
-    return results;
   }
 
   /**
