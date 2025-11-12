@@ -576,7 +576,7 @@ class LoginTimeCache {
       const db = require('./postgres');
 
       // Get database stats
-      const dbResult = await db.query('SELECT COUNT(*) as count FROM login_time_cache');
+      const dbResult = await db.query('SELECT COUNT(*) as count FROM user_login_time');
       const totalRecords = parseInt(dbResult.rows[0]?.count || 0);
 
       // Get today's record count
@@ -585,7 +585,7 @@ class LoginTimeCache {
       const todayEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
 
       const todayResult = await db.query(
-        'SELECT COUNT(*) as count FROM login_time_cache WHERE from_date >= $1 AND to_date <= $2',
+        'SELECT COUNT(*) as count FROM user_login_time WHERE from_date >= $1 AND to_date <= $2',
         [todayStart, todayEnd]
       );
       const todayRecords = parseInt(todayResult.rows[0]?.count || 0);
@@ -639,8 +639,8 @@ class LoginTimeCache {
 
     try {
       const result = await db.query(
-        `SELECT user_id, from_date, to_date, login_seconds, fetched_at
-         FROM login_time_cache
+        `SELECT user_id, from_date, to_date, login_seconds, synced_at
+         FROM user_login_time
          WHERE from_date >= $1 AND to_date <= $2`,
         [todayStart, todayEnd]
       );
@@ -654,7 +654,7 @@ class LoginTimeCache {
             fromDate: row.from_date,
             toDate: row.to_date
           },
-          timestamp: row.fetched_at
+          timestamp: row.synced_at
         });
       }
 
@@ -680,7 +680,7 @@ class LoginTimeCache {
    */
   async clearDatabase() {
     const db = require('./postgres');
-    await db.query('TRUNCATE TABLE login_time_cache CASCADE');
+    await db.query('TRUNCATE TABLE user_login_time CASCADE');
     this.clear();
     console.log('🗑️  Cleared login time database and cache');
   }
