@@ -8,6 +8,9 @@ import {
   syncSMSManually,
   cleanOldSMS,
   clearSMSCache,
+  getLoginTimeCacheStats,
+  syncLoginTimeManually,
+  clearLoginTimeCache,
   syncDatabase,
   getSyncStatus,
   invalidateCache,
@@ -18,6 +21,7 @@ import './AdminCacheManagement.css';
 const AdminCacheManagement = () => {
   const [dealsStats, setDealsStats] = useState(null);
   const [smsStats, setSmsStats] = useState(null);
+  const [loginTimeStats, setLoginTimeStats] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [pendingDuplicates, setPendingDuplicates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +35,9 @@ const AdminCacheManagement = () => {
   const [smsCleaning, setSmsCleaning] = useState(false);
   const [smsClearing, setSmsClearing] = useState(false);
 
+  const [loginTimeSyncing, setLoginTimeSyncing] = useState(false);
+  const [loginTimeClearing, setLoginTimeClearing] = useState(false);
+
   const [dbSyncing, setDbSyncing] = useState(false);
   const [cacheInvalidating, setCacheInvalidating] = useState(false);
 
@@ -41,14 +48,16 @@ const AdminCacheManagement = () => {
   const fetchAllStats = async () => {
     setLoading(true);
     try {
-      const [dealsResponse, smsResponse, statusResponse] = await Promise.all([
+      const [dealsResponse, smsResponse, loginTimeResponse, statusResponse] = await Promise.all([
         getDealsCacheStats(),
         getSMSCacheStats(),
+        getLoginTimeCacheStats(),
         getSyncStatus()
       ]);
 
       setDealsStats(dealsResponse.data);
       setSmsStats(smsResponse.data);
+      setLoginTimeStats(loginTimeResponse.data);
       setSyncStatus(statusResponse.data);
 
       // Try to fetch pending duplicates (might fail if table doesn't exist yet)
@@ -235,6 +244,43 @@ const AdminCacheManagement = () => {
       alert('❌ Error clearing cache: ' + error.message);
     } finally {
       setSmsClearing(false);
+    }
+  };
+
+  // LOGIN TIME ACTIONS
+  const handleSyncLoginTime = async () => {
+    setLoginTimeSyncing(true);
+    try {
+      const response = await syncLoginTimeManually();
+      alert(`✅ Login time synced successfully!\n\nSynced ${response.data.synced} users`);
+      await fetchAllStats();
+    } catch (error) {
+      console.error('Error syncing login time:', error);
+      alert('❌ Error syncing login time: ' + error.message);
+    } finally {
+      setLoginTimeSyncing(false);
+    }
+  };
+
+  const handleClearLoginTimeCache = async () => {
+    if (!window.confirm('🚨 WARNING: This will DELETE ALL login time data from the database!\n\nAre you absolutely sure?\n\nThis action cannot be undone.')) {
+      return;
+    }
+
+    if (!window.confirm('⚠️ FINAL WARNING\n\nAll login time data will be permanently deleted.\n\nClick OK to proceed or Cancel to abort.')) {
+      return;
+    }
+
+    setLoginTimeClearing(true);
+    try {
+      await clearLoginTimeCache();
+      alert('✅ Login time database cleared completely!');
+      await fetchAllStats();
+    } catch (error) {
+      console.error('Error clearing login time database:', error);
+      alert('❌ Error clearing database: ' + error.message);
+    } finally {
+      setLoginTimeClearing(false);
     }
   };
 
@@ -540,6 +586,89 @@ const AdminCacheManagement = () => {
               disabled={smsClearing}
             >
               {smsClearing ? '⏳ Clearing...' : '🗑️ Clear Cache'}
+            </button>
+          </div>
+        </div>
+
+        {/* LOGIN TIME CACHE */}
+        <div className="cache-section login-time-section">
+          <div className="section-header">
+            <h2>🕒 Login Time Cache (Order/h)</h2>
+            <div className="header-actions">
+              <button
+                onClick={fetchAllStats}
+                className="btn-refresh"
+                disabled={loading}
+              >
+                🔄 Refresh
+              </button>
+            </div>
+          </div>
+
+          <div className="cache-stats">
+            <div className="stat-grid">
+              <div className="stat-box">
+                <div className="stat-label">📦 Total Records (DB)</div>
+                <div className="stat-value">{loginTimeStats?.totalRecords?.toLocaleString('sv-SE') || 0}</div>
+              </div>
+
+              <div className="stat-box">
+                <div className="stat-label">📅 Today's Records</div>
+                <div className="stat-value">{loginTimeStats?.todayRecords || 0}</div>
+              </div>
+
+              <div className="stat-box">
+                <div className="stat-label">💾 Cached Users</div>
+                <div className="stat-value">{loginTimeStats?.cachedUsers || 0}</div>
+              </div>
+
+              <div className="stat-box">
+                <div className="stat-label">🔄 Status</div>
+                <div className="stat-value" style={{ fontSize: '13px' }}>
+                  {loginTimeStats?.ongoingSync ? '⏳ Syncing...' : '✅ Ready'}
+                </div>
+              </div>
+            </div>
+
+            <div className="stat-info-box">
+              <div className="info-row">
+                <span className="info-label">🕐 Last Sync:</span>
+                <span className="info-value">{formatDate(loginTimeStats?.lastSync)}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">🕐 Last Today Sync:</span>
+                <span className="info-value">{formatDate(loginTimeStats?.lastTodaySync)}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">⏱️ Sync Interval:</span>
+                <span className="info-value">{loginTimeStats?.syncIntervalMinutes || 2} minutes</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">💾 Cache Strategy:</span>
+                <span className="info-value">Smart caching: Historical (DB) + Today's (2 min refresh)</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">📊 Data Source:</span>
+                <span className="info-value">Adversus Workforce API (activity breakdown)</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="cache-actions">
+            <button
+              onClick={handleSyncLoginTime}
+              className="btn-action btn-sync"
+              disabled={loginTimeSyncing}
+            >
+              {loginTimeSyncing ? '⏳ Syncing...' : '🔄 Sync Now'}
+            </button>
+
+            <button
+              onClick={handleClearLoginTimeCache}
+              className="btn-action btn-danger"
+              disabled={loginTimeClearing}
+            >
+              {loginTimeClearing ? '⏳ Clearing...' : '🗑️ Clear Database'}
             </button>
           </div>
         </div>

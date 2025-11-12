@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../../services/postgres');
 const dealsCache = require('../../services/dealsCache');
 const smsCache = require('../../services/smsCache');
+const loginTimeCache = require('../../services/loginTimeCache');
 const adversusAPI = require('../../services/adversusAPI');
 
 /**
@@ -458,6 +459,7 @@ router.post('/cache/invalidate', async (req, res) => {
   try {
     await dealsCache.invalidateCache();
     await smsCache.invalidateCache();
+    await loginTimeCache.invalidateCache();
 
     res.json({
       success: true,
@@ -465,6 +467,88 @@ router.post('/cache/invalidate', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error invalidating cache:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ==================== LOGIN TIME CACHE MANAGEMENT ====================
+
+/**
+ * GET /admin/login-time/stats
+ * Get login time cache statistics
+ */
+router.get('/login-time/stats', async (req, res) => {
+  try {
+    const stats = await loginTimeCache.getStats();
+
+    res.json({
+      success: true,
+      ...stats
+    });
+  } catch (error) {
+    console.error('❌ Error fetching login time stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /admin/login-time/sync
+ * Manually sync login time for all active users
+ */
+router.post('/login-time/sync', async (req, res) => {
+  try {
+    // Get all active agents
+    const agentsResult = await db.query('SELECT adversus_user_id FROM agents WHERE active = true');
+    const userIds = agentsResult.rows.map(row => row.adversus_user_id.toString());
+
+    if (userIds.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No active agents to sync',
+        synced: 0
+      });
+    }
+
+    // Get rolling window dates
+    const rollingWindow = dealsCache.getRollingWindow();
+
+    // Sync login time
+    await loginTimeCache.forceSync(adversusAPI, userIds, rollingWindow.startDate, rollingWindow.endDate);
+
+    res.json({
+      success: true,
+      message: 'Login time synced successfully',
+      synced: userIds.length
+    });
+  } catch (error) {
+    console.error('❌ Error syncing login time:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /admin/login-time/database
+ * Clear login time database completely
+ */
+router.delete('/login-time/database', async (req, res) => {
+  try {
+    await loginTimeCache.clearDatabase();
+
+    res.json({
+      success: true,
+      message: 'Login time database cleared'
+    });
+  } catch (error) {
+    console.error('❌ Error clearing login time database:', error);
     res.status(500).json({
       success: false,
       error: error.message

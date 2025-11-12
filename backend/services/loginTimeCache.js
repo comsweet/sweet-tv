@@ -140,16 +140,31 @@ class LoginTimeCache {
 
     // Query from database
     try {
-      const query = `
+      // Try exact match first (best case)
+      const exactQuery = `
         SELECT * FROM user_login_time
         WHERE user_id = $1
-          AND from_date <= $2
-          AND to_date >= $3
+          AND from_date = $2
+          AND to_date = $3
         ORDER BY synced_at DESC
         LIMIT 1
       `;
 
-      const result = await db.pool.query(query, [userId, toDate, fromDate]);
+      let result = await db.pool.query(exactQuery, [userId, fromDate, toDate]);
+
+      // If no exact match, try overlapping periods
+      if (result.rows.length === 0) {
+        const overlapQuery = `
+          SELECT * FROM user_login_time
+          WHERE user_id = $1
+            AND from_date <= $2
+            AND to_date >= $3
+          ORDER BY synced_at DESC
+          LIMIT 1
+        `;
+
+        result = await db.pool.query(overlapQuery, [userId, toDate, fromDate]);
+      }
 
       if (result.rows.length > 0) {
         const row = result.rows[0];
@@ -355,12 +370,33 @@ class LoginTimeCache {
           console.log(`   ⚡ Using cached TODAY's data (synced ${Math.round(minutesSinceLastTodaySync)} min ago)`);
 
           // Load from cache instead of API
+          let missingFromCache = 0;
           for (const userId of userIds) {
             const cacheKey = `${userId}-${todayStart.toISOString()}-${todayEnd.toISOString()}`;
             const cached = this.cache.get(cacheKey);
             if (cached) {
               todayMap.set(parseInt(userId), cached.data.loginSeconds);
+            } else {
+              missingFromCache++;
             }
+          }
+
+          // If many users are missing from cache, refetch
+          if (missingFromCache > userIds.length * 0.3) {
+            console.log(`   ⚠️  ${missingFromCache}/${userIds.length} users missing from today's cache - refetching...`);
+            todayMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, todayStart, todayEnd);
+
+            // Save today's data
+            for (const [userId, loginSeconds] of todayMap) {
+              await this.saveLoginTime({
+                userId: userId.toString(),
+                loginSeconds: Math.round(loginSeconds),
+                fromDate: todayStart.toISOString(),
+                toDate: todayEnd.toISOString()
+              });
+            }
+
+            this.lastTodaySync = new Date().toISOString();
           }
         } else {
           console.log(`   🏭 Fetching TODAY's data from workforce API...`);
@@ -402,7 +438,11 @@ class LoginTimeCache {
           console.log(`   👤 User ${userId}: ${totalSeconds}s (today only)`);
         }
 
-        // Update cache
+        // Save combined total to DB (not just cache!)
+        // This ensures getLoginTime() can retrieve it even after cache expires
+        await this.saveLoginTime(data);
+
+        // Update memory cache
         const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
         this.cache.set(cacheKey, {
           data,
@@ -503,34 +543,146 @@ class LoginTimeCache {
    * Calculate deals per hour for a user
    */
   calculateDealsPerHour(dealCount, loginSeconds) {
+    // Minimum 5 minutes (300 seconds) to calculate meaningful deals/hour
+    // Prevents absurd numbers like 1024 deals/h from 10 seconds login time
+    const MIN_LOGIN_TIME = 300; // 5 minutes
+
     if (loginSeconds === 0) {
+      return 0;
+    }
+
+    if (loginSeconds < MIN_LOGIN_TIME) {
+      console.log(`⚠️  User has only ${loginSeconds}s login time (< 5 min) - skipping deals/h calculation`);
       return 0;
     }
 
     const loginHours = loginSeconds / 3600;
     const dealsPerHour = dealCount / loginHours;
+    const result = parseFloat(dealsPerHour.toFixed(2));
 
-    return parseFloat(dealsPerHour.toFixed(2));
+    // Log suspicious values for debugging
+    if (result > 10) {
+      console.log(`⚠️  High deals/h detected: ${result} (${dealCount} deals / ${(loginSeconds/3600).toFixed(2)}h)`);
+    }
+
+    return result;
   }
 
   /**
    * Get stats
    */
-  getStats() {
-    return {
-      cachedUsers: this.cache.size,
-      lastSync: this.lastSync,
-      syncIntervalMinutes: this.syncIntervalMinutes
-    };
+  async getStats() {
+    try {
+      const db = require('./postgres');
+
+      // Get database stats
+      const dbResult = await db.query('SELECT COUNT(*) as count FROM login_time_cache');
+      const totalRecords = parseInt(dbResult.rows[0]?.count || 0);
+
+      // Get today's record count
+      const today = new Date();
+      const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
+      const todayEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
+
+      const todayResult = await db.query(
+        'SELECT COUNT(*) as count FROM login_time_cache WHERE from_date >= $1 AND to_date <= $2',
+        [todayStart, todayEnd]
+      );
+      const todayRecords = parseInt(todayResult.rows[0]?.count || 0);
+
+      return {
+        cachedUsers: this.cache.size,
+        lastSync: this.lastSync,
+        lastTodaySync: this.lastTodaySync,
+        syncIntervalMinutes: this.syncIntervalMinutes,
+        totalRecords,
+        todayRecords,
+        ongoingSync: !!this.ongoingSync
+      };
+    } catch (error) {
+      console.error('❌ Error getting login time cache stats:', error);
+      return {
+        cachedUsers: this.cache.size,
+        lastSync: this.lastSync,
+        lastTodaySync: this.lastTodaySync,
+        syncIntervalMinutes: this.syncIntervalMinutes,
+        totalRecords: 0,
+        todayRecords: 0,
+        ongoingSync: !!this.ongoingSync
+      };
+    }
   }
 
   /**
-   * Clear cache
+   * Clear in-memory cache
    */
   clear() {
     const size = this.cache.size;
     this.cache.clear();
+    this.lastSync = null;
+    this.lastTodaySync = null;
     console.log(`🗑️  Cleared ${size} login time cache entries`);
+  }
+
+  /**
+   * Invalidate cache and reload from database
+   */
+  async invalidateCache() {
+    console.log('🔄 Invalidating login time cache...');
+    this.clear();
+
+    // Reload today's data from database
+    const db = require('./postgres');
+    const today = new Date();
+    const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
+    const todayEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
+
+    try {
+      const result = await db.query(
+        `SELECT user_id, from_date, to_date, login_seconds, fetched_at
+         FROM login_time_cache
+         WHERE from_date >= $1 AND to_date <= $2`,
+        [todayStart, todayEnd]
+      );
+
+      // Reload into cache
+      for (const row of result.rows) {
+        const cacheKey = `${row.user_id}-${row.from_date.toISOString()}-${row.to_date.toISOString()}`;
+        this.cache.set(cacheKey, {
+          data: {
+            loginSeconds: row.login_seconds,
+            fromDate: row.from_date,
+            toDate: row.to_date
+          },
+          timestamp: row.fetched_at
+        });
+      }
+
+      this.lastSync = new Date();
+      this.lastTodaySync = new Date();
+      console.log(`✅ Reloaded ${result.rows.length} today's records from database`);
+    } catch (error) {
+      console.error('❌ Error reloading cache from database:', error);
+    }
+  }
+
+  /**
+   * Force full resync from API
+   */
+  async forceSync(adversusAPI, userIds, fromDate, toDate) {
+    console.log(`🔄 Force syncing login time for ${userIds.length} users...`);
+    this.clear();
+    return await this.syncLoginTimeForUsers(adversusAPI, userIds, fromDate, toDate);
+  }
+
+  /**
+   * Clear database
+   */
+  async clearDatabase() {
+    const db = require('./postgres');
+    await db.query('TRUNCATE TABLE login_time_cache CASCADE');
+    this.clear();
+    console.log('🗑️  Cleared login time database and cache');
   }
 }
 

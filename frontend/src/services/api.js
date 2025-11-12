@@ -167,6 +167,11 @@ export const syncSMSManually = () => api.post('/sms/sync');
 export const cleanOldSMS = () => api.post('/sms/clean');
 export const clearSMSCache = () => api.delete('/sms/cache');
 
+// Login Time Cache Management
+export const getLoginTimeCacheStats = () => api.get('/admin/login-time/stats');
+export const syncLoginTimeManually = () => api.post('/admin/login-time/sync');
+export const clearLoginTimeCache = () => api.delete('/admin/login-time/database');
+
 // Admin - Database Sync & Duplicate Management
 export const syncDatabase = (mode, startDate, endDate) =>
   api.post('/admin/sync-database', { mode, startDate, endDate });
