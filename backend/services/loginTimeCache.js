@@ -140,16 +140,31 @@ class LoginTimeCache {
 
     // Query from database
     try {
-      const query = `
+      // Try exact match first (best case)
+      const exactQuery = `
         SELECT * FROM user_login_time
         WHERE user_id = $1
-          AND from_date <= $2
-          AND to_date >= $3
+          AND from_date = $2
+          AND to_date = $3
         ORDER BY synced_at DESC
         LIMIT 1
       `;
 
-      const result = await db.pool.query(query, [userId, toDate, fromDate]);
+      let result = await db.pool.query(exactQuery, [userId, fromDate, toDate]);
+
+      // If no exact match, try overlapping periods
+      if (result.rows.length === 0) {
+        const overlapQuery = `
+          SELECT * FROM user_login_time
+          WHERE user_id = $1
+            AND from_date <= $2
+            AND to_date >= $3
+          ORDER BY synced_at DESC
+          LIMIT 1
+        `;
+
+        result = await db.pool.query(overlapQuery, [userId, toDate, fromDate]);
+      }
 
       if (result.rows.length > 0) {
         const row = result.rows[0];
@@ -423,7 +438,11 @@ class LoginTimeCache {
           console.log(`   👤 User ${userId}: ${totalSeconds}s (today only)`);
         }
 
-        // Update cache
+        // Save combined total to DB (not just cache!)
+        // This ensures getLoginTime() can retrieve it even after cache expires
+        await this.saveLoginTime(data);
+
+        // Update memory cache
         const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
         this.cache.set(cacheKey, {
           data,
