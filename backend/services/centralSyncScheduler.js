@@ -2,6 +2,7 @@ const adversusAPI = require('./adversusAPI');
 const dealsCache = require('./dealsCache');
 const smsCache = require('./smsCache');
 const loginTimeCache = require('./loginTimeCache');
+const userCache = require('./userCache');
 
 /**
  * CENTRAL SYNC SCHEDULER
@@ -94,16 +95,19 @@ class CentralSyncScheduler {
         console.error('❌ Failed to sync SMS:', error.message);
       }
 
-      // 3. Sync login time cache
-      console.log('\n⏱️  [3/3] Syncing login time cache...');
+      // 3. Sync users cache and login time cache
+      console.log('\n⏱️  [3/4] Syncing users cache...');
       try {
-        // ALWAYS sync login time, regardless of lastSync timestamp
-        // Why: Per-deal syncs update lastSync but only for ONE user
-        //      We need to refresh ALL users every cycle to keep deals/hour accurate
-
-        // Get all active users
+        // Get all active users and update user cache
         const usersResult = await adversusAPI.getUsers();
         const users = usersResult.users || [];
+
+        // Update global user cache
+        userCache.update(users);
+        console.log('✅ User cache updated');
+
+        // 4. Sync login time cache
+        console.log('\n⏱️  [4/4] Syncing login time cache...');
         const activeUserIds = users.map(u => u.id);
 
         if (activeUserIds.length > 0) {
