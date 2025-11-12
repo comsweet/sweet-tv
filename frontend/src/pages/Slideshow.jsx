@@ -1113,6 +1113,28 @@ const Slideshow = () => {
           );
         }
 
+        // Render trend chart slide if leaderboard type is 'trend-chart'
+        if (slideData.leaderboard?.type === 'trend-chart') {
+          return (
+            <div
+              key={`slide-trend-chart-${slideData.leaderboard.id}-${refreshKey}`}
+              className={`slideshow-slide ${isActive ? 'active' : ''}`}
+            >
+              <TrendChartSlide
+                config={{
+                  leaderboardId: slideData.leaderboard.id,
+                  days: slideData.leaderboard.trendDays,
+                  hours: slideData.leaderboard.trendHours,
+                  metrics: slideData.leaderboard.trendMetrics,
+                  refreshInterval: slideData.leaderboard.refreshInterval || 300000
+                }}
+                isActive={isActive}
+                displaySize={displaySize}
+              />
+            </div>
+          );
+        }
+
         // Otherwise render standard leaderboard slide
         return (
           <LeaderboardSlide

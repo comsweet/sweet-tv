@@ -56,7 +56,7 @@ export const useLeaderboards = () => {
     battleStartDate: '',
     battleEndDate: '',
     victoryCondition: 'highest_at_end',
-    victoryMetric: 'commission',
+    victoryMetric: 'commission_per_hour',
     targetValue: null,
     teams: [
       { teamName: '', teamEmoji: '', color: '#FF6B6B', userGroupIds: [] },
@@ -124,7 +124,7 @@ export const useLeaderboards = () => {
       battleStartDate: '',
       battleEndDate: '',
       victoryCondition: 'highest_at_end',
-      victoryMetric: 'commission',
+      victoryMetric: 'commission_per_hour',
       targetValue: null,
       teams: [
         { teamName: '', teamEmoji: '', color: '#FF6B6B', userGroupIds: [] },
@@ -184,7 +184,7 @@ export const useLeaderboards = () => {
       battleStartDate: leaderboard.battleStartDate || '',
       battleEndDate: leaderboard.battleEndDate || '',
       victoryCondition: leaderboard.victoryCondition || 'highest_at_end',
-      victoryMetric: leaderboard.victoryMetric || 'commission',
+      victoryMetric: leaderboard.victoryMetric || 'commission_per_hour',
       targetValue: leaderboard.targetValue || null,
       teams: leaderboard.teams || [
         { teamName: '', teamEmoji: '', color: '#FF6B6B', userGroupIds: [] },

@@ -309,7 +309,7 @@ CREATE TRIGGER update_leaderboards_updated_at BEFORE UPDATE ON leaderboards
 -- Team battles table (competition between 2-4 teams)
 CREATE TABLE IF NOT EXISTS team_battles (
   id SERIAL PRIMARY KEY,
-  leaderboard_id VARCHAR(255) REFERENCES leaderboards(id) ON DELETE SET NULL,
+  leaderboard_id VARCHAR(255), -- Links to leaderboards.json file
   name VARCHAR(255) NOT NULL,
   description TEXT,
   start_date TIMESTAMP NOT NULL,

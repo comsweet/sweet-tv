@@ -94,7 +94,7 @@ class LeaderboardService {
       battleStartDate: leaderboard.battleStartDate || null,
       battleEndDate: leaderboard.battleEndDate || null,
       victoryCondition: leaderboard.victoryCondition || 'highest_at_end',
-      victoryMetric: leaderboard.victoryMetric || 'commission',
+      victoryMetric: leaderboard.victoryMetric || 'commission_per_hour',
       targetValue: leaderboard.targetValue || null,
       teams: leaderboard.teams || [],
       // TREND CHART specific fields
