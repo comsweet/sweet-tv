@@ -11,6 +11,7 @@ const loginTimeCache = require('../../services/loginTimeCache');
 const leaderboardCache = require('../../services/leaderboardCache');
 const campaignCache = require('../../services/campaignCache');
 const campaignBonusTiers = require('../../services/campaignBonusTiers');
+const userCache = require('../../services/userCache');
 
 // Multer upload for logos
 const upload = multer({
@@ -111,12 +112,8 @@ router.get('/:id/stats', async (req, res) => {
     let adversusUsers = [];
     let localAgents = [];
 
-    try {
-      const usersResult = await adversusAPI.getUsers();
-      adversusUsers = usersResult.users || [];
-    } catch (error) {
-      console.error('⚠️ Failed to load Adversus users:', error.message);
-    }
+    // Use cached users instead of making API call
+    adversusUsers = userCache.getUsers();
 
     try {
       localAgents = await database.getAgents();
@@ -651,12 +648,8 @@ router.get('/:id/history', async (req, res) => {
 
     // Get users
     let adversusUsers = [];
-    try {
-      const usersResult = await adversusAPI.getUsers();
-      adversusUsers = usersResult.users || [];
-    } catch (error) {
-      console.error('⚠️ Failed to load Adversus users:', error.message);
-    }
+    // Use cached users instead of making API call
+    adversusUsers = userCache.getUsers();
 
     // Filter by user groups if specified
     let filteredDeals = cachedDeals;
@@ -946,12 +939,8 @@ router.get('/:id/recent-sms', async (req, res) => {
 
     // Get users for name mapping
     let adversusUsers = [];
-    try {
-      const usersResult = await adversusAPI.getUsers();
-      adversusUsers = usersResult.users || [];
-    } catch (error) {
-      console.error('⚠️ Failed to load Adversus users:', error.message);
-    }
+    // Use cached users instead of making API call
+    adversusUsers = userCache.getUsers();
 
     // Filter by user groups if specified
     let filteredSMS = cachedSMS;
@@ -1120,13 +1109,14 @@ router.get('/:id/group-metrics', async (req, res) => {
     let adversusUsers = [];
     let adversusGroups = [];
 
+    // Use cached users instead of making API call
+    adversusUsers = userCache.getUsers();
+
     try {
-      const usersResult = await adversusAPI.getUsers();
-      adversusUsers = usersResult.users || [];
       const groupsResult = await adversusAPI.getUserGroups();
       adversusGroups = groupsResult.groups || [];
     } catch (error) {
-      console.error('⚠️ Failed to load Adversus data:', error.message);
+      console.error('⚠️ Failed to load Adversus groups:', error.message);
       return res.status(500).json({ error: 'Failed to load Adversus data' });
     }
 
