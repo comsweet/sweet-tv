@@ -355,12 +355,33 @@ class LoginTimeCache {
           console.log(`   ⚡ Using cached TODAY's data (synced ${Math.round(minutesSinceLastTodaySync)} min ago)`);
 
           // Load from cache instead of API
+          let missingFromCache = 0;
           for (const userId of userIds) {
             const cacheKey = `${userId}-${todayStart.toISOString()}-${todayEnd.toISOString()}`;
             const cached = this.cache.get(cacheKey);
             if (cached) {
               todayMap.set(parseInt(userId), cached.data.loginSeconds);
+            } else {
+              missingFromCache++;
             }
+          }
+
+          // If many users are missing from cache, refetch
+          if (missingFromCache > userIds.length * 0.3) {
+            console.log(`   ⚠️  ${missingFromCache}/${userIds.length} users missing from today's cache - refetching...`);
+            todayMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, todayStart, todayEnd);
+
+            // Save today's data
+            for (const [userId, loginSeconds] of todayMap) {
+              await this.saveLoginTime({
+                userId: userId.toString(),
+                loginSeconds: Math.round(loginSeconds),
+                fromDate: todayStart.toISOString(),
+                toDate: todayEnd.toISOString()
+              });
+            }
+
+            this.lastTodaySync = new Date().toISOString();
           }
         } else {
           console.log(`   🏭 Fetching TODAY's data from workforce API...`);
@@ -503,14 +524,29 @@ class LoginTimeCache {
    * Calculate deals per hour for a user
    */
   calculateDealsPerHour(dealCount, loginSeconds) {
+    // Minimum 5 minutes (300 seconds) to calculate meaningful deals/hour
+    // Prevents absurd numbers like 1024 deals/h from 10 seconds login time
+    const MIN_LOGIN_TIME = 300; // 5 minutes
+
     if (loginSeconds === 0) {
+      return 0;
+    }
+
+    if (loginSeconds < MIN_LOGIN_TIME) {
+      console.log(`⚠️  User has only ${loginSeconds}s login time (< 5 min) - skipping deals/h calculation`);
       return 0;
     }
 
     const loginHours = loginSeconds / 3600;
     const dealsPerHour = dealCount / loginHours;
+    const result = parseFloat(dealsPerHour.toFixed(2));
 
-    return parseFloat(dealsPerHour.toFixed(2));
+    // Log suspicious values for debugging
+    if (result > 10) {
+      console.log(`⚠️  High deals/h detected: ${result} (${dealCount} deals / ${(loginSeconds/3600).toFixed(2)}h)`);
+    }
+
+    return result;
   }
 
   /**
