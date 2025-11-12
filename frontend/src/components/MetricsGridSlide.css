@@ -5,7 +5,8 @@
 .metrics-grid-slide {
   width: 100%;
   height: 100vh;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  /* Brand gradient: Primary #005A9C → Accent #00B2E3 */
+  background: linear-gradient(135deg, #005A9C 0%, #00B2E3 100%);
   color: #ffffff;
   display: flex;
   flex-direction: column;
@@ -110,10 +111,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1rem;
+  padding: 1.5rem 1.5rem;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 0.5rem;
   transition: background 0.2s ease;
+  gap: 2rem; /* Add gap between label and value */
 }
 
 .metric-row:hover {
@@ -121,20 +123,22 @@
 }
 
 .metric-label {
-  font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.8);
-  font-weight: 500;
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+  flex: 1;
 }
 
 .metric-value {
-  font-size: 1.8rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1.5rem;
   border-radius: 0.5rem;
-  min-width: 120px;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.1);
+  min-width: 180px;
+  text-align: right;
+  background: rgba(255, 255, 255, 0.15);
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 /* Color-coded values */
@@ -202,74 +206,98 @@
    TV SIZE RESPONSIVENESS
    ================================================== */
 
-/* Compact */
+/* Compact - 1080p TVs */
 .metrics-grid-slide.compact .metrics-grid-header h1 {
-  font-size: 2rem;
+  font-size: 2.5rem;
 }
 
 .metrics-grid-slide.compact .card-header h2 {
-  font-size: 1.3rem;
-}
-
-.metrics-grid-slide.compact .metric-label {
-  font-size: 0.9rem;
-}
-
-.metrics-grid-slide.compact .metric-value {
-  font-size: 1.3rem;
-  padding: 0.3rem 0.7rem;
-  min-width: 90px;
-}
-
-.metrics-grid-slide.compact .metric-row {
-  padding: 0.5rem 0.8rem;
-}
-
-/* Normal (default, no changes needed) */
-
-/* Large */
-.metrics-grid-slide.large .metrics-grid-header h1 {
-  font-size: 3.5rem;
-}
-
-.metrics-grid-slide.large .card-header h2 {
-  font-size: 2.2rem;
-}
-
-.metrics-grid-slide.large .metric-label {
-  font-size: 1.3rem;
-}
-
-.metrics-grid-slide.large .metric-value {
-  font-size: 2.2rem;
-  padding: 0.7rem 1.2rem;
-  min-width: 150px;
-}
-
-.metrics-grid-slide.large .metric-row {
-  padding: 1rem 1.3rem;
-}
-
-/* Extra Large */
-.metrics-grid-slide.xlarge .metrics-grid-header h1 {
-  font-size: 4.5rem;
-}
-
-.metrics-grid-slide.xlarge .card-header h2 {
-  font-size: 2.8rem;
-}
-
-.metrics-grid-slide.xlarge .metric-label {
   font-size: 1.6rem;
 }
 
-.metrics-grid-slide.xlarge .metric-value {
+.metrics-grid-slide.compact .metric-label {
+  font-size: 1.2rem;
+}
+
+.metrics-grid-slide.compact .metric-value {
+  font-size: 1.8rem;
+  padding: 0.5rem 1rem;
+  min-width: 140px;
+}
+
+.metrics-grid-slide.compact .metric-row {
+  padding: 1rem 1.2rem;
+  gap: 1.5rem;
+}
+
+/* Normal - 1080p/2K TVs (default - better base sizes) */
+.metrics-grid-slide.normal .metrics-grid-header h1 {
+  font-size: 3rem;
+}
+
+.metrics-grid-slide.normal .card-header h2 {
+  font-size: 2rem;
+}
+
+.metrics-grid-slide.normal .metric-label {
+  font-size: 1.6rem;
+}
+
+.metrics-grid-slide.normal .metric-value {
   font-size: 2.8rem;
-  padding: 0.9rem 1.5rem;
-  min-width: 180px;
+  padding: 0.7rem 1.5rem;
+  min-width: 200px;
+}
+
+.metrics-grid-slide.normal .metric-row {
+  padding: 1.5rem 1.5rem;
+  gap: 2rem;
+}
+
+/* Large - 2K TVs */
+.metrics-grid-slide.large .metrics-grid-header h1 {
+  font-size: 4rem;
+}
+
+.metrics-grid-slide.large .card-header h2 {
+  font-size: 2.6rem;
+}
+
+.metrics-grid-slide.large .metric-label {
+  font-size: 2rem;
+}
+
+.metrics-grid-slide.large .metric-value {
+  font-size: 3.4rem;
+  padding: 0.8rem 1.8rem;
+  min-width: 240px;
+}
+
+.metrics-grid-slide.large .metric-row {
+  padding: 1.8rem 1.8rem;
+  gap: 2.5rem;
+}
+
+/* Extra Large - 4K TVs */
+.metrics-grid-slide.xlarge .metrics-grid-header h1 {
+  font-size: 5rem;
+}
+
+.metrics-grid-slide.xlarge .card-header h2 {
+  font-size: 3.2rem;
+}
+
+.metrics-grid-slide.xlarge .metric-label {
+  font-size: 2.4rem;
+}
+
+.metrics-grid-slide.xlarge .metric-value {
+  font-size: 4rem;
+  padding: 1rem 2rem;
+  min-width: 280px;
 }
 
 .metrics-grid-slide.xlarge .metric-row {
-  padding: 1.3rem 1.6rem;
-  gap: 1.5rem;
+  padding: 2rem 2rem;
+  gap: 3rem;
 }
