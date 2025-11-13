@@ -92,19 +92,40 @@ router.get('/:id/stats', async (req, res) => {
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
     console.log(`   💾 Found ${cachedDeals.length} deals in cache for date range`);
 
+    // DEBUG: Log deals per user from cache (before filtering)
+    const rawDealsByUser = {};
+    cachedDeals.forEach(deal => {
+      const userId = String(deal.userId);
+      if (!rawDealsByUser[userId]) rawDealsByUser[userId] = 0;
+      rawDealsByUser[userId] += parseInt(deal.multiDeals || '1');
+    });
+    console.log(`   📋 Raw cache data: ${Object.keys(rawDealsByUser).length} users with deals (BEFORE any filtering)`);
+    Object.entries(rawDealsByUser).slice(0, 5).forEach(([userId, count]) => {
+      console.log(`      User ${userId}: ${count} deals (raw from cache)`);
+    });
+
     // Convert cached deals to lead format
-    const leads = cachedDeals.map(deal => ({
-      id: deal.leadId,
-      lastContactedBy: deal.userId,
-      campaignId: deal.campaignId,
-      status: deal.status,
-      lastUpdatedTime: deal.orderDate,
-      resultData: [
-        { id: 70163, value: String(deal.commission) },
-        { id: 74126, value: deal.multiDeals },
-        { label: 'Order date', value: deal.orderDate }
-      ]
-    }));
+    const leads = cachedDeals.map(deal => {
+      // CRITICAL: Ensure multiDeals is always a number, never a string
+      let multiDeals = parseInt(deal.multiDeals);
+      if (isNaN(multiDeals) || multiDeals < 1) {
+        console.error(`❌ CRITICAL: Invalid multiDeals in cache for lead ${deal.leadId}: ${typeof deal.multiDeals} = "${deal.multiDeals}"`);
+        multiDeals = 1; // Fallback
+      }
+
+      return {
+        id: deal.leadId,
+        lastContactedBy: deal.userId,
+        campaignId: deal.campaignId,
+        status: deal.status,
+        lastUpdatedTime: deal.orderDate,
+        resultData: [
+          { id: 70163, value: String(deal.commission) },
+          { id: 74126, value: multiDeals }, // Always a number now
+          { label: 'Order date', value: deal.orderDate }
+        ]
+      };
+    });
 
     console.log(`✅ Loaded ${leads.length} deals from cache`);
 
@@ -210,6 +231,20 @@ router.get('/:id/stats', async (req, res) => {
       console.log(`  📋 Initialized ${adversusUsers.length} users (no group filter)`);
     }
 
+    // DEBUG: Log deals that will be processed
+    const dealsByUser = {};
+    filteredLeads.forEach(lead => {
+      const userId = String(lead.lastContactedBy);
+      if (!dealsByUser[userId]) dealsByUser[userId] = 0;
+      const multiDeals = parseInt(lead.resultData?.find(f => f.id === 74126)?.value || '1');
+      dealsByUser[userId] += multiDeals;
+    });
+    console.log(`📊 Deals per user after filtering: ${Object.keys(dealsByUser).length} users with deals`);
+    Object.entries(dealsByUser).slice(0, 5).forEach(([userId, count]) => {
+      const user = adversusUsers.find(u => String(u.id) === userId);
+      console.log(`   User ${userId} (${user?.name || 'UNKNOWN'}): ${count} deals`);
+    });
+
     // Then add deal data for users who have deals
     filteredLeads.forEach(lead => {
       const userId = lead.lastContactedBy;
@@ -228,11 +263,46 @@ router.get('/:id/stats', async (req, res) => {
       const commission = parseFloat(commissionField?.value || 0);
 
       const multiDealsField = lead.resultData?.find(f => f.id === 74126);
-      const multiDealsValue = parseInt(multiDealsField?.value || '1');
+      const rawMultiDeals = multiDealsField?.value;
+      const multiDealsValue = parseInt(rawMultiDeals || '1');
+
+      // DEBUG: Log if multiDeals parsing fails or produces unexpected value
+      if (isNaN(multiDealsValue)) {
+        console.error(`❌ CRITICAL: multiDeals is NaN for lead ${lead.id}, user ${userId}`);
+        console.error(`   Raw value: ${typeof rawMultiDeals} = "${rawMultiDeals}"`);
+        console.error(`   Parsed value: ${multiDealsValue}`);
+      } else if (multiDealsValue === 0) {
+        console.warn(`⚠️  WARNING: multiDeals is 0 for lead ${lead.id}, user ${userId}`);
+        console.warn(`   Raw value: ${typeof rawMultiDeals} = "${rawMultiDeals}"`);
+      } else if (typeof rawMultiDeals === 'string' && rawMultiDeals.length > 3) {
+        console.warn(`⚠️  WARNING: multiDeals is long string for lead ${lead.id}, user ${userId}`);
+        console.warn(`   Raw value: ${typeof rawMultiDeals} = "${rawMultiDeals}"`);
+        console.warn(`   Parsed to: ${multiDealsValue}`);
+      }
 
       stats[userId].totalCommission += commission;
       stats[userId].dealCount += multiDealsValue;
     });
+
+    // DEBUG: Log final stats for users with deals
+    const usersWithDeals = Object.values(stats).filter(s => s.dealCount > 0);
+    const usersWithZeroDeals = Object.values(stats).filter(s => s.dealCount === 0);
+    console.log(`📊 FINAL STATS: ${usersWithDeals.length} users with deals, ${usersWithZeroDeals.length} users with 0 deals`);
+
+    // Log first 5 users with deals
+    usersWithDeals.slice(0, 5).forEach(s => {
+      const user = adversusUsers.find(u => String(u.id) === String(s.userId));
+      console.log(`   ✅ User ${s.userId} (${user?.name || 'UNKNOWN'}): ${s.dealCount} deals, ${Math.round(s.totalCommission)} THB`);
+    });
+
+    // Log users with 0 deals (WARNING - these will show 0 in klassiska tabellen!)
+    if (usersWithZeroDeals.length > 0 && usersWithZeroDeals.length <= 10) {
+      console.log(`⚠️  Users with 0 deals (will show 0 in klassiska tabellen):`);
+      usersWithZeroDeals.forEach(s => {
+        const user = adversusUsers.find(u => String(u.id) === String(s.userId));
+        console.log(`   ❌ User ${s.userId} (${user?.name || 'UNKNOWN'}): 0 deals`);
+      });
+    }
 
     // ==================== CAMPAIGN BONUS CALCULATION ====================
     // Beräkna campaign bonus per agent, per dag, per kampanj-grupp
@@ -796,6 +866,21 @@ router.get('/:id/history', async (req, res) => {
       // Don't need to add userId here anymore - already included from groupUsersMap
     }
 
+    // DEBUG: Log today's deal counts per group
+    const today = new Date();
+    const todayKey = groupByDay
+      ? new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
+      : null;
+
+    if (todayKey && timeData[todayKey]) {
+      console.log(`🔍 TODAY'S DEALS (${todayKey.split('T')[0]}):`);
+      for (const groupId in timeData[todayKey]) {
+        const groupName = groupNames[groupId] || `Group ${groupId}`;
+        const deals = timeData[todayKey][groupId].deals;
+        console.log(`   ${groupName}: ${deals} deals`);
+      }
+    }
+
     // Add SMS data (grouped by user group)
     for (const sms of filteredSMS) {
       const smsDate = new Date(sms.timestamp);
@@ -940,11 +1025,17 @@ router.get('/:id/history', async (req, res) => {
       // Sum up login times per group for this period
       const groupLoginTimes = {};
       loginTimeResults.forEach((loginTime, index) => {
-        const { groupId } = groupUserMapping[index];
+        const { groupId, userId } = groupUserMapping[index];
         if (!groupLoginTimes[groupId]) {
           groupLoginTimes[groupId] = 0;
         }
         groupLoginTimes[groupId] += loginTime?.loginSeconds || 0;
+
+        // DEBUG: Log each user's login time for today
+        if (isPotentiallyToday) {
+          const groupName = groupNames[groupId];
+          console.log(`      👤 User ${userId} (${groupName}): ${loginTime?.loginSeconds || 0}s login time`);
+        }
       });
 
       // Assign to timeData
@@ -952,6 +1043,14 @@ router.get('/:id/history', async (req, res) => {
         timeData[timeKey][groupId].loginSeconds = groupLoginTimes[groupId] || 0;
         // Convert Set to Array for serialization
         timeData[timeKey][groupId].userIds = Array.from(timeData[timeKey][groupId].userIds);
+
+        // DEBUG: Log total login seconds per group for today
+        if (isPotentiallyToday) {
+          const groupName = groupNames[groupId];
+          const totalSeconds = groupLoginTimes[groupId] || 0;
+          const deals = timeData[timeKey][groupId].deals;
+          console.log(`      🏢 ${groupName}: ${totalSeconds}s total (${(totalSeconds/3600).toFixed(2)}h) for ${deals} deals`);
+        }
       }
 
       console.log(`   ✅ Period ${timeKey.split('T')[0]}: Loaded login time from cache`);
@@ -1002,13 +1101,21 @@ router.get('/:id/history', async (req, res) => {
         const groupName = groupNames[groupId] || `Group ${groupId}`;
         const periodStats = periodData[groupId];
 
-        // Debug logging for first period
-        if (timeKey === sortedTimes[0]) {
-          console.log(`📊 [${groupName}] Period ${timeKey.split('T')[0]}:`);
+        // Debug logging for first period AND today AND "Dentle" groups
+        const isFirstPeriod = timeKey === sortedTimes[0];
+        const isLastPeriod = timeKey === sortedTimes[sortedTimes.length - 1];
+        const isDentleGroup = groupName.toLowerCase().includes('dentle');
+
+        if (isFirstPeriod || isLastPeriod || isDentleGroup) {
+          const dateStr = timeKey.split('T')[0];
+          const label = isLastPeriod ? '🔴 LAST/TODAY' : isFirstPeriod ? '🟢 FIRST' : '🟡 DENTLE';
+          console.log(`${label} [${groupName}] Period ${dateStr}:`);
           console.log(`   Deals: ${periodStats.deals}`);
           console.log(`   Login seconds: ${periodStats.loginSeconds} (${(periodStats.loginSeconds / 3600).toFixed(2)} hours)`);
           if (periodStats.loginSeconds > 0) {
             console.log(`   Order/hour: ${loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds)}`);
+          } else if (periodStats.deals > 0) {
+            console.log(`   ⚠️  WARNING: Has ${periodStats.deals} deals but 0 login seconds → order/h will be 0!`);
           }
         }
 
