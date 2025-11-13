@@ -341,11 +341,13 @@ router.get('/:id/live-score', async (req, res) => {
     const endDate = new Date(battle.end_date);
 
     console.log(`⚔️ Calculating live score for battle "${battle.name}" (ID: ${battleId})`);
-    console.log(`   Teams: ${battle.teams ? battle.teams.length : 0}`);
+    console.log(`   Teams from DB:`, battle.teams);
+    console.log(`   Teams count: ${battle.teams ? battle.teams.length : 0}`);
 
     // Validate teams data
     if (!battle.teams || !Array.isArray(battle.teams) || battle.teams.length === 0) {
       console.warn(`⚠️ No teams found for battle ${battleId}`);
+      console.warn(`   Battle data keys:`, Object.keys(battle));
       return res.json({
         battle: {
           id: battle.id,

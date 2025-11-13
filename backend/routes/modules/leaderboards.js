@@ -845,6 +845,16 @@ router.get('/:id/history', async (req, res) => {
         const groupName = groupNames[groupId] || `Group ${groupId}`;
         const periodStats = periodData[groupId];
 
+        // Debug logging for first period
+        if (timeKey === sortedTimes[0]) {
+          console.log(`📊 [${groupName}] Period ${timeKey.split('T')[0]}:`);
+          console.log(`   Deals: ${periodStats.deals}`);
+          console.log(`   Login seconds: ${periodStats.loginSeconds} (${(periodStats.loginSeconds / 3600).toFixed(2)} hours)`);
+          if (periodStats.loginSeconds > 0) {
+            console.log(`   Order/hour: ${loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds)}`);
+          }
+        }
+
         // Add values for each metric
         for (const metricConfig of metricsToFetch) {
           const metricName = metricConfig.metric;

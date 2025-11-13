@@ -9,6 +9,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const {
     hours,
@@ -25,9 +26,14 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   useEffect(() => {
     if (!isActive || !leaderboard) return;
 
-    const fetchData = async () => {
+    const fetchData = async (isAutoRefresh = false) => {
       try {
-        setLoading(true);
+        // Only show loading spinner on first load, not on auto-refresh
+        if (!isAutoRefresh) {
+          setLoading(true);
+        } else {
+          setIsRefreshing(true);
+        }
         const params = {};
 
         // Use days if provided, otherwise fall back to hours
@@ -52,13 +58,14 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
         setError(err.message);
       } finally {
         setLoading(false);
+        setIsRefreshing(false);
       }
     };
 
-    fetchData();
+    fetchData(false); // Initial load
 
-    // Auto-refresh
-    const interval = setInterval(fetchData, refreshInterval);
+    // Auto-refresh in background
+    const interval = setInterval(() => fetchData(true), refreshInterval);
     return () => clearInterval(interval);
   }, [leaderboard, isActive, hours, days, JSON.stringify(metricsConfig), refreshInterval]);
 
