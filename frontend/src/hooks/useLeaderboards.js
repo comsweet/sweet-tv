@@ -213,6 +213,15 @@ export const useLeaderboards = () => {
         userGroups: form.userGroups.length > 0 ? form.userGroups : []
       };
 
+      // DEBUG: Log what we're saving for trend-chart types
+      if (form.type === 'trend-chart') {
+        console.log('🔍 [TREND CHART SAVE DEBUG]');
+        console.log('   form.trendDays:', form.trendDays);
+        console.log('   form.trendHours:', form.trendHours);
+        console.log('   data.trendDays (before mapping):', data.trendDays);
+        console.log('   data.trendHours (before mapping):', data.trendHours);
+      }
+
       // CRITICAL FIX: Map trendDays to timePeriod for trend-chart leaderboards
       // Backend uses timePeriod (not trendDays) to determine date range
       if (form.type === 'trend-chart' && form.trendDays !== undefined && !form.trendHours) {
@@ -230,6 +239,15 @@ export const useLeaderboards = () => {
           data.customEndDate = now.toISOString().split('T')[0];
         }
         console.log(`📅 Mapping trendDays=${form.trendDays} → timePeriod=${data.timePeriod}`);
+      }
+
+      // DEBUG: Log final data being sent to backend
+      if (form.type === 'trend-chart') {
+        console.log('📤 [SENDING TO BACKEND]');
+        console.log('   data.trendDays:', data.trendDays);
+        console.log('   data.trendHours:', data.trendHours);
+        console.log('   data.timePeriod:', data.timePeriod);
+        console.log('   Full data object:', JSON.stringify(data, null, 2));
       }
 
       if (editingLeaderboard) {
