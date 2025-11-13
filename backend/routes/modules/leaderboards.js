@@ -641,6 +641,7 @@ router.get('/:id/history', async (req, res) => {
 
     console.log(`📈 [${leaderboard.name}] Fetching history from ${startDate.toISOString()} to ${endDate.toISOString()}`);
     console.log(`   📊 Grouping by: ${groupByDay ? 'DAY' : 'HOUR'}, Metrics: ${metrics || metric}`);
+    console.log(`   👥 User Groups filter: ${leaderboard.userGroups && leaderboard.userGroups.length > 0 ? leaderboard.userGroups.join(', ') : 'ALLA (tomt filter)'}`);
 
     // Get data from caches
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
@@ -662,6 +663,8 @@ router.get('/:id/history', async (req, res) => {
         .filter(u => u.group && u.group.id && normalizedGroups.includes(String(u.group.id)))
         .map(u => String(u.id));
 
+      console.log(`   🔍 Filtered to ${allowedUserIds.length} users from selected groups`);
+
       filteredDeals = cachedDeals.filter(deal =>
         allowedUserIds.includes(String(deal.userId))
       );
@@ -670,20 +673,26 @@ router.get('/:id/history', async (req, res) => {
       );
     } else {
       allowedUserIds = adversusUsers.map(u => String(u.id));
+      console.log(`   🔍 No filter - using all ${allowedUserIds.length} users`);
     }
 
-    // Create userId to groupId mapping
+    console.log(`   📦 Filtered deals: ${filteredDeals.length}, Filtered SMS: ${filteredSMS.length}`);
+
+    // Create userId to groupId mapping (only for filtered users)
     const userGroupMap = {};
     const groupNames = {};
 
     for (const user of adversusUsers) {
-      if (user.group && user.group.id) {
-        const userId = String(user.id);
+      const userId = String(user.id);
+      // Only map users that are in allowedUserIds
+      if (user.group && user.group.id && allowedUserIds.includes(userId)) {
         const groupId = String(user.group.id);
         userGroupMap[userId] = groupId;
         groupNames[groupId] = user.group.name || `Group ${groupId}`;
       }
     }
+
+    console.log(`   📊 User groups found: ${Object.keys(groupNames).map(id => groupNames[id]).join(', ')}`);
 
     // Group data by time period (hour or day) and user GROUP instead of individual user
     const timeData = {};
