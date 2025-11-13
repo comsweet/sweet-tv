@@ -796,6 +796,21 @@ router.get('/:id/history', async (req, res) => {
       // Don't need to add userId here anymore - already included from groupUsersMap
     }
 
+    // DEBUG: Log today's deal counts per group
+    const today = new Date();
+    const todayKey = groupByDay
+      ? new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
+      : null;
+
+    if (todayKey && timeData[todayKey]) {
+      console.log(`🔍 TODAY'S DEALS (${todayKey.split('T')[0]}):`);
+      for (const groupId in timeData[todayKey]) {
+        const groupName = groupNames[groupId] || `Group ${groupId}`;
+        const deals = timeData[todayKey][groupId].deals;
+        console.log(`   ${groupName}: ${deals} deals`);
+      }
+    }
+
     // Add SMS data (grouped by user group)
     for (const sms of filteredSMS) {
       const smsDate = new Date(sms.timestamp);
@@ -1002,13 +1017,21 @@ router.get('/:id/history', async (req, res) => {
         const groupName = groupNames[groupId] || `Group ${groupId}`;
         const periodStats = periodData[groupId];
 
-        // Debug logging for first period
-        if (timeKey === sortedTimes[0]) {
-          console.log(`📊 [${groupName}] Period ${timeKey.split('T')[0]}:`);
+        // Debug logging for first period AND today AND "Dentle" groups
+        const isFirstPeriod = timeKey === sortedTimes[0];
+        const isLastPeriod = timeKey === sortedTimes[sortedTimes.length - 1];
+        const isDentleGroup = groupName.toLowerCase().includes('dentle');
+
+        if (isFirstPeriod || isLastPeriod || isDentleGroup) {
+          const dateStr = timeKey.split('T')[0];
+          const label = isLastPeriod ? '🔴 LAST/TODAY' : isFirstPeriod ? '🟢 FIRST' : '🟡 DENTLE';
+          console.log(`${label} [${groupName}] Period ${dateStr}:`);
           console.log(`   Deals: ${periodStats.deals}`);
           console.log(`   Login seconds: ${periodStats.loginSeconds} (${(periodStats.loginSeconds / 3600).toFixed(2)} hours)`);
           if (periodStats.loginSeconds > 0) {
             console.log(`   Order/hour: ${loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds)}`);
+          } else if (periodStats.deals > 0) {
+            console.log(`   ⚠️  WARNING: Has ${periodStats.deals} deals but 0 login seconds → order/h will be 0!`);
           }
         }
 
