@@ -9,8 +9,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     console.log('📋 Step 1: Find all users in Sinfrid Bangkok (group 1317)...');
 
     // We need to query Adversus API or check cached data
-    const AdversusAPI = require('./services/adversusAPI');
-    const adversusAPI = new AdversusAPI();
+    const adversusAPI = require('./services/adversusAPI');
 
     const result = await adversusAPI.getUsers();
     const allUsers = result.users || [];
