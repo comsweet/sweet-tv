@@ -270,7 +270,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
               dataKey="time"
               tickFormatter={formatTime}
               stroke="#ffffff"
-              tick={{ fill: '#ffffff', fontSize: 20, fontWeight: 600 }}
+              tick={{ fill: '#ffffff', fontSize: 28, fontWeight: 600 }}
               angle={-45}
               textAnchor="end"
               height={100}
@@ -281,11 +281,13 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
               yAxisId="left"
               stroke="#ffffff"
               tick={{ fill: '#ffffff', fontSize: 24, fontWeight: 600 }}
+              width={90}
               label={{
                 value: getMetricLabel(leftMetric.metric),
                 angle: -90,
                 position: 'insideLeft',
-                style: { fill: '#ffffff', fontSize: 24, fontWeight: 'bold' }
+                offset: 15,
+                style: { fill: '#ffffff', fontSize: 24, fontWeight: 'bold', textAnchor: 'middle' }
               }}
             />
 
@@ -296,11 +298,13 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 orientation="right"
                 stroke="#ffffff"
                 tick={{ fill: '#ffffff', fontSize: 24, fontWeight: 600 }}
+                width={90}
                 label={{
                   value: getMetricLabel(rightMetric.metric),
                   angle: 90,
                   position: 'insideRight',
-                  style: { fill: '#ffffff', fontSize: 24, fontWeight: 'bold' }
+                  offset: 15,
+                  style: { fill: '#ffffff', fontSize: 24, fontWeight: 'bold', textAnchor: 'middle' }
                 }}
               />
             )}

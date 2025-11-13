@@ -15,6 +15,19 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
 
   const { refreshInterval = 15000 } = config; // 15 seconds default
 
+  // Debug: Log battleId issues
+  useEffect(() => {
+    if (!effectiveBattleId) {
+      console.error('⚠️ TeamBattleSlide: No battleId provided!', {
+        battleId,
+        leaderboard,
+        leaderboardId: leaderboard?.id,
+        leaderboardType: leaderboard?.type,
+        leaderboardBattleId: leaderboard?.battleId
+      });
+    }
+  }, [effectiveBattleId, battleId, leaderboard]);
+
   // Auto-scaling logic (same as MetricsGrid)
   useEffect(() => {
     if (!containerRef.current || !contentRef.current || !isActive || !liveScore) return;
@@ -70,6 +83,21 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
     return () => clearInterval(interval);
   }, [effectiveBattleId, isActive, refreshInterval]);
 
+  // Show error if no battleId provided
+  if (!effectiveBattleId) {
+    return (
+      <div className="team-battle-slide">
+        <div className="team-battle-error">
+          <p>⚠️ Battle ID saknas</p>
+          <p className="error-message">
+            Denna leaderboard har ingen kopplad battle. Kontrollera inställningarna.
+            {leaderboard?.id && <><br/>Leaderboard ID: {leaderboard.id}</>}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="team-battle-slide">
@@ -87,6 +115,9 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
         <div className="team-battle-error">
           <p>⚠️ Kunde inte ladda team battle</p>
           <p className="error-message">{error}</p>
+          <p className="error-message" style={{ fontSize: '1rem', marginTop: '0.5rem' }}>
+            Battle ID: {effectiveBattleId}
+          </p>
         </div>
       </div>
     );
