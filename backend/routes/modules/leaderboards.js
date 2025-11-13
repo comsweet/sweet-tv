@@ -1122,7 +1122,22 @@ router.get('/:id/history', async (req, res) => {
         // Add values for each metric
         for (const metricConfig of metricsToFetch) {
           const metricName = metricConfig.metric;
-          const value = calculatePeriodMetricValue(metricName, periodStats);
+
+          // CRITICAL FIX: For order/h metrics, only show values when there are deals
+          // If someone is logged in but has 0 deals, showing "0.00 order/h" is misleading
+          // Better to show null (skip the point in chart) to indicate no activity
+          let value;
+          if (metricName === 'order_per_hour' || metricName === 'ordersPerHour' || metricName === 'dealsPerHour') {
+            // For order/h: only show if there are deals
+            if (periodStats.deals > 0) {
+              value = calculatePeriodMetricValue(metricName, periodStats);
+            } else {
+              value = null; // No deals = no point to show in chart
+            }
+          } else {
+            // For other metrics (commission, sms_rate, etc): always calculate
+            value = calculatePeriodMetricValue(metricName, periodStats);
+          }
 
           // Use naming convention: "GroupName_metric" for multiple metrics
           const dataKey = metricsToFetch.length > 1
@@ -1136,28 +1151,22 @@ router.get('/:id/history', async (req, res) => {
       return dataPoint;
     });
 
-    // Filter out time periods where ALL groups have zero activity
-    // (no deals, no SMS, no login time - typically weekends/holidays with no work)
+    // Filter out time periods where ALL groups have zero activity (all values are null)
+    // For order/h: day with no deals = all null values = should be filtered out
     const filteredTimeSeries = timeSeries.filter(dataPoint => {
-      // Check if ANY group has ANY activity in this period
-      const hasActivity = Object.keys(dataPoint).some(key => {
-        if (key === 'time') return false; // Skip the time key
-
-        // Check the raw data for this period to see if there's any real activity
-        const timeKey = dataPoint.time;
-        const periodData = timeData[timeKey];
-
-        // Check all groups for any activity (deals, SMS, or login time)
-        for (const groupId in periodData) {
-          const stats = periodData[groupId];
-          if (stats.deals > 0 || stats.smsSent > 0 || stats.loginSeconds > 0) {
-            return true; // Found activity, keep this day
-          }
-        }
-        return false;
+      // Check if ANY value is non-null (at least one group has activity)
+      const hasAnyData = Object.keys(dataPoint).some(key => {
+        if (key === 'time') return false;
+        return dataPoint[key] !== null && dataPoint[key] !== undefined;
       });
 
-      return hasActivity;
+      // DEBUG: Log filtered periods
+      if (!hasAnyData) {
+        const dateStr = new Date(dataPoint.time).toISOString().split('T')[0];
+        console.log(`   🗑️  Filtering out ${dateStr}: All groups have null values (no deals)`);
+      }
+
+      return hasAnyData;
     });
 
     console.log(`📊 Filtered time series: ${timeSeries.length} → ${filteredTimeSeries.length} periods (removed ${timeSeries.length - filteredTimeSeries.length} empty periods)`);
