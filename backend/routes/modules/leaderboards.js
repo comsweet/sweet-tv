@@ -363,8 +363,8 @@ router.get('/:id/stats', async (req, res) => {
         // Get login time data (for deals per hour calculation)
         let loginTimeData = { loginSeconds: 0, loginHours: 0, dealsPerHour: 0 };
         try {
-          // Get cached login time (already synced above via syncLoginTimeForUsers)
-          let loginTime = await loginTimeCache.getLoginTime(stat.userId, startDate, endDate);
+          // Get cached login time with API fallback for today's data
+          let loginTime = await loginTimeCache.getLoginTime(stat.userId, startDate, endDate, adversusAPI);
 
           const loginSeconds = loginTime?.loginSeconds || 0;
           const loginHours = loginSeconds > 0 ? (loginSeconds / 3600).toFixed(2) : 0;
@@ -932,9 +932,9 @@ router.get('/:id/history', async (req, res) => {
         }
       }
 
-      // Read from cache for each user (no API calls, just DB reads)
+      // Read from cache for each user with API fallback for today's data
       const loginTimeResults = await Promise.all(
-        groupUserMapping.map(({ userId }) => loginTimeCache.getLoginTime(userId, periodStart, periodEnd))
+        groupUserMapping.map(({ userId }) => loginTimeCache.getLoginTime(userId, periodStart, periodEnd, adversusAPI))
       );
 
       // Sum up login times per group for this period
@@ -1466,7 +1466,7 @@ router.get('/:id/group-metrics', async (req, res) => {
             let totalLoginSeconds = 0;
 
             for (const userId of userIds) {
-              const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate);
+              const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate, adversusAPI);
               totalLoginSeconds += loginTime?.loginSeconds || 0;
             }
 
