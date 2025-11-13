@@ -798,7 +798,18 @@ router.get('/:id/history', async (req, res) => {
 
       // Execute all login time fetches in parallel
       console.log(`   🔄 Fetching login time for ${loginTimePromises.length} users in period ${timeKey.split('T')[0]}...`);
+      console.log(`   📅 Period: ${periodStart.toISOString()} → ${periodEnd.toISOString()}`);
       const loginTimeResults = await Promise.all(loginTimePromises);
+
+      // Debug: Log first result
+      if (loginTimeResults.length > 0 && loginTimeResults[0]) {
+        console.log(`   🔍 Sample login time result:`, {
+          userId: groupUserMapping[0].userId,
+          loginSeconds: loginTimeResults[0].loginSeconds,
+          fromDate: loginTimeResults[0].fromDate,
+          toDate: loginTimeResults[0].toDate
+        });
+      }
 
       // Sum up login times per group
       const groupLoginTimes = {};
