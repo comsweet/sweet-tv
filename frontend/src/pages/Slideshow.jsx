@@ -1068,6 +1068,25 @@ const Slideshow = () => {
 
         // Render trend chart slide if type is 'trend'
         if (slideData.type === 'trend') {
+          // CRITICAL: Handle undefined trendDays/trendHours from old leaderboards
+          // If both are undefined, default to 7 days (weekly view) to avoid using TrendChartSlide's 30-day default
+          const hasTrendConfig = slideData.leaderboard.trendDays !== undefined || slideData.leaderboard.trendHours !== undefined;
+
+          const trendConfig = {
+            leaderboardId: slideData.leaderboard.id,
+            days: slideData.leaderboard.trendDays !== undefined ? slideData.leaderboard.trendDays : (slideData.leaderboard.trendHours ? undefined : 7),
+            hours: slideData.leaderboard.trendHours,
+            metrics: slideData.leaderboard.trendMetrics || [{ metric: 'commission', axis: 'left' }],
+            refreshInterval: slideData.leaderboard.refreshInterval || 300000
+            // DO NOT spread slideData.config - old hardcoded values will override leaderboard settings
+          };
+
+          console.log(`📊 Rendering trend slide for leaderboard "${slideData.leaderboard.name}":`);
+          console.log(`   trendDays from leaderboard: ${slideData.leaderboard.trendDays}`);
+          console.log(`   trendHours from leaderboard: ${slideData.leaderboard.trendHours}`);
+          console.log(`   hasTrendConfig: ${hasTrendConfig}`);
+          console.log(`   Final config:`, trendConfig);
+
           return (
             <div
               key={`slide-trend-${index}-${refreshKey}`}
@@ -1076,14 +1095,7 @@ const Slideshow = () => {
               <TrendChartSlide
                 leaderboard={slideData.leaderboard}
                 isActive={isActive}
-                config={{
-                  ...(slideData.config || {}), // Merge existing config first
-                  leaderboardId: slideData.leaderboard.id,
-                  days: slideData.leaderboard.trendDays, // Override with saved value
-                  hours: slideData.leaderboard.trendHours,
-                  metrics: slideData.leaderboard.trendMetrics,
-                  refreshInterval: slideData.leaderboard.refreshInterval || 300000
-                }}
+                config={trendConfig}
               />
             </div>
           );
