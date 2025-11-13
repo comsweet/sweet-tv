@@ -1093,17 +1093,9 @@ const AdminLeaderboards = () => {
                   </div>
                 )}
 
-                <div className="form-group">
-                  <label>Uppdateringsintervall (minuter):</label>
-                  <input
-                    type="number"
-                    value={(form.refreshInterval || 300000) / 60000}
-                    onChange={(e) => setForm({ ...form, refreshInterval: parseInt(e.target.value) * 60000 })}
-                    min={1}
-                    max={60}
-                  />
-                  <small>Hur ofta datan ska uppdateras (standard: 5 minuter)</small>
-                </div>
+                {/* NOTE: Refresh interval is hardcoded to 3.5 minutes in TrendChartSlide.jsx
+                    This matches central sync interval (3 min) - no point refreshing more often
+                    since data only updates every 3 minutes */}
               </>
             )}
 

@@ -21,11 +21,11 @@ class LoginTimeCache {
     // Last sync timestamp
     this.lastSync = null;
 
-    // Sync interval: 5 minutes (must be >= central sync interval of 3 min)
-    // Central sync scheduler handles all login time updates every 3 minutes
+    // Sync interval: 2 minutes (must be >= central sync interval of 1 min)
+    // Central sync scheduler handles all login time updates every 1 minute
     // This cache just reads from DB - no need to sync more frequently
-    // Higher interval = fewer redundant API calls = no rate limits!
-    this.syncIntervalMinutes = 5;
+    // Slightly higher interval = fewer redundant API calls = no rate limits!
+    this.syncIntervalMinutes = 2;
 
     // Last time we synced TODAY'S data specifically
     // Used to avoid re-fetching same day data for different leaderboards

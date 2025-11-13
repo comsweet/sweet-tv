@@ -24,7 +24,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     days = 30, // Default to 30 days (monthly view)
     metric = 'commission', // Single metric (backward compatible)
     metrics, // Array of metrics: [{ metric: 'commission', axis: 'left' }, { metric: 'sms_rate', axis: 'right' }]
-    refreshInterval = 30000 // 30 seconds (same as MetricsGridSlide for consistency)
+    refreshInterval = 70000 // 70 seconds (central sync updates data every 1 min, refresh shortly after)
   } = config;
 
   // Determine metrics configuration

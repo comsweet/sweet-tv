@@ -428,8 +428,24 @@ class DealsCache {
       // Batch insert/update to PostgreSQL
       await db.batchInsertDeals(validDeals.map(d => this.cacheToDb(d)));
 
-      // Reload today's cache (in case new deals are for today)
-      await this.loadTodayCache();
+      // Add new deals to cache instead of reloading entire cache
+      // This prevents race condition where webhook deals haven't finished writing to PostgreSQL yet
+      for (const deal of validDeals) {
+        const dealDate = new Date(deal.orderDate);
+        const { start, end } = this.getTodayWindow();
+
+        if (dealDate >= start && dealDate <= end) {
+          // Only add if not already in cache (webhook might have added it already)
+          if (!this.todayCache.has(deal.leadId)) {
+            this.todayCache.set(deal.leadId, deal);
+
+            // Update user totals
+            const currentTotal = this.todayUserTotals.get(deal.userId) || 0;
+            this.todayUserTotals.set(deal.userId, currentTotal + parseFloat(deal.commission || 0));
+            console.log(`   💾 Added ${deal.leadId} to today cache (${deal.multiDeals} deals)`);
+          }
+        }
+      }
 
       this.lastSync = now.toISOString();
 
@@ -525,7 +541,9 @@ class DealsCache {
       // Batch insert/update to PostgreSQL
       await db.batchInsertDeals(validDeals.map(d => this.cacheToDb(d)));
 
-      // Reload today's cache
+      // Reload today's cache (FULL sync needs reload to handle deletions)
+      // BUT: Wait 100ms first to let webhook deals finish their async PostgreSQL writes
+      await new Promise(resolve => setTimeout(resolve, 100));
       await this.loadTodayCache();
 
       this.lastSync = new Date().toISOString();
