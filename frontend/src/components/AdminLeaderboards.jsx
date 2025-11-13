@@ -882,16 +882,20 @@ const AdminLeaderboards = () => {
                 <div className="form-group">
                   <label>User Groups (tomt = alla agenter):</label>
                   <div className="checkbox-group">
-                    {userGroups.map(group => (
-                      <label key={group.id} className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={form.userGroups.includes(group.id)}
-                          onChange={() => toggleGroup(group.id)}
-                        />
-                        <span>{group.name} ({group.agentCount} agenter)</span>
-                      </label>
-                    ))}
+                    {userGroups.length === 0 ? (
+                      <p style={{ color: '#999', fontStyle: 'italic' }}>Inga grupper tillgängliga. Laddar...</p>
+                    ) : (
+                      userGroups.map(group => (
+                        <label key={group.id} className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={form.userGroups.includes(group.id)}
+                            onChange={() => toggleGroup(group.id)}
+                          />
+                          <span>{group.name} ({group.agentCount} agenter)</span>
+                        </label>
+                      ))
+                    )}
                   </div>
                 </div>
 
