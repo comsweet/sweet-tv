@@ -899,6 +899,51 @@ const AdminLeaderboards = () => {
                   </div>
                 </div>
 
+                {/* Color Picker for Selected Groups */}
+                {form.userGroups.length > 0 && (
+                  <div className="form-group">
+                    <label>Färger för User Groups:</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {form.userGroups.map(groupId => {
+                        const group = userGroups.find(g => g.id === groupId);
+                        if (!group) return null;
+
+                        const currentColor = (form.groupColors || {})[groupId] || '#00B2E3';
+
+                        return (
+                          <div key={groupId} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <input
+                              type="color"
+                              value={currentColor}
+                              onChange={(e) => {
+                                setForm({
+                                  ...form,
+                                  groupColors: {
+                                    ...(form.groupColors || {}),
+                                    [groupId]: e.target.value
+                                  }
+                                });
+                              }}
+                              style={{
+                                width: '50px',
+                                height: '35px',
+                                border: '2px solid #ddd',
+                                borderRadius: '6px',
+                                cursor: 'pointer'
+                              }}
+                            />
+                            <span style={{ fontWeight: 600 }}>{group.name}</span>
+                            <span style={{ color: '#666', fontSize: '14px' }}>({currentColor})</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
+                      Välj färg för varje user group som visas i grafen
+                    </small>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label>Tidsperiod:</label>
                   <select

@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { getLeaderboardHistory } from '../services/api';
 import './TrendChartSlide.css';
 
-const COLORS = ['#00B2E3', '#FF6B6B', '#4ECDC4', '#FFD93D', '#A8E6CF', '#FF8B94', '#C7CEEA'];
+const DEFAULT_COLORS = ['#00B2E3', '#FF6B6B', '#4ECDC4', '#FFD93D', '#A8E6CF', '#FF8B94', '#C7CEEA'];
 
 const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const [data, setData] = useState(null);
@@ -252,6 +252,30 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const leftMetric = metricsConfig.find(m => m.axis === 'left' || !m.axis) || metricsConfig[0];
   const rightMetric = metricsConfig.find(m => m.axis === 'right');
 
+  // Get color for a group - use custom color if defined, otherwise default
+  const getColorForDataKey = (dataKey, index) => {
+    // Extract group name from dataKey
+    // dataKey can be "GroupName" or "GroupName_metric"
+    let groupName = dataKey;
+    if (hasMultipleMetrics) {
+      // Remove the _metric suffix
+      const parts = dataKey.split('_');
+      parts.pop(); // Remove last part (metric name)
+      groupName = parts.join('_');
+    }
+
+    // Try to find group by name and check if custom color exists
+    if (leaderboard?.groupColors) {
+      const group = data.topUsers.find(u => u.name === groupName);
+      if (group && leaderboard.groupColors[group.groupId]) {
+        return leaderboard.groupColors[group.groupId];
+      }
+    }
+
+    // Fall back to default colors
+    return DEFAULT_COLORS[index % DEFAULT_COLORS.length];
+  };
+
   return (
     <div className="trend-chart-slide">
       <div className="trend-header">
@@ -328,7 +352,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 yAxisId="left"
                 type="monotone"
                 dataKey={dataKey}
-                stroke={COLORS[index % COLORS.length]}
+                stroke={getColorForDataKey(dataKey, index)}
                 strokeWidth={5}
                 dot={{ r: 6, strokeWidth: 2 }}
                 activeDot={{ r: 8, strokeWidth: 3 }}
@@ -343,7 +367,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 yAxisId="right"
                 type="monotone"
                 dataKey={dataKey}
-                stroke={COLORS[(leftAxisKeys.length + index) % COLORS.length]}
+                stroke={getColorForDataKey(dataKey, leftAxisKeys.length + index)}
                 strokeWidth={5}
                 dot={{ r: 6, strokeWidth: 2 }}
                 activeDot={{ r: 8, strokeWidth: 3 }}
