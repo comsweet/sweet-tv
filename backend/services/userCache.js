@@ -18,6 +18,23 @@ class UserCache {
    * Called by central sync scheduler
    */
   update(users) {
+    const newUserCount = (users || []).length;
+    const currentUserCount = this.users.length;
+
+    // SAFETY CHECK: Don't overwrite populated cache with empty data
+    // This prevents race conditions where API call fails or returns empty
+    if (currentUserCount > 0 && newUserCount === 0) {
+      console.error(`🚨 SAFETY CHECK: Refusing to update userCache with 0 users!`);
+      console.error(`   Current cache has ${currentUserCount} users`);
+      console.error(`   This indicates API returned empty array - keeping existing cache`);
+      return; // Keep existing cache
+    }
+
+    // Log significant changes
+    if (currentUserCount > 0 && Math.abs(newUserCount - currentUserCount) > currentUserCount * 0.2) {
+      console.warn(`⚠️  User cache size changed significantly: ${currentUserCount} → ${newUserCount}`);
+    }
+
     this.users = users || [];
     this.lastUpdate = new Date();
     console.log(`💾 User cache updated: ${this.users.length} users`);
