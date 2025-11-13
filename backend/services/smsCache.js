@@ -452,7 +452,7 @@ class SMSCache {
     const end = new Date(endDate);
     const { start: todayStart, end: todayEnd } = this.getTodayWindow();
 
-    // If query is entirely for today → use cache
+    // Case 1: Query is entirely for today → use cache (FAST!)
     if (start >= todayStart && end <= todayEnd) {
       return Array.from(this.todayCache.values()).filter(sms => {
         const smsDate = new Date(sms.timestamp);
@@ -460,9 +460,33 @@ class SMSCache {
       });
     }
 
-    // Otherwise → query PostgreSQL
-    const dbSMS = await db.getSMSInRange(start, end);
-    return dbSMS.map(s => this.dbToCache(s));
+    // Case 2: Query is entirely before today → use PostgreSQL only
+    if (end < todayStart) {
+      const dbSMS = await db.getSMSInRange(start, end);
+      return dbSMS.map(s => this.dbToCache(s));
+    }
+
+    // Case 3: Query spans multiple days INCLUDING today → HYBRID approach
+    // This fixes trend chart sync issue: historical data from DB + live data from cache
+    const results = [];
+
+    // Get historical SMS from PostgreSQL (before today)
+    if (start < todayStart) {
+      const historicalEnd = new Date(todayStart.getTime() - 1); // End at 23:59:59 yesterday
+      const dbSMS = await db.getSMSInRange(start, historicalEnd);
+      results.push(...dbSMS.map(s => this.dbToCache(s)));
+    }
+
+    // Get today's SMS from cache (LIVE data!)
+    if (end >= todayStart) {
+      const todaySMS = Array.from(this.todayCache.values()).filter(sms => {
+        const smsDate = new Date(sms.timestamp);
+        return smsDate >= todayStart && smsDate <= end;
+      });
+      results.push(...todaySMS);
+    }
+
+    return results;
   }
 
   /**
