@@ -25,12 +25,13 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const hasMultipleMetrics = metricsConfig.length > 1;
 
   useEffect(() => {
-    if (!isActive || !leaderboard || !leaderboard.id) return;
+    if (!leaderboard || !leaderboard.id) return;
 
     const fetchData = async (isAutoRefresh = false) => {
       try {
-        // Only show loading spinner on first load, not on auto-refresh
-        if (!isAutoRefresh) {
+        // Only show loading spinner if we don't have data yet
+        // This prevents showing spinner every time slideshow cycles back
+        if (!isAutoRefresh && !data) {
           setLoading(true);
         } else {
           setIsRefreshing(true);
@@ -72,7 +73,11 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     // Auto-refresh in background
     const interval = setInterval(() => fetchData(true), refreshInterval);
     return () => clearInterval(interval);
-  }, [leaderboard?.id, isActive, hours, days, JSON.stringify(metricsConfig), refreshInterval]);
+
+    // NOTE: isActive is NOT in dependency array to prevent re-fetching every time
+    // slideshow cycles back to this slide. We cache data and show it immediately.
+    // This matches the behavior of MetricsGridSlide and other components.
+  }, [leaderboard?.id, hours, days, JSON.stringify(metricsConfig), refreshInterval]);
 
   if (loading) {
     return (
