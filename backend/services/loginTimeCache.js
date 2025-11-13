@@ -160,9 +160,52 @@ class LoginTimeCache {
       const toStr = toDate.toISOString().split('T')[0];
       console.log(`🔍 loginTime query for user ${userId}: ${fromStr} → ${toStr} (found: ${result.rows.length} rows)`);
 
-      // If no exact match found, return 0
-      // NOTE: We don't fetch from API on-demand as it causes rate limits
-      // Historical data should be backfilled separately via admin endpoint
+      // If no exact match found, try to find overlapping period
+      // This handles historical data that was saved as one large period
+      if (result.rows.length === 0) {
+        const rangeQuery = `
+          SELECT * FROM user_login_time
+          WHERE user_id = $1
+            AND from_date <= $2
+            AND to_date >= $3
+          ORDER BY synced_at DESC
+          LIMIT 1
+        `;
+
+        result = await db.pool.query(rangeQuery, [userId, toDate, fromDate]);
+
+        if (result.rows.length > 0) {
+          const row = result.rows[0];
+
+          // Calculate daily average from the larger period
+          const periodStart = new Date(row.from_date);
+          const periodEnd = new Date(row.to_date);
+          const totalDays = Math.ceil((periodEnd - periodStart) / (1000 * 60 * 60 * 24)) + 1;
+          const dailyAverage = Math.round(row.login_seconds / totalDays);
+
+          console.log(`📊 Found overlapping period for user ${userId}: ${row.from_date.toISOString().split('T')[0]} → ${row.to_date.toISOString().split('T')[0]} (${totalDays} days)`);
+          console.log(`   Total: ${row.login_seconds}s → Daily average: ${dailyAverage}s (${(dailyAverage/3600).toFixed(2)}h)`);
+
+          const data = {
+            userId: row.user_id,
+            loginSeconds: dailyAverage,  // Daily average!
+            fromDate: fromDate.toISOString(),
+            toDate: toDate.toISOString(),
+            syncedAt: row.synced_at,
+            isAverage: true  // Mark as averaged data
+          };
+
+          // Update cache
+          this.cache.set(cacheKey, {
+            data,
+            cachedAt: Date.now()
+          });
+
+          return data;
+        }
+      }
+
+      // Still no data found
       if (result.rows.length === 0) {
         console.warn(`⚠️  No login time found for user ${userId} (${fromStr} → ${toStr}), returning 0`);
         return {
