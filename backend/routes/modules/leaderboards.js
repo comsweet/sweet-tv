@@ -955,11 +955,17 @@ router.get('/:id/history', async (req, res) => {
       // Sum up login times per group for this period
       const groupLoginTimes = {};
       loginTimeResults.forEach((loginTime, index) => {
-        const { groupId } = groupUserMapping[index];
+        const { groupId, userId } = groupUserMapping[index];
         if (!groupLoginTimes[groupId]) {
           groupLoginTimes[groupId] = 0;
         }
         groupLoginTimes[groupId] += loginTime?.loginSeconds || 0;
+
+        // DEBUG: Log each user's login time for today
+        if (isPotentiallyToday) {
+          const groupName = groupNames[groupId];
+          console.log(`      👤 User ${userId} (${groupName}): ${loginTime?.loginSeconds || 0}s login time`);
+        }
       });
 
       // Assign to timeData
@@ -967,6 +973,14 @@ router.get('/:id/history', async (req, res) => {
         timeData[timeKey][groupId].loginSeconds = groupLoginTimes[groupId] || 0;
         // Convert Set to Array for serialization
         timeData[timeKey][groupId].userIds = Array.from(timeData[timeKey][groupId].userIds);
+
+        // DEBUG: Log total login seconds per group for today
+        if (isPotentiallyToday) {
+          const groupName = groupNames[groupId];
+          const totalSeconds = groupLoginTimes[groupId] || 0;
+          const deals = timeData[timeKey][groupId].deals;
+          console.log(`      🏢 ${groupName}: ${totalSeconds}s total (${(totalSeconds/3600).toFixed(2)}h) for ${deals} deals`);
+        }
       }
 
       console.log(`   ✅ Period ${timeKey.split('T')[0]}: Loaded login time from cache`);
