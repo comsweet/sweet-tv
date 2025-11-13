@@ -149,6 +149,27 @@ class DealsCache {
    */
   async addDeal(deal) {
     try {
+      // VALIDATION: Ensure campaignId is valid
+      // Sometimes Adversus sends campaignId as name instead of ID
+      let campaignId = parseInt(deal.campaignId);
+      if (isNaN(campaignId) && deal.campaign?.id) {
+        console.warn(`⚠️  deal.campaignId is not a number ("${deal.campaignId}"), using deal.campaign.id instead`);
+        campaignId = parseInt(deal.campaign.id);
+      }
+
+      // If still invalid, reject this deal
+      if (isNaN(campaignId)) {
+        console.error(`❌ [DealsCache/addDeal] Invalid campaignId, rejecting deal:`, {
+          leadId: deal.leadId,
+          rawCampaignId: deal.campaignId,
+          campaignObjId: deal.campaign?.id
+        });
+        throw new Error(`Invalid campaignId: "${deal.campaignId}"`);
+      }
+
+      // Override campaignId with validated integer
+      deal = { ...deal, campaignId };
+
       // 1. Check for duplicate in DB
       const existing = await db.getDealByLeadId(deal.leadId);
 

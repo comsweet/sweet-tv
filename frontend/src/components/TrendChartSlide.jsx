@@ -5,19 +5,26 @@ import './TrendChartSlide.css';
 
 const DEFAULT_COLORS = ['#00B2E3', '#FF6B6B', '#4ECDC4', '#FFD93D', '#A8E6CF', '#FF8B94', '#C7CEEA'];
 
+// Cache data per leaderboard to prevent re-loading on every slideshow cycle
+const dataCache = new Map();
+
 const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Initialize data from cache if available
+  const cacheKey = leaderboard?.id ? `trend-${leaderboard.id}` : null;
+  const cachedData = cacheKey ? dataCache.get(cacheKey) : null;
+
+  const [data, setData] = useState(cachedData || null);
+  const [loading, setLoading] = useState(!cachedData); // Only show loading if no cached data
   const [error, setError] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [hasRenderedOnce, setHasRenderedOnce] = useState(false);
+  const [hasRenderedOnce, setHasRenderedOnce] = useState(!!cachedData);
 
   const {
     hours,
     days = 30, // Default to 30 days (monthly view)
     metric = 'commission', // Single metric (backward compatible)
     metrics, // Array of metrics: [{ metric: 'commission', axis: 'left' }, { metric: 'sms_rate', axis: 'right' }]
-    refreshInterval = 300000 // 5 minutes
+    refreshInterval = 30000 // 30 seconds (same as MetricsGridSlide for consistency)
   } = config;
 
   // Determine metrics configuration
@@ -55,6 +62,12 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
         const response = await getLeaderboardHistory(leaderboard.id, params);
         setData(response.data);
         setError(null);
+
+        // Cache data to persist between unmount/remount cycles
+        if (cacheKey) {
+          dataCache.set(cacheKey, response.data);
+        }
+
         // Mark as rendered after first successful load
         if (!hasRenderedOnce) {
           setHasRenderedOnce(true);
