@@ -1318,7 +1318,8 @@ router.get('/:id/history', async (req, res) => {
     res.json({
       leaderboard: {
         id: leaderboard.id,
-        name: leaderboard.name
+        name: leaderboard.name,
+        groupColors: leaderboard.groupColors || {} // CRITICAL FIX: Include custom group colors
       },
       timeSeries: filteredTimeSeries,
       topUsers: allGroups, // Changed from individual users to user groups
