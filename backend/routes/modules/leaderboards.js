@@ -969,6 +969,32 @@ router.get('/:id/history', async (req, res) => {
       return dataPoint;
     });
 
+    // Filter out time periods where ALL groups have zero activity
+    // (no deals, no SMS, no login time - typically weekends/holidays with no work)
+    const filteredTimeSeries = timeSeries.filter(dataPoint => {
+      // Check if ANY group has ANY activity in this period
+      const hasActivity = Object.keys(dataPoint).some(key => {
+        if (key === 'time') return false; // Skip the time key
+
+        // Check the raw data for this period to see if there's any real activity
+        const timeKey = dataPoint.time;
+        const periodData = timeData[timeKey];
+
+        // Check all groups for any activity (deals, SMS, or login time)
+        for (const groupId in periodData) {
+          const stats = periodData[groupId];
+          if (stats.deals > 0 || stats.smsSent > 0 || stats.loginSeconds > 0) {
+            return true; // Found activity, keep this day
+          }
+        }
+        return false;
+      });
+
+      return hasActivity;
+    });
+
+    console.log(`📊 Filtered time series: ${timeSeries.length} → ${filteredTimeSeries.length} periods (removed ${timeSeries.length - filteredTimeSeries.length} empty periods)`);
+
     // Calculate CUMULATIVE totals for the footer display (total for whole period)
     const groupTotals = {};
     for (const groupId in groupNames) {
@@ -1027,8 +1053,8 @@ router.get('/:id/history', async (req, res) => {
       })
       .sort((a, b) => b.total - a.total);
 
-    // No filtering - show all groups in time series
-    const filteredTimeSeries = timeSeries;
+    // Note: filteredTimeSeries was created earlier (after building timeSeries)
+    // It filters out days where ALL groups have zero activity
 
     res.json({
       leaderboard: {
