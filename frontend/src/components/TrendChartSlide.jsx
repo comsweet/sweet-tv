@@ -9,16 +9,6 @@ const DEFAULT_COLORS = ['#00B2E3', '#FF6B6B', '#4ECDC4', '#FFD93D', '#A8E6CF', '
 const dataCache = new Map();
 
 const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
-  // Initialize data from cache if available
-  const cacheKey = leaderboard?.id ? `trend-${leaderboard.id}` : null;
-  const cachedData = cacheKey ? dataCache.get(cacheKey) : null;
-
-  const [data, setData] = useState(cachedData || null);
-  const [loading, setLoading] = useState(!cachedData); // Only show loading if no cached data
-  const [error, setError] = useState(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [hasRenderedOnce, setHasRenderedOnce] = useState(!!cachedData);
-
   const {
     hours,
     days = 30, // Default to 30 days (monthly view)
@@ -30,6 +20,18 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   // Determine metrics configuration
   const metricsConfig = metrics || [{ metric, axis: 'left' }];
   const hasMultipleMetrics = metricsConfig.length > 1;
+
+  // CRITICAL FIX: Include period in cache key to prevent showing wrong data when period changes
+  // Cache key must be unique per leaderboard + period combination
+  const periodKey = hours ? `h${hours}` : `d${days}`;
+  const cacheKey = leaderboard?.id ? `trend-${leaderboard.id}-${periodKey}` : null;
+  const cachedData = cacheKey ? dataCache.get(cacheKey) : null;
+
+  const [data, setData] = useState(cachedData || null);
+  const [loading, setLoading] = useState(!cachedData); // Only show loading if no cached data
+  const [error, setError] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasRenderedOnce, setHasRenderedOnce] = useState(!!cachedData);
 
   useEffect(() => {
     if (!leaderboard || !leaderboard.id) return;
