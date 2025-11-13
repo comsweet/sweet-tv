@@ -740,6 +740,9 @@ router.get('/:id/history', async (req, res) => {
       console.log(`📅 Using days/hours parameter: ${days || hours}`);
     }
 
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`📈 TREND CHART REQUEST: ${leaderboard.name}`);
+    console.log(`${'='.repeat(80)}`);
     console.log(`📈 [${leaderboard.name}] Fetching history from ${startDate.toISOString()} to ${endDate.toISOString()}`);
     console.log(`   📊 Grouping by: ${groupByDay ? 'DAY' : 'HOUR'}, Metrics: ${metrics || metric}`);
     console.log(`   👥 User Groups filter: ${leaderboard.userGroups && leaderboard.userGroups.length > 0 ? leaderboard.userGroups.join(', ') : 'ALLA (tomt filter)'}`);
@@ -1282,6 +1285,35 @@ router.get('/:id/history', async (req, res) => {
 
     // Note: filteredTimeSeries was created earlier (after building timeSeries)
     // It filters out days where ALL groups have zero activity
+
+    // FINAL SUMMARY: Show order/h for each day and group for easy debugging
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`📊 FINAL SUMMARY - ORDER/H PER DAY AND GROUP:`);
+    console.log(`${'='.repeat(80)}`);
+
+    for (const dataPoint of filteredTimeSeries) {
+      const dateStr = new Date(dataPoint.time).toISOString().split('T')[0];
+      console.log(`\n📅 ${dateStr}:`);
+
+      for (const groupId in groupNames) {
+        const groupName = groupNames[groupId];
+        const periodData = timeData[dataPoint.time];
+
+        if (periodData && periodData[groupId]) {
+          const { deals, loginSeconds, commission } = periodData[groupId];
+          const orderPerHour = loginSeconds > 0
+            ? parseFloat(loginTimeCache.calculateDealsPerHour(deals, loginSeconds))
+            : 0;
+          const hours = (loginSeconds / 3600).toFixed(2);
+
+          console.log(`   ${groupName}: ${deals} deals ÷ ${hours}h = ${orderPerHour.toFixed(2)} order/h (commission: ${commission.toFixed(0)} THB)`);
+        }
+      }
+    }
+
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`✅ TREND CHART COMPLETE: ${leaderboard.name}`);
+    console.log(`${'='.repeat(80)}\n`);
 
     res.json({
       leaderboard: {
