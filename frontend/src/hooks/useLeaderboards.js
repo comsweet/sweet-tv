@@ -213,6 +213,25 @@ export const useLeaderboards = () => {
         userGroups: form.userGroups.length > 0 ? form.userGroups : []
       };
 
+      // CRITICAL FIX: Map trendDays to timePeriod for trend-chart leaderboards
+      // Backend uses timePeriod (not trendDays) to determine date range
+      if (form.type === 'trend-chart' && form.trendDays !== undefined && !form.trendHours) {
+        if (form.trendDays === 1) {
+          data.timePeriod = 'day';
+        } else if (form.trendDays === 7) {
+          data.timePeriod = 'week';
+        } else if (form.trendDays >= 28 && form.trendDays <= 31) {
+          data.timePeriod = 'month';
+        } else {
+          // For custom day counts, use 'custom' with calculated dates
+          const now = new Date();
+          data.timePeriod = 'custom';
+          data.customStartDate = new Date(now.getTime() - (form.trendDays * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+          data.customEndDate = now.toISOString().split('T')[0];
+        }
+        console.log(`📅 Mapping trendDays=${form.trendDays} → timePeriod=${data.timePeriod}`);
+      }
+
       if (editingLeaderboard) {
         await updateLeaderboard(editingLeaderboard.id, data);
       } else {
