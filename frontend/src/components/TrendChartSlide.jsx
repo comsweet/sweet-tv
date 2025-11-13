@@ -149,7 +149,36 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   };
 
   const title = data?.leaderboard?.name || 'Trendanalys';
-  const periodLabel = days ? `${days} dagar` : `${hours}h`;
+
+  // Get period label from response (respects timePeriod setting)
+  let periodLabel;
+  if (data?.timePeriod) {
+    switch (data.timePeriod) {
+      case 'day':
+        periodLabel = 'Idag';
+        break;
+      case 'week':
+        periodLabel = 'Innevarande vecka';
+        break;
+      case 'month':
+        periodLabel = 'Innevarande månad';
+        break;
+      case 'custom':
+        if (data.dateRange) {
+          const start = new Date(data.dateRange.startDate).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
+          const end = new Date(data.dateRange.endDate).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
+          periodLabel = `${start} - ${end}`;
+        } else {
+          periodLabel = 'Anpassad period';
+        }
+        break;
+      default:
+        periodLabel = days ? `Senaste ${days} dagar` : `Senaste ${hours}h`;
+    }
+  } else {
+    // Fallback for backward compatibility
+    periodLabel = days ? `Senaste ${days} dagar` : `Senaste ${hours}h`;
+  }
 
   // Get group names from topUsers
   const groupNames = data.topUsers.map(u => u.name);
@@ -158,9 +187,9 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   let subtitle;
   if (hasMultipleMetrics) {
     const metricLabels = metricsConfig.map(m => getMetricLabel(m.metric)).join(' + ');
-    subtitle = `${metricLabels} per User Group - Senaste ${periodLabel}`;
+    subtitle = `${metricLabels} per User Group - ${periodLabel}`;
   } else {
-    subtitle = `${getMetricLabel(metricsConfig[0].metric)} per User Group - Senaste ${periodLabel}`;
+    subtitle = `${getMetricLabel(metricsConfig[0].metric)} per User Group - ${periodLabel}`;
   }
 
   // Get unique data keys (for lines)
@@ -226,37 +255,37 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   return (
     <div className="trend-chart-slide">
       <div className="trend-header">
-        <h1>{title}</h1>
-        <p className="trend-subtitle">{subtitle}</p>
+        <h1 style={{ fontSize: '48px', marginBottom: '10px' }}>{title}</h1>
+        <p className="trend-subtitle" style={{ fontSize: '28px' }}>{subtitle}</p>
       </div>
 
-      <div className="trend-chart-container">
+      <div className="trend-chart-container" style={{ height: 'calc(100vh - 180px)' }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data.timeSeries}
-            margin={{ top: 20, right: rightMetric ? 80 : 50, left: 80, bottom: 60 }}
+            margin={{ top: 40, right: rightMetric ? 100 : 60, left: 100, bottom: 80 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.2)" />
             <XAxis
               dataKey="time"
               tickFormatter={formatTime}
               stroke="#ffffff"
-              tick={{ fill: '#ffffff', fontSize: 16, fontWeight: 600 }}
+              tick={{ fill: '#ffffff', fontSize: 20, fontWeight: 600 }}
               angle={-45}
               textAnchor="end"
-              height={80}
+              height={100}
             />
 
             {/* Left Y-Axis */}
             <YAxis
               yAxisId="left"
               stroke="#ffffff"
-              tick={{ fill: '#ffffff', fontSize: 18, fontWeight: 600 }}
+              tick={{ fill: '#ffffff', fontSize: 24, fontWeight: 600 }}
               label={{
                 value: getMetricLabel(leftMetric.metric),
                 angle: -90,
                 position: 'insideLeft',
-                style: { fill: '#ffffff', fontSize: 18, fontWeight: 'bold' }
+                style: { fill: '#ffffff', fontSize: 24, fontWeight: 'bold' }
               }}
             />
 
@@ -266,22 +295,23 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 yAxisId="right"
                 orientation="right"
                 stroke="#ffffff"
-                tick={{ fill: '#ffffff', fontSize: 18, fontWeight: 600 }}
+                tick={{ fill: '#ffffff', fontSize: 24, fontWeight: 600 }}
                 label={{
                   value: getMetricLabel(rightMetric.metric),
                   angle: 90,
                   position: 'insideRight',
-                  style: { fill: '#ffffff', fontSize: 18, fontWeight: 'bold' }
+                  style: { fill: '#ffffff', fontSize: 24, fontWeight: 'bold' }
                 }}
               />
             )}
 
             <Tooltip content={<CustomTooltip />} />
             <Legend
-              wrapperStyle={{ paddingTop: '20px' }}
+              wrapperStyle={{ paddingTop: '30px' }}
               iconType="line"
+              iconSize={32}
               formatter={(value) => (
-                <span style={{ color: '#ffffff', fontSize: '16px', fontWeight: 'bold' }}>
+                <span style={{ color: '#ffffff', fontSize: '32px', fontWeight: 'bold', padding: '0 20px' }}>
                   {value}
                 </span>
               )}
@@ -319,18 +349,6 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
             ))}
           </LineChart>
         </ResponsiveContainer>
-      </div>
-
-      <div className="trend-footer">
-        <div className="trend-leaders">
-          {data.topUsers.slice(0, 5).map((user, index) => (
-            <div key={user.groupId} className="trend-leader-badge" style={{ borderColor: COLORS[index % COLORS.length] }}>
-              <span className="trend-rank">#{index + 1}</span>
-              <span className="trend-name">{user.name}</span>
-              <span className="trend-total">{formatValueForMetric(user.total, metricsConfig[0].metric)}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
