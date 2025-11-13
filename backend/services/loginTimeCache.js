@@ -376,6 +376,39 @@ class LoginTimeCache {
    * - Total: Sum both = Complete accurate data with minimal API calls!
    */
   async syncLoginTimeForUsers(adversusAPI, userIds, fromDate, toDate) {
+    // CRITICAL FIX: If period spans multiple days, sync each day separately
+    // This prevents creating "big period" entries that cause incorrect daily averages
+    const daysDiff = Math.ceil((toDate - fromDate) / (1000 * 60 * 60 * 24));
+
+    if (daysDiff > 1) {
+      console.log(`\n⏱️ MULTI-DAY SYNC DETECTED: ${daysDiff} days`);
+      console.log(`   🔄 Splitting into ${daysDiff} separate day-by-day syncs to ensure accuracy...`);
+
+      const allResults = [];
+      const currentDate = new Date(fromDate);
+
+      while (currentDate <= toDate) {
+        const dayStart = new Date(currentDate);
+        dayStart.setUTCHours(0, 0, 0, 0);
+        const dayEnd = new Date(currentDate);
+        dayEnd.setUTCHours(23, 59, 59, 999);
+
+        const dateStr = dayStart.toISOString().split('T')[0];
+        console.log(`   📅 Syncing day: ${dateStr}`);
+
+        // Recursively call for single day (will NOT trigger this split again)
+        const dayResults = await this.syncLoginTimeForUsers(adversusAPI, userIds, dayStart, dayEnd);
+        allResults.push(...dayResults);
+
+        // Move to next day
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+      }
+
+      console.log(`   ✅ Multi-day sync complete: ${daysDiff} days synced`);
+      return allResults;
+    }
+
+    // Single day sync (or already split from above)
     // If a sync is already ongoing, wait for it instead of starting a new one
     if (this.ongoingSync) {
       console.log(`⏳ Sync already in progress, waiting for it to complete...`);
