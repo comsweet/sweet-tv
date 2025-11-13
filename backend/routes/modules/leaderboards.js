@@ -115,6 +115,24 @@ router.get('/:id/stats', async (req, res) => {
     // Use cached users with fallback to API if not initialized
     adversusUsers = await userCache.getUsers({ adversusAPI });
 
+    // CRITICAL: If user cache is empty, ALL filtering will fail → 0 deals!
+    // This is why klassiska tabellen shows 0 deals after leaderboardCache.clear()
+    if (adversusUsers.length === 0) {
+      console.error('🚨 CRITICAL: User cache is EMPTY in /stats endpoint!');
+      console.error('   This causes 0 deals in klassiska tabellen after new deal popup.');
+      console.error('   Attempting direct API call as emergency fallback...');
+
+      try {
+        const result = await adversusAPI.getUsers();
+        adversusUsers = result.users || [];
+        console.log(`✅ Emergency fallback: Got ${adversusUsers.length} users from API`);
+        userCache.update(adversusUsers);
+      } catch (error) {
+        console.error('❌ Emergency fallback failed:', error.message);
+        // Continue with empty array - will show no filtered data
+      }
+    }
+
     try {
       localAgents = await database.getAgents();
     } catch (error) {
