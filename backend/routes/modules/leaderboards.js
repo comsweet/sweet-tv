@@ -875,9 +875,19 @@ router.get('/:id/history', async (req, res) => {
       const periodEnd = new Date(timeKey);
 
       if (groupByDay) {
-        periodEnd.setDate(periodEnd.getDate() + 1);
+        // CRITICAL FIX: Use 23:59:59 instead of 00:00:00 next day
+        // This matches how central sync saves login time (00:00 - 23:59)
+        // Old: periodEnd = 2025-11-14 00:00:00 (no match)
+        // New: periodEnd = 2025-11-13 23:59:59.999 (exact match!)
+        periodEnd.setUTCHours(23, 59, 59, 999);
       } else {
         periodEnd.setHours(periodEnd.getHours() + 1);
+      }
+
+      // DEBUG: Log the period being queried
+      const isPotentiallyToday = timeKey.split('T')[0] === new Date().toISOString().split('T')[0];
+      if (isPotentiallyToday) {
+        console.log(`   🔍 Querying TODAY's login time: ${periodStart.toISOString()} → ${periodEnd.toISOString()}`);
       }
 
       // Collect user-group mapping for this period
