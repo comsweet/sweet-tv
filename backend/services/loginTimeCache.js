@@ -153,24 +153,10 @@ class LoginTimeCache {
 
       let result = await db.pool.query(exactQuery, [userId, fromDate, toDate]);
 
-      // If no exact match found
+      // If no exact match found, return 0
+      // NOTE: We don't fetch from API on-demand as it causes rate limits
+      // Historical data should be backfilled separately via admin endpoint
       if (result.rows.length === 0) {
-        // If we have adversusAPI, try to fetch from API
-        if (adversusAPI) {
-          console.log(`⚠️  No login time data for user ${userId}, period ${fromDate.toISOString().split('T')[0]} - fetching from API...`);
-          try {
-            const results = await this.syncLoginTimeForUsers(adversusAPI, [userId], fromDate, toDate);
-            if (results && results.length > 0 && results[0].loginSeconds > 0) {
-              console.log(`✅ Fetched and saved: ${results[0].loginSeconds}s`);
-              return results[0];
-            }
-          } catch (error) {
-            console.error(`❌ Failed to fetch login time from API:`, error.message);
-          }
-        }
-
-        // Return 0 if we couldn't fetch
-        console.log(`⚠️  Returning 0 for user ${userId}, period ${fromDate.toISOString().split('T')[0]}`);
         return {
           userId,
           loginSeconds: 0,
