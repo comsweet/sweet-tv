@@ -114,7 +114,7 @@
 .stat-value {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #2c3e50;
+  color: #0d1418;
   line-height: 1.2;
 }
 
@@ -124,8 +124,9 @@
 
 .stat-label {
   font-size: 0.85rem;
-  color: #2c3e50;
+  color: #1a252f;
   margin-top: 0.2rem;
+  font-weight: 600;
 }
 
 .stat-info {
