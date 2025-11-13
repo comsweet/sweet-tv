@@ -105,18 +105,27 @@ router.get('/:id/stats', async (req, res) => {
     });
 
     // Convert cached deals to lead format
-    const leads = cachedDeals.map(deal => ({
-      id: deal.leadId,
-      lastContactedBy: deal.userId,
-      campaignId: deal.campaignId,
-      status: deal.status,
-      lastUpdatedTime: deal.orderDate,
-      resultData: [
-        { id: 70163, value: String(deal.commission) },
-        { id: 74126, value: deal.multiDeals },
-        { label: 'Order date', value: deal.orderDate }
-      ]
-    }));
+    const leads = cachedDeals.map(deal => {
+      // CRITICAL: Ensure multiDeals is always a number, never a string
+      let multiDeals = parseInt(deal.multiDeals);
+      if (isNaN(multiDeals) || multiDeals < 1) {
+        console.error(`❌ CRITICAL: Invalid multiDeals in cache for lead ${deal.leadId}: ${typeof deal.multiDeals} = "${deal.multiDeals}"`);
+        multiDeals = 1; // Fallback
+      }
+
+      return {
+        id: deal.leadId,
+        lastContactedBy: deal.userId,
+        campaignId: deal.campaignId,
+        status: deal.status,
+        lastUpdatedTime: deal.orderDate,
+        resultData: [
+          { id: 70163, value: String(deal.commission) },
+          { id: 74126, value: multiDeals }, // Always a number now
+          { label: 'Order date', value: deal.orderDate }
+        ]
+      };
+    });
 
     console.log(`✅ Loaded ${leads.length} deals from cache`);
 
@@ -254,7 +263,22 @@ router.get('/:id/stats', async (req, res) => {
       const commission = parseFloat(commissionField?.value || 0);
 
       const multiDealsField = lead.resultData?.find(f => f.id === 74126);
-      const multiDealsValue = parseInt(multiDealsField?.value || '1');
+      const rawMultiDeals = multiDealsField?.value;
+      const multiDealsValue = parseInt(rawMultiDeals || '1');
+
+      // DEBUG: Log if multiDeals parsing fails or produces unexpected value
+      if (isNaN(multiDealsValue)) {
+        console.error(`❌ CRITICAL: multiDeals is NaN for lead ${lead.id}, user ${userId}`);
+        console.error(`   Raw value: ${typeof rawMultiDeals} = "${rawMultiDeals}"`);
+        console.error(`   Parsed value: ${multiDealsValue}`);
+      } else if (multiDealsValue === 0) {
+        console.warn(`⚠️  WARNING: multiDeals is 0 for lead ${lead.id}, user ${userId}`);
+        console.warn(`   Raw value: ${typeof rawMultiDeals} = "${rawMultiDeals}"`);
+      } else if (typeof rawMultiDeals === 'string' && rawMultiDeals.length > 3) {
+        console.warn(`⚠️  WARNING: multiDeals is long string for lead ${lead.id}, user ${userId}`);
+        console.warn(`   Raw value: ${typeof rawMultiDeals} = "${rawMultiDeals}"`);
+        console.warn(`   Parsed to: ${multiDealsValue}`);
+      }
 
       stats[userId].totalCommission += commission;
       stats[userId].dealCount += multiDealsValue;
