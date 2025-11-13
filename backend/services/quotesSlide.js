@@ -57,7 +57,47 @@ class QuotesSlideService {
   async getConfig() {
     try {
       const data = await fs.readFile(this.configFile, 'utf8');
-      return JSON.parse(data);
+
+      // Try to parse normally first
+      try {
+        return JSON.parse(data);
+      } catch (parseError) {
+        console.warn('⚠️  JSON parse failed, attempting to repair...', parseError.message);
+
+        // Try to fix common JSON issues
+        let repairedData = data
+          .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+          .replace(/\/\/.*/g, '') // Remove single-line comments
+          .replace(/\/\*[\s\S]*?\*\//g, '') // Remove multi-line comments
+          .trim();
+
+        try {
+          const repaired = JSON.parse(repairedData);
+          console.log('✅ Successfully repaired JSON, saving fixed version...');
+
+          // Save the repaired version
+          await fs.writeFile(this.configFile, JSON.stringify(repaired, null, 2));
+          console.log('💾 Saved repaired quotesSlideConfig.json');
+
+          return repaired;
+        } catch (repairError) {
+          console.error('❌ Could not repair JSON, recreating from defaults...');
+
+          // Complete failure - recreate from defaults
+          const defaultConfig = {
+            enabled: false,
+            mode: 'random',
+            refreshInterval: 3600000,
+            lastRefresh: new Date().toISOString(),
+            selectedQuoteIds: []
+          };
+
+          await fs.writeFile(this.configFile, JSON.stringify(defaultConfig, null, 2));
+          console.log('✅ Recreated quotesSlideConfig.json with defaults');
+
+          return defaultConfig;
+        }
+      }
     } catch (error) {
       console.error('Error reading quotes slide config:', error);
       throw error;
