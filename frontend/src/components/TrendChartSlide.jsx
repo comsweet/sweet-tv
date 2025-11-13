@@ -263,7 +263,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data.timeSeries}
-            margin={{ top: 40, right: rightMetric ? 100 : 60, left: 100, bottom: 80 }}
+            margin={{ top: 40, right: rightMetric ? 100 : 60, left: 120, bottom: 80 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.2)" />
             <XAxis
@@ -281,12 +281,12 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
               yAxisId="left"
               stroke="#ffffff"
               tick={{ fill: '#ffffff', fontSize: 24, fontWeight: 600 }}
-              width={90}
+              width={100}
               label={{
                 value: getMetricLabel(leftMetric.metric),
                 angle: -90,
                 position: 'insideLeft',
-                offset: 15,
+                offset: 25,
                 style: { fill: '#ffffff', fontSize: 24, fontWeight: 'bold', textAnchor: 'middle' }
               }}
             />
