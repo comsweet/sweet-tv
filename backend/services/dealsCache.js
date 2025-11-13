@@ -69,13 +69,29 @@ class DealsCache {
         console.log(`   First deal: lead_id=${todayDeals[0].lead_id}, user_id=${todayDeals[0].user_id}, commission=${todayDeals[0].commission}`);
       }
 
-      // 🛡️ SAFETY CHECK: If DB returns empty but cache has data, something is wrong!
-      // Don't overwrite a populated cache with empty data - this prevents data loss during DB issues
-      if (todayDeals.length === 0 && this.todayCache.size > 0) {
-        console.error(`⚠️  WARNING: DB returned 0 deals but cache has ${this.todayCache.size} deals!`);
-        console.error(`   This could indicate a DB query issue or timezone problem.`);
+      // 🛡️ ENHANCED SAFETY CHECK: Prevent cache from shrinking unexpectedly
+      // This protects against:
+      // 1. DB connection issues (returns 0 or partial data)
+      // 2. Race conditions (DB read during transaction)
+      // 3. Timezone bugs (wrong date range)
+      const currentCacheSize = this.todayCache.size;
+      const newCacheSize = todayDeals.length;
+
+      // If new data is significantly smaller than current cache, something is wrong!
+      // Threshold: 80% - allow small shrinkage (deal deletions) but block major drops
+      if (currentCacheSize > 0 && newCacheSize < currentCacheSize * 0.8) {
+        console.error(`🚨 SAFETY CHECK FAILED: Preventing suspicious cache shrinkage!`);
+        console.error(`   Current cache: ${currentCacheSize} deals`);
+        console.error(`   DB returned:   ${newCacheSize} deals (${Math.round((newCacheSize/currentCacheSize)*100)}% of current)`);
+        console.error(`   This indicates a DB issue, race condition, or timezone bug.`);
         console.error(`   KEEPING EXISTING CACHE to prevent data loss!`);
-        return; // Don't overwrite cache
+
+        // Log what DB returned for debugging (if small dataset)
+        if (newCacheSize > 0 && newCacheSize < 5) {
+          console.error(`   DB deals: ${todayDeals.map(d => `lead_id=${d.lead_id}`).join(', ')}`);
+        }
+
+        return; // Don't overwrite cache with suspicious data
       }
 
       // 🔒 ATOMIC SWAP: Build new cache first, then replace in one operation

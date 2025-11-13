@@ -1367,9 +1367,21 @@ router.get('/:id/group-metrics', async (req, res) => {
         const allDeals = await dealsCache.getDealsInRange(startDate, endDate);
         const groupDeals = allDeals.filter(deal => userIds.includes(String(deal.userId)));
 
+        // DEBUG: Log filtering results
+        console.log(`   📦 All deals: ${allDeals.length}, Group deals (after filter): ${groupDeals.length}`);
+        if (allDeals.length > 0 && groupDeals.length === 0) {
+          console.error(`   🚨 WARNING: ${allDeals.length} deals exist but 0 match group userIds!`);
+          console.error(`   Group userIds: ${userIds.join(', ')}`);
+          const sampleDeals = allDeals.slice(0, 3).map(d => `user_id=${d.userId}`);
+          console.error(`   Sample deal userIds: ${sampleDeals.join(', ')}`);
+        }
+
         // Get SMS for this group in date range
         const allSMS = await smsCache.getSMSInRange(startDate, endDate);
         const groupSMS = allSMS.filter(sms => userIds.includes(String(sms.userId)));
+
+        // DEBUG: Log SMS filtering for comparison
+        console.log(`   💬 All SMS: ${allSMS.length}, Group SMS (after filter): ${groupSMS.length}`);
 
         // Calculate metric value
         let value = 0;
