@@ -791,7 +791,7 @@ router.get('/:id/history', async (req, res) => {
 
       for (const groupId in timeData[timeKey]) {
         for (const userId of timeData[timeKey][groupId].userIds) {
-          loginTimePromises.push(loginTimeCache.getLoginTime(userId, periodStart, periodEnd));
+          loginTimePromises.push(loginTimeCache.getLoginTime(userId, periodStart, periodEnd, adversusAPI));
           groupUserMapping.push({ groupId, userId });
         }
       }

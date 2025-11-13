@@ -122,8 +122,9 @@ class LoginTimeCache {
 
   /**
    * Get login time for a user in date range (from DB or cache)
+   * If not found, will attempt to fetch from workforce API
    */
-  async getLoginTime(userId, fromDate, toDate) {
+  async getLoginTime(userId, fromDate, toDate, adversusAPI = null) {
     const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;
 
     // Check cache first
@@ -152,18 +153,30 @@ class LoginTimeCache {
 
       let result = await db.pool.query(exactQuery, [userId, fromDate, toDate]);
 
-      // If no exact match, try overlapping periods
+      // If no exact match found
       if (result.rows.length === 0) {
-        const overlapQuery = `
-          SELECT * FROM user_login_time
-          WHERE user_id = $1
-            AND from_date <= $2
-            AND to_date >= $3
-          ORDER BY synced_at DESC
-          LIMIT 1
-        `;
+        // If we have adversusAPI, try to fetch from API
+        if (adversusAPI) {
+          console.log(`⚠️  No login time data for user ${userId}, period ${fromDate.toISOString().split('T')[0]} - fetching from API...`);
+          try {
+            const results = await this.syncLoginTimeForUsers(adversusAPI, [userId], fromDate, toDate);
+            if (results && results.length > 0 && results[0].loginSeconds > 0) {
+              console.log(`✅ Fetched and saved: ${results[0].loginSeconds}s`);
+              return results[0];
+            }
+          } catch (error) {
+            console.error(`❌ Failed to fetch login time from API:`, error.message);
+          }
+        }
 
-        result = await db.pool.query(overlapQuery, [userId, fromDate, toDate]);
+        // Return 0 if we couldn't fetch
+        console.log(`⚠️  Returning 0 for user ${userId}, period ${fromDate.toISOString().split('T')[0]}`);
+        return {
+          userId,
+          loginSeconds: 0,
+          fromDate: fromDate.toISOString(),
+          toDate: toDate.toISOString()
+        };
       }
 
       if (result.rows.length > 0) {
