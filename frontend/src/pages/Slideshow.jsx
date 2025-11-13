@@ -1076,7 +1076,14 @@ const Slideshow = () => {
               <TrendChartSlide
                 leaderboard={slideData.leaderboard}
                 isActive={isActive}
-                config={slideData.config || {}}
+                config={{
+                  leaderboardId: slideData.leaderboard.id,
+                  days: slideData.leaderboard.trendDays,
+                  hours: slideData.leaderboard.trendHours,
+                  metrics: slideData.leaderboard.trendMetrics,
+                  refreshInterval: slideData.leaderboard.refreshInterval || 300000,
+                  ...(slideData.config || {}) // Merge any existing config
+                }}
               />
             </div>
           );
