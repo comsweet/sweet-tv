@@ -977,15 +977,66 @@ router.get('/:id/history', async (req, res) => {
     const allUsersArray = Array.from(allUniqueUserIds);
     console.log(`   👥 Total unique users across all periods: ${allUsersArray.length}`);
 
-    // Step 2: Sync login time for ENTIRE date range (startDate → endDate) with 1-2 API calls
-    console.log(`   🔄 Syncing login time for ${allUsersArray.length} users for ENTIRE period...`);
+    // Step 2: Sync login time PER DAY (not entire range) to get accurate daily values
+    // This prevents incorrect daily averages for historical data
+    console.log(`   🔄 Syncing login time PER DAY for ${allUsersArray.length} users...`);
     console.log(`   📅 Full range: ${startDate.toISOString().split('T')[0]} → ${endDate.toISOString().split('T')[0]}`);
 
     try {
-      await loginTimeCache.syncLoginTimeForUsers(adversusAPI, allUsersArray, startDate, endDate);
-      console.log(`   ✅ Synced login time for entire period (1-2 API calls total)`);
+      // Determine which days need syncing
+      const now = new Date();
+      const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+
+      const currentDate = new Date(startDate);
+      const daysToSync = [];
+      const cachedDays = [];
+
+      while (currentDate <= endDate) {
+        const dayStart = new Date(currentDate);
+        dayStart.setUTCHours(0, 0, 0, 0);
+        const dayEnd = new Date(currentDate);
+        dayEnd.setUTCHours(23, 59, 59, 999);
+        const dateStr = dayStart.toISOString().split('T')[0];
+
+        // Always sync today (data changes frequently)
+        // For historical days, check if we have data in DB
+        const isToday = dayStart >= todayStart;
+
+        if (isToday) {
+          daysToSync.push({ dayStart, dayEnd, dateStr, reason: 'today' });
+        } else {
+          // Check if any user is missing data for this day
+          let missingData = false;
+          for (const userId of allUsersArray) {
+            const loginTime = await loginTimeCache.getLoginTime(userId, dayStart, dayEnd);
+            if (!loginTime || loginTime.loginSeconds === 0 || loginTime.isAverage) {
+              missingData = true;
+              break;
+            }
+          }
+
+          if (missingData) {
+            daysToSync.push({ dayStart, dayEnd, dateStr, reason: 'missing' });
+          } else {
+            cachedDays.push(dateStr);
+          }
+        }
+
+        // Move to next day
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+      }
+
+      console.log(`   ✅ Found ${cachedDays.length} days already cached, need to sync ${daysToSync.length} days`);
+
+      // Sync only the days that need it
+      for (const { dayStart, dayEnd, dateStr, reason } of daysToSync) {
+        console.log(`   📅 Syncing day: ${dateStr} (reason: ${reason})`);
+        await loginTimeCache.syncLoginTimeForUsers(adversusAPI, allUsersArray, dayStart, dayEnd);
+      }
+
+      console.log(`   ✅ Synced ${daysToSync.length} days, ${cachedDays.length} days used cached data`);
     } catch (error) {
-      console.error(`   ❌ Failed to sync login time for entire period:`, error.message);
+      console.error(`   ❌ Failed to sync login time per day:`, error.message);
     }
 
     // Step 3: For each time period, read cached data and calculate per-period login time
