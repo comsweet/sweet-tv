@@ -125,7 +125,8 @@
 
 .metric-value.color-orange,
 .metric-value.color-yellow {
-  animation: pulse-text-warning 2s infinite;
+  /* Static glow for orange/yellow - no animation */
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
 }
 
 @keyframes blink-red {
@@ -137,11 +138,6 @@
     opacity: 0;
     text-shadow: none;
   }
-}
-
-@keyframes pulse-text-warning {
-  0%, 100% { text-shadow: 0 0 10px rgba(251, 191, 36, 0.6); }
-  50% { text-shadow: 0 0 20px rgba(251, 191, 36, 0.9); }
 }
 
 /* Subtle Error/No Data Messages - NO SPINNERS! */
