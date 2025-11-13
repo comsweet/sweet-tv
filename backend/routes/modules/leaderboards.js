@@ -92,6 +92,18 @@ router.get('/:id/stats', async (req, res) => {
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
     console.log(`   💾 Found ${cachedDeals.length} deals in cache for date range`);
 
+    // DEBUG: Log deals per user from cache (before filtering)
+    const rawDealsByUser = {};
+    cachedDeals.forEach(deal => {
+      const userId = String(deal.userId);
+      if (!rawDealsByUser[userId]) rawDealsByUser[userId] = 0;
+      rawDealsByUser[userId] += parseInt(deal.multiDeals || '1');
+    });
+    console.log(`   📋 Raw cache data: ${Object.keys(rawDealsByUser).length} users with deals (BEFORE any filtering)`);
+    Object.entries(rawDealsByUser).slice(0, 5).forEach(([userId, count]) => {
+      console.log(`      User ${userId}: ${count} deals (raw from cache)`);
+    });
+
     // Convert cached deals to lead format
     const leads = cachedDeals.map(deal => ({
       id: deal.leadId,
@@ -210,6 +222,20 @@ router.get('/:id/stats', async (req, res) => {
       console.log(`  📋 Initialized ${adversusUsers.length} users (no group filter)`);
     }
 
+    // DEBUG: Log deals that will be processed
+    const dealsByUser = {};
+    filteredLeads.forEach(lead => {
+      const userId = String(lead.lastContactedBy);
+      if (!dealsByUser[userId]) dealsByUser[userId] = 0;
+      const multiDeals = parseInt(lead.resultData?.find(f => f.id === 74126)?.value || '1');
+      dealsByUser[userId] += multiDeals;
+    });
+    console.log(`📊 Deals per user after filtering: ${Object.keys(dealsByUser).length} users with deals`);
+    Object.entries(dealsByUser).slice(0, 5).forEach(([userId, count]) => {
+      const user = adversusUsers.find(u => String(u.id) === userId);
+      console.log(`   User ${userId} (${user?.name || 'UNKNOWN'}): ${count} deals`);
+    });
+
     // Then add deal data for users who have deals
     filteredLeads.forEach(lead => {
       const userId = lead.lastContactedBy;
@@ -233,6 +259,26 @@ router.get('/:id/stats', async (req, res) => {
       stats[userId].totalCommission += commission;
       stats[userId].dealCount += multiDealsValue;
     });
+
+    // DEBUG: Log final stats for users with deals
+    const usersWithDeals = Object.values(stats).filter(s => s.dealCount > 0);
+    const usersWithZeroDeals = Object.values(stats).filter(s => s.dealCount === 0);
+    console.log(`📊 FINAL STATS: ${usersWithDeals.length} users with deals, ${usersWithZeroDeals.length} users with 0 deals`);
+
+    // Log first 5 users with deals
+    usersWithDeals.slice(0, 5).forEach(s => {
+      const user = adversusUsers.find(u => String(u.id) === String(s.userId));
+      console.log(`   ✅ User ${s.userId} (${user?.name || 'UNKNOWN'}): ${s.dealCount} deals, ${Math.round(s.totalCommission)} THB`);
+    });
+
+    // Log users with 0 deals (WARNING - these will show 0 in klassiska tabellen!)
+    if (usersWithZeroDeals.length > 0 && usersWithZeroDeals.length <= 10) {
+      console.log(`⚠️  Users with 0 deals (will show 0 in klassiska tabellen):`);
+      usersWithZeroDeals.forEach(s => {
+        const user = adversusUsers.find(u => String(u.id) === String(s.userId));
+        console.log(`   ❌ User ${s.userId} (${user?.name || 'UNKNOWN'}): 0 deals`);
+      });
+    }
 
     // ==================== CAMPAIGN BONUS CALCULATION ====================
     // Beräkna campaign bonus per agent, per dag, per kampanj-grupp
