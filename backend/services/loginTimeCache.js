@@ -134,10 +134,19 @@ class LoginTimeCache {
       const cached = this.cache.get(cacheKey);
       const age = Date.now() - cached.cachedAt;
 
-      // Cache valid for 30 minutes
-      if (age < this.syncIntervalMinutes * 60 * 1000) {
-        console.log(`💾 Cache HIT for user ${userId} login time: ${cached.data.loginSeconds}s (${(cached.data.loginSeconds / 3600).toFixed(2)}h)`);
+      // CRITICAL FIX: Cache 0-values for only 10 seconds!
+      // This prevents "0 order/h" from sticking after deals are added
+      // When central sync updates DB (every 1 min), next request will get fresh data
+      const maxAge = cached.data.loginSeconds === 0
+        ? 10 * 1000 // 10 seconds for 0-values (allows quick recovery)
+        : this.syncIntervalMinutes * 60 * 1000; // 2 minutes for real values
+
+      if (age < maxAge) {
+        const ageSeconds = Math.round(age / 1000);
+        console.log(`💾 Cache HIT for user ${userId} login time: ${cached.data.loginSeconds}s (age: ${ageSeconds}s, maxAge: ${Math.round(maxAge/1000)}s)`);
         return cached.data;
+      } else {
+        console.log(`⏰ Cache EXPIRED for user ${userId} (age: ${Math.round(age/1000)}s > ${Math.round(maxAge/1000)}s), fetching from DB...`);
       }
     }
 
@@ -205,9 +214,41 @@ class LoginTimeCache {
         }
       }
 
-      // Still no data found
+      // Still no data found in DB
       if (result.rows.length === 0) {
-        console.warn(`⚠️  No login time found for user ${userId} (${fromStr} → ${toStr}), returning 0`);
+        console.warn(`⚠️  No login time found in DB for user ${userId} (${fromStr} → ${toStr})`);
+
+        // CRITICAL FIX: If querying TODAY'S data and we have adversusAPI, try API fallback
+        // This prevents "0 order/h" when deals are added before central sync has run
+        const now = new Date();
+        const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+        const isToday = fromDate >= todayStart;
+
+        if (isToday && adversusAPI) {
+          console.log(`🔄 Attempting API fallback for TODAY's login time (user ${userId})...`);
+          try {
+            const apiData = await this.fetchLoginTimeFromAdversus(adversusAPI, userId, fromDate, toDate);
+
+            if (apiData.loginSeconds > 0) {
+              // Save to DB for future requests
+              await this.saveLoginTime(apiData);
+              console.log(`✅ API fallback successful: ${apiData.loginSeconds}s (${(apiData.loginSeconds/3600).toFixed(2)}h)`);
+
+              // Cache it (with short TTL since it's a fallback)
+              this.cache.set(cacheKey, {
+                data: apiData,
+                cachedAt: Date.now()
+              });
+
+              return apiData;
+            }
+          } catch (error) {
+            console.error(`❌ API fallback failed:`, error.message);
+          }
+        }
+
+        // No fallback available or fallback failed - return 0
+        console.warn(`   → Returning 0 (will be cached for only 10 seconds)`);
         return {
           userId,
           loginSeconds: 0,
