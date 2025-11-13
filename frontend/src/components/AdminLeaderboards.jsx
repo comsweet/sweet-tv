@@ -880,54 +880,37 @@ const AdminLeaderboards = () => {
             {form.type === 'trend-chart' && (
               <>
                 <div className="form-group">
-                  <label>Tidsperiod:</label>
-                  <div style={{ display: 'flex', gap: '1rem' }}>
-                    <label className="checkbox-label">
-                      <input
-                        type="radio"
-                        name="trendPeriodType"
-                        checked={(form.trendDays !== undefined && form.trendDays !== null)}
-                        onChange={() => setForm({ ...form, trendDays: 30, trendHours: undefined })}
-                      />
-                      <span>Dagar</span>
-                    </label>
-                    <label className="checkbox-label">
-                      <input
-                        type="radio"
-                        name="trendPeriodType"
-                        checked={(form.trendHours !== undefined && form.trendHours !== null)}
-                        onChange={() => setForm({ ...form, trendHours: 24, trendDays: undefined })}
-                      />
-                      <span>Timmar</span>
-                    </label>
+                  <label>User Groups (tomt = alla agenter):</label>
+                  <div className="checkbox-group">
+                    {userGroups.map(group => (
+                      <label key={group.id} className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={form.userGroups.includes(group.id)}
+                          onChange={() => toggleGroup(group.id)}
+                        />
+                        <span>{group.name} ({group.agentCount} agenter)</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
 
-                {form.trendDays !== undefined && (
-                  <div className="form-group">
-                    <label>Antal dagar:</label>
-                    <input
-                      type="number"
-                      value={form.trendDays || 30}
-                      onChange={(e) => setForm({ ...form, trendDays: parseInt(e.target.value) })}
-                      min={1}
-                      max={365}
-                    />
-                  </div>
-                )}
-
-                {form.trendHours !== undefined && (
-                  <div className="form-group">
-                    <label>Antal timmar:</label>
-                    <input
-                      type="number"
-                      value={form.trendHours || 24}
-                      onChange={(e) => setForm({ ...form, trendHours: parseInt(e.target.value) })}
-                      min={1}
-                      max={168}
-                    />
-                  </div>
-                )}
+                <div className="form-group">
+                  <label>Tidsperiod:</label>
+                  <select
+                    value={form.trendDays || 1}
+                    onChange={(e) => setForm({ ...form, trendDays: parseInt(e.target.value), trendHours: undefined })}
+                  >
+                    <option value={1}>📅 Idag (senaste 24h)</option>
+                    <option value={7}>📅 Denna vecka (7 dagar)</option>
+                    <option value={30}>📅 Denna månad (30 dagar)</option>
+                    <option value={90}>📅 Senaste kvartalet (90 dagar)</option>
+                    <option value={365}>📅 Senaste året (365 dagar)</option>
+                  </select>
+                  <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
+                    Visar kumulativ trend över vald period
+                  </small>
+                </div>
 
                 <div className="form-group">
                   <label>Metrics (välj 1-2):</label>
