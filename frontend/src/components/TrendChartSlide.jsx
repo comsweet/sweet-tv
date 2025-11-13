@@ -149,7 +149,36 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   };
 
   const title = data?.leaderboard?.name || 'Trendanalys';
-  const periodLabel = days ? `${days} dagar` : `${hours}h`;
+
+  // Get period label from response (respects timePeriod setting)
+  let periodLabel;
+  if (data?.timePeriod) {
+    switch (data.timePeriod) {
+      case 'day':
+        periodLabel = 'Idag';
+        break;
+      case 'week':
+        periodLabel = 'Innevarande vecka';
+        break;
+      case 'month':
+        periodLabel = 'Innevarande månad';
+        break;
+      case 'custom':
+        if (data.dateRange) {
+          const start = new Date(data.dateRange.startDate).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
+          const end = new Date(data.dateRange.endDate).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
+          periodLabel = `${start} - ${end}`;
+        } else {
+          periodLabel = 'Anpassad period';
+        }
+        break;
+      default:
+        periodLabel = days ? `Senaste ${days} dagar` : `Senaste ${hours}h`;
+    }
+  } else {
+    // Fallback for backward compatibility
+    periodLabel = days ? `Senaste ${days} dagar` : `Senaste ${hours}h`;
+  }
 
   // Get group names from topUsers
   const groupNames = data.topUsers.map(u => u.name);
@@ -158,9 +187,9 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   let subtitle;
   if (hasMultipleMetrics) {
     const metricLabels = metricsConfig.map(m => getMetricLabel(m.metric)).join(' + ');
-    subtitle = `${metricLabels} per User Group - Senaste ${periodLabel}`;
+    subtitle = `${metricLabels} per User Group - ${periodLabel}`;
   } else {
-    subtitle = `${getMetricLabel(metricsConfig[0].metric)} per User Group - Senaste ${periodLabel}`;
+    subtitle = `${getMetricLabel(metricsConfig[0].metric)} per User Group - ${periodLabel}`;
   }
 
   // Get unique data keys (for lines)

@@ -627,17 +627,30 @@ router.get('/:id/history', async (req, res) => {
     }
 
     // Calculate date range
-    const endDate = new Date();
-    const startDate = new Date();
+    // PRIORITY: Use leaderboard's timePeriod setting if it exists (respects calendar months/weeks)
+    // FALLBACK: Use days/hours parameters for backward compatibility
+    let startDate, endDate, groupByDay;
 
-    // Support both hours (old) and days (new)
-    if (days) {
-      startDate.setDate(startDate.getDate() - parseInt(days));
+    if (leaderboard.timePeriod) {
+      // Use leaderboard's configured time period (e.g., 'month', 'week', 'day', 'custom')
+      const dateRange = leaderboardService.getDateRange(leaderboard);
+      startDate = dateRange.startDate;
+      endDate = dateRange.endDate;
+      groupByDay = leaderboard.timePeriod !== 'day'; // Group by day unless it's a single day view
+      console.log(`📅 Using leaderboard timePeriod: ${leaderboard.timePeriod}`);
     } else {
-      startDate.setHours(startDate.getHours() - parseInt(hours || 24));
+      // Fallback to days/hours parameters
+      endDate = new Date();
+      startDate = new Date();
+      if (days) {
+        startDate.setDate(startDate.getDate() - parseInt(days));
+        groupByDay = true;
+      } else {
+        startDate.setHours(startDate.getHours() - parseInt(hours || 24));
+        groupByDay = false;
+      }
+      console.log(`📅 Using days/hours parameter: ${days || hours}`);
     }
-
-    const groupByDay = !!days; // Group by day if days param is used
 
     console.log(`📈 [${leaderboard.name}] Fetching history from ${startDate.toISOString()} to ${endDate.toISOString()}`);
     console.log(`   📊 Grouping by: ${groupByDay ? 'DAY' : 'HOUR'}, Metrics: ${metrics || metric}`);
@@ -977,6 +990,7 @@ router.get('/:id/history', async (req, res) => {
       metrics: metricsToFetch, // Array of metric configs with axis info
       metric: primaryMetric, // For backward compatibility
       groupedBy: groupByDay ? 'day' : 'hour',
+      timePeriod: leaderboard.timePeriod || null, // Include timePeriod so frontend can show correct label
       dateRange: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
