@@ -121,7 +121,7 @@ class LeaderboardService {
       trendDays: leaderboard.trendDays || null,
       trendHours: leaderboard.trendHours || null,
       trendMetrics: leaderboard.trendMetrics || [],
-      refreshInterval: leaderboard.refreshInterval || 300000,
+      refreshInterval: leaderboard.refreshInterval || 35000, // 35 seconds (match frontend default)
       active: leaderboard.active !== undefined ? leaderboard.active : true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
