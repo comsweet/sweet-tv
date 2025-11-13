@@ -15,20 +15,29 @@ class LeaderboardCache {
   get(leaderboardId, startDate, endDate) {
     const key = this.getCacheKey(leaderboardId, startDate, endDate);
     const cached = this.cache.get(key);
-    
+
     if (!cached) {
       console.log(`💾 Cache MISS: ${leaderboardId}`);
       return null;
     }
-    
+
+    // CRITICAL FIX: Use shorter cache for today's data (5s) vs historical (30s)
+    // This prevents "0 deals" sticking for 30 seconds after new deal is added
+    const now = new Date();
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const queryEnd = new Date(endDate);
+    const isToday = queryEnd >= todayStart;
+
+    const timeout = isToday ? 5 * 1000 : this.cacheTimeout; // 5s for today, 30s for historical
+
     const age = Date.now() - cached.timestamp;
-    if (age > this.cacheTimeout) {
-      console.log(`⏰ Cache EXPIRED: ${leaderboardId} (${Math.round(age/1000)}s old)`);
+    if (age > timeout) {
+      console.log(`⏰ Cache EXPIRED: ${leaderboardId} (${Math.round(age/1000)}s old, timeout: ${timeout/1000}s, isToday: ${isToday})`);
       this.cache.delete(key);
       return null;
     }
-    
-    console.log(`✅ Cache HIT: ${leaderboardId} (${Math.round(age/1000)}s old)`);
+
+    console.log(`✅ Cache HIT: ${leaderboardId} (${Math.round(age/1000)}s old, isToday: ${isToday})`);
     return cached.data;
   }
 
