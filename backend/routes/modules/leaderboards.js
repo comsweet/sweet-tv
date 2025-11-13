@@ -115,6 +115,24 @@ router.get('/:id/stats', async (req, res) => {
     // Use cached users with fallback to API if not initialized
     adversusUsers = await userCache.getUsers({ adversusAPI });
 
+    // CRITICAL: If user cache is empty, ALL filtering will fail → 0 deals!
+    // This is why klassiska tabellen shows 0 deals after leaderboardCache.clear()
+    if (adversusUsers.length === 0) {
+      console.error('🚨 CRITICAL: User cache is EMPTY in /stats endpoint!');
+      console.error('   This causes 0 deals in klassiska tabellen after new deal popup.');
+      console.error('   Attempting direct API call as emergency fallback...');
+
+      try {
+        const result = await adversusAPI.getUsers();
+        adversusUsers = result.users || [];
+        console.log(`✅ Emergency fallback: Got ${adversusUsers.length} users from API`);
+        userCache.update(adversusUsers);
+      } catch (error) {
+        console.error('❌ Emergency fallback failed:', error.message);
+        // Continue with empty array - will show no filtered data
+      }
+    }
+
     try {
       localAgents = await database.getAgents();
     } catch (error) {
@@ -667,6 +685,22 @@ router.get('/:id/history', async (req, res) => {
     let adversusUsers = [];
     // Use cached users with fallback to API if not initialized
     adversusUsers = await userCache.getUsers({ adversusAPI });
+
+    // CRITICAL: If user cache is empty, filtering will return 0 deals!
+    if (adversusUsers.length === 0) {
+      console.error('🚨 CRITICAL: User cache is EMPTY in /history endpoint!');
+      console.error('   Attempting direct API call as emergency fallback...');
+
+      try {
+        const result = await adversusAPI.getUsers();
+        adversusUsers = result.users || [];
+        console.log(`✅ Emergency fallback: Got ${adversusUsers.length} users from API`);
+        userCache.update(adversusUsers);
+      } catch (error) {
+        console.error('❌ Emergency fallback failed:', error.message);
+        // Continue with empty array - will show no filtered data
+      }
+    }
 
     // Filter by user groups if specified
     let filteredDeals = cachedDeals;
@@ -1299,6 +1333,29 @@ router.get('/:id/group-metrics', async (req, res) => {
 
     // Use cached users with fallback to API if not initialized
     adversusUsers = await userCache.getUsers({ adversusAPI });
+
+    // CRITICAL: If user cache is empty, ALL filtering will fail → 0 deals!
+    // This happens when server just started or central sync hasn't run yet
+    if (adversusUsers.length === 0) {
+      console.error('🚨 CRITICAL: User cache is EMPTY! All metrics will show 0 deals.');
+      console.error('   Central sync has not run yet or failed.');
+      console.error('   Attempting direct API call as emergency fallback...');
+
+      try {
+        const result = await adversusAPI.getUsers();
+        adversusUsers = result.users || [];
+        console.log(`✅ Emergency fallback: Got ${adversusUsers.length} users from API`);
+
+        // Update cache for future requests
+        userCache.update(adversusUsers);
+      } catch (error) {
+        console.error('❌ Emergency fallback to API also failed:', error.message);
+        return res.status(500).json({
+          error: 'User cache not initialized and API fallback failed',
+          details: 'Central sync may not be running. Check server startup logs.'
+        });
+      }
+    }
 
     try {
       const groupsResult = await adversusAPI.getUserGroups();
