@@ -10,6 +10,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasRenderedOnce, setHasRenderedOnce] = useState(false);
 
   const {
     hours,
@@ -53,6 +54,10 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
         const response = await getLeaderboardHistory(leaderboard.id, params);
         setData(response.data);
         setError(null);
+        // Mark as rendered after first successful load
+        if (!hasRenderedOnce) {
+          setHasRenderedOnce(true);
+        }
       } catch (err) {
         console.error('Error fetching trend data:', err);
         setError(err.message);
@@ -252,6 +257,10 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const leftMetric = metricsConfig.find(m => m.axis === 'left' || !m.axis) || metricsConfig[0];
   const rightMetric = metricsConfig.find(m => m.axis === 'right');
 
+  // Animation config: Only animate on first render, then disable to prevent slideshow glitches
+  const shouldAnimate = !hasRenderedOnce && isActive;
+  const animationDuration = shouldAnimate ? 800 : 0; // Shorter animation + disable after first render
+
   // Get color for a group - use custom color if defined, otherwise default
   const getColorForDataKey = (dataKey, index) => {
     // Extract group name from dataKey
@@ -356,7 +365,8 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 strokeWidth={5}
                 dot={{ r: 6, strokeWidth: 2 }}
                 activeDot={{ r: 8, strokeWidth: 3 }}
-                animationDuration={1000}
+                isAnimationActive={shouldAnimate}
+                animationDuration={animationDuration}
               />
             ))}
 
@@ -371,7 +381,8 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
                 strokeWidth={5}
                 dot={{ r: 6, strokeWidth: 2 }}
                 activeDot={{ r: 8, strokeWidth: 3 }}
-                animationDuration={1000}
+                isAnimationActive={shouldAnimate}
+                animationDuration={animationDuration}
                 strokeDasharray="8 4" // Dashed line to differentiate from left axis
               />
             ))}
