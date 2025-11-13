@@ -24,7 +24,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
   const hasMultipleMetrics = metricsConfig.length > 1;
 
   useEffect(() => {
-    if (!isActive || !leaderboard) return;
+    if (!isActive || !leaderboard || !leaderboard.id) return;
 
     const fetchData = async (isAutoRefresh = false) => {
       try {
@@ -67,7 +67,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     // Auto-refresh in background
     const interval = setInterval(() => fetchData(true), refreshInterval);
     return () => clearInterval(interval);
-  }, [leaderboard, isActive, hours, days, JSON.stringify(metricsConfig), refreshInterval]);
+  }, [leaderboard?.id, isActive, hours, days, JSON.stringify(metricsConfig), refreshInterval]);
 
   if (loading) {
     return (
