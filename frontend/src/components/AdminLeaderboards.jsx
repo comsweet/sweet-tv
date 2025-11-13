@@ -947,8 +947,12 @@ const AdminLeaderboards = () => {
                 <div className="form-group">
                   <label>Tidsperiod:</label>
                   <select
-                    value={form.trendDays || 1}
-                    onChange={(e) => setForm({ ...form, trendDays: parseInt(e.target.value), trendHours: undefined })}
+                    value={form.trendDays !== undefined && form.trendDays !== null ? form.trendDays : 30}
+                    onChange={(e) => {
+                      const newValue = parseInt(e.target.value);
+                      console.log(`📅 Trend chart period changed: ${form.trendDays} → ${newValue}`);
+                      setForm({ ...form, trendDays: newValue, trendHours: undefined });
+                    }}
                   >
                     <option value={1}>📅 Idag (senaste 24h)</option>
                     <option value={7}>📅 Denna vecka (7 dagar)</option>
