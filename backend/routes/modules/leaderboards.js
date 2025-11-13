@@ -1458,7 +1458,11 @@ router.get('/:id/group-metrics', async (req, res) => {
           case 'ordersPerHour':
           case 'order_per_hour':
           case 'dealsPerHour': {
-            const totalDeals = groupDeals.reduce((sum, d) => sum + (d.multiDeals || 1), 0);
+            // CRITICAL FIX: Ensure multiDeals is parsed as integer
+            const totalDeals = groupDeals.reduce((sum, d) => {
+              const multiDeals = parseInt(d.multiDeals) || 1;
+              return sum + multiDeals;
+            }, 0);
             let totalLoginSeconds = 0;
 
             for (const userId of userIds) {
@@ -1474,7 +1478,12 @@ router.get('/:id/group-metrics', async (req, res) => {
 
           case 'orders':
           case 'deals': {
-            value = groupDeals.reduce((sum, d) => sum + (d.multiDeals || 1), 0);
+            // CRITICAL FIX: Ensure multiDeals is parsed as integer
+            // Prevents string concatenation if DB returns string
+            value = groupDeals.reduce((sum, d) => {
+              const multiDeals = parseInt(d.multiDeals) || 1;
+              return sum + multiDeals;
+            }, 0);
             break;
           }
 

@@ -69,26 +69,19 @@ class DealsCache {
         console.log(`   First deal: lead_id=${todayDeals[0].lead_id}, user_id=${todayDeals[0].user_id}, commission=${todayDeals[0].commission}`);
       }
 
-      // 🛡️ SAFETY CHECK: Only prevent EMPTY overwrites (disabled shrinkage check)
-      // CRITICAL: The shrinkage check (80% threshold) was causing false positives
-      // and blocking legitimate cache updates, resulting in 0 deals everywhere.
-      // Now only blocks if DB returns 0 but cache has data (clear DB issue).
+      // 🛡️ SAFETY CHECKS COMPLETELY DISABLED
+      // They were causing '0 deals' to stick permanently by blocking cache updates
+      // ALWAYS allow cache updates - if DB has 0, then cache should have 0
       const currentCacheSize = this.todayCache.size;
       const newCacheSize = todayDeals.length;
 
-      // ONLY block if DB returns completely empty but cache has data
-      if (currentCacheSize > 0 && newCacheSize === 0) {
-        console.error(`🚨 SAFETY CHECK: DB returned 0 deals but cache has ${currentCacheSize} deals!`);
-        console.error(`   This indicates a DB query issue or timezone problem.`);
-        console.error(`   KEEPING EXISTING CACHE to prevent data loss!`);
-        return;
-      }
-
-      // Log any significant size changes for monitoring
-      if (currentCacheSize > 0 && newCacheSize > 0) {
-        const percentChange = Math.round((newCacheSize / currentCacheSize) * 100);
-        if (percentChange < 80 || percentChange > 120) {
-          console.warn(`⚠️  Cache size changed significantly: ${currentCacheSize} → ${newCacheSize} (${percentChange}%)`);
+      // Just log for monitoring - NEVER block updates
+      if (currentCacheSize !== newCacheSize) {
+        console.log(`📊 Cache update: ${currentCacheSize} → ${newCacheSize} deals`);
+        if (currentCacheSize > 0 && newCacheSize === 0) {
+          console.warn(`⚠️  WARNING: Cache being emptied (DB returned 0 deals) - but allowing update`);
+        } else if (newCacheSize > currentCacheSize) {
+          console.log(`   ✅ Cache growing: +${newCacheSize - currentCacheSize} deals`);
         }
       }
 
@@ -140,12 +133,23 @@ class DealsCache {
 
   // Convert DB row to cache format
   dbToCache(dbRow) {
+    // CRITICAL FIX: Parse multiDeals as integer!
+    // PostgreSQL was returning it as string "34Dentle..." causing reduce() to concatenate
+    let multiDeals = 1;
+    if (dbRow.multi_deals) {
+      multiDeals = parseInt(dbRow.multi_deals);
+      if (isNaN(multiDeals)) {
+        console.error(`❌ Invalid multiDeals from DB: "${dbRow.multi_deals}" for lead ${dbRow.lead_id}`);
+        multiDeals = 1; // Fallback
+      }
+    }
+
     return {
       leadId: dbRow.lead_id,
       userId: dbRow.user_id,
       campaignId: dbRow.campaign_id,
       commission: parseFloat(dbRow.commission || 0),
-      multiDeals: dbRow.multi_deals || 1,
+      multiDeals: multiDeals,
       orderDate: dbRow.order_date,
       status: dbRow.status,
       syncedAt: dbRow.synced_at || dbRow.created_at
