@@ -167,7 +167,12 @@ class LoginTimeCache {
       // DEBUG: Log exact match attempt
       const fromStr = fromDate.toISOString().split('T')[0];
       const toStr = toDate.toISOString().split('T')[0];
-      console.log(`🔍 loginTime query for user ${userId}: ${fromStr} → ${toStr} (found: ${result.rows.length} rows)`);
+      console.log(`🔍 loginTime query for user ${userId}: ${fromStr} → ${toStr} (found: ${result.rows.length} exact matches)`);
+
+      if (result.rows.length > 0) {
+        const row = result.rows[0];
+        console.log(`   ✅ EXACT MATCH: ${row.login_seconds}s (${(row.login_seconds/3600).toFixed(2)}h) synced at ${new Date(row.synced_at).toISOString()}`);
+      }
 
       // If no exact match found, try to find overlapping period
       // This handles historical data that was saved as one large period
