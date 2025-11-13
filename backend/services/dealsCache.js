@@ -295,12 +295,28 @@ class DealsCache {
         this.retryQueue = [];
 
         for (const deal of toRetry) {
+          // Validate deal before retry (prevent infinite retry loops for invalid data)
+          if (!deal.campaignId || isNaN(parseInt(deal.campaignId))) {
+            console.error(`❌ Skipping retry for deal ${deal.leadId} - invalid campaignId: "${deal.campaignId}"`);
+            continue; // Don't retry invalid deals
+          }
+
           try {
             await db.insertDeal(this.cacheToDb(deal));
             console.log(`✅ Retry successful for ${deal.leadId}`);
           } catch (error) {
-            console.error(`❌ Retry failed for ${deal.leadId}:`, error.message);
-            this.retryQueue.push(deal); // Try again later
+            // Check if error is permanent (data validation error) or transient (network/timeout)
+            const isPermanentError = error.message.includes('invalid input syntax') ||
+                                    error.message.includes('violates') ||
+                                    error.message.includes('constraint');
+
+            if (isPermanentError) {
+              console.error(`❌ Permanent error for deal ${deal.leadId}, will NOT retry:`, error.message);
+              // Don't add back to retry queue - this deal has invalid data
+            } else {
+              console.error(`❌ Transient error for deal ${deal.leadId}, will retry:`, error.message);
+              this.retryQueue.push(deal); // Try again later for transient errors only
+            }
           }
         }
       }
@@ -347,17 +363,26 @@ class DealsCache {
         // VALIDATION: Ensure all IDs are valid integers
         const leadId = parseInt(lead.id);
         const userId = parseInt(lead.lastContactedBy);
-        const campaignId = parseInt(lead.campaignId);
+
+        // CAMPAIGN ID: Try lead.campaignId first, fallback to lead.campaign.id
+        // Sometimes Adversus returns campaignId as name instead of ID
+        let campaignId = parseInt(lead.campaignId);
+        if (isNaN(campaignId) && lead.campaign?.id) {
+          console.warn(`⚠️  lead.campaignId is not a number ("${lead.campaignId}"), using lead.campaign.id instead`);
+          campaignId = parseInt(lead.campaign.id);
+        }
 
         if (isNaN(leadId) || isNaN(userId) || isNaN(campaignId)) {
           console.error(`❌ [DealsCache/pollNewDeals] Invalid ID in lead data:`, {
             leadId: lead.id,
             userId: lead.lastContactedBy,
-            campaignId: lead.campaignId,
+            rawCampaignId: lead.campaignId,
+            campaignObjId: lead.campaign?.id,
+            parsedCampaignId: campaignId,
             leadName: lead.name,
             campaignName: lead.campaign?.name
           });
-          return null; // Mark as invalid
+          return null; // Skip this invalid deal
         }
 
         return {
@@ -427,17 +452,26 @@ class DealsCache {
         // VALIDATION: Ensure all IDs are valid integers
         const leadId = parseInt(lead.id);
         const userId = parseInt(lead.lastContactedBy);
-        const campaignId = parseInt(lead.campaignId);
+
+        // CAMPAIGN ID: Try lead.campaignId first, fallback to lead.campaign.id
+        // Sometimes Adversus returns campaignId as name instead of ID
+        let campaignId = parseInt(lead.campaignId);
+        if (isNaN(campaignId) && lead.campaign?.id) {
+          console.warn(`⚠️  lead.campaignId is not a number ("${lead.campaignId}"), using lead.campaign.id instead`);
+          campaignId = parseInt(lead.campaign.id);
+        }
 
         if (isNaN(leadId) || isNaN(userId) || isNaN(campaignId)) {
           console.error(`❌ [DealsCache/syncDeals] Invalid ID in lead data:`, {
             leadId: lead.id,
             userId: lead.lastContactedBy,
-            campaignId: lead.campaignId,
+            rawCampaignId: lead.campaignId,
+            campaignObjId: lead.campaign?.id,
+            parsedCampaignId: campaignId,
             leadName: lead.name,
             campaignName: lead.campaign?.name
           });
-          return null; // Mark as invalid
+          return null; // Skip this invalid deal
         }
 
         return {

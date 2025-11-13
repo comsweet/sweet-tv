@@ -838,7 +838,35 @@ router.get('/:id/history', async (req, res) => {
     const sortedTimes = Object.keys(timeData).sort();
     console.log(`⏱️  [${leaderboard.name}] Processing ${sortedTimes.length} time periods for login time data...`);
 
-    // OPTIMIZED: Sync login time once per period for all users (1 API call per period instead of N calls per user)
+    // SUPER OPTIMIZED: Sync login time ONCE for ENTIRE period for all users
+    // This reduces API calls from N (one per day) to 1-2 (historical + today)
+    // Example: 13 days = 13 API calls → 1-2 API calls (massive rate limit reduction!)
+
+    // Step 1: Collect ALL unique users across ALL time periods
+    const allUniqueUserIds = new Set();
+    for (const timeKey of sortedTimes) {
+      for (const groupId in timeData[timeKey]) {
+        for (const userId of timeData[timeKey][groupId].userIds) {
+          allUniqueUserIds.add(userId);
+        }
+      }
+    }
+
+    const allUsersArray = Array.from(allUniqueUserIds);
+    console.log(`   👥 Total unique users across all periods: ${allUsersArray.length}`);
+
+    // Step 2: Sync login time for ENTIRE date range (startDate → endDate) with 1-2 API calls
+    console.log(`   🔄 Syncing login time for ${allUsersArray.length} users for ENTIRE period...`);
+    console.log(`   📅 Full range: ${startDate.toISOString().split('T')[0]} → ${endDate.toISOString().split('T')[0]}`);
+
+    try {
+      await loginTimeCache.syncLoginTimeForUsers(adversusAPI, allUsersArray, startDate, endDate);
+      console.log(`   ✅ Synced login time for entire period (1-2 API calls total)`);
+    } catch (error) {
+      console.error(`   ❌ Failed to sync login time for entire period:`, error.message);
+    }
+
+    // Step 3: For each time period, read cached data and calculate per-period login time
     for (const timeKey of sortedTimes) {
       const periodStart = new Date(timeKey);
       const periodEnd = new Date(timeKey);
@@ -849,46 +877,20 @@ router.get('/:id/history', async (req, res) => {
         periodEnd.setHours(periodEnd.getHours() + 1);
       }
 
-      // Collect all unique userIds for this time period
-      const allUserIds = new Set();
-      const groupUserMapping = []; // Track which group each user belongs to
-
+      // Collect user-group mapping for this period
+      const groupUserMapping = [];
       for (const groupId in timeData[timeKey]) {
         for (const userId of timeData[timeKey][groupId].userIds) {
-          allUserIds.add(userId);
           groupUserMapping.push({ groupId, userId });
         }
       }
 
-      const userIdsArray = Array.from(allUserIds);
-
-      // Sync login time for ALL users in this period with ONE API call
-      console.log(`   🔄 Syncing login time for ${userIdsArray.length} users in period ${timeKey.split('T')[0]}...`);
-      console.log(`   📅 Period: ${periodStart.toISOString()} → ${periodEnd.toISOString()}`);
-
-      try {
-        await loginTimeCache.syncLoginTimeForUsers(adversusAPI, userIdsArray, periodStart, periodEnd);
-        console.log(`   ✅ Synced login time for ${userIdsArray.length} users (1 API call)`);
-      } catch (error) {
-        console.error(`   ❌ Failed to sync login time for period ${timeKey}:`, error.message);
-      }
-
-      // Now read from cache for each user
+      // Read from cache for each user (no API calls, just DB reads)
       const loginTimeResults = await Promise.all(
         groupUserMapping.map(({ userId }) => loginTimeCache.getLoginTime(userId, periodStart, periodEnd))
       );
 
-      // Debug: Log first result
-      if (loginTimeResults.length > 0 && loginTimeResults[0]) {
-        console.log(`   🔍 Sample login time result:`, {
-          userId: groupUserMapping[0].userId,
-          loginSeconds: loginTimeResults[0].loginSeconds,
-          fromDate: loginTimeResults[0].fromDate,
-          toDate: loginTimeResults[0].toDate
-        });
-      }
-
-      // Sum up login times per group
+      // Sum up login times per group for this period
       const groupLoginTimes = {};
       loginTimeResults.forEach((loginTime, index) => {
         const { groupId } = groupUserMapping[index];
@@ -904,6 +906,8 @@ router.get('/:id/history', async (req, res) => {
         // Convert Set to Array for serialization
         timeData[timeKey][groupId].userIds = Array.from(timeData[timeKey][groupId].userIds);
       }
+
+      console.log(`   ✅ Period ${timeKey.split('T')[0]}: Loaded login time from cache`);
     }
 
     console.log(`✅ [${leaderboard.name}] Login time data processing complete`);
