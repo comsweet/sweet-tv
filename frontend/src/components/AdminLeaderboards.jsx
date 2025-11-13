@@ -132,6 +132,20 @@ const AdminLeaderboards = () => {
     return labels[timePeriod] || timePeriod;
   };
 
+  const getTrendPeriodLabel = (trendDays, trendHours) => {
+    if (trendHours) {
+      if (trendHours === 1) return 'Senaste timmen';
+      if (trendHours === 24) return 'Idag (24h)';
+      return `${trendHours} timmar`;
+    }
+    if (trendDays === 1) return 'Idag (24h)';
+    if (trendDays === 7) return 'Denna vecka (7 dagar)';
+    if (trendDays === 30) return 'Denna månad (30 dagar)';
+    if (trendDays === 90) return 'Senaste kvartalet (90 dagar)';
+    if (trendDays === 365) return 'Senaste året (365 dagar)';
+    return `${trendDays} dagar`;
+  };
+
   const getVisibleColumnsLabel = (visibleColumns) => {
     const cols = [];
     if (visibleColumns.dealsPerHour) cols.push('🕒');
@@ -227,6 +241,19 @@ const AdminLeaderboards = () => {
                     <span className="groups-count">
                       {lb.selectedGroups?.length || 0} grupper
                     </span>
+                  ) : lb.type === 'trend-chart' ? (
+                    // Trend Chart: Show trend period based on trendDays/trendHours
+                    <>
+                      <span className="period-badge">{getTrendPeriodLabel(lb.trendDays, lb.trendHours)}</span>
+                      <br />
+                      {lb.userGroups?.length === 0 ? (
+                        <span className="groups-all" style={{ fontSize: '0.85rem' }}>Alla</span>
+                      ) : (
+                        <span className="groups-count" style={{ fontSize: '0.85rem' }}>
+                          {lb.userGroups.length} grupper
+                        </span>
+                      )}
+                    </>
                   ) : (
                     // Standard: Show period
                     <>
