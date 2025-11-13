@@ -340,6 +340,32 @@ router.get('/:id/live-score', async (req, res) => {
     const startDate = new Date(battle.start_date);
     const endDate = new Date(battle.end_date);
 
+    console.log(`⚔️ Calculating live score for battle "${battle.name}" (ID: ${battleId})`);
+    console.log(`   Teams: ${battle.teams ? battle.teams.length : 0}`);
+
+    // Validate teams data
+    if (!battle.teams || !Array.isArray(battle.teams) || battle.teams.length === 0) {
+      console.warn(`⚠️ No teams found for battle ${battleId}`);
+      return res.json({
+        battle: {
+          id: battle.id,
+          name: battle.name,
+          victoryCondition: battle.victory_condition,
+          victoryMetric: battle.victory_metric,
+          targetValue: battle.target_value,
+          startDate: battle.start_date,
+          endDate: battle.end_date
+        },
+        teamScores: [],
+        leader: null,
+        leadingBy: 0,
+        leaderFormattedLeadingBy: '',
+        victoryAchieved: false,
+        winner: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Get users from cache (with fallback to API if cache not initialized)
     const adversusUsers = await userCache.getUsers({ adversusAPI });
 
