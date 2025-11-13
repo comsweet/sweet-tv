@@ -41,7 +41,27 @@ class LeaderboardService {
 
   async getLeaderboard(id) {
     const leaderboards = await this.getLeaderboards();
-    return leaderboards.find(lb => lb.id === id);
+    const leaderboard = leaderboards.find(lb => lb.id === id);
+
+    // If this is a team-battle and battleId is missing, fetch it from database
+    if (leaderboard && leaderboard.type === 'team-battle' && !leaderboard.battleId) {
+      try {
+        const postgres = require('./postgres');
+        const battleResult = await postgres.query(
+          'SELECT id FROM team_battles WHERE leaderboard_id = $1',
+          [id]
+        );
+
+        if (battleResult.rows.length > 0) {
+          leaderboard.battleId = battleResult.rows[0].id;
+          console.log(`✅ Retrieved battleId ${leaderboard.battleId} for leaderboard ${id}`);
+        }
+      } catch (error) {
+        console.error(`⚠️ Failed to retrieve battleId for leaderboard ${id}:`, error.message);
+      }
+    }
+
+    return leaderboard;
   }
 
   async getActiveLeaderboards() {
