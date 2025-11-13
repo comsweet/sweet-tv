@@ -218,20 +218,30 @@ class LoginTimeCache {
         }
       });
 
-      // Parse NDJSON response (newline-delimited JSON)
-      if (typeof response !== 'string') {
-        throw new Error('Expected NDJSON string response from workforce API');
-      }
+      // Parse response - can be NDJSON string or JSON array
+      let records = [];
 
-      const lines = response.trim().split('\n');
-      const records = lines.map(line => {
-        try {
-          return JSON.parse(line);
-        } catch (err) {
-          console.warn('⚠️  Failed to parse NDJSON line:', line.substring(0, 100));
-          return null;
-        }
-      }).filter(r => r !== null);
+      if (typeof response === 'string') {
+        // NDJSON format (newline-delimited JSON)
+        const lines = response.trim().split('\n');
+        records = lines.map(line => {
+          try {
+            return JSON.parse(line);
+          } catch (err) {
+            console.warn('⚠️  Failed to parse NDJSON line:', line.substring(0, 100));
+            return null;
+          }
+        }).filter(r => r !== null);
+      } else if (Array.isArray(response)) {
+        // Already parsed as JSON array
+        records = response;
+      } else if (response && typeof response === 'object') {
+        // Single object or object with data property
+        records = response.data || [response];
+      } else {
+        console.warn('⚠️  Unexpected workforce API response format:', typeof response);
+        return new Map(); // Return empty map as fallback
+      }
 
       console.log(`   ✅ Parsed ${records.length} workforce records`);
 
@@ -340,21 +350,29 @@ class LoginTimeCache {
         const missingUsers = userIds.filter(id => !historicalMap.has(id));
         if (missingUsers.length > 0) {
           console.log(`   🏭 Fetching missing historical data for ${missingUsers.length} users from workforce API...`);
-          const missingMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, fromDate, histEnd);
+          try {
+            const missingMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, fromDate, histEnd);
 
-          for (const userId of missingUsers) {
-            const loginSeconds = Math.round(missingMap.get(parseInt(userId)) || 0);
-            historicalMap.set(userId, loginSeconds);
+            for (const userId of missingUsers) {
+              const loginSeconds = Math.round(missingMap.get(parseInt(userId)) || 0);
+              historicalMap.set(userId, loginSeconds);
 
-            // Save historical data permanently
-            await this.saveLoginTime({
-              userId,
-              loginSeconds,
-              fromDate: fromDate.toISOString(),
-              toDate: histEnd.toISOString()
-            });
+              // Save historical data permanently
+              await this.saveLoginTime({
+                userId,
+                loginSeconds,
+                fromDate: fromDate.toISOString(),
+                toDate: histEnd.toISOString()
+              });
 
-            console.log(`   👤 User ${userId}: ${loginSeconds}s fetched and saved (historical)`);
+              console.log(`   👤 User ${userId}: ${loginSeconds}s fetched and saved (historical)`);
+            }
+          } catch (error) {
+            console.error(`   ❌ Failed to fetch historical data from workforce API:`, error.message);
+            // Continue with 0 values for missing users
+            for (const userId of missingUsers) {
+              historicalMap.set(userId, 0);
+            }
           }
         }
       }
@@ -384,9 +402,31 @@ class LoginTimeCache {
           // If many users are missing from cache, refetch
           if (missingFromCache > userIds.length * 0.3) {
             console.log(`   ⚠️  ${missingFromCache}/${userIds.length} users missing from today's cache - refetching...`);
+            try {
+              todayMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, todayStart, todayEnd);
+
+              // Save today's data
+              for (const [userId, loginSeconds] of todayMap) {
+                await this.saveLoginTime({
+                  userId: userId.toString(),
+                  loginSeconds: Math.round(loginSeconds),
+                  fromDate: todayStart.toISOString(),
+                  toDate: todayEnd.toISOString()
+                });
+              }
+
+              this.lastTodaySync = new Date().toISOString();
+            } catch (error) {
+              console.error(`   ❌ Failed to refetch today's data:`, error.message);
+              // Use cached data even if partial
+            }
+          }
+        } else {
+          console.log(`   🏭 Fetching TODAY's data from workforce API...`);
+          try {
             todayMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, todayStart, todayEnd);
 
-            // Save today's data
+            // Save today's data (with short cache)
             for (const [userId, loginSeconds] of todayMap) {
               await this.saveLoginTime({
                 userId: userId.toString(),
@@ -396,24 +436,13 @@ class LoginTimeCache {
               });
             }
 
+            // Mark that we just synced today's data
             this.lastTodaySync = new Date().toISOString();
+          } catch (error) {
+            console.error(`   ❌ Failed to fetch today's data:`, error.message);
+            // Continue with empty map (will use historical data only)
+            todayMap = new Map();
           }
-        } else {
-          console.log(`   🏭 Fetching TODAY's data from workforce API...`);
-          todayMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, todayStart, todayEnd);
-
-          // Save today's data (with short cache)
-          for (const [userId, loginSeconds] of todayMap) {
-            await this.saveLoginTime({
-              userId: userId.toString(),
-              loginSeconds: Math.round(loginSeconds),
-              fromDate: todayStart.toISOString(),
-              toDate: todayEnd.toISOString()
-            });
-          }
-
-          // Mark that we just synced today's data
-          this.lastTodaySync = new Date().toISOString();
         }
       }
 
