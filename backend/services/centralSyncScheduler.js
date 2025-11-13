@@ -25,7 +25,7 @@ class CentralSyncScheduler {
   constructor() {
     console.log('🔄 Central Sync Scheduler initialized');
 
-    this.syncIntervalMinutes = 3;
+    this.syncIntervalMinutes = 1; // 1 minute for more live data (well under rate limit of 500 calls/min)
     this.syncTimer = null;
     this.isSyncing = false;
     this.lastSyncTime = null;
