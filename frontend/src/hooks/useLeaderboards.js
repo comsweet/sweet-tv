@@ -66,7 +66,8 @@ export const useLeaderboards = () => {
     trendDays: 30,
     trendHours: undefined,
     trendMetrics: [{ metric: 'commission', axis: 'left' }],
-    refreshInterval: 300000 // 5 minutes default
+    refreshInterval: 300000, // 5 minutes default
+    groupColors: {} // Custom colors per user group: { groupId: '#hexcolor' }
   });
 
   const fetchLeaderboards = async () => {
@@ -134,7 +135,8 @@ export const useLeaderboards = () => {
       trendDays: 30,
       trendHours: undefined,
       trendMetrics: [{ metric: 'commission', axis: 'left' }],
-      refreshInterval: 300000
+      refreshInterval: 300000,
+      groupColors: {}
     });
     setShowModal(true);
   };
@@ -194,7 +196,8 @@ export const useLeaderboards = () => {
       trendDays: leaderboard.trendDays !== undefined ? leaderboard.trendDays : 30,
       trendHours: leaderboard.trendHours || undefined,
       trendMetrics: leaderboard.trendMetrics || [{ metric: 'commission', axis: 'left' }],
-      refreshInterval: leaderboard.refreshInterval || 300000
+      refreshInterval: leaderboard.refreshInterval || 300000,
+      groupColors: leaderboard.groupColors || {}
     });
     setShowModal(true);
   };
