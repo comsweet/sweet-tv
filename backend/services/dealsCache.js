@@ -63,10 +63,33 @@ class DealsCache {
       console.log(`🔍 Loading today cache: ${start.toISOString()} → ${end.toISOString()}`);
 
       const todayDeals = await db.getDealsInRange(start, end);
-      console.log(`📊 DB returned ${todayDeals.length} deals for today`);
+      console.log(`📊 DB returned ${todayDeals.length} deals for today (current cache: ${this.todayCache.size} deals)`);
 
       if (todayDeals.length > 0) {
         console.log(`   First deal: lead_id=${todayDeals[0].lead_id}, user_id=${todayDeals[0].user_id}, commission=${todayDeals[0].commission}`);
+      }
+
+      // 🛡️ SAFETY CHECK: Only prevent EMPTY overwrites (disabled shrinkage check)
+      // CRITICAL: The shrinkage check (80% threshold) was causing false positives
+      // and blocking legitimate cache updates, resulting in 0 deals everywhere.
+      // Now only blocks if DB returns 0 but cache has data (clear DB issue).
+      const currentCacheSize = this.todayCache.size;
+      const newCacheSize = todayDeals.length;
+
+      // ONLY block if DB returns completely empty but cache has data
+      if (currentCacheSize > 0 && newCacheSize === 0) {
+        console.error(`🚨 SAFETY CHECK: DB returned 0 deals but cache has ${currentCacheSize} deals!`);
+        console.error(`   This indicates a DB query issue or timezone problem.`);
+        console.error(`   KEEPING EXISTING CACHE to prevent data loss!`);
+        return;
+      }
+
+      // Log any significant size changes for monitoring
+      if (currentCacheSize > 0 && newCacheSize > 0) {
+        const percentChange = Math.round((newCacheSize / currentCacheSize) * 100);
+        if (percentChange < 80 || percentChange > 120) {
+          console.warn(`⚠️  Cache size changed significantly: ${currentCacheSize} → ${newCacheSize} (${percentChange}%)`);
+        }
       }
 
       // 🔒 ATOMIC SWAP: Build new cache first, then replace in one operation
@@ -82,7 +105,7 @@ class DealsCache {
         newUserTotals.set(deal.user_id, currentTotal + parseFloat(deal.commission || 0));
       }
 
-      // Atomic swap - cache is never empty
+      // Atomic swap - cache is never empty (unless DB really has no data)
       this.todayCache = newCache;
       this.todayUserTotals = newUserTotals;
 
@@ -567,17 +590,25 @@ class DealsCache {
     const end = new Date(endDate);
     const { start: todayStart, end: todayEnd } = this.getTodayWindow();
 
+    // DEBUG: Log all cache reads
+    const cacheSize = this.todayCache.size;
+    const isToday = start >= todayStart && end <= todayEnd;
+    console.log(`📖 getDealsInRange: ${start.toISOString().split('T')[0]} → ${end.toISOString().split('T')[0]} (todayCache: ${cacheSize} deals, isToday: ${isToday})`);
+
     // Case 1: Query is entirely for today → use cache (FAST!)
     if (start >= todayStart && end <= todayEnd) {
-      return Array.from(this.todayCache.values()).filter(deal => {
+      const result = Array.from(this.todayCache.values()).filter(deal => {
         const dealDate = new Date(deal.orderDate);
         return dealDate >= start && dealDate <= end;
       });
+      console.log(`   ✅ Returning ${result.length} deals from todayCache`);
+      return result;
     }
 
     // Case 2: Query is entirely before today → use PostgreSQL only
     if (end < todayStart) {
       const dbDeals = await db.getDealsInRange(start, end);
+      console.log(`   ✅ Returning ${dbDeals.length} historical deals from PostgreSQL`);
       return dbDeals.map(d => this.dbToCache(d));
     }
 
@@ -590,6 +621,7 @@ class DealsCache {
       const historicalEnd = new Date(todayStart.getTime() - 1); // End at 23:59:59 yesterday
       const dbDeals = await db.getDealsInRange(start, historicalEnd);
       results.push(...dbDeals.map(d => this.dbToCache(d)));
+      console.log(`   📦 HYBRID: ${dbDeals.length} historical deals from PostgreSQL`);
     }
 
     // Get today's deals from cache (LIVE data!)
@@ -599,8 +631,10 @@ class DealsCache {
         return dealDate >= todayStart && dealDate <= end;
       });
       results.push(...todayDeals);
+      console.log(`   📦 HYBRID: ${todayDeals.length} today deals from todayCache`);
     }
 
+    console.log(`   ✅ HYBRID: Returning total ${results.length} deals`);
     return results;
   }
 

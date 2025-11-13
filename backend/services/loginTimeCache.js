@@ -136,7 +136,7 @@ class LoginTimeCache {
 
       // Cache valid for 30 minutes
       if (age < this.syncIntervalMinutes * 60 * 1000) {
-        console.log(`💾 Cache HIT for user ${userId} login time`);
+        console.log(`💾 Cache HIT for user ${userId} login time: ${cached.data.loginSeconds}s (${(cached.data.loginSeconds / 3600).toFixed(2)}h)`);
         return cached.data;
       }
     }
@@ -155,10 +155,16 @@ class LoginTimeCache {
 
       let result = await db.pool.query(exactQuery, [userId, fromDate, toDate]);
 
+      // DEBUG: Log exact match attempt
+      const fromStr = fromDate.toISOString().split('T')[0];
+      const toStr = toDate.toISOString().split('T')[0];
+      console.log(`🔍 loginTime query for user ${userId}: ${fromStr} → ${toStr} (found: ${result.rows.length} rows)`);
+
       // If no exact match found, return 0
       // NOTE: We don't fetch from API on-demand as it causes rate limits
       // Historical data should be backfilled separately via admin endpoint
       if (result.rows.length === 0) {
+        console.warn(`⚠️  No login time found for user ${userId} (${fromStr} → ${toStr}), returning 0`);
         return {
           userId,
           loginSeconds: 0,

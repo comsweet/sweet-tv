@@ -875,9 +875,19 @@ router.get('/:id/history', async (req, res) => {
       const periodEnd = new Date(timeKey);
 
       if (groupByDay) {
-        periodEnd.setDate(periodEnd.getDate() + 1);
+        // CRITICAL FIX: Use 23:59:59 instead of 00:00:00 next day
+        // This matches how central sync saves login time (00:00 - 23:59)
+        // Old: periodEnd = 2025-11-14 00:00:00 (no match)
+        // New: periodEnd = 2025-11-13 23:59:59.999 (exact match!)
+        periodEnd.setUTCHours(23, 59, 59, 999);
       } else {
         periodEnd.setHours(periodEnd.getHours() + 1);
+      }
+
+      // DEBUG: Log the period being queried
+      const isPotentiallyToday = timeKey.split('T')[0] === new Date().toISOString().split('T')[0];
+      if (isPotentiallyToday) {
+        console.log(`   🔍 Querying TODAY's login time: ${periodStart.toISOString()} → ${periodEnd.toISOString()}`);
       }
 
       // Collect user-group mapping for this period
@@ -1357,9 +1367,21 @@ router.get('/:id/group-metrics', async (req, res) => {
         const allDeals = await dealsCache.getDealsInRange(startDate, endDate);
         const groupDeals = allDeals.filter(deal => userIds.includes(String(deal.userId)));
 
+        // DEBUG: Log filtering results
+        console.log(`   📦 All deals: ${allDeals.length}, Group deals (after filter): ${groupDeals.length}`);
+        if (allDeals.length > 0 && groupDeals.length === 0) {
+          console.error(`   🚨 WARNING: ${allDeals.length} deals exist but 0 match group userIds!`);
+          console.error(`   Group userIds: ${userIds.join(', ')}`);
+          const sampleDeals = allDeals.slice(0, 3).map(d => `user_id=${d.userId}`);
+          console.error(`   Sample deal userIds: ${sampleDeals.join(', ')}`);
+        }
+
         // Get SMS for this group in date range
         const allSMS = await smsCache.getSMSInRange(startDate, endDate);
         const groupSMS = allSMS.filter(sms => userIds.includes(String(sms.userId)));
+
+        // DEBUG: Log SMS filtering for comparison
+        console.log(`   💬 All SMS: ${allSMS.length}, Group SMS (after filter): ${groupSMS.length}`);
 
         // Calculate metric value
         let value = 0;
