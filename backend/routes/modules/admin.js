@@ -477,6 +477,104 @@ router.post('/cache/invalidate', async (req, res) => {
 });
 
 /**
+ * Backfill login time for historical dates
+ * POST /api/admin/backfill-login-time
+ * Body: {
+ *   days: 30  // How many days back to fetch
+ * }
+ */
+router.post('/backfill-login-time', async (req, res) => {
+  try {
+    const { days = 30 } = req.body;
+
+    if (days < 1 || days > 365) {
+      return res.status(400).json({
+        success: false,
+        error: 'Days must be between 1 and 365'
+      });
+    }
+
+    console.log(`🕐 Starting login time backfill for ${days} days...`);
+
+    // Get all users
+    const userCache = require('../../services/userCache');
+    const adversusAPI = require('../../services/adversusAPI');
+    const users = await userCache.getUsers({ adversusAPI });
+    const userIds = users.map(u => u.id);
+
+    console.log(`   👥 Found ${userIds.length} users`);
+
+    // Calculate date range
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    console.log(`   📅 Date range: ${startDate.toISOString().split('T')[0]} → ${endDate.toISOString().split('T')[0]}`);
+
+    // Fetch day by day to avoid rate limits
+    const daysToFetch = [];
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dayStart = new Date(d);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(d);
+      dayEnd.setHours(23, 59, 59, 999);
+      daysToFetch.push({ start: new Date(dayStart), end: new Date(dayEnd) });
+    }
+
+    console.log(`   📊 Will fetch ${daysToFetch.length} days of data...`);
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < daysToFetch.length; i++) {
+      const { start, end } = daysToFetch[i];
+      const dateStr = start.toISOString().split('T')[0];
+
+      try {
+        console.log(`   [${i + 1}/${daysToFetch.length}] Fetching ${dateStr}...`);
+
+        await loginTimeCache.syncLoginTimeForUsers(adversusAPI, userIds, start, end);
+        successCount++;
+
+        console.log(`   ✅ ${dateStr} complete`);
+
+        // Small delay to avoid rate limits (2 seconds between days)
+        if (i < daysToFetch.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      } catch (error) {
+        errorCount++;
+        console.error(`   ❌ Failed ${dateStr}:`, error.message);
+      }
+    }
+
+    console.log(`🎉 Backfill complete! ${successCount} days succeeded, ${errorCount} failed`);
+
+    res.json({
+      success: true,
+      message: `Login time backfilled for ${successCount}/${daysToFetch.length} days`,
+      details: {
+        totalDays: daysToFetch.length,
+        successCount,
+        errorCount,
+        userCount: userIds.length,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error backfilling login time:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * POST /admin/cache/invalidate/:leaderboardId
  * Invalidate cache for a specific leaderboard
  */

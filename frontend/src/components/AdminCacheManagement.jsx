@@ -14,6 +14,7 @@ import {
   syncDatabase,
   getSyncStatus,
   invalidateCache,
+  backfillLoginTime,
   getPendingDuplicates
 } from '../services/api';
 import './AdminCacheManagement.css';
@@ -40,6 +41,9 @@ const AdminCacheManagement = () => {
 
   const [dbSyncing, setDbSyncing] = useState(false);
   const [cacheInvalidating, setCacheInvalidating] = useState(false);
+
+  const [backfillDays, setBackfillDays] = useState(30);
+  const [backfilling, setBackfilling] = useState(false);
 
   useEffect(() => {
     fetchAllStats();
@@ -281,6 +285,32 @@ const AdminCacheManagement = () => {
       alert('❌ Error clearing database: ' + error.message);
     } finally {
       setLoginTimeClearing(false);
+    }
+  };
+
+  const handleBackfillLoginTime = async () => {
+    const estimatedMinutes = Math.ceil(backfillDays * 2 / 60);
+
+    if (!window.confirm(`📅 Backfill Login Time\n\nDetta kommer att hämta login time för ${backfillDays} dagar bakåt från Adversus.\n\nBeräknad tid: ~${estimatedMinutes} minuter (2 sekunder per dag för att undvika rate limits)\n\nFortsätt?`)) {
+      return;
+    }
+
+    setBackfilling(true);
+    try {
+      const response = await backfillLoginTime(backfillDays);
+      const details = response.data.details;
+
+      alert(`✅ Login Time Backfill Klar!\n\n` +
+            `Dagar: ${details.successCount}/${details.totalDays}\n` +
+            `Användare: ${details.userCount}\n` +
+            `Period: ${new Date(details.startDate).toLocaleDateString('sv-SE')} - ${new Date(details.endDate).toLocaleDateString('sv-SE')}`);
+
+      await fetchAllStats();
+    } catch (error) {
+      console.error('Error backfilling login time:', error);
+      alert('❌ Backfill failed: ' + error.message);
+    } finally {
+      setBackfilling(false);
     }
   };
 
@@ -670,6 +700,67 @@ const AdminCacheManagement = () => {
             >
               {loginTimeClearing ? '⏳ Clearing...' : '🗑️ Clear Database'}
             </button>
+          </div>
+
+          {/* BACKFILL SECTION */}
+          <div style={{
+            marginTop: '20px',
+            padding: '16px',
+            background: 'rgba(59, 130, 246, 0.1)',
+            border: '2px solid #3b82f6',
+            borderRadius: '8px'
+          }}>
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{ color: '#1e40af', fontSize: '15px' }}>📅 Backfill Historical Data</strong>
+              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#475569' }}>
+                Hämta historisk login time från Adversus. Endast login time stöds för närvarande.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label htmlFor="backfillDays" style={{ fontSize: '14px', color: '#334155' }}>
+                  Dagar bakåt:
+                </label>
+                <input
+                  id="backfillDays"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={backfillDays}
+                  onChange={(e) => setBackfillDays(parseInt(e.target.value) || 1)}
+                  disabled={backfilling}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '14px',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '4px',
+                    width: '80px'
+                  }}
+                />
+                <span style={{ fontSize: '13px', color: '#64748b' }}>
+                  (~{Math.ceil(backfillDays * 2 / 60)} min)
+                </span>
+              </div>
+              <button
+                onClick={handleBackfillLoginTime}
+                disabled={backfilling || backfillDays < 1 || backfillDays > 365}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  background: backfilling ? '#94a3b8' : '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: backfilling ? 'not-allowed' : 'pointer',
+                  fontWeight: '600',
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={(e) => !backfilling && (e.target.style.background = '#2563eb')}
+                onMouseOut={(e) => !backfilling && (e.target.style.background = '#3b82f6')}
+              >
+                {backfilling ? '⏳ Backfilling...' : '📥 Backfill Login Time'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
