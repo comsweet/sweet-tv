@@ -707,6 +707,20 @@ router.get('/:id/history', async (req, res) => {
 
     console.log(`   📊 User groups found: ${Object.keys(groupNames).map(id => groupNames[id]).join(', ')}`);
 
+    // Build a map of groupId -> all userIds in that group (for correct login time calculation)
+    const groupUsersMap = {}; // groupId -> Set of all userIds in group
+    for (const userId in userGroupMap) {
+      const groupId = userGroupMap[userId];
+      if (!groupUsersMap[groupId]) {
+        groupUsersMap[groupId] = new Set();
+      }
+      groupUsersMap[groupId].add(userId);
+    }
+
+    console.log(`   👥 Users per group:`, Object.keys(groupUsersMap).map(gid =>
+      `${groupNames[gid]}: ${groupUsersMap[gid].size} users`
+    ).join(', '));
+
     // Group data by time period (hour or day) and user GROUP instead of individual user
     const timeData = {};
 
@@ -736,13 +750,13 @@ router.get('/:id/history', async (req, res) => {
           loginSeconds: 0,
           smsSent: 0,
           smsDelivered: 0,
-          userIds: new Set()
+          userIds: new Set(groupUsersMap[groupId]) // Initialize with ALL users in group
         };
       }
 
       timeData[timeKey][groupId].commission += parseFloat(deal.commission || 0);
       timeData[timeKey][groupId].deals += parseInt(deal.multiDeals || '1');
-      timeData[timeKey][groupId].userIds.add(userId);
+      // Don't need to add userId here anymore - already included from groupUsersMap
     }
 
     // Add SMS data (grouped by user group)
@@ -772,7 +786,7 @@ router.get('/:id/history', async (req, res) => {
           loginSeconds: 0,
           smsSent: 0,
           smsDelivered: 0,
-          userIds: new Set()
+          userIds: new Set(groupUsersMap[groupId]) // Initialize with ALL users in group
         };
       }
 
@@ -780,7 +794,44 @@ router.get('/:id/history', async (req, res) => {
       if (sms.status === 'delivered') {
         timeData[timeKey][groupId].smsDelivered += sms.count || 1;
       }
-      timeData[timeKey][groupId].userIds.add(userId);
+      // Don't need to add userId here anymore - already included from groupUsersMap
+    }
+
+    // Ensure all time periods exist for all groups (even if no deals/SMS)
+    // This is needed to fetch login time for groups with no activity
+    const allTimeKeys = new Set(Object.keys(timeData));
+
+    // Generate all time keys in the date range
+    let currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      let timeKey;
+      if (groupByDay) {
+        timeKey = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).toISOString();
+        currentDate.setDate(currentDate.getDate() + 1);
+      } else {
+        timeKey = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), currentDate.getHours()).toISOString();
+        currentDate.setHours(currentDate.getHours() + 1);
+      }
+      allTimeKeys.add(timeKey);
+    }
+
+    // Initialize all time periods for all groups
+    for (const timeKey of allTimeKeys) {
+      if (!timeData[timeKey]) {
+        timeData[timeKey] = {};
+      }
+      for (const groupId in groupUsersMap) {
+        if (!timeData[timeKey][groupId]) {
+          timeData[timeKey][groupId] = {
+            commission: 0,
+            deals: 0,
+            loginSeconds: 0,
+            smsSent: 0,
+            smsDelivered: 0,
+            userIds: new Set(groupUsersMap[groupId]) // ALL users in group
+          };
+        }
+      }
     }
 
     // Add login time data for each time period (sum all users in group)
