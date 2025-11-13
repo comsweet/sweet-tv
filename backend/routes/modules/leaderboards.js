@@ -811,10 +811,59 @@ router.get('/:id/history', async (req, res) => {
 
     console.log(`✅ [${leaderboard.name}] Login time data processing complete`);
 
-    // Calculate cumulative values per GROUP (not user)
-    const groupTotals = {};
+    // Helper function to calculate metric value for a PERIOD (per-day, not cumulative)
+    const calculatePeriodMetricValue = (metricName, periodStats) => {
+      switch (metricName) {
+        case 'deals':
+          return periodStats.deals || 0;
+        case 'sms_rate':
+          return periodStats.smsSent > 0
+            ? Math.round((periodStats.smsDelivered / periodStats.smsSent) * 100)
+            : 0;
+        case 'order_per_hour':
+          return periodStats.loginSeconds > 0
+            ? parseFloat(loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds))
+            : 0;
+        case 'commission_per_hour':
+          return periodStats.loginSeconds > 0
+            ? Math.round((periodStats.commission / periodStats.loginSeconds) * 3600)
+            : 0;
+        default: // commission
+          return Math.round(periodStats.commission || 0);
+      }
+    };
 
-    // Initialize groupTotals for all groups found in data
+    // Build time series with PER-DAY values (not cumulative)
+    const timeSeries = sortedTimes.map(timeKey => {
+      const periodData = timeData[timeKey];
+
+      // Build data point with support for multiple metrics
+      const dataPoint = { time: timeKey };
+
+      // For each group, calculate metrics for THIS PERIOD ONLY
+      for (const groupId in periodData) {
+        const groupName = groupNames[groupId] || `Group ${groupId}`;
+        const periodStats = periodData[groupId];
+
+        // Add values for each metric
+        for (const metricConfig of metricsToFetch) {
+          const metricName = metricConfig.metric;
+          const value = calculatePeriodMetricValue(metricName, periodStats);
+
+          // Use naming convention: "GroupName_metric" for multiple metrics
+          const dataKey = metricsToFetch.length > 1
+            ? `${groupName}_${metricName}`
+            : groupName;
+
+          dataPoint[dataKey] = value;
+        }
+      }
+
+      return dataPoint;
+    });
+
+    // Calculate CUMULATIVE totals for the footer display (total for whole period)
+    const groupTotals = {};
     for (const groupId in groupNames) {
       groupTotals[groupId] = {
         totalCommission: 0,
@@ -825,8 +874,22 @@ router.get('/:id/history', async (req, res) => {
       };
     }
 
-    // Helper function to calculate metric value
-    const calculateMetricValue = (metricName, totals) => {
+    // Sum up all periods
+    for (const timeKey of sortedTimes) {
+      const periodData = timeData[timeKey];
+      for (const groupId in periodData) {
+        if (groupTotals[groupId]) {
+          groupTotals[groupId].totalCommission += periodData[groupId].commission;
+          groupTotals[groupId].totalDeals += periodData[groupId].deals;
+          groupTotals[groupId].totalLoginSeconds += periodData[groupId].loginSeconds;
+          groupTotals[groupId].totalSmsSent += periodData[groupId].smsSent;
+          groupTotals[groupId].totalSmsDelivered += periodData[groupId].smsDelivered;
+        }
+      }
+    }
+
+    // Helper function for cumulative totals (used in footer)
+    const calculateCumulativeMetricValue = (metricName, totals) => {
       switch (metricName) {
         case 'deals':
           return totals.totalDeals;
@@ -847,51 +910,12 @@ router.get('/:id/history', async (req, res) => {
       }
     };
 
-    // Build time series (grouped by user group) - supports multiple metrics
-    const timeSeries = sortedTimes.map(timeKey => {
-      const periodData = timeData[timeKey];
-
-      // Update cumulative totals per GROUP
-      for (const groupId in periodData) {
-        if (groupTotals[groupId]) {
-          groupTotals[groupId].totalCommission += periodData[groupId].commission;
-          groupTotals[groupId].totalDeals += periodData[groupId].deals;
-          groupTotals[groupId].totalLoginSeconds += periodData[groupId].loginSeconds;
-          groupTotals[groupId].totalSmsSent += periodData[groupId].smsSent;
-          groupTotals[groupId].totalSmsDelivered += periodData[groupId].smsDelivered;
-        }
-      }
-
-      // Build data point with support for multiple metrics
-      const dataPoint = { time: timeKey };
-
-      for (const groupId in groupTotals) {
-        const groupName = groupNames[groupId] || `Group ${groupId}`;
-        const totals = groupTotals[groupId];
-
-        // Add values for each metric
-        for (const metricConfig of metricsToFetch) {
-          const metricName = metricConfig.metric;
-          const value = calculateMetricValue(metricName, totals);
-
-          // Use naming convention: "GroupName_metric" for multiple metrics
-          const dataKey = metricsToFetch.length > 1
-            ? `${groupName}_${metricName}`
-            : groupName;
-
-          dataPoint[dataKey] = value;
-        }
-      }
-
-      return dataPoint;
-    });
-
-    // Get all groups with values for the primary metric (used for sorting/display)
+    // Get all groups with cumulative values for the primary metric (used for footer sorting/display)
     const primaryMetric = metricsToFetch[0].metric;
     const allGroups = Object.entries(groupTotals)
       .map(([groupId, totals]) => {
         const groupName = groupNames[groupId] || `Group ${groupId}`;
-        const total = calculateMetricValue(primaryMetric, totals);
+        const total = calculateCumulativeMetricValue(primaryMetric, totals);
         return { groupId, name: groupName, total };
       })
       .sort((a, b) => b.total - a.total);
