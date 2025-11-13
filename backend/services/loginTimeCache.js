@@ -174,9 +174,70 @@ class LoginTimeCache {
         console.log(`   ✅ EXACT MATCH: ${row.login_seconds}s (${(row.login_seconds/3600).toFixed(2)}h) synced at ${new Date(row.synced_at).toISOString()}`);
       }
 
-      // If no exact match found, try to find overlapping period
-      // This handles historical data that was saved as one large period
+      // CRITICAL FIX: If no exact match found and period spans multiple days,
+      // sum all day-by-day entries instead of using overlapping period averages
       if (result.rows.length === 0) {
+        // Calculate how many days are in the requested period
+        const requestedDays = Math.ceil((toDate - fromDate) / (1000 * 60 * 60 * 24));
+
+        if (requestedDays > 1) {
+          console.log(`📅 Multi-day period detected (${requestedDays} days), summing day-by-day entries...`);
+
+          // Query for all day-by-day entries within the period
+          const dayByDayQuery = `
+            SELECT
+              from_date::date as day,
+              login_seconds,
+              EXTRACT(EPOCH FROM (to_date - from_date)) / 86400 as period_days
+            FROM user_login_time
+            WHERE user_id = $1
+              AND from_date >= $2
+              AND to_date <= $3
+            ORDER BY from_date ASC
+          `;
+
+          const dayResults = await db.pool.query(dayByDayQuery, [userId, fromDate, toDate]);
+
+          if (dayResults.rows.length > 0) {
+            // Sum only SINGLE-DAY entries (period_days <= 1)
+            // Ignore any remaining big period entries
+            let totalLoginSeconds = 0;
+            let singleDayCount = 0;
+
+            dayResults.rows.forEach(row => {
+              if (row.period_days <= 1) {
+                totalLoginSeconds += row.login_seconds;
+                singleDayCount++;
+              } else {
+                console.warn(`   ⚠️ Skipping big period entry: ${row.day} (${row.period_days.toFixed(1)} days) - should have been cleaned!`);
+              }
+            });
+
+            console.log(`   ✅ Summed ${singleDayCount} single-day entries: ${totalLoginSeconds}s (${(totalLoginSeconds/3600).toFixed(2)}h)`);
+
+            const data = {
+              userId,
+              loginSeconds: totalLoginSeconds,
+              fromDate: fromDate.toISOString(),
+              toDate: toDate.toISOString(),
+              syncedAt: new Date().toISOString(),
+              isSummed: true  // Mark as summed from multiple days
+            };
+
+            // Cache the summed result
+            this.cache.set(cacheKey, {
+              data,
+              cachedAt: Date.now()
+            });
+
+            return data;
+          } else {
+            console.log(`   ℹ️ No day-by-day entries found, period may not be synced yet`);
+          }
+        }
+
+        // Single-day period OR no day-by-day entries found
+        // Try overlapping period as last resort (for backwards compatibility)
         const rangeQuery = `
           SELECT * FROM user_login_time
           WHERE user_id = $1
@@ -199,10 +260,11 @@ class LoginTimeCache {
 
           console.log(`📊 Found overlapping period for user ${userId}: ${row.from_date.toISOString().split('T')[0]} → ${row.to_date.toISOString().split('T')[0]} (${totalDays} days)`);
           console.log(`   Total: ${row.login_seconds}s → Daily average: ${dailyAverage}s (${(dailyAverage/3600).toFixed(2)}h)`);
+          console.warn(`   ⚠️ Using daily average as fallback - this should only happen for old data!`);
 
           const data = {
             userId: row.user_id,
-            loginSeconds: dailyAverage,  // Daily average!
+            loginSeconds: dailyAverage,  // Daily average as fallback
             fromDate: fromDate.toISOString(),
             toDate: toDate.toISOString(),
             syncedAt: row.synced_at,
