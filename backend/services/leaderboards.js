@@ -216,11 +216,30 @@ class LeaderboardService {
     }
 
     const existingLeaderboard = leaderboards[index];
+
+    // DEBUG: Log trend-chart updates
+    if (existingLeaderboard.type === 'trend-chart' || updates.type === 'trend-chart') {
+      console.log('🔍 [BACKEND UPDATE DEBUG - TREND CHART]');
+      console.log('   Existing trendDays:', existingLeaderboard.trendDays);
+      console.log('   Existing trendHours:', existingLeaderboard.trendHours);
+      console.log('   Updates trendDays:', updates.trendDays);
+      console.log('   Updates trendHours:', updates.trendHours);
+      console.log('   Updates timePeriod:', updates.timePeriod);
+    }
+
     const updatedLeaderboard = {
       ...existingLeaderboard,
       ...updates,
       updatedAt: new Date().toISOString()
     };
+
+    // DEBUG: Log final merged object
+    if (updatedLeaderboard.type === 'trend-chart') {
+      console.log('💾 [BACKEND FINAL MERGED OBJECT]');
+      console.log('   Final trendDays:', updatedLeaderboard.trendDays);
+      console.log('   Final trendHours:', updatedLeaderboard.trendHours);
+      console.log('   Final timePeriod:', updatedLeaderboard.timePeriod);
+    }
 
     // If this is a team-battle leaderboard, update the team_battles table too
     if (updatedLeaderboard.type === 'team-battle') {
