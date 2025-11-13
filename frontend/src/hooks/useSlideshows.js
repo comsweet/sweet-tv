@@ -129,12 +129,8 @@ export const useSlideshows = () => {
         newSlide = {
           type: 'trend',
           leaderboardId: null,
-          duration: prev.duration || 20,
-          config: {
-            hours: 24,
-            topN: 5,
-            metric: 'commission'
-          }
+          duration: prev.duration || 20
+          // Config removed - use trendDays/trendHours from leaderboard instead
         };
       } else {
         newSlide = { type: 'leaderboard', leaderboardId: null, duration: prev.duration || 30 };

@@ -43,6 +43,31 @@ const AdminSlideshows = () => {
     setIsLoading(false);
   };
 
+  const getPeriodBadge = (leaderboard) => {
+    // For trend-chart type, use trendDays/trendHours
+    if (leaderboard.type === 'trend-chart') {
+      if (leaderboard.trendHours) {
+        if (leaderboard.trendHours === 1) return '📅 Senaste timmen';
+        if (leaderboard.trendHours === 24) return '📅 Idag';
+        return `📅 ${leaderboard.trendHours}h`;
+      }
+      if (leaderboard.trendDays === 1) return '📅 Idag';
+      if (leaderboard.trendDays === 7) return '📅 Vecka';
+      if (leaderboard.trendDays === 30) return '📅 Månad';
+      if (leaderboard.trendDays === 90) return '📅 Kvartal';
+      if (leaderboard.trendDays === 365) return '📅 År';
+      return `📅 ${leaderboard.trendDays} dagar`;
+    }
+
+    // For standard leaderboards, use timePeriod
+    if (leaderboard.timePeriod === 'day') return '📅 Dag';
+    if (leaderboard.timePeriod === 'week') return '📅 Vecka';
+    if (leaderboard.timePeriod === 'month') return '📅 Månad';
+    if (leaderboard.timePeriod === 'custom') return '📅 Anpassad';
+
+    return '📅 Månad'; // Default
+  };
+
   const handleSave = async () => {
     try {
       await saveSlideshow();
@@ -297,10 +322,7 @@ const AdminSlideshows = () => {
                                     {selectedLb && (
                                       <div className="lb-meta-badges">
                                         <span className="meta-badge">
-                                          {selectedLb.timePeriod === 'day' && '📅 Dag'}
-                                          {selectedLb.timePeriod === 'week' && '📅 Vecka'}
-                                          {selectedLb.timePeriod === 'month' && '📅 Månad'}
-                                          {selectedLb.timePeriod === 'custom' && '📅 Anpassad'}
+                                          {getPeriodBadge(selectedLb)}
                                         </span>
                                         <span className="meta-badge">
                                           {selectedLb.userGroups?.length === 0 ? '👥 Alla' : `👥 ${selectedLb.userGroups.length}`}
@@ -376,10 +398,7 @@ const AdminSlideshows = () => {
                                   {selectedLb && (
                                     <div className="lb-meta-badges">
                                       <span className="meta-badge">
-                                        {selectedLb.timePeriod === 'day' && '📅 Dag'}
-                                        {selectedLb.timePeriod === 'week' && '📅 Vecka'}
-                                        {selectedLb.timePeriod === 'month' && '📅 Månad'}
-                                        {selectedLb.timePeriod === 'custom' && '📅 Anpassad'}
+                                        {getPeriodBadge(selectedLb)}
                                       </span>
                                       <span className="meta-badge">
                                         {selectedLb.userGroups?.length === 0 ? '👥 Alla' : `👥 ${selectedLb.userGroups.length}`}

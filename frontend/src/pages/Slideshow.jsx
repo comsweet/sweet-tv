@@ -1077,12 +1077,12 @@ const Slideshow = () => {
                 leaderboard={slideData.leaderboard}
                 isActive={isActive}
                 config={{
+                  ...(slideData.config || {}), // Merge existing config first
                   leaderboardId: slideData.leaderboard.id,
-                  days: slideData.leaderboard.trendDays,
+                  days: slideData.leaderboard.trendDays, // Override with saved value
                   hours: slideData.leaderboard.trendHours,
                   metrics: slideData.leaderboard.trendMetrics,
-                  refreshInterval: slideData.leaderboard.refreshInterval || 300000,
-                  ...(slideData.config || {}) // Merge any existing config
+                  refreshInterval: slideData.leaderboard.refreshInterval || 300000
                 }}
               />
             </div>
