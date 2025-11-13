@@ -1401,6 +1401,13 @@ router.get('/:id/group-metrics', async (req, res) => {
 
       console.log(`   👥 Found ${usersInGroup.length} users in group`);
 
+      // DEBUG: Log first few user IDs
+      if (userIds.length > 0) {
+        console.log(`   📋 Sample user IDs: ${userIds.slice(0, 5).join(', ')}${userIds.length > 5 ? '...' : ''}`);
+      } else {
+        console.error(`   🚨 WARNING: No users found in this group!`);
+      }
+
       // Initialize metrics object for this group
       const metrics = {
         groupId,
@@ -1427,10 +1434,14 @@ router.get('/:id/group-metrics', async (req, res) => {
         // DEBUG: Log filtering results
         console.log(`   📦 All deals: ${allDeals.length}, Group deals (after filter): ${groupDeals.length}`);
         if (allDeals.length > 0 && groupDeals.length === 0) {
-          console.error(`   🚨 WARNING: ${allDeals.length} deals exist but 0 match group userIds!`);
-          console.error(`   Group userIds: ${userIds.join(', ')}`);
-          const sampleDeals = allDeals.slice(0, 3).map(d => `user_id=${d.userId}`);
-          console.error(`   Sample deal userIds: ${sampleDeals.join(', ')}`);
+          console.error(`   🚨 CRITICAL: ${allDeals.length} deals exist but 0 match group userIds!`);
+          console.error(`   👥 Group userIds (${userIds.length}): ${userIds.slice(0, 10).join(', ')}${userIds.length > 10 ? '...' : ''}`);
+          const sampleDeals = allDeals.slice(0, 5).map(d => `lead_id=${d.leadId}, user_id=${d.userId}`);
+          console.error(`   📋 Sample deal data: ${sampleDeals.join(', ')}`);
+          console.error(`   🔍 Type check: userIds[0] type=${typeof userIds[0]}, deals[0].userId type=${typeof allDeals[0]?.userId}`);
+        } else if (allDeals.length === 0) {
+          console.error(`   🚨 CRITICAL: dealsCache.getDealsInRange() returned 0 deals!`);
+          console.error(`   📅 Query was for: ${startDate.toISOString()} → ${endDate.toISOString()}`);
         }
 
         // Get SMS for this group in date range
