@@ -567,7 +567,7 @@ class DealsCache {
     const end = new Date(endDate);
     const { start: todayStart, end: todayEnd } = this.getTodayWindow();
 
-    // If query is entirely for today → use cache
+    // Case 1: Query is entirely for today → use cache (FAST!)
     if (start >= todayStart && end <= todayEnd) {
       return Array.from(this.todayCache.values()).filter(deal => {
         const dealDate = new Date(deal.orderDate);
@@ -575,9 +575,33 @@ class DealsCache {
       });
     }
 
-    // Otherwise → query PostgreSQL
-    const dbDeals = await db.getDealsInRange(start, end);
-    return dbDeals.map(d => this.dbToCache(d));
+    // Case 2: Query is entirely before today → use PostgreSQL only
+    if (end < todayStart) {
+      const dbDeals = await db.getDealsInRange(start, end);
+      return dbDeals.map(d => this.dbToCache(d));
+    }
+
+    // Case 3: Query spans multiple days INCLUDING today → HYBRID approach
+    // This fixes trend chart sync issue: historical data from DB + live data from cache
+    const results = [];
+
+    // Get historical deals from PostgreSQL (before today)
+    if (start < todayStart) {
+      const historicalEnd = new Date(todayStart.getTime() - 1); // End at 23:59:59 yesterday
+      const dbDeals = await db.getDealsInRange(start, historicalEnd);
+      results.push(...dbDeals.map(d => this.dbToCache(d)));
+    }
+
+    // Get today's deals from cache (LIVE data!)
+    if (end >= todayStart) {
+      const todayDeals = Array.from(this.todayCache.values()).filter(deal => {
+        const dealDate = new Date(deal.orderDate);
+        return dealDate >= todayStart && dealDate <= end;
+      });
+      results.push(...todayDeals);
+    }
+
+    return results;
   }
 
   /**

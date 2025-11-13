@@ -24,7 +24,7 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
     days = 30, // Default to 30 days (monthly view)
     metric = 'commission', // Single metric (backward compatible)
     metrics, // Array of metrics: [{ metric: 'commission', axis: 'left' }, { metric: 'sms_rate', axis: 'right' }]
-    refreshInterval = 70000 // 70 seconds (central sync updates data every 1 min, refresh shortly after)
+    refreshInterval = 35000 // 35 seconds (central sync updates data every 1 min, refresh 2x per cycle for live data)
   } = config;
 
   // Determine metrics configuration
@@ -60,6 +60,15 @@ const TrendChartSlide = ({ leaderboard, isActive, config = {} }) => {
         }
 
         const response = await getLeaderboardHistory(leaderboard.id, params);
+
+        // Log data update for debugging
+        console.log(`[TrendChart ${leaderboard.name}] Data updated:`, {
+          timeSeries: response.data?.timeSeries?.length || 0,
+          topUsers: response.data?.topUsers?.length || 0,
+          isAutoRefresh,
+          timestamp: new Date().toISOString()
+        });
+
         setData(response.data);
         setError(null);
 

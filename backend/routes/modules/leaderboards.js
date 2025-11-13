@@ -655,10 +655,13 @@ router.get('/:id/history', async (req, res) => {
     console.log(`📈 [${leaderboard.name}] Fetching history from ${startDate.toISOString()} to ${endDate.toISOString()}`);
     console.log(`   📊 Grouping by: ${groupByDay ? 'DAY' : 'HOUR'}, Metrics: ${metrics || metric}`);
     console.log(`   👥 User Groups filter: ${leaderboard.userGroups && leaderboard.userGroups.length > 0 ? leaderboard.userGroups.join(', ') : 'ALLA (tomt filter)'}`);
+    console.log(`   ⏰ Current time: ${new Date().toISOString()}`);
 
     // Get data from caches
     const cachedDeals = await dealsCache.getDealsInRange(startDate, endDate);
     const cachedSMS = await smsCache.getSMSInRange(startDate, endDate);
+
+    console.log(`   📦 Raw cache results: ${cachedDeals.length} deals, ${cachedSMS.length} SMS`);
 
     // Get users
     let adversusUsers = [];
@@ -908,6 +911,13 @@ router.get('/:id/history', async (req, res) => {
       }
 
       console.log(`   ✅ Period ${timeKey.split('T')[0]}: Loaded login time from cache`);
+
+      // Debug: Log calculated values for this period
+      for (const groupId in timeData[timeKey]) {
+        const groupData = timeData[timeKey][groupId];
+        const groupName = groupNames[groupId] || `Group ${groupId}`;
+        console.log(`      📊 ${groupName}: ${groupData.deals} deals, ${(groupData.loginSeconds / 3600).toFixed(2)}h login, ${groupData.commission.toFixed(2)} THB`);
+      }
     }
 
     console.log(`✅ [${leaderboard.name}] Login time data processing complete`);
@@ -922,13 +932,15 @@ router.get('/:id/history', async (req, res) => {
             ? Math.round((periodStats.smsDelivered / periodStats.smsSent) * 100)
             : 0;
         case 'order_per_hour':
-          return periodStats.loginSeconds > 0
+          const orderPerHour = periodStats.loginSeconds > 0
             ? parseFloat(loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds))
             : 0;
+          return orderPerHour;
         case 'commission_per_hour':
-          return periodStats.loginSeconds > 0
+          const commissionPerHour = periodStats.loginSeconds > 0
             ? Math.round((periodStats.commission / periodStats.loginSeconds) * 3600)
             : 0;
+          return commissionPerHour;
         default: // commission
           return Math.round(periodStats.commission || 0);
       }
