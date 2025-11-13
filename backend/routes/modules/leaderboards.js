@@ -774,7 +774,7 @@ router.get('/:id/history', async (req, res) => {
     const sortedTimes = Object.keys(timeData).sort();
     console.log(`⏱️  [${leaderboard.name}] Processing ${sortedTimes.length} time periods for login time data...`);
 
-    // OPTIMIZED: Fetch all login times in parallel instead of sequentially
+    // OPTIMIZED: Sync login time once per period for all users (1 API call per period instead of N calls per user)
     for (const timeKey of sortedTimes) {
       const periodStart = new Date(timeKey);
       const periodEnd = new Date(timeKey);
@@ -785,21 +785,34 @@ router.get('/:id/history', async (req, res) => {
         periodEnd.setHours(periodEnd.getHours() + 1);
       }
 
-      // Collect all login time promises for this time period
-      const loginTimePromises = [];
-      const groupUserMapping = []; // Track which group each promise belongs to
+      // Collect all unique userIds for this time period
+      const allUserIds = new Set();
+      const groupUserMapping = []; // Track which group each user belongs to
 
       for (const groupId in timeData[timeKey]) {
         for (const userId of timeData[timeKey][groupId].userIds) {
-          loginTimePromises.push(loginTimeCache.getLoginTime(userId, periodStart, periodEnd));
+          allUserIds.add(userId);
           groupUserMapping.push({ groupId, userId });
         }
       }
 
-      // Execute all login time fetches in parallel
-      console.log(`   🔄 Fetching login time for ${loginTimePromises.length} users in period ${timeKey.split('T')[0]}...`);
+      const userIdsArray = Array.from(allUserIds);
+
+      // Sync login time for ALL users in this period with ONE API call
+      console.log(`   🔄 Syncing login time for ${userIdsArray.length} users in period ${timeKey.split('T')[0]}...`);
       console.log(`   📅 Period: ${periodStart.toISOString()} → ${periodEnd.toISOString()}`);
-      const loginTimeResults = await Promise.all(loginTimePromises);
+
+      try {
+        await loginTimeCache.syncLoginTimeForUsers(adversusAPI, userIdsArray, periodStart, periodEnd);
+        console.log(`   ✅ Synced login time for ${userIdsArray.length} users (1 API call)`);
+      } catch (error) {
+        console.error(`   ❌ Failed to sync login time for period ${timeKey}:`, error.message);
+      }
+
+      // Now read from cache for each user
+      const loginTimeResults = await Promise.all(
+        groupUserMapping.map(({ userId }) => loginTimeCache.getLoginTime(userId, periodStart, periodEnd))
+      );
 
       // Debug: Log first result
       if (loginTimeResults.length > 0 && loginTimeResults[0]) {
