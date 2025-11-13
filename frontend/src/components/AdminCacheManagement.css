@@ -110,17 +110,20 @@
   border-left-color: #9b59b6;
 }
 
-.stat-label {
+/* More specific selector to override TeamBattleSlide.css global styles */
+.cache-management .stat-label,
+.cache-section .stat-label {
   font-size: 0.85rem;
-  color: #1a252f;
+  color: #1a252f !important;
   margin-bottom: 0.3rem;
   font-weight: 600;
 }
 
-.stat-value {
+.cache-management .stat-value,
+.cache-section .stat-value {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #0d1418;
+  color: #0d1418 !important;
 }
 
 .stat-info-box {
