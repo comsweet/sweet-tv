@@ -1678,8 +1678,19 @@ router.get('/:id/group-metrics', async (req, res) => {
             }
 
             const loginHours = totalLoginSeconds / 3600;
-            value = loginHours > 0 ? (totalDeals / loginHours) : 0;
-            value = Math.round(value * 100) / 100; // Round to 2 decimals
+            // CRITICAL FIX: If there are deals but no login time yet, show null instead of 0
+            // This prevents misleading "0.00 order/h" display while waiting for central sync
+            if (loginHours > 0) {
+              value = totalDeals / loginHours;
+              value = Math.round(value * 100) / 100; // Round to 2 decimals
+            } else if (totalDeals > 0) {
+              // Has deals but no login time yet - return null (will be handled as "-" or hidden)
+              value = null;
+              console.log(`   ⚠️  Metrics Grid: Group has ${totalDeals} deals but 0 login time → showing null`);
+            } else {
+              // No deals and no login time - show 0
+              value = 0;
+            }
             break;
           }
 
