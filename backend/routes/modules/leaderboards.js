@@ -1129,10 +1129,12 @@ router.get('/:id/history', async (req, res) => {
             ? Math.round((periodStats.smsDelivered / periodStats.smsSent) * 100)
             : 0;
         case 'order_per_hour':
-          const orderPerHour = periodStats.loginSeconds > 0
-            ? parseFloat(loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds))
-            : 0;
-          return orderPerHour;
+          // CRITICAL FIX: calculateDealsPerHour can return null (incomplete data)
+          if (periodStats.loginSeconds > 0) {
+            const orderPerHour = loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds);
+            return orderPerHour !== null ? orderPerHour : 0;
+          }
+          return 0;
         case 'commission_per_hour':
           const commissionPerHour = periodStats.loginSeconds > 0
             ? Math.round((periodStats.commission / periodStats.loginSeconds) * 3600)
@@ -1268,9 +1270,12 @@ router.get('/:id/history', async (req, res) => {
             ? Math.round((totals.totalSmsDelivered / totals.totalSmsSent) * 100)
             : 0;
         case 'order_per_hour':
-          return totals.totalLoginSeconds > 0
-            ? parseFloat(loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds))
-            : 0;
+          // CRITICAL FIX: calculateDealsPerHour can return null (incomplete data)
+          if (totals.totalLoginSeconds > 0) {
+            const orderPerHour = loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds);
+            return orderPerHour !== null ? orderPerHour : 0;
+          }
+          return 0;
         case 'commission_per_hour':
           return totals.totalLoginSeconds > 0
             ? Math.round((totals.totalCommission / totals.totalLoginSeconds) * 3600)
@@ -1308,9 +1313,12 @@ router.get('/:id/history', async (req, res) => {
 
         if (periodData && periodData[groupId]) {
           const { deals, loginSeconds, commission } = periodData[groupId];
-          const orderPerHour = loginSeconds > 0
-            ? parseFloat(loginTimeCache.calculateDealsPerHour(deals, loginSeconds))
-            : 0;
+          // CRITICAL FIX: calculateDealsPerHour can return null (incomplete data)
+          let orderPerHour = 0;
+          if (loginSeconds > 0) {
+            const result = loginTimeCache.calculateDealsPerHour(deals, loginSeconds);
+            orderPerHour = result !== null ? result : 0;
+          }
           const hours = (loginSeconds / 3600).toFixed(2);
 
           console.log(`   ${groupName}: ${deals} deals ÷ ${hours}h = ${orderPerHour.toFixed(2)} order/h (commission: ${commission.toFixed(0)} THB)`);
