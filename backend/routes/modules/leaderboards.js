@@ -1177,16 +1177,23 @@ router.get('/:id/history', async (req, res) => {
         for (const metricConfig of metricsToFetch) {
           const metricName = metricConfig.metric;
 
-          // CRITICAL FIX: For order/h metrics, only show values when there are deals
-          // If someone is logged in but has 0 deals, showing "0.00 order/h" is misleading
-          // Better to show null (skip the point in chart) to indicate no activity
+          // CRITICAL FIX: For order/h metrics, only show values when there are deals AND login time
+          // If someone has deals but no login time yet (waiting for sync), showing "0.00 order/h" is misleading
+          // Better to show null (skip the point in chart) to indicate incomplete data
           let value;
           if (metricName === 'order_per_hour' || metricName === 'ordersPerHour' || metricName === 'dealsPerHour') {
-            // For order/h: only show if there are deals
-            if (periodStats.deals > 0) {
+            // For order/h: only show if there are deals AND login time
+            if (periodStats.deals > 0 && periodStats.loginSeconds > 0) {
               value = calculatePeriodMetricValue(metricName, periodStats);
+            } else if (periodStats.deals > 0 && periodStats.loginSeconds === 0) {
+              // Has deals but no login time yet - incomplete data, don't show
+              value = null;
+              if (isDentleGroup || isLastPeriod) {
+                console.log(`   ⚠️  [${groupName}] Has ${periodStats.deals} deals but 0 login time → setting null (waiting for sync)`);
+              }
             } else {
-              value = null; // No deals = no point to show in chart
+              // No deals - no point to show in chart
+              value = null;
             }
           } else {
             // For other metrics (commission, sms_rate, etc): always calculate
