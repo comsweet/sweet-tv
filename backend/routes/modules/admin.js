@@ -740,7 +740,7 @@ router.get('/login-time/daily-breakdown', async (req, res) => {
         WHERE from_date = $1 AND to_date = $2
       `;
 
-      const loginResult = await db.pool.query(loginQuery, [
+      const loginResult = await db.query(loginQuery, [
         dayDate.toISOString(),
         dayEnd.toISOString()
       ]);
@@ -754,7 +754,7 @@ router.get('/login-time/daily-breakdown', async (req, res) => {
         WHERE created_at >= $1 AND created_at < $2
       `;
 
-      const dealsResult = await db.pool.query(dealsQuery, [
+      const dealsResult = await db.query(dealsQuery, [
         dayDate.toISOString(),
         dayEnd.toISOString()
       ]);
@@ -768,7 +768,7 @@ router.get('/login-time/daily-breakdown', async (req, res) => {
         WHERE created_at >= $1 AND created_at < $2
       `;
 
-      const smsResult = await db.pool.query(smsQuery, [
+      const smsResult = await db.query(smsQuery, [
         dayDate.toISOString(),
         dayEnd.toISOString()
       ]);
