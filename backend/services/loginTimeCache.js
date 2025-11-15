@@ -525,12 +525,14 @@ class LoginTimeCache {
         for (const userId of userIds) {
           try {
             const cached = await this.getLoginTime(userId, fromDate, histEnd);
-            if (cached && cached.loginSeconds > 0) {
-              historicalMap.set(userId, cached.loginSeconds);
+            if (cached) {
+              // CRITICAL FIX: 0 seconds IS valid historical data (user didn't work that day)
+              // Only missing data (null/undefined) should trigger API fallback
+              historicalMap.set(userId, cached.loginSeconds || 0);
               console.log(`   💾 User ${userId}: ${cached.loginSeconds}s from DB (historical)`);
             } else {
-              // No cached data, fetch from workforce for this historical period
-              console.log(`   ⚠️  User ${userId}: No historical data in DB, will fetch from API`);
+              // Truly missing data - no DB entry at all
+              console.log(`   ⚠️  User ${userId}: No data in DB, will fetch from API`);
             }
           } catch (error) {
             console.warn(`   ⚠️  Failed to load historical data for user ${userId}:`, error.message);

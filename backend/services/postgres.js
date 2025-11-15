@@ -596,11 +596,19 @@ class PostgresService {
   async insertDeal({ leadId, userId, campaignId, commission, multiDeals, orderDate, status }) {
     // NOTE: No unique constraint on lead_id in database
     // Duplicate detection handled in application layer (dealsCache.js)
+
+    // CRITICAL VALIDATION: Ensure campaignId is a valid integer
+    // Prevents "invalid input syntax for type integer" errors
+    const validCampaignId = parseInt(campaignId);
+    if (isNaN(validCampaignId)) {
+      throw new Error(`Invalid campaignId for deal ${leadId}: "${campaignId}" (must be integer)`);
+    }
+
     const result = await this.query(
       `INSERT INTO deals (lead_id, user_id, campaign_id, commission, multi_deals, order_date, status, synced_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        RETURNING *`,
-      [leadId, userId, campaignId, commission, multiDeals || 1, orderDate, status]
+      [leadId, userId, validCampaignId, commission, multiDeals || 1, orderDate, status]
     );
     return result.rows[0];
   }
@@ -616,6 +624,13 @@ class PostgresService {
       // If lead_id exists, update the existing row
       // This enforces: same lead_id can only exist ONCE
       for (const deal of deals) {
+        // CRITICAL VALIDATION: Ensure campaignId is a valid integer
+        const validCampaignId = parseInt(deal.campaignId);
+        if (isNaN(validCampaignId)) {
+          console.error(`❌ Skipping deal ${deal.leadId} - invalid campaignId: "${deal.campaignId}"`);
+          continue; // Skip this deal, but continue with others in batch
+        }
+
         await client.query(
           `INSERT INTO deals (lead_id, user_id, campaign_id, commission, multi_deals, order_date, status, synced_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
@@ -627,7 +642,7 @@ class PostgresService {
              order_date = EXCLUDED.order_date,
              status = EXCLUDED.status,
              synced_at = NOW()`,
-          [deal.leadId, deal.userId, deal.campaignId, deal.commission, deal.multiDeals || 1, deal.orderDate, deal.status]
+          [deal.leadId, deal.userId, validCampaignId, deal.commission, deal.multiDeals || 1, deal.orderDate, deal.status]
         );
       }
 
