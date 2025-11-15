@@ -525,12 +525,17 @@ class LoginTimeCache {
         for (const userId of userIds) {
           try {
             const cached = await this.getLoginTime(userId, fromDate, histEnd);
-            if (cached && cached.loginSeconds > 0) {
-              historicalMap.set(userId, cached.loginSeconds);
+
+            // CRITICAL: Distinguish between "0s in DB" vs "no DB entry"
+            // getLoginTime never returns null - it returns { loginSeconds: 0 } for both cases
+            // We use syncedAt field to detect if data came from DB or is just a stub
+            if (cached && cached.syncedAt) {
+              // Data exists in DB (even if 0s) - use it
+              historicalMap.set(userId, cached.loginSeconds || 0);
               console.log(`   💾 User ${userId}: ${cached.loginSeconds}s from DB (historical)`);
             } else {
-              // No cached data, fetch from workforce for this historical period
-              console.log(`   ⚠️  User ${userId}: No historical data in DB, will fetch from API`);
+              // No DB entry - need to fetch from API
+              console.log(`   ⚠️  User ${userId}: No data in DB, will fetch from API`);
             }
           } catch (error) {
             console.warn(`   ⚠️  Failed to load historical data for user ${userId}:`, error.message);
