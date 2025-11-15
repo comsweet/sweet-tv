@@ -209,9 +209,21 @@ class LoginTimeCache {
                 totalLoginSeconds += row.login_seconds;
                 singleDayCount++;
               } else {
-                console.warn(`   ⚠️ Skipping big period entry: ${row.day} (${row.period_days.toFixed(1)} days) - should have been cleaned!`);
+                console.warn(`   ⚠️  Skipping big period entry: ${row.day} (${row.period_days.toFixed(1)} days) - should have been cleaned!`);
               }
             });
+
+            // CRITICAL CHECK: Verify we have ALL days in the period
+            // If missing days, the sum is incomplete and order/h will be ABSURDLY HIGH!
+            if (singleDayCount < requestedDays) {
+              console.error(`❌ INCOMPLETE DATA: Expected ${requestedDays} days, found only ${singleDayCount} days in DB!`);
+              console.error(`   This will cause WRONG order/h calculation!`);
+              console.error(`   Missing ${requestedDays - singleDayCount} days of login time data.`);
+
+              // Return null to indicate incomplete data - caller should handle gracefully
+              // Better to show no data than WRONG data!
+              return null;
+            }
 
             console.log(`   ✅ Summed ${singleDayCount} single-day entries: ${totalLoginSeconds}s (${(totalLoginSeconds/3600).toFixed(2)}h)`);
 

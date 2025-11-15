@@ -433,26 +433,36 @@ router.get('/:id/stats', async (req, res) => {
         // Get login time data (for deals per hour calculation)
         let loginTimeData = { loginSeconds: 0, loginHours: 0, dealsPerHour: 0 };
         try {
-          // Get cached login time with API fallback for today's data
-          let loginTime = await loginTimeCache.getLoginTime(stat.userId, startDate, endDate, adversusAPI);
+          // Get cached login time (central sync runs every 15s, no API fallback needed)
+          let loginTime = await loginTimeCache.getLoginTime(stat.userId, startDate, endDate);
 
-          const loginSeconds = loginTime?.loginSeconds || 0;
-          const loginHours = loginSeconds > 0 ? (loginSeconds / 3600).toFixed(2) : 0;
-          const dealsPerHour = loginTimeCache.calculateDealsPerHour(stat.dealCount || 0, loginSeconds);
+          // Handle incomplete multi-day data (returns null)
+          if (loginTime === null) {
+            console.warn(`⚠️  User ${stat.userId}: Incomplete loginTime data for period, showing null for order/h`);
+            loginTimeData = {
+              loginSeconds: null,
+              loginHours: null,
+              dealsPerHour: null
+            };
+          } else {
+            const loginSeconds = loginTime?.loginSeconds || 0;
+            const loginHours = loginSeconds > 0 ? (loginSeconds / 3600).toFixed(2) : 0;
+            const dealsPerHour = loginTimeCache.calculateDealsPerHour(stat.dealCount || 0, loginSeconds);
 
-          // 🔍 DEBUG: Log order/h calculation details
-          if (dealsPerHour > 0) {
-            console.log(`   🕒 User ${stat.userId} (${agentName}) order/h: ${dealsPerHour} = ${stat.dealCount} deals / ${loginHours}h (${loginSeconds}s)`);
-            if (loginTime?.fromDate && loginTime?.toDate) {
-              console.log(`      📅 Login time period: ${new Date(loginTime.fromDate).toISOString().split('T')[0]} → ${new Date(loginTime.toDate).toISOString().split('T')[0]}`);
+            // 🔍 DEBUG: Log order/h calculation details
+            if (dealsPerHour > 0) {
+              console.log(`   🕒 User ${stat.userId} (${agentName}) order/h: ${dealsPerHour} = ${stat.dealCount} deals / ${loginHours}h (${loginSeconds}s)`);
+              if (loginTime?.fromDate && loginTime?.toDate) {
+                console.log(`      📅 Login time period: ${new Date(loginTime.fromDate).toISOString().split('T')[0]} → ${new Date(loginTime.toDate).toISOString().split('T')[0]}`);
+              }
             }
-          }
 
-          loginTimeData = {
-            loginSeconds,
-            loginHours: parseFloat(loginHours),
-            dealsPerHour
-          };
+            loginTimeData = {
+              loginSeconds,
+              loginHours: parseFloat(loginHours),
+              dealsPerHour
+            };
+          }
         } catch (error) {
           console.error(`⚠️ Failed to get login time for user ${stat.userId}:`, error.message);
         }
@@ -1071,39 +1081,54 @@ router.get('/:id/history', async (req, res) => {
         }
       }
 
-      // Read from cache for each user with API fallback for today's data
+      // Read from cache for each user (central sync runs every 15s, no API fallback needed)
       const loginTimeResults = await Promise.all(
-        groupUserMapping.map(({ userId }) => loginTimeCache.getLoginTime(userId, periodStart, periodEnd, adversusAPI))
+        groupUserMapping.map(({ userId }) => loginTimeCache.getLoginTime(userId, periodStart, periodEnd))
       );
 
       // Sum up login times per group for this period
       const groupLoginTimes = {};
+      const groupHasIncompleteData = {};
       loginTimeResults.forEach((loginTime, index) => {
         const { groupId, userId } = groupUserMapping[index];
         if (!groupLoginTimes[groupId]) {
           groupLoginTimes[groupId] = 0;
+          groupHasIncompleteData[groupId] = false;
         }
-        groupLoginTimes[groupId] += loginTime?.loginSeconds || 0;
+
+        // Handle incomplete multi-day data
+        if (loginTime === null) {
+          groupHasIncompleteData[groupId] = true;
+          console.warn(`⚠️  User ${userId}: Incomplete loginTime data for period ${timeKey}`);
+        } else {
+          groupLoginTimes[groupId] += loginTime?.loginSeconds || 0;
+        }
 
         // DEBUG: Log each user's login time for today
         if (isPotentiallyToday) {
           const groupName = groupNames[groupId];
-          console.log(`      👤 User ${userId} (${groupName}): ${loginTime?.loginSeconds || 0}s login time`);
+          console.log(`      👤 User ${userId} (${groupName}): ${loginTime === null ? 'INCOMPLETE' : (loginTime?.loginSeconds || 0) + 's'} login time`);
         }
       });
 
       // Assign to timeData
       for (const groupId in timeData[timeKey]) {
-        timeData[timeKey][groupId].loginSeconds = groupLoginTimes[groupId] || 0;
+        // If any user in group has incomplete data, mark entire group as incomplete
+        if (groupHasIncompleteData[groupId]) {
+          timeData[timeKey][groupId].loginSeconds = null;
+        } else {
+          timeData[timeKey][groupId].loginSeconds = groupLoginTimes[groupId] || 0;
+        }
+
         // Convert Set to Array for serialization
         timeData[timeKey][groupId].userIds = Array.from(timeData[timeKey][groupId].userIds);
 
         // DEBUG: Log total login seconds per group for today
         if (isPotentiallyToday) {
           const groupName = groupNames[groupId];
-          const totalSeconds = groupLoginTimes[groupId] || 0;
+          const totalSeconds = groupHasIncompleteData[groupId] ? 'INCOMPLETE' : (groupLoginTimes[groupId] || 0) + 's';
           const deals = timeData[timeKey][groupId].deals;
-          console.log(`      🏢 ${groupName}: ${totalSeconds}s total (${(totalSeconds/3600).toFixed(2)}h) for ${deals} deals`);
+          console.log(`      🏢 ${groupName}: ${totalSeconds} total for ${deals} deals`);
         }
       }
 
@@ -1129,13 +1154,19 @@ router.get('/:id/history', async (req, res) => {
             ? Math.round((periodStats.smsDelivered / periodStats.smsSent) * 100)
             : 0;
         case 'order_per_hour':
-          // CRITICAL FIX: calculateDealsPerHour can return null (incomplete data)
-          if (periodStats.loginSeconds > 0) {
-            const orderPerHour = loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds);
-            return orderPerHour !== null ? orderPerHour : 0;
+          // Handle incomplete loginTime data (null)
+          if (periodStats.loginSeconds === null) {
+            return null;
           }
-          return 0;
+          const orderPerHour = periodStats.loginSeconds > 0
+            ? loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds)
+            : 0;
+          return orderPerHour;
         case 'commission_per_hour':
+          // Handle incomplete loginTime data (null)
+          if (periodStats.loginSeconds === null) {
+            return null;
+          }
           const commissionPerHour = periodStats.loginSeconds > 0
             ? Math.round((periodStats.commission / periodStats.loginSeconds) * 3600)
             : 0;
@@ -1679,25 +1710,30 @@ router.get('/:id/group-metrics', async (req, res) => {
               return sum + multiDeals;
             }, 0);
             let totalLoginSeconds = 0;
+            let hasIncompleteData = false;
 
             for (const userId of userIds) {
-              const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate, adversusAPI);
+              const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate);
+
+              if (loginTime === null) {
+                // getLoginTime returns null for incomplete multi-day data
+                // This prevents absurdly high order/h from partial login time
+                hasIncompleteData = true;
+                console.warn(`⚠️  User ${userId}: Incomplete loginTime data for period, skipping order/h calculation`);
+                break; // Stop early - can't calculate accurate order/h
+              }
+
               totalLoginSeconds += loginTime?.loginSeconds || 0;
             }
 
-            const loginHours = totalLoginSeconds / 3600;
-            // CRITICAL FIX: If there are deals but no login time yet, show null instead of 0
-            // This prevents misleading "0.00 order/h" display while waiting for central sync
-            if (loginHours > 0) {
-              value = totalDeals / loginHours;
-              value = Math.round(value * 100) / 100; // Round to 2 decimals
-            } else if (totalDeals > 0) {
-              // Has deals but no login time yet - return null (will be handled as "-" or hidden)
+            if (hasIncompleteData) {
+              // Don't show misleading data - show null (will display as "-" in frontend)
               value = null;
-              console.log(`   ⚠️  Metrics Grid: Group has ${totalDeals} deals but 0 login time → showing null`);
+              console.error(`❌ Cannot calculate order/h: Incomplete loginTime data for period`);
             } else {
-              // No deals and no login time - show 0
-              value = 0;
+              const loginHours = totalLoginSeconds / 3600;
+              value = loginHours > 0 ? (totalDeals / loginHours) : 0;
+              value = Math.round(value * 100) / 100; // Round to 2 decimals
             }
             break;
           }

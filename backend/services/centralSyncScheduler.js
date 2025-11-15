@@ -25,26 +25,76 @@ class CentralSyncScheduler {
   constructor() {
     console.log('🔄 Central Sync Scheduler initialized');
 
-    this.syncIntervalMinutes = 0.5; // 30 seconds for ultra-live data (prevents "0 order/h" race condition)
+    this.syncIntervalMinutes = 0.25; // 15 seconds for ultra-live data (prevents "0 order/h" race condition)
     this.syncTimer = null;
     this.isSyncing = false;
     this.lastSyncTime = null;
     this.syncCount = 0;
+    this.isReady = false; // Track if initial sync is complete
   }
 
   /**
    * Start the scheduler
    */
-  start() {
+  async start() {
     console.log(`⏰ Starting central sync every ${this.syncIntervalMinutes} minutes...`);
 
-    // Run first sync immediately
-    this.runSync();
+    // First: Sync historical data (30 days) ONCE at startup
+    await this.syncHistoricalData();
 
-    // Then schedule recurring syncs
+    // Then: Run first sync of today's data and wait for it to complete
+    await this.runSync();
+    this.isReady = true;
+    console.log('✅ Central sync is READY - all endpoints can now safely use cached data');
+
+    // Finally: Schedule recurring syncs (today only)
     this.syncTimer = setInterval(() => {
       this.runSync();
     }, this.syncIntervalMinutes * 60 * 1000);
+  }
+
+  /**
+   * Sync historical login time data (30 days)
+   * Called ONCE at startup to ensure historical data is available
+   */
+  async syncHistoricalData() {
+    console.log('\n' + '='.repeat(60));
+    console.log('📚 HISTORICAL DATA SYNC - Running once at startup');
+    console.log('='.repeat(60));
+
+    try {
+      // Get all active users
+      const usersResult = await adversusAPI.getUsers();
+      const users = usersResult.users || [];
+      const activeUserIds = users.map(u => u.id);
+
+      if (activeUserIds.length === 0) {
+        console.log('⚠️  No active users found, skipping historical sync');
+        return;
+      }
+
+      // Calculate date range - last 30 days
+      const now = new Date();
+      const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+      thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
+
+      console.log(`\n📅 Syncing historical login time for ${activeUserIds.length} users`);
+      console.log(`   Date range: ${thirtyDaysAgo.toISOString().split('T')[0]} → ${today.toISOString().split('T')[0]} (30 days)`);
+      console.log(`   ⚠️  This may take a while on first run...`);
+
+      const startTime = Date.now();
+      await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, thirtyDaysAgo, today);
+
+      const duration = Date.now() - startTime;
+      console.log(`\n✅ Historical data sync complete in ${(duration / 1000).toFixed(1)}s`);
+      console.log('   (Future syncs will be faster - historical data is now cached in DB)');
+      console.log('='.repeat(60) + '\n');
+    } catch (error) {
+      console.error('❌ Failed to sync historical data:', error);
+      console.log('   (Regular syncs will continue, historical data may be incomplete)');
+    }
   }
 
   /**
@@ -111,16 +161,16 @@ class CentralSyncScheduler {
         const activeUserIds = users.map(u => u.id);
 
         if (activeUserIds.length > 0) {
-          // Calculate date range (today)
           const now = new Date();
-          const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-          const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+          const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+          const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
-          console.log(`   📅 Date range: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+          console.log(`   📅 Date range: ${todayStart.toISOString().split('T')[0]} (today only)`);
           console.log(`   👥 Syncing login time for ${activeUserIds.length} users...`);
 
-          await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, startDate, endDate);
-          console.log('✅ Login time cache synced for all users');
+          // Only sync TODAY every 30 seconds (historical data is cached permanently in DB)
+          await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, todayStart, todayEnd);
+          console.log('✅ Login time cache synced for all users (today)');
         } else {
           console.log('⚠️  No active users found, skipping login time sync');
         }
@@ -158,6 +208,7 @@ class CentralSyncScheduler {
     return {
       isRunning: this.syncTimer !== null,
       isSyncing: this.isSyncing,
+      isReady: this.isReady,
       syncIntervalMinutes: this.syncIntervalMinutes,
       lastSyncTime: this.lastSyncTime,
       syncCount: this.syncCount
