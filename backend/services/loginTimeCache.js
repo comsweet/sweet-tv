@@ -525,13 +525,16 @@ class LoginTimeCache {
         for (const userId of userIds) {
           try {
             const cached = await this.getLoginTime(userId, fromDate, histEnd);
-            if (cached) {
-              // CRITICAL FIX: 0 seconds IS valid historical data (user didn't work that day)
-              // Only missing data (null/undefined) should trigger API fallback
+
+            // CRITICAL: Distinguish between "0s in DB" vs "no DB entry"
+            // getLoginTime never returns null - it returns { loginSeconds: 0 } for both cases
+            // We use syncedAt field to detect if data came from DB or is just a stub
+            if (cached && cached.syncedAt) {
+              // Data exists in DB (even if 0s) - use it
               historicalMap.set(userId, cached.loginSeconds || 0);
               console.log(`   💾 User ${userId}: ${cached.loginSeconds}s from DB (historical)`);
             } else {
-              // Truly missing data - no DB entry at all
+              // No DB entry - need to fetch from API
               console.log(`   ⚠️  User ${userId}: No data in DB, will fetch from API`);
             }
           } catch (error) {
