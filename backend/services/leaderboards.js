@@ -131,6 +131,11 @@ class LeaderboardService {
     if (newLeaderboard.type === 'team-battle') {
       const postgres = require('./postgres');
 
+      // Validate teams
+      if (!newLeaderboard.teams || newLeaderboard.teams.length < 2) {
+        throw new Error('Team battles require at least 2 teams');
+      }
+
       try {
         const client = await postgres.getClient();
         try {
@@ -145,9 +150,17 @@ class LeaderboardService {
             startDate = battleStart.includes('T') ? battleStart : `${battleStart}T00:00:00.000Z`;
             endDate = battleEnd.includes('T') ? battleEnd : `${battleEnd}T23:59:59.999Z`;
           } else {
-            startDate = new Date().toISOString();
-            endDate = new Date().toISOString();
+            // Use dummy dates for dynamic periods
+            const now = new Date();
+            startDate = now.toISOString();
+            endDate = now.toISOString();
           }
+
+          console.log(`⚔️ Creating team battle "${newLeaderboard.name}"`);
+          console.log(`   Time period: ${newLeaderboard.timePeriod}`);
+          console.log(`   Start date: ${startDate}`);
+          console.log(`   End date: ${endDate}`);
+          console.log(`   Teams: ${newLeaderboard.teams.length}`);
 
           // Insert battle
           const battleQuery = `
@@ -180,6 +193,20 @@ class LeaderboardService {
           // Insert teams
           for (let i = 0; i < newLeaderboard.teams.length; i++) {
             const team = newLeaderboard.teams[i];
+
+            // Validate team data
+            if (!team.teamName) {
+              throw new Error(`Team ${i + 1} is missing teamName`);
+            }
+            if (!team.color) {
+              throw new Error(`Team ${i + 1} is missing color`);
+            }
+            if (!team.userGroupIds || !Array.isArray(team.userGroupIds)) {
+              throw new Error(`Team ${i + 1} has invalid userGroupIds`);
+            }
+
+            console.log(`   Inserting team ${i + 1}: "${team.teamName}" with ${team.userGroupIds.length} groups`);
+
             await client.query(
               `INSERT INTO team_battle_teams (
                 battle_id, team_name, team_emoji, color, user_group_ids, display_order
@@ -200,12 +227,14 @@ class LeaderboardService {
           console.log(`⚔️ Created team battle with ID ${battleId} for leaderboard "${newLeaderboard.name}"`);
         } catch (error) {
           await client.query('ROLLBACK');
+          console.error(`❌ Transaction error:`, error);
           throw error;
         } finally {
           client.release();
         }
       } catch (error) {
         console.error(`❌ Failed to create team battle for leaderboard "${newLeaderboard.name}":`, error);
+        console.error(`❌ Error stack:`, error.stack);
         throw new Error(`Failed to create team battle: ${error.message}`);
       }
     }
