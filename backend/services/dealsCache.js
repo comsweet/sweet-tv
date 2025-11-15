@@ -403,7 +403,20 @@ class DealsCache {
         let multiDeals = 1;
         const resultMultiDeals = lead.resultData?.find(f => f.id === 74126);
         if (resultMultiDeals?.value) {
-          multiDeals = parseInt(resultMultiDeals.value) || 1;
+          const rawValue = resultMultiDeals.value;
+          multiDeals = parseInt(rawValue) || 1;
+
+          // DEBUG: Log suspicious multiDeals values from Adversus
+          if (isNaN(parseInt(rawValue)) || typeof rawValue !== 'number' && rawValue !== String(parseInt(rawValue))) {
+            console.warn(`⚠️  [DealsCache] Suspicious multiDeals from Adversus for lead ${lead.id}:`, {
+              rawValue,
+              rawType: typeof rawValue,
+              parsed: multiDeals,
+              campaignId: lead.campaignId,
+              campaignName: lead.campaign?.name,
+              allResultData: lead.resultData?.map(f => ({ id: f.id, label: f.label, value: f.value }))
+            });
+          }
         }
 
         const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
@@ -508,7 +521,20 @@ class DealsCache {
         let multiDeals = 1;
         const resultMultiDeals = lead.resultData?.find(f => f.id === 74126);
         if (resultMultiDeals?.value) {
-          multiDeals = parseInt(resultMultiDeals.value) || 1;
+          const rawValue = resultMultiDeals.value;
+          multiDeals = parseInt(rawValue) || 1;
+
+          // DEBUG: Log suspicious multiDeals values from Adversus
+          if (isNaN(parseInt(rawValue)) || typeof rawValue !== 'number' && rawValue !== String(parseInt(rawValue))) {
+            console.warn(`⚠️  [DealsCache] Suspicious multiDeals from Adversus for lead ${lead.id}:`, {
+              rawValue,
+              rawType: typeof rawValue,
+              parsed: multiDeals,
+              campaignId: lead.campaignId,
+              campaignName: lead.campaign?.name,
+              allResultData: lead.resultData?.map(f => ({ id: f.id, label: f.label, value: f.value }))
+            });
+          }
         }
 
         const orderDateField = lead.resultData?.find(f => f.label === 'Order date');
