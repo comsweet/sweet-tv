@@ -828,7 +828,8 @@ router.get('/login-time/raw-data', async (req, res) => {
         COUNT(DISTINCT user_id) as users,
         SUM(login_seconds) as total_seconds,
         ROUND(SUM(login_seconds) / 3600.0) as total_hours,
-        ROUND(AVG(login_seconds) / 3600.0, 2) as avg_hours
+        ROUND(AVG(login_seconds) / 3600.0, 2) as avg_hours,
+        COUNT(CASE WHEN EXTRACT(EPOCH FROM (to_date - from_date)) / 86400 > 1 THEN 1 END) as big_period_entries
       FROM user_login_time
       WHERE from_date >= NOW() - INTERVAL '${days} days'
       GROUP BY from_date::date
