@@ -22,9 +22,7 @@ const AdminTeamBattles = () => {
     name: '',
     description: '',
     leaderboardId: '',
-    timePeriod: '', // 'day', 'week', 'month', or '' for static dates
-    startDate: '',
-    endDate: '',
+    timePeriod: '', // 'day', 'week', 'month' (required if no leaderboard)
     victoryCondition: 'highest_at_end',
     victoryMetric: 'commission',
     targetValue: '',
@@ -64,9 +62,7 @@ const AdminTeamBattles = () => {
       name: '',
       description: '',
       leaderboardId: '',
-      timePeriod: '', // Empty = use static dates
-      startDate: '',
-      endDate: '',
+      timePeriod: '',
       victoryCondition: 'highest_at_end',
       victoryMetric: 'commission',
       targetValue: '',
@@ -85,8 +81,6 @@ const AdminTeamBattles = () => {
       description: battle.description || '',
       leaderboardId: battle.leaderboard_id || '',
       timePeriod: battle.time_period || '',
-      startDate: battle.start_date ? new Date(battle.start_date).toISOString().slice(0, 16) : '',
-      endDate: battle.end_date ? new Date(battle.end_date).toISOString().slice(0, 16) : '',
       victoryCondition: battle.victory_condition || 'highest_at_end',
       victoryMetric: battle.victory_metric || 'commission',
       targetValue: battle.target_value || '',
@@ -107,9 +101,9 @@ const AdminTeamBattles = () => {
       return;
     }
 
-    // Either timePeriod OR (startDate + endDate) is required
-    if (!form.timePeriod && (!form.startDate || !form.endDate)) {
-      alert('Antingen dynamisk period ELLER start/slutdatum måste anges');
+    // Either timePeriod OR leaderboardId is required
+    if (!form.timePeriod && !form.leaderboardId) {
+      alert('Antingen tidsperiod ELLER leaderboard måste väljas');
       return;
     }
 
@@ -141,8 +135,6 @@ const AdminTeamBattles = () => {
         description: form.description,
         leaderboardId: form.leaderboardId || null,
         timePeriod: form.timePeriod || null,
-        startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
-        endDate: form.endDate ? new Date(form.endDate).toISOString() : null,
         victoryCondition: form.victoryCondition,
         victoryMetric: form.victoryMetric,
         targetValue: form.targetValue ? parseFloat(form.targetValue) : null,
@@ -396,49 +388,26 @@ const AdminTeamBattles = () => {
 
                 {/* Time Period Selection */}
                 <div className="form-group">
-                  <label>Tidsperiod</label>
+                  <label>Tidsperiod {!form.leaderboardId && '*'}</label>
                   <select
                     value={form.timePeriod}
                     onChange={(e) => setForm({ ...form, timePeriod: e.target.value })}
+                    disabled={!!form.leaderboardId}
+                    style={{ opacity: form.leaderboardId ? 0.6 : 1 }}
                   >
-                    <option value="">Statiska datum (välj nedan)</option>
-                    <option value="day">Dag (uppdateras automatiskt)</option>
-                    <option value="week">Vecka (uppdateras automatiskt)</option>
-                    <option value="month">Månad (uppdateras automatiskt)</option>
+                    <option value="">Välj period...</option>
+                    <option value="day">Dag (uppdateras varje dag)</option>
+                    <option value="week">Vecka (uppdateras varje måndag)</option>
+                    <option value="month">Månad (uppdateras varje månadsskifte)</option>
                   </select>
                   <small style={{ color: '#888', fontSize: '0.85rem', marginTop: '0.3rem', display: 'block' }}>
-                    {form.timePeriod ? '✅ Dynamisk period vald - datum nedan ignoreras' : 'Välj dynamisk period ELLER fyll i statiska datum nedan'}
+                    {form.leaderboardId
+                      ? '📊 Använder tidsperiod från vald leaderboard'
+                      : form.timePeriod
+                        ? `✅ Visar data för ${form.timePeriod === 'day' ? 'dagens' : form.timePeriod === 'week' ? 'veckans' : 'månadens'} period`
+                        : 'Välj tidsperiod eller leaderboard ovan'
+                    }
                   </small>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>
-                      Startdatum {!form.timePeriod && '*'}
-                      {form.timePeriod && <small style={{ color: '#888' }}> (ignoreras)</small>}
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={form.startDate}
-                      onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                      disabled={!!form.timePeriod}
-                      style={{ opacity: form.timePeriod ? 0.5 : 1 }}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>
-                      Slutdatum {!form.timePeriod && '*'}
-                      {form.timePeriod && <small style={{ color: '#888' }}> (ignoreras)</small>}
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={form.endDate}
-                      onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                      disabled={!!form.timePeriod}
-                      style={{ opacity: form.timePeriod ? 0.5 : 1 }}
-                    />
-                  </div>
                 </div>
               </div>
 

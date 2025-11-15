@@ -83,8 +83,6 @@ router.post('/', async (req, res) => {
       name,
       description,
       timePeriod,
-      startDate,
-      endDate,
       victoryCondition,
       victoryMetric,
       targetValue,
@@ -96,9 +94,9 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Either timePeriod OR (startDate + endDate) is required
-    if (!timePeriod && (!startDate || !endDate)) {
-      return res.status(400).json({ error: 'Either timePeriod or (startDate + endDate) is required' });
+    // Time period is required (either direct or via leaderboard)
+    if (!timePeriod && !leaderboardId) {
+      return res.status(400).json({ error: 'Either timePeriod or leaderboardId is required' });
     }
 
     if (!teams || teams.length < 2 || teams.length > 4) {
@@ -113,10 +111,10 @@ router.post('/', async (req, res) => {
       // Insert battle
       const battleQuery = `
         INSERT INTO team_battles (
-          leaderboard_id, name, description, time_period, start_date, end_date,
+          leaderboard_id, name, description, time_period,
           victory_condition, victory_metric, target_value, is_active
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `;
 
@@ -125,8 +123,6 @@ router.post('/', async (req, res) => {
         name,
         description || null,
         timePeriod || null,
-        startDate || null,
-        endDate || null,
         victoryCondition,
         victoryMetric,
         targetValue || null,
@@ -183,8 +179,6 @@ router.put('/:id', async (req, res) => {
       name,
       description,
       timePeriod,
-      startDate,
-      endDate,
       victoryCondition,
       victoryMetric,
       targetValue,
@@ -202,14 +196,12 @@ router.put('/:id', async (req, res) => {
         SET name = COALESCE($1, name),
             description = COALESCE($2, description),
             time_period = $3,
-            start_date = COALESCE($4, start_date),
-            end_date = COALESCE($5, end_date),
-            victory_condition = COALESCE($6, victory_condition),
-            victory_metric = COALESCE($7, victory_metric),
-            target_value = COALESCE($8, target_value),
-            is_active = COALESCE($9, is_active),
+            victory_condition = COALESCE($4, victory_condition),
+            victory_metric = COALESCE($5, victory_metric),
+            target_value = COALESCE($6, target_value),
+            is_active = COALESCE($7, is_active),
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $10
+        WHERE id = $8
         RETURNING *
       `;
 
@@ -217,8 +209,6 @@ router.put('/:id', async (req, res) => {
         name,
         description,
         timePeriod !== undefined ? timePeriod : null, // Allow explicit null to clear timePeriod
-        startDate,
-        endDate,
         victoryCondition,
         victoryMetric,
         targetValue,
@@ -352,63 +342,35 @@ router.get('/:id/live-score', async (req, res) => {
     // DYNAMIC PERIOD SUPPORT - Priority order:
     // 1. battle.time_period (if set)
     // 2. leaderboard's time_period (if linked)
-    // 3. battle start_date/end_date (static fallback)
-    let startDate, endDate, periodType, periodSource;
+    let startDate, endDate, periodSource;
 
     if (battle.time_period) {
       // Priority 1: Use battle's own time_period
-      try {
-        const dateRange = leaderboardService.getDateRange({ timePeriod: battle.time_period });
-        startDate = dateRange.startDate;
-        endDate = dateRange.endDate;
-        periodType = 'dynamic';
-        periodSource = 'battle';
-        console.log(`⚔️ Battle "${battle.name}" using DYNAMIC period from battle setting (${battle.time_period})`);
-        console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
-      } catch (error) {
-        console.error('⚠️ Error using battle time_period, falling back:', error);
-        startDate = new Date(battle.start_date);
-        endDate = new Date(battle.end_date);
-        periodType = 'static';
-        periodSource = 'fallback';
-      }
+      const dateRange = leaderboardService.getDateRange({ timePeriod: battle.time_period });
+      startDate = dateRange.startDate;
+      endDate = dateRange.endDate;
+      periodSource = 'battle';
+      console.log(`⚔️ Battle "${battle.name}" using period from battle setting (${battle.time_period})`);
+      console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
     } else if (battle.leaderboard_id) {
       // Priority 2: Use leaderboard's time_period
-      try {
-        const leaderboardQuery = 'SELECT * FROM leaderboards WHERE id = $1';
-        const leaderboardResult = await postgres.query(leaderboardQuery, [battle.leaderboard_id]);
+      const leaderboardQuery = 'SELECT * FROM leaderboards WHERE id = $1';
+      const leaderboardResult = await postgres.query(leaderboardQuery, [battle.leaderboard_id]);
 
-        if (leaderboardResult.rows.length > 0) {
-          const leaderboard = leaderboardResult.rows[0];
-          const dateRange = leaderboardService.getDateRange(leaderboard);
-          startDate = dateRange.startDate;
-          endDate = dateRange.endDate;
-          periodType = 'dynamic';
-          periodSource = 'leaderboard';
-          console.log(`⚔️ Battle "${battle.name}" using DYNAMIC period from leaderboard (${leaderboard.time_period})`);
-          console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
-        } else {
-          startDate = new Date(battle.start_date);
-          endDate = new Date(battle.end_date);
-          periodType = 'static';
-          periodSource = 'fallback';
-          console.log(`⚔️ Battle "${battle.name}" using STATIC period (leaderboard not found)`);
-        }
-      } catch (error) {
-        console.error('⚠️ Error fetching leaderboard, falling back to static dates:', error);
-        startDate = new Date(battle.start_date);
-        endDate = new Date(battle.end_date);
-        periodType = 'static';
-        periodSource = 'fallback';
+      if (leaderboardResult.rows.length === 0) {
+        return res.status(400).json({ error: 'Linked leaderboard not found' });
       }
-    } else {
-      // Priority 3: Use static dates
-      startDate = new Date(battle.start_date);
-      endDate = new Date(battle.end_date);
-      periodType = 'static';
-      periodSource = 'static';
-      console.log(`⚔️ Battle "${battle.name}" using STATIC period`);
+
+      const leaderboard = leaderboardResult.rows[0];
+      const dateRange = leaderboardService.getDateRange(leaderboard);
+      startDate = dateRange.startDate;
+      endDate = dateRange.endDate;
+      periodSource = 'leaderboard';
+      console.log(`⚔️ Battle "${battle.name}" using period from leaderboard (${leaderboard.time_period})`);
       console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+    } else {
+      // No time period configured
+      return res.status(400).json({ error: 'Battle has no time_period or leaderboard configured' });
     }
 
     console.log(`   Teams from DB:`, battle.teams);
@@ -597,11 +559,9 @@ router.get('/:id/live-score', async (req, res) => {
         victoryCondition: battle.victory_condition,
         victoryMetric: battle.victory_metric,
         targetValue: battle.target_value,
-        timePeriod: battle.time_period, // User-selected time period
-        startDate: battle.start_date, // Static dates (may not be used if timePeriod is set)
-        endDate: battle.end_date,
-        periodType: periodType, // 'dynamic' or 'static'
-        periodSource: periodSource, // 'battle', 'leaderboard', 'static', or 'fallback'
+        timePeriod: battle.time_period, // Direct time period setting
+        leaderboardId: battle.leaderboard_id, // Linked leaderboard (if any)
+        periodSource: periodSource, // 'battle' or 'leaderboard'
         effectiveStartDate: startDate.toISOString(), // Actual dates being used for calculation
         effectiveEndDate: endDate.toISOString()
       },
