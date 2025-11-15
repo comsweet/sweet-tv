@@ -711,4 +711,34 @@ function formatLeadingBy(leadingBy, metric) {
   }
 }
 
+// ==================== MIGRATIONS ====================
+
+// Run migration: Add time_period column to team_battles
+router.post('/migrate/add-time-period', async (req, res) => {
+  try {
+    console.log('🔄 Running migration: add-team-battles-time-period.sql');
+
+    const fs = require('fs').promises;
+    const path = require('path');
+    const migrationPath = path.join(__dirname, '../../db/migrations/add-team-battles-time-period.sql');
+
+    const sql = await fs.readFile(migrationPath, 'utf8');
+
+    await postgres.query(sql);
+
+    console.log('✅ Migration completed successfully');
+
+    res.json({
+      success: true,
+      message: 'Migration add-team-battles-time-period.sql completed successfully'
+    });
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    res.status(500).json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 module.exports = router;
