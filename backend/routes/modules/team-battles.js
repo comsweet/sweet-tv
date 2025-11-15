@@ -428,9 +428,13 @@ router.get('/:id/live-score', async (req, res) => {
           formattedScore = `${score.toFixed(1)}%`;
           break;
         case 'order_per_hour':
-          score = totalLoginSeconds > 0
-            ? parseFloat(loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds))
-            : 0;
+          // CRITICAL FIX: calculateDealsPerHour can return null (incomplete data)
+          if (totalLoginSeconds > 0) {
+            const orderPerHour = loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds);
+            score = orderPerHour !== null ? orderPerHour : 0;
+          } else {
+            score = 0;
+          }
           formattedScore = `${score.toFixed(2)} affärer/h`;
           break;
         case 'commission_per_hour':
@@ -452,9 +456,14 @@ router.get('/:id/live-score', async (req, res) => {
           smsDelivered: totalSmsDelivered,
           smsRate: totalSmsSent > 0 ? (totalSmsDelivered / totalSmsSent) * 100 : 0,
           loginSeconds: totalLoginSeconds,
-          orderPerHour: totalLoginSeconds > 0
-            ? parseFloat(loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds))
-            : 0
+          orderPerHour: (() => {
+            // CRITICAL FIX: calculateDealsPerHour can return null (incomplete data)
+            if (totalLoginSeconds > 0) {
+              const orderPerHour = loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds);
+              return orderPerHour !== null ? orderPerHour : 0;
+            }
+            return 0;
+          })()
         }
       });
     }
