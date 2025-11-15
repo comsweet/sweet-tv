@@ -433,8 +433,8 @@ router.get('/:id/stats', async (req, res) => {
         // Get login time data (for deals per hour calculation)
         let loginTimeData = { loginSeconds: 0, loginHours: 0, dealsPerHour: 0 };
         try {
-          // Get cached login time with API fallback for today's data
-          let loginTime = await loginTimeCache.getLoginTime(stat.userId, startDate, endDate, adversusAPI);
+          // Get cached login time (central sync runs every 15s, no API fallback needed)
+          let loginTime = await loginTimeCache.getLoginTime(stat.userId, startDate, endDate);
 
           // Handle incomplete multi-day data (returns null)
           if (loginTime === null) {
@@ -1081,9 +1081,9 @@ router.get('/:id/history', async (req, res) => {
         }
       }
 
-      // Read from cache for each user with API fallback for today's data
+      // Read from cache for each user (central sync runs every 15s, no API fallback needed)
       const loginTimeResults = await Promise.all(
-        groupUserMapping.map(({ userId }) => loginTimeCache.getLoginTime(userId, periodStart, periodEnd, adversusAPI))
+        groupUserMapping.map(({ userId }) => loginTimeCache.getLoginTime(userId, periodStart, periodEnd))
       );
 
       // Sum up login times per group for this period
@@ -1700,7 +1700,7 @@ router.get('/:id/group-metrics', async (req, res) => {
             let hasIncompleteData = false;
 
             for (const userId of userIds) {
-              const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate, adversusAPI);
+              const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate);
 
               if (loginTime === null) {
                 // getLoginTime returns null for incomplete multi-day data

@@ -25,11 +25,12 @@ class CentralSyncScheduler {
   constructor() {
     console.log('🔄 Central Sync Scheduler initialized');
 
-    this.syncIntervalMinutes = 0.5; // 30 seconds for ultra-live data (prevents "0 order/h" race condition)
+    this.syncIntervalMinutes = 0.25; // 15 seconds for ultra-live data (prevents "0 order/h" race condition)
     this.syncTimer = null;
     this.isSyncing = false;
     this.lastSyncTime = null;
     this.syncCount = 0;
+    this.isReady = false; // Track if initial sync is complete
   }
 
   /**
@@ -41,8 +42,10 @@ class CentralSyncScheduler {
     // First: Sync historical data (30 days) ONCE at startup
     await this.syncHistoricalData();
 
-    // Then: Run first sync of today's data
-    this.runSync();
+    // Then: Run first sync of today's data and wait for it to complete
+    await this.runSync();
+    this.isReady = true;
+    console.log('✅ Central sync is READY - all endpoints can now safely use cached data');
 
     // Finally: Schedule recurring syncs (today only)
     this.syncTimer = setInterval(() => {
@@ -205,6 +208,7 @@ class CentralSyncScheduler {
     return {
       isRunning: this.syncTimer !== null,
       isSyncing: this.isSyncing,
+      isReady: this.isReady,
       syncIntervalMinutes: this.syncIntervalMinutes,
       lastSyncTime: this.lastSyncTime,
       syncCount: this.syncCount
