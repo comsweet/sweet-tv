@@ -1664,15 +1664,31 @@ router.get('/:id/group-metrics', async (req, res) => {
               return sum + multiDeals;
             }, 0);
             let totalLoginSeconds = 0;
+            let hasIncompleteData = false;
 
             for (const userId of userIds) {
               const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate, adversusAPI);
+
+              if (loginTime === null) {
+                // getLoginTime returns null for incomplete multi-day data
+                // This prevents absurdly high order/h from partial login time
+                hasIncompleteData = true;
+                console.warn(`⚠️  User ${userId}: Incomplete loginTime data for period, skipping order/h calculation`);
+                break; // Stop early - can't calculate accurate order/h
+              }
+
               totalLoginSeconds += loginTime?.loginSeconds || 0;
             }
 
-            const loginHours = totalLoginSeconds / 3600;
-            value = loginHours > 0 ? (totalDeals / loginHours) : 0;
-            value = Math.round(value * 100) / 100; // Round to 2 decimals
+            if (hasIncompleteData) {
+              // Don't show misleading data - show null (will display as "-" in frontend)
+              value = null;
+              console.error(`❌ Cannot calculate order/h: Incomplete loginTime data for period`);
+            } else {
+              const loginHours = totalLoginSeconds / 3600;
+              value = loginHours > 0 ? (totalDeals / loginHours) : 0;
+              value = Math.round(value * 100) / 100; // Round to 2 decimals
+            }
             break;
           }
 
