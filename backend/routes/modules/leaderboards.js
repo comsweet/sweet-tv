@@ -1011,9 +1011,7 @@ router.get('/:id/history', async (req, res) => {
           // Check if any user is missing data for this day
           let missingData = false;
           for (const userId of allUsersArray) {
-            // CRITICAL FIX: Pass adversusAPI to enable API fallback for today's data
-            // This prevents "0 order/h" when deals exist but central sync hasn't run yet
-            const loginTime = await loginTimeCache.getLoginTime(userId, dayStart, dayEnd, adversusAPI);
+            const loginTime = await loginTimeCache.getLoginTime(userId, dayStart, dayEnd);
             if (!loginTime || loginTime.loginSeconds === 0 || loginTime.isAverage) {
               missingData = true;
               break;

@@ -406,9 +406,7 @@ router.get('/:id/live-score', async (req, res) => {
       // Get login time for team
       let totalLoginSeconds = 0;
       for (const userId of teamUserIds) {
-        // CRITICAL FIX: Pass adversusAPI to enable API fallback for today's data
-        // This prevents "0 order/h" when deals exist but central sync hasn't run yet
-        const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate, adversusAPI);
+        const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate);
         totalLoginSeconds += loginTime?.loginSeconds || 0;
       }
 
