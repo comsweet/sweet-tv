@@ -83,6 +83,8 @@ router.post('/', async (req, res) => {
       name,
       description,
       timePeriod,
+      battleStartDate,
+      battleEndDate,
       victoryCondition,
       victoryMetric,
       targetValue,
@@ -99,6 +101,11 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Either timePeriod or leaderboardId is required' });
     }
 
+    // If custom period, require start and end dates
+    if (timePeriod === 'custom' && (!battleStartDate || !battleEndDate)) {
+      return res.status(400).json({ error: 'Custom period requires battleStartDate and battleEndDate' });
+    }
+
     if (!teams || teams.length < 2 || teams.length > 4) {
       return res.status(400).json({ error: 'Must have between 2 and 4 teams' });
     }
@@ -108,13 +115,25 @@ router.post('/', async (req, res) => {
     try {
       await client.query('BEGIN');
 
+      // For custom period, use provided dates. Otherwise use dummy dates (will be calculated dynamically)
+      // If custom dates are provided as YYYY-MM-DD, convert to full datetime
+      let startDate, endDate;
+      if (timePeriod === 'custom') {
+        // Add time if not provided (date-only input)
+        startDate = battleStartDate.includes('T') ? battleStartDate : `${battleStartDate}T00:00:00.000Z`;
+        endDate = battleEndDate.includes('T') ? battleEndDate : `${battleEndDate}T23:59:59.999Z`;
+      } else {
+        startDate = new Date().toISOString();
+        endDate = new Date().toISOString();
+      }
+
       // Insert battle
       const battleQuery = `
         INSERT INTO team_battles (
-          leaderboard_id, name, description, time_period,
+          leaderboard_id, name, description, time_period, start_date, end_date,
           victory_condition, victory_metric, target_value, is_active
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       `;
 
@@ -123,6 +142,8 @@ router.post('/', async (req, res) => {
         name,
         description || null,
         timePeriod || null,
+        startDate,
+        endDate,
         victoryCondition,
         victoryMetric,
         targetValue || null,
@@ -179,6 +200,8 @@ router.put('/:id', async (req, res) => {
       name,
       description,
       timePeriod,
+      battleStartDate,
+      battleEndDate,
       victoryCondition,
       victoryMetric,
       targetValue,
@@ -186,35 +209,70 @@ router.put('/:id', async (req, res) => {
       teams
     } = req.body;
 
+    // If custom period, require start and end dates
+    if (timePeriod === 'custom' && (!battleStartDate || !battleEndDate)) {
+      return res.status(400).json({ error: 'Custom period requires battleStartDate and battleEndDate' });
+    }
+
     const client = await postgres.getClient();
     try {
       await client.query('BEGIN');
 
-      // Update battle
+      // Build dynamic update query based on what fields are provided
+      const updates = [];
+      const values = [];
+      let paramIndex = 1;
+
+      if (name !== undefined) {
+        updates.push(`name = $${paramIndex++}`);
+        values.push(name);
+      }
+      if (description !== undefined) {
+        updates.push(`description = $${paramIndex++}`);
+        values.push(description);
+      }
+      if (timePeriod !== undefined) {
+        updates.push(`time_period = $${paramIndex++}`);
+        values.push(timePeriod);
+      }
+      // If switching to custom period OR updating custom dates
+      if (timePeriod === 'custom' || (battleStartDate && battleEndDate)) {
+        // Add time if not provided (date-only input)
+        const startDate = battleStartDate.includes('T') ? battleStartDate : `${battleStartDate}T00:00:00.000Z`;
+        const endDate = battleEndDate.includes('T') ? battleEndDate : `${battleEndDate}T23:59:59.999Z`;
+        updates.push(`start_date = $${paramIndex++}`);
+        values.push(startDate);
+        updates.push(`end_date = $${paramIndex++}`);
+        values.push(endDate);
+      }
+      if (victoryCondition !== undefined) {
+        updates.push(`victory_condition = $${paramIndex++}`);
+        values.push(victoryCondition);
+      }
+      if (victoryMetric !== undefined) {
+        updates.push(`victory_metric = $${paramIndex++}`);
+        values.push(victoryMetric);
+      }
+      if (targetValue !== undefined) {
+        updates.push(`target_value = $${paramIndex++}`);
+        values.push(targetValue);
+      }
+      if (isActive !== undefined) {
+        updates.push(`is_active = $${paramIndex++}`);
+        values.push(isActive);
+      }
+
+      updates.push('updated_at = CURRENT_TIMESTAMP');
+      values.push(battleId);
+
       const battleQuery = `
         UPDATE team_battles
-        SET name = COALESCE($1, name),
-            description = COALESCE($2, description),
-            time_period = $3,
-            victory_condition = COALESCE($4, victory_condition),
-            victory_metric = COALESCE($5, victory_metric),
-            target_value = COALESCE($6, target_value),
-            is_active = COALESCE($7, is_active),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $8
+        SET ${updates.join(', ')}
+        WHERE id = $${paramIndex}
         RETURNING *
       `;
 
-      const battleResult = await client.query(battleQuery, [
-        name,
-        description,
-        timePeriod !== undefined ? timePeriod : null, // Allow explicit null to clear timePeriod
-        victoryCondition,
-        victoryMetric,
-        targetValue,
-        isActive,
-        battleId
-      ]);
+      const battleResult = await client.query(battleQuery, values);
 
       if (battleResult.rows.length === 0) {
         await client.query('ROLLBACK');
@@ -344,8 +402,15 @@ router.get('/:id/live-score', async (req, res) => {
     // 2. leaderboard's time_period (if linked)
     let startDate, endDate, periodSource;
 
-    if (battle.time_period) {
-      // Priority 1: Use battle's own time_period
+    if (battle.time_period === 'custom') {
+      // Custom period: use static dates from database
+      startDate = new Date(battle.start_date);
+      endDate = new Date(battle.end_date);
+      periodSource = 'custom';
+      console.log(`⚔️ Battle "${battle.name}" using CUSTOM dates`);
+      console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+    } else if (battle.time_period) {
+      // Priority 1: Use battle's own time_period (day/week/month)
       const dateRange = leaderboardService.getDateRange({ timePeriod: battle.time_period });
       startDate = dateRange.startDate;
       endDate = dateRange.endDate;
@@ -353,20 +418,18 @@ router.get('/:id/live-score', async (req, res) => {
       console.log(`⚔️ Battle "${battle.name}" using period from battle setting (${battle.time_period})`);
       console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
     } else if (battle.leaderboard_id) {
-      // Priority 2: Use leaderboard's time_period
-      const leaderboardQuery = 'SELECT * FROM leaderboards WHERE id = $1';
-      const leaderboardResult = await postgres.query(leaderboardQuery, [battle.leaderboard_id]);
+      // Priority 2: Use leaderboard's time_period (from JSON file, not Postgres!)
+      const leaderboard = await leaderboardService.getLeaderboard(battle.leaderboard_id);
 
-      if (leaderboardResult.rows.length === 0) {
+      if (!leaderboard) {
         return res.status(400).json({ error: 'Linked leaderboard not found' });
       }
 
-      const leaderboard = leaderboardResult.rows[0];
       const dateRange = leaderboardService.getDateRange(leaderboard);
       startDate = dateRange.startDate;
       endDate = dateRange.endDate;
       periodSource = 'leaderboard';
-      console.log(`⚔️ Battle "${battle.name}" using period from leaderboard (${leaderboard.time_period})`);
+      console.log(`⚔️ Battle "${battle.name}" using period from leaderboard (${leaderboard.timePeriod})`);
       console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
     } else if (battle.start_date && battle.end_date) {
       // Fallback for old battles created with static dates
