@@ -368,9 +368,17 @@ router.get('/:id/live-score', async (req, res) => {
       periodSource = 'leaderboard';
       console.log(`⚔️ Battle "${battle.name}" using period from leaderboard (${leaderboard.time_period})`);
       console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+    } else if (battle.start_date && battle.end_date) {
+      // Fallback for old battles created with static dates
+      startDate = new Date(battle.start_date);
+      endDate = new Date(battle.end_date);
+      periodSource = 'legacy_static';
+      console.log(`⚔️ Battle "${battle.name}" using LEGACY static dates (created before dynamic periods)`);
+      console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+      console.warn(`   ⚠️ Consider updating this battle to use time_period or link to a leaderboard`);
     } else {
-      // No time period configured
-      return res.status(400).json({ error: 'Battle has no time_period or leaderboard configured' });
+      // No time period configured at all
+      return res.status(400).json({ error: 'Battle has no time_period, leaderboard, or static dates configured' });
     }
 
     console.log(`   Teams from DB:`, battle.teams);
