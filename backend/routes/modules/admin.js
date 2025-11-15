@@ -6,6 +6,7 @@ const smsCache = require('../../services/smsCache');
 const loginTimeCache = require('../../services/loginTimeCache');
 const leaderboardCache = require('../../services/leaderboardCache');
 const adversusAPI = require('../../services/adversusAPI');
+const centralSyncScheduler = require('../../services/centralSyncScheduler');
 
 /**
  * ADMIN ENDPOINTS
@@ -443,6 +444,72 @@ router.get('/sync-status', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching sync status:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /admin/sync-progress
+ * Get historical sync progress (for live updates in admin UI)
+ */
+router.get('/sync-progress', async (req, res) => {
+  try {
+    const status = centralSyncScheduler.getStatus();
+
+    res.json({
+      success: true,
+      data: status,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error fetching sync progress:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /admin/sync-historical
+ * Manually trigger historical data sync
+ * Body: { days: 30 }
+ */
+router.post('/sync-historical', async (req, res) => {
+  try {
+    const { days = 30 } = req.body;
+
+    // Validate days parameter
+    if (days < 1 || days > 365) {
+      return res.status(400).json({
+        success: false,
+        error: 'Days must be between 1 and 365'
+      });
+    }
+
+    console.log(`\n🔧 Manual historical sync triggered via API (${days} days)`);
+
+    // Trigger sync (runs in background)
+    centralSyncScheduler.triggerHistoricalSync(days)
+      .then(() => {
+        console.log('✅ Historical sync completed successfully');
+      })
+      .catch(error => {
+        console.error('❌ Historical sync failed:', error);
+      });
+
+    // Return immediately with accepted status
+    res.json({
+      success: true,
+      message: `Historical sync started for ${days} days`,
+      estimatedMinutes: Math.ceil(days * 2 / 60),
+      data: centralSyncScheduler.getStatus().historicalSync
+    });
+  } catch (error) {
+    console.error('❌ Error triggering historical sync:', error);
     res.status(500).json({
       success: false,
       error: error.message

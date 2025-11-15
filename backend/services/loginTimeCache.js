@@ -123,6 +123,35 @@ class LoginTimeCache {
   }
 
   /**
+   * Check if we have data for a specific day in DB
+   * Used by historical sync to skip days that are already synced
+   */
+  async hasDayInDB(userId, fromDate, toDate) {
+    try {
+      const query = `
+        SELECT COUNT(*) as count
+        FROM user_login_time
+        WHERE user_id = $1
+          AND from_date = $2
+          AND to_date = $3
+          AND synced_at IS NOT NULL
+      `;
+
+      const values = [
+        userId,
+        fromDate.toISOString(),
+        toDate.toISOString()
+      ];
+
+      const result = await db.pool.query(query, values);
+      return parseInt(result.rows[0].count) > 0;
+    } catch (error) {
+      console.error(`❌ Error checking if day exists in DB:`, error);
+      return false; // Assume not exists on error = will try to sync
+    }
+  }
+
+  /**
    * Get login time for a user in date range (from DB or cache)
    * If not found, will attempt to fetch from workforce API
    */

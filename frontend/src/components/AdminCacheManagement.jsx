@@ -13,6 +13,8 @@ import {
   clearLoginTimeCache,
   syncDatabase,
   getSyncStatus,
+  getSyncProgress,
+  triggerHistoricalSync,
   invalidateCache,
   backfillLoginTime,
   getPendingDuplicates
@@ -24,6 +26,7 @@ const AdminCacheManagement = () => {
   const [smsStats, setSmsStats] = useState(null);
   const [loginTimeStats, setLoginTimeStats] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
+  const [syncProgress, setSyncProgress] = useState(null);
   const [pendingDuplicates, setPendingDuplicates] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,9 +48,24 @@ const AdminCacheManagement = () => {
   const [backfillDays, setBackfillDays] = useState(30);
   const [backfilling, setBackfilling] = useState(false);
 
+  const [historicalDays, setHistoricalDays] = useState(30);
+  const [historicalSyncing, setHistoricalSyncing] = useState(false);
+
   useEffect(() => {
     fetchAllStats();
+    fetchSyncProgress();
   }, []);
+
+  // Poll for sync progress when historical sync is running
+  useEffect(() => {
+    if (!syncProgress?.historicalSync?.isRunning) return;
+
+    const intervalId = setInterval(async () => {
+      await fetchSyncProgress();
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(intervalId);
+  }, [syncProgress?.historicalSync?.isRunning]);
 
   const fetchAllStats = async () => {
     setLoading(true);
@@ -77,6 +95,21 @@ const AdminCacheManagement = () => {
       alert('Error loading stats: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSyncProgress = async () => {
+    try {
+      const response = await getSyncProgress();
+      setSyncProgress(response.data);
+
+      // If historical sync just completed, refresh all stats
+      if (syncProgress?.historicalSync?.isRunning && !response.data.historicalSync.isRunning) {
+        console.log('✅ Historical sync completed, refreshing stats...');
+        await fetchAllStats();
+      }
+    } catch (error) {
+      console.error('Error fetching sync progress:', error);
     }
   };
 
@@ -314,6 +347,28 @@ const AdminCacheManagement = () => {
     }
   };
 
+  const handleHistoricalSync = async () => {
+    const estimatedMinutes = Math.ceil(historicalDays * 2 / 60);
+
+    if (!window.confirm(`📚 Historical Data Sync\n\nDetta kommer att synkronisera ALL data (deals, SMS, login time) för ${historicalDays} dagar bakåt.\n\nBeräknad tid: ~${estimatedMinutes} minuter\n\nFortsätt?`)) {
+      return;
+    }
+
+    setHistoricalSyncing(true);
+    try {
+      const response = await triggerHistoricalSync(historicalDays);
+      console.log('Historical sync started:', response.data);
+
+      // Polling will automatically start via useEffect
+      alert(`✅ Historical Sync Startad!\n\nSyncar ${historicalDays} dagar\nBeräknad tid: ~${response.data.estimatedMinutes} minuter\n\nProgress visas nedan.`);
+
+    } catch (error) {
+      console.error('Error starting historical sync:', error);
+      alert('❌ Failed to start sync: ' + error.message);
+      setHistoricalSyncing(false);
+    }
+  };
+
   if (loading) {
     return <div className="cache-loading">Loading database & cache management...</div>;
   }
@@ -436,6 +491,139 @@ const AdminCacheManagement = () => {
               Duplicates sparas i pending_duplicates tabellen i PostgreSQL för manuell granskning.
             </p>
           </div>
+        </div>
+      )}
+
+      {/* HISTORICAL DATA SYNC */}
+      {syncProgress?.historicalSync && (
+        <div style={{
+          background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+          padding: '24px',
+          borderRadius: '12px',
+          marginBottom: '24px',
+          border: '2px solid #22c55e'
+        }}>
+          <h2 style={{ color: '#166534', marginTop: 0, marginBottom: '16px' }}>📚 Historical Data Sync</h2>
+          <p style={{ color: '#15803d', fontSize: '14px', marginBottom: '20px' }}>
+            Synkronisera ALL historisk data (deals, SMS, login time) från Adversus till PostgreSQL.
+            Dag-för-dag synk med 2s delay för att undvika rate limits.
+          </p>
+
+          {syncProgress.historicalSync.isRunning ? (
+            <div>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>
+                  <span style={{ color: '#166534' }}>
+                    {syncProgress.historicalSync.stage === 'syncing_login_time'
+                      ? `📅 ${syncProgress.historicalSync.currentDay}`
+                      : syncProgress.historicalSync.stage}
+                  </span>
+                  <span style={{ color: '#166534' }}>
+                    {syncProgress.historicalSync.completedDays}/{syncProgress.historicalSync.totalDays} dagar ({syncProgress.historicalSync.progressPercent}%)
+                  </span>
+                </div>
+                <div style={{
+                  width: '100%',
+                  height: '24px',
+                  background: '#dcfce7',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  border: '1px solid #22c55e'
+                }}>
+                  <div style={{
+                    width: `${syncProgress.historicalSync.progressPercent}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)',
+                    transition: 'width 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: '700'
+                  }}>
+                    {syncProgress.historicalSync.progressPercent}%
+                  </div>
+                </div>
+              </div>
+              {syncProgress.historicalSync.estimatedTimeRemaining && (
+                <div style={{ fontSize: '13px', color: '#15803d', marginTop: '8px' }}>
+                  ⏱️ Beräknad tid kvar: ~{Math.ceil(syncProgress.historicalSync.estimatedTimeRemaining / 60)} minuter
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label htmlFor="historicalDays" style={{ fontSize: '14px', color: '#15803d', fontWeight: '600' }}>
+                  Dagar bakåt:
+                </label>
+                <input
+                  id="historicalDays"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={historicalDays}
+                  onChange={(e) => setHistoricalDays(parseInt(e.target.value) || 1)}
+                  disabled={historicalSyncing}
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: '14px',
+                    border: '2px solid #22c55e',
+                    borderRadius: '6px',
+                    width: '80px',
+                    fontWeight: '600'
+                  }}
+                />
+                <span style={{ fontSize: '13px', color: '#166534' }}>
+                  (~{Math.ceil(historicalDays * 2 / 60)} min)
+                </span>
+              </div>
+              <button
+                onClick={handleHistoricalSync}
+                disabled={historicalSyncing || syncProgress.historicalSync.isRunning}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '15px',
+                  background: historicalSyncing ? '#94a3b8' : '#22c55e',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: historicalSyncing ? 'not-allowed' : 'pointer',
+                  fontWeight: '700',
+                  transition: 'background 0.2s',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+                onMouseOver={(e) => !historicalSyncing && (e.target.style.background = '#16a34a')}
+                onMouseOut={(e) => !historicalSyncing && (e.target.style.background = '#22c55e')}
+              >
+                {historicalSyncing || syncProgress.historicalSync.isRunning ? '⏳ Syncing...' : '🚀 Start Historical Sync'}
+              </button>
+            </div>
+          )}
+
+          {syncProgress.historicalSync.errors.length > 0 && (
+            <div style={{
+              marginTop: '16px',
+              padding: '12px',
+              background: '#fef2f2',
+              border: '1px solid #ef4444',
+              borderRadius: '6px'
+            }}>
+              <strong style={{ color: '#dc2626' }}>⚠️ Errors ({syncProgress.historicalSync.errors.length}):</strong>
+              <ul style={{ margin: '8px 0 0 20px', fontSize: '13px', color: '#991b1b' }}>
+                {syncProgress.historicalSync.errors.slice(0, 5).map((err, idx) => (
+                  <li key={idx}>{err.day}: {err.error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 

@@ -31,6 +31,18 @@ class CentralSyncScheduler {
     this.lastSyncTime = null;
     this.syncCount = 0;
     this.isReady = false; // Track if initial sync is complete
+
+    // Progress tracking for historical sync
+    this.syncProgress = {
+      isRunning: false,
+      stage: 'idle', // idle, syncing_login_time, complete, error
+      totalDays: 0,
+      completedDays: 0,
+      currentDay: null,
+      startTime: null,
+      estimatedTimeRemaining: null,
+      errors: []
+    };
   }
 
   /**
@@ -54,46 +66,132 @@ class CentralSyncScheduler {
   }
 
   /**
-   * Sync historical login time data (30 days)
-   * Called ONCE at startup to ensure historical data is available
+   * Sync historical data (30 days) - ALL data types
+   * Called ONCE at startup OR manually from admin UI
+   *
+   * Syncs day-by-day with progress tracking and rate limit safety:
+   * - LoginTime: 1 API call per day (workforce API for all users)
+   * - 2 second delay between days to avoid burst limit
+   * - Progress tracking for UI
    */
-  async syncHistoricalData() {
+  async syncHistoricalData(days = 30) {
     console.log('\n' + '='.repeat(60));
-    console.log('📚 HISTORICAL DATA SYNC - Running once at startup');
+    console.log(`📚 HISTORICAL DATA SYNC - ${days} days`);
     console.log('='.repeat(60));
+
+    // Reset progress
+    this.syncProgress = {
+      isRunning: true,
+      stage: 'initializing',
+      totalDays: days,
+      completedDays: 0,
+      currentDay: null,
+      startTime: Date.now(),
+      estimatedTimeRemaining: null,
+      errors: []
+    };
 
     try {
       // Get all active users
+      this.syncProgress.stage = 'fetching_users';
       const usersResult = await adversusAPI.getUsers();
       const users = usersResult.users || [];
       const activeUserIds = users.map(u => u.id);
 
       if (activeUserIds.length === 0) {
         console.log('⚠️  No active users found, skipping historical sync');
+        this.syncProgress.isRunning = false;
+        this.syncProgress.stage = 'complete';
         return;
       }
 
-      // Calculate date range - last 30 days
+      console.log(`\n👥 Found ${activeUserIds.length} active users`);
+      console.log(`📅 Syncing ${days} days of historical data`);
+      console.log(`⏱️  Estimated time: ~${Math.ceil(days * 2 / 60)} minutes (2s delay per day)\n`);
+
+      // Calculate date range
       const now = new Date();
       const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
-      thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
 
-      console.log(`\n📅 Syncing historical login time for ${activeUserIds.length} users`);
-      console.log(`   Date range: ${thirtyDaysAgo.toISOString().split('T')[0]} → ${today.toISOString().split('T')[0]} (30 days)`);
-      console.log(`   ⚠️  This may take a while on first run...`);
+      // Sync day by day (oldest to newest)
+      this.syncProgress.stage = 'syncing_login_time';
+      let syncedDays = 0;
+      let skippedDays = 0;
 
-      const startTime = Date.now();
-      await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, thirtyDaysAgo, today);
+      for (let i = days - 1; i >= 0; i--) {
+        const dayDate = new Date(today);
+        dayDate.setUTCDate(dayDate.getUTCDate() - i);
+        dayDate.setUTCHours(0, 0, 0, 0);
 
-      const duration = Date.now() - startTime;
-      console.log(`\n✅ Historical data sync complete in ${(duration / 1000).toFixed(1)}s`);
-      console.log('   (Future syncs will be faster - historical data is now cached in DB)');
-      console.log('='.repeat(60) + '\n');
+        const dayEnd = new Date(dayDate);
+        dayEnd.setUTCHours(23, 59, 59, 999);
+
+        const dayStr = dayDate.toISOString().split('T')[0];
+        this.syncProgress.currentDay = dayStr;
+
+        console.log(`\n📅 Day ${days - i}/${days}: ${dayStr}`);
+
+        try {
+          // Check if we already have data for this day in DB
+          const hasData = await loginTimeCache.hasDayInDB(activeUserIds[0], dayDate, dayEnd);
+
+          if (hasData) {
+            console.log(`   ✅ Data already in DB, skipping`);
+            skippedDays++;
+          } else {
+            console.log(`   🏭 Fetching from Adversus workforce API...`);
+
+            // Sync login time for this single day (all users at once)
+            await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, dayDate, dayEnd);
+
+            console.log(`   ✅ Synced successfully`);
+            syncedDays++;
+
+            // Rate limit protection: 2 second delay between days
+            if (i > 0) {
+              console.log(`   ⏳ Waiting 2s before next day (rate limit protection)...`);
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+          }
+
+          this.syncProgress.completedDays++;
+
+          // Update ETA
+          const elapsed = Date.now() - this.syncProgress.startTime;
+          const avgTimePerDay = elapsed / this.syncProgress.completedDays;
+          const remainingDays = days - this.syncProgress.completedDays;
+          this.syncProgress.estimatedTimeRemaining = Math.ceil(avgTimePerDay * remainingDays / 1000);
+
+        } catch (error) {
+          console.error(`   ❌ Failed to sync ${dayStr}:`, error.message);
+          this.syncProgress.errors.push({
+            day: dayStr,
+            error: error.message
+          });
+        }
+      }
+
+      const duration = Date.now() - this.syncProgress.startTime;
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`✅ HISTORICAL SYNC COMPLETE`);
+      console.log(`   Duration: ${(duration / 1000).toFixed(1)}s`);
+      console.log(`   Synced: ${syncedDays} days (${skippedDays} already in DB)`);
+      if (this.syncProgress.errors.length > 0) {
+        console.log(`   ⚠️  Errors: ${this.syncProgress.errors.length} days failed`);
+      }
+      console.log(`${'='.repeat(60)}\n`);
+
+      this.syncProgress.stage = 'complete';
+      this.syncProgress.isRunning = false;
+
     } catch (error) {
-      console.error('❌ Failed to sync historical data:', error);
-      console.log('   (Regular syncs will continue, historical data may be incomplete)');
+      console.error('❌ CRITICAL: Historical sync failed:', error);
+      this.syncProgress.stage = 'error';
+      this.syncProgress.isRunning = false;
+      this.syncProgress.errors.push({
+        day: 'startup',
+        error: error.message
+      });
     }
   }
 
@@ -202,7 +300,7 @@ class CentralSyncScheduler {
   }
 
   /**
-   * Get sync status
+   * Get sync status including historical sync progress
    */
   getStatus() {
     return {
@@ -211,8 +309,34 @@ class CentralSyncScheduler {
       isReady: this.isReady,
       syncIntervalMinutes: this.syncIntervalMinutes,
       lastSyncTime: this.lastSyncTime,
-      syncCount: this.syncCount
+      syncCount: this.syncCount,
+      historicalSync: {
+        isRunning: this.syncProgress.isRunning,
+        stage: this.syncProgress.stage,
+        totalDays: this.syncProgress.totalDays,
+        completedDays: this.syncProgress.completedDays,
+        currentDay: this.syncProgress.currentDay,
+        progressPercent: this.syncProgress.totalDays > 0
+          ? Math.round((this.syncProgress.completedDays / this.syncProgress.totalDays) * 100)
+          : 0,
+        estimatedTimeRemaining: this.syncProgress.estimatedTimeRemaining,
+        errors: this.syncProgress.errors
+      }
     };
+  }
+
+  /**
+   * Manually trigger historical sync from admin UI
+   */
+  async triggerHistoricalSync(days = 30) {
+    if (this.syncProgress.isRunning) {
+      throw new Error('Historical sync is already running');
+    }
+
+    console.log(`\n🔧 Manual historical sync triggered from admin UI (${days} days)`);
+    await this.syncHistoricalData(days);
+
+    return this.syncProgress;
   }
 }
 
