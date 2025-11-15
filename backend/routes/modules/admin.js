@@ -476,11 +476,11 @@ router.get('/sync-progress', async (req, res) => {
 /**
  * POST /admin/sync-historical
  * Manually trigger historical data sync
- * Body: { days: 30 }
+ * Body: { days: 30, forceResync: false }
  */
 router.post('/sync-historical', async (req, res) => {
   try {
-    const { days = 30 } = req.body;
+    const { days = 30, forceResync = false } = req.body;
 
     // Validate days parameter
     if (days < 1 || days > 365) {
@@ -490,10 +490,10 @@ router.post('/sync-historical', async (req, res) => {
       });
     }
 
-    console.log(`\n🔧 Manual historical sync triggered via API (${days} days)`);
+    console.log(`\n🔧 Manual historical sync triggered via API (${days} days, force: ${forceResync})`);
 
     // Trigger sync (runs in background)
-    centralSyncScheduler.triggerHistoricalSync(days)
+    centralSyncScheduler.triggerHistoricalSync(days, forceResync)
       .then(() => {
         console.log('✅ Historical sync completed successfully');
       })
@@ -504,7 +504,7 @@ router.post('/sync-historical', async (req, res) => {
     // Return immediately with accepted status
     res.json({
       success: true,
-      message: `Historical sync started for ${days} days`,
+      message: `Historical sync started for ${days} days${forceResync ? ' (force resync - will overwrite existing data)' : ''}`,
       estimatedMinutes: Math.ceil(days * 2 / 60),
       data: centralSyncScheduler.getStatus().historicalSync
     });

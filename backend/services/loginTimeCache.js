@@ -102,12 +102,7 @@ class LoginTimeCache {
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (user_id, from_date, to_date)
         DO UPDATE SET
-          login_seconds = CASE
-            -- For TODAY or future dates: Always update (data comes in continuously)
-            WHEN user_login_time.from_date >= CURRENT_DATE THEN EXCLUDED.login_seconds
-            -- For HISTORICAL dates: Only update if new value is HIGHER (more complete data)
-            ELSE GREATEST(user_login_time.login_seconds, EXCLUDED.login_seconds)
-          END,
+          login_seconds = EXCLUDED.login_seconds,
           synced_at = CURRENT_TIMESTAMP
         RETURNING *
       `;
