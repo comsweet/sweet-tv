@@ -404,18 +404,26 @@ class DealsCache {
         const resultMultiDeals = lead.resultData?.find(f => f.id === 74126);
         if (resultMultiDeals?.value) {
           const rawValue = resultMultiDeals.value;
-          multiDeals = parseInt(rawValue) || 1;
 
-          // DEBUG: Log suspicious multiDeals values from Adversus
-          if (isNaN(parseInt(rawValue)) || typeof rawValue !== 'number' && rawValue !== String(parseInt(rawValue))) {
-            console.warn(`⚠️  [DealsCache] Suspicious multiDeals from Adversus for lead ${lead.id}:`, {
+          // CRITICAL: Only accept clean numeric values for multiDeals
+          // Corrupted data like "34Dentle Kallkund - Sverige" should be rejected
+          // "34" from that string does NOT mean 34 deals - it's corrupted!
+          const isCleanNumber = typeof rawValue === 'number' ||
+                               (typeof rawValue === 'string' && /^\d+$/.test(rawValue.trim()));
+
+          if (isCleanNumber) {
+            multiDeals = parseInt(rawValue) || 1;
+          } else {
+            // Corrupted data detected - use default 1
+            console.error(`❌ [DealsCache] CORRUPTED multiDeals from Adversus for lead ${lead.id}:`, {
               rawValue,
               rawType: typeof rawValue,
-              parsed: multiDeals,
+              usingDefault: 1,
               campaignId: lead.campaignId,
               campaignName: lead.campaign?.name,
               allResultData: lead.resultData?.map(f => ({ id: f.id, label: f.label, value: f.value }))
             });
+            multiDeals = 1; // Force to 1 for corrupted data
           }
         }
 
@@ -522,18 +530,26 @@ class DealsCache {
         const resultMultiDeals = lead.resultData?.find(f => f.id === 74126);
         if (resultMultiDeals?.value) {
           const rawValue = resultMultiDeals.value;
-          multiDeals = parseInt(rawValue) || 1;
 
-          // DEBUG: Log suspicious multiDeals values from Adversus
-          if (isNaN(parseInt(rawValue)) || typeof rawValue !== 'number' && rawValue !== String(parseInt(rawValue))) {
-            console.warn(`⚠️  [DealsCache] Suspicious multiDeals from Adversus for lead ${lead.id}:`, {
+          // CRITICAL: Only accept clean numeric values for multiDeals
+          // Corrupted data like "34Dentle Kallkund - Sverige" should be rejected
+          // "34" from that string does NOT mean 34 deals - it's corrupted!
+          const isCleanNumber = typeof rawValue === 'number' ||
+                               (typeof rawValue === 'string' && /^\d+$/.test(rawValue.trim()));
+
+          if (isCleanNumber) {
+            multiDeals = parseInt(rawValue) || 1;
+          } else {
+            // Corrupted data detected - use default 1
+            console.error(`❌ [DealsCache] CORRUPTED multiDeals from Adversus for lead ${lead.id}:`, {
               rawValue,
               rawType: typeof rawValue,
-              parsed: multiDeals,
+              usingDefault: 1,
               campaignId: lead.campaignId,
               campaignName: lead.campaign?.name,
               allResultData: lead.resultData?.map(f => ({ id: f.id, label: f.label, value: f.value }))
             });
+            multiDeals = 1; // Force to 1 for corrupted data
           }
         }
 
