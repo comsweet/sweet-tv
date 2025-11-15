@@ -351,8 +351,37 @@ const AdminLeaderboards = () => {
                     <option value="day">Dag (uppdateras varje dag)</option>
                     <option value="week">Vecka (uppdateras varje måndag)</option>
                     <option value="month">Månad (uppdateras varje månadsskifte)</option>
+                    <option value="custom">Anpassad (välj start- och slutdatum)</option>
                   </select>
                 </div>
+
+            {/* Custom date fields - only shown when timePeriod === 'custom' */}
+            {form.timePeriod === 'custom' && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Startdatum (UTC):</label>
+                  <input
+                    type="datetime-local"
+                    value={form.customStartDate}
+                    onChange={(e) => setForm({ ...form, customStartDate: e.target.value })}
+                  />
+                  <small style={{ display: 'block', marginTop: '0.25rem', color: '#666' }}>
+                    Thailand är UTC+7. Välj tid baserat på lokal tid.
+                  </small>
+                </div>
+                <div className="form-group">
+                  <label>Slutdatum (UTC):</label>
+                  <input
+                    type="datetime-local"
+                    value={form.customEndDate}
+                    onChange={(e) => setForm({ ...form, customEndDate: e.target.value })}
+                  />
+                  <small style={{ display: 'block', marginTop: '0.25rem', color: '#666' }}>
+                    Thailand är UTC+7. Välj tid baserat på lokal tid.
+                  </small>
+                </div>
+              </div>
+            )}
 
             <div className="form-group">
               <label>Visa per:</label>
@@ -697,11 +726,40 @@ const AdminLeaderboards = () => {
                     <option value="day">Dag (uppdateras varje dag)</option>
                     <option value="week">Vecka (uppdateras varje måndag)</option>
                     <option value="month">Månad (uppdateras varje månadsskifte)</option>
+                    <option value="custom">Anpassad (välj start- och slutdatum)</option>
                   </select>
                   <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
                     Battle stats beräknas dynamiskt baserat på vald period
                   </small>
                 </div>
+
+                {/* Custom date fields for Team Battle - only shown when timePeriod === 'custom' */}
+                {form.timePeriod === 'custom' && (
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Startdatum & tid (UTC):</label>
+                      <input
+                        type="datetime-local"
+                        value={form.battleStartDate || ''}
+                        onChange={(e) => setForm({ ...form, battleStartDate: e.target.value })}
+                      />
+                      <small style={{ display: 'block', marginTop: '0.25rem', color: '#666' }}>
+                        Thailand är UTC+7. Välj tid baserat på lokal tid.
+                      </small>
+                    </div>
+                    <div className="form-group">
+                      <label>Slutdatum & tid (UTC):</label>
+                      <input
+                        type="datetime-local"
+                        value={form.battleEndDate || ''}
+                        onChange={(e) => setForm({ ...form, battleEndDate: e.target.value })}
+                      />
+                      <small style={{ display: 'block', marginTop: '0.25rem', color: '#666' }}>
+                        Thailand är UTC+7. Välj tid baserat på lokal tid.
+                      </small>
+                    </div>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label>Victory Metric (avgör vinnaren):</label>

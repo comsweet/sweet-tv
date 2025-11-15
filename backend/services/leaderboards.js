@@ -136,13 +136,21 @@ class LeaderboardService {
         try {
           await client.query('BEGIN');
 
+          // For custom period, use provided dates. Otherwise use dummy dates (will be calculated dynamically)
+          const startDate = newLeaderboard.timePeriod === 'custom'
+            ? newLeaderboard.battleStartDate
+            : new Date().toISOString();
+          const endDate = newLeaderboard.timePeriod === 'custom'
+            ? newLeaderboard.battleEndDate
+            : new Date().toISOString();
+
           // Insert battle
           const battleQuery = `
             INSERT INTO team_battles (
-              leaderboard_id, name, description, start_date, end_date,
+              leaderboard_id, name, description, time_period, start_date, end_date,
               victory_condition, victory_metric, target_value, is_active
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING id
           `;
 
@@ -150,8 +158,9 @@ class LeaderboardService {
             newLeaderboard.id,
             newLeaderboard.name,
             newLeaderboard.description || null,
-            newLeaderboard.battleStartDate,
-            newLeaderboard.battleEndDate,
+            newLeaderboard.timePeriod || null,
+            startDate,
+            endDate,
             newLeaderboard.victoryCondition,
             newLeaderboard.victoryMetric,
             newLeaderboard.targetValue || null,
@@ -259,18 +268,27 @@ class LeaderboardService {
           try {
             await client.query('BEGIN');
 
+            // For custom period, use provided dates. Otherwise use dummy dates
+            const startDate = updatedLeaderboard.timePeriod === 'custom'
+              ? updatedLeaderboard.battleStartDate
+              : (updatedLeaderboard.battleStartDate || new Date().toISOString());
+            const endDate = updatedLeaderboard.timePeriod === 'custom'
+              ? updatedLeaderboard.battleEndDate
+              : (updatedLeaderboard.battleEndDate || new Date().toISOString());
+
             // Update battle
             await client.query(
               `UPDATE team_battles
-               SET name = $1, description = $2, start_date = $3, end_date = $4,
-                   victory_condition = $5, victory_metric = $6, target_value = $7,
+               SET name = $1, description = $2, time_period = $3, start_date = $4, end_date = $5,
+                   victory_condition = $6, victory_metric = $7, target_value = $8,
                    updated_at = CURRENT_TIMESTAMP
-               WHERE id = $8`,
+               WHERE id = $9`,
               [
                 updatedLeaderboard.name,
                 updatedLeaderboard.description || null,
-                updatedLeaderboard.battleStartDate,
-                updatedLeaderboard.battleEndDate,
+                updatedLeaderboard.timePeriod || null,
+                startDate,
+                endDate,
                 updatedLeaderboard.victoryCondition,
                 updatedLeaderboard.victoryMetric,
                 updatedLeaderboard.targetValue || null,
