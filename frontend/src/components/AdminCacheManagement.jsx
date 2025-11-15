@@ -17,6 +17,7 @@ import {
   triggerHistoricalSync,
   invalidateCache,
   backfillLoginTime,
+  getDailyBreakdown,
   getPendingDuplicates
 } from '../services/api';
 import './AdminCacheManagement.css';
@@ -51,9 +52,13 @@ const AdminCacheManagement = () => {
   const [historicalDays, setHistoricalDays] = useState(30);
   const [historicalSyncing, setHistoricalSyncing] = useState(false);
 
+  const [dailyBreakdown, setDailyBreakdown] = useState(null);
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
   useEffect(() => {
     fetchAllStats();
     fetchSyncProgress();
+    fetchDailyBreakdown();
   }, []);
 
   // Poll for sync progress when historical sync is running
@@ -113,6 +118,15 @@ const AdminCacheManagement = () => {
       }
     } catch (error) {
       console.error('Error fetching sync progress:', error);
+    }
+  };
+
+  const fetchDailyBreakdown = async () => {
+    try {
+      const response = await getDailyBreakdown(30);
+      setDailyBreakdown(response.data.data);
+    } catch (error) {
+      console.error('Error fetching daily breakdown:', error);
     }
   };
 
@@ -627,6 +641,121 @@ const AdminCacheManagement = () => {
               </ul>
             </div>
           )}
+        </div>
+      )}
+
+      {/* DAILY DATA BREAKDOWN */}
+      {dailyBreakdown && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+          padding: '24px',
+          borderRadius: '12px',
+          marginBottom: '24px',
+          border: '2px solid #f59e0b'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div>
+              <h2 style={{ color: '#92400e', marginTop: 0, marginBottom: '8px' }}>📊 Daily Data Breakdown (Last 30 Days)</h2>
+              <p style={{ color: '#78350f', fontSize: '14px', margin: 0 }}>
+                Completeness: {dailyBreakdown.summary.daysWithData}/{dailyBreakdown.summary.totalDays} days ({dailyBreakdown.summary.completeness}%)
+              </p>
+            </div>
+            <button
+              onClick={() => setShowBreakdown(!showBreakdown)}
+              style={{
+                padding: '10px 20px',
+                fontSize: '14px',
+                background: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              {showBreakdown ? '🔼 Hide Details' : '🔽 Show Details'}
+            </button>
+          </div>
+
+          {showBreakdown && (
+            <div style={{ maxHeight: '500px', overflowY: 'auto', background: 'white', borderRadius: '8px', padding: '12px' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: '13px'
+              }}>
+                <thead>
+                  <tr style={{ background: '#fef3c7', borderBottom: '2px solid #f59e0b' }}>
+                    <th style={{ padding: '12px 8px', textAlign: 'left', color: '#92400e', fontWeight: '700' }}>📅 Date</th>
+                    <th style={{ padding: '12px 8px', textAlign: 'right', color: '#92400e', fontWeight: '700' }}>👥 Users</th>
+                    <th style={{ padding: '12px 8px', textAlign: 'right', color: '#92400e', fontWeight: '700' }}>⏱️ Total Hours</th>
+                    <th style={{ padding: '12px 8px', textAlign: 'right', color: '#92400e', fontWeight: '700' }}>📈 Avg Hours/User</th>
+                    <th style={{ padding: '12px 8px', textAlign: 'right', color: '#92400e', fontWeight: '700' }}>🎯 Deals</th>
+                    <th style={{ padding: '12px 8px', textAlign: 'right', color: '#92400e', fontWeight: '700' }}>📱 SMS</th>
+                    <th style={{ padding: '12px 8px', textAlign: 'right', color: '#92400e', fontWeight: '700' }}>⚡ Order/h</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyBreakdown.breakdown.slice().reverse().map((day, idx) => (
+                    <tr
+                      key={day.date}
+                      style={{
+                        borderBottom: '1px solid #fde68a',
+                        background: day.hasData ? (idx % 2 === 0 ? '#fffbeb' : 'white') : '#fee2e2'
+                      }}
+                    >
+                      <td style={{ padding: '10px 8px', color: day.hasData ? '#78350f' : '#991b1b', fontWeight: '600' }}>
+                        {day.date} {!day.hasData && '⚠️'}
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', color: '#78350f' }}>
+                        {day.hasData ? day.userCount : '-'}
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', color: '#78350f', fontWeight: '600' }}>
+                        {day.hasData ? `${day.totalHours}h` : '-'}
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', color: '#78350f' }}>
+                        {day.hasData ? `${day.avgHours}h` : '-'}
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', color: '#78350f', fontWeight: '600' }}>
+                        {day.hasData ? day.totalDeals : '-'}
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', color: '#78350f' }}>
+                        {day.hasData ? day.smsCount : '-'}
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', color: day.orderPerHour > 10 ? '#dc2626' : '#78350f', fontWeight: day.orderPerHour > 10 ? '700' : '600' }}>
+                        {day.hasData ? day.orderPerHour.toFixed(2) : '-'}
+                        {day.orderPerHour > 10 && ' 🔥'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop: '12px', fontSize: '12px', color: '#78350f', fontStyle: 'italic' }}>
+                ⚠️ Red rows = missing data | 🔥 Order/h > 10 might indicate incomplete login time
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => {
+                fetchDailyBreakdown();
+                fetchAllStats();
+              }}
+              style={{
+                padding: '8px 16px',
+                fontSize: '13px',
+                background: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              🔄 Refresh Breakdown
+            </button>
+          </div>
         </div>
       )}
 

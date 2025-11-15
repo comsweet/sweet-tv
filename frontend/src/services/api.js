@@ -183,6 +183,7 @@ export const getSyncProgress = () => api.get('/admin/sync-progress');
 export const triggerHistoricalSync = (days) => api.post('/admin/sync-historical', { days });
 export const invalidateCache = () => api.post('/admin/cache/invalidate');
 export const backfillLoginTime = (days) => api.post('/admin/backfill-login-time', { days });
+export const getDailyBreakdown = (days = 30) => api.get(`/admin/login-time/daily-breakdown?days=${days}`);
 export const getPendingDuplicates = () => api.get('/admin/duplicates/pending');
 export const resolveDuplicate = (id, action, note, adminName) =>
   api.post(`/admin/duplicates/${id}/resolve`, { action, note, adminName });
