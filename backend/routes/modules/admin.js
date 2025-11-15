@@ -840,14 +840,15 @@ router.get('/login-time/stats-old', async (req, res) => {
  */
 router.post('/login-time/sync', async (req, res) => {
   try {
-    // Get all active agents
-    const agentsResult = await db.query('SELECT adversus_user_id FROM agents WHERE active = true');
-    const userIds = agentsResult.rows.map(row => row.adversus_user_id.toString());
+    // Get all active users from Adversus API (same as historical sync)
+    const usersResult = await adversusAPI.getUsers();
+    const users = usersResult.users || [];
+    const userIds = users.map(u => u.id);
 
     if (userIds.length === 0) {
       return res.json({
         success: true,
-        message: 'No active agents to sync',
+        message: 'No active users to sync',
         synced: 0
       });
     }
