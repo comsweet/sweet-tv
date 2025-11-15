@@ -101,10 +101,13 @@ const AdminCacheManagement = () => {
   const fetchSyncProgress = async () => {
     try {
       const response = await getSyncProgress();
-      setSyncProgress(response.data);
+      // CRITICAL: Unwrap response - backend returns { success, data, timestamp }
+      // We need the nested data object which contains the scheduler status
+      const schedulerStatus = response.data.data;
+      setSyncProgress(schedulerStatus);
 
       // If historical sync just completed, refresh all stats
-      if (syncProgress?.historicalSync?.isRunning && !response.data.historicalSync.isRunning) {
+      if (syncProgress?.historicalSync?.isRunning && !schedulerStatus.historicalSync.isRunning) {
         console.log('✅ Historical sync completed, refreshing stats...');
         await fetchAllStats();
       }
