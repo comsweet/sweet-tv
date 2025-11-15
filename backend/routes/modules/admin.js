@@ -814,6 +814,47 @@ router.get('/login-time/daily-breakdown', async (req, res) => {
 });
 
 /**
+ * GET /admin/login-time/raw-data
+ * Debug endpoint: Show raw login time data from database
+ */
+router.get('/login-time/raw-data', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+
+    // Get daily aggregated data
+    const query = `
+      SELECT
+        from_date::date as day,
+        COUNT(DISTINCT user_id) as users,
+        SUM(login_seconds) as total_seconds,
+        ROUND(SUM(login_seconds) / 3600.0) as total_hours,
+        ROUND(AVG(login_seconds) / 3600.0, 2) as avg_hours
+      FROM user_login_time
+      WHERE from_date >= NOW() - INTERVAL '${days} days'
+      GROUP BY from_date::date
+      ORDER BY day DESC
+    `;
+
+    const result = await db.query(query);
+
+    res.json({
+      success: true,
+      data: {
+        rows: result.rows,
+        totalDays: result.rows.length,
+        daysRequested: days
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching raw login time data:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /admin/login-time/stats
  * Get login time cache statistics (OLD - kept for backwards compatibility)
  */

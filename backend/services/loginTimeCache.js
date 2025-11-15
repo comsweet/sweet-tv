@@ -114,7 +114,7 @@ class LoginTimeCache {
         data.toDate
       ];
 
-      const result = await db.pool.query(query, values);
+      const result = await db.query(query, values);
       return result.rows[0];
     } catch (error) {
       console.error(`❌ Error saving login time:`, error);
@@ -144,7 +144,7 @@ class LoginTimeCache {
         toDate.toISOString()
       ];
 
-      const result = await db.pool.query(query, values);
+      const result = await db.query(query, values);
       return parseInt(result.rows[0].count) > 0;
     } catch (error) {
       console.error(`❌ Error checking if day exists in DB:`, error);
@@ -172,7 +172,7 @@ class LoginTimeCache {
         toDate.toISOString()
       ];
 
-      const result = await db.pool.query(query, values);
+      const result = await db.query(query, values);
       return parseInt(result.rows[0].count) || 0;
     } catch (error) {
       console.error(`❌ Error counting users with data for day:`, error);
@@ -220,7 +220,7 @@ class LoginTimeCache {
         LIMIT 1
       `;
 
-      let result = await db.pool.query(exactQuery, [userId, fromDate, toDate]);
+      let result = await db.query(exactQuery, [userId, fromDate, toDate]);
 
       // DEBUG: Log exact match attempt
       const fromStr = fromDate.toISOString().split('T')[0];
@@ -254,7 +254,7 @@ class LoginTimeCache {
             ORDER BY from_date ASC
           `;
 
-          const dayResults = await db.pool.query(dayByDayQuery, [userId, fromDate, toDate]);
+          const dayResults = await db.query(dayByDayQuery, [userId, fromDate, toDate]);
 
           if (dayResults.rows.length > 0) {
             // Sum only SINGLE-DAY entries (period_days <= 1)
@@ -317,7 +317,7 @@ class LoginTimeCache {
           LIMIT 1
         `;
 
-        result = await db.pool.query(rangeQuery, [userId, toDate, fromDate]);
+        result = await db.query(rangeQuery, [userId, toDate, fromDate]);
 
         if (result.rows.length > 0) {
           const row = result.rows[0];
