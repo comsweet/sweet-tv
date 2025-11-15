@@ -286,6 +286,60 @@ class LoginTimeCache {
               console.error(`   This will cause WRONG order/h calculation!`);
               console.error(`   Missing ${requestedDays - singleDayCount} days of login time data.`);
 
+              // AUTO-RECOVERY: Try to fetch missing days if API is available
+              if (adversusAPI) {
+                console.log(`🔄 Attempting to auto-recover missing days...`);
+
+                const recovered = await this.fillMissingDays(
+                  adversusAPI,
+                  userId,
+                  fromDate,
+                  toDate,
+                  dayResults.rows
+                );
+
+                if (recovered) {
+                  console.log(`✅ Successfully recovered missing days, retrying query...`);
+
+                  // Retry query after filling gaps
+                  const retryResults = await db.query(dayByDayQuery, [userId, fromDate, toDate]);
+                  let retryTotal = 0;
+                  let retryCount = 0;
+
+                  retryResults.rows.forEach(row => {
+                    if (row.period_days <= 1) {
+                      retryTotal += row.login_seconds;
+                      retryCount++;
+                    }
+                  });
+
+                  if (retryCount === requestedDays) {
+                    console.log(`   ✅ Complete data after recovery: ${retryTotal}s (${(retryTotal/3600).toFixed(2)}h)`);
+
+                    const data = {
+                      userId,
+                      loginSeconds: retryTotal,
+                      fromDate: fromDate.toISOString(),
+                      toDate: toDate.toISOString(),
+                      syncedAt: new Date().toISOString(),
+                      isSummed: true,
+                      wasRecovered: true
+                    };
+
+                    this.cache.set(cacheKey, {
+                      data,
+                      cachedAt: Date.now()
+                    });
+
+                    return data;
+                  } else {
+                    console.error(`   ❌ Still incomplete after recovery: ${retryCount}/${requestedDays} days`);
+                  }
+                } else {
+                  console.error(`   ❌ Failed to recover missing days`);
+                }
+              }
+
               // Return null to indicate incomplete data - caller should handle gracefully
               // Better to show no data than WRONG data!
               return null;
@@ -431,6 +485,101 @@ class LoginTimeCache {
     } catch (error) {
       console.error(`❌ Error getting login time from DB:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * AUTO-RECOVERY: Fill missing days in historical data
+   *
+   * When multi-day query finds incomplete data, this method:
+   * 1. Identifies which specific days are missing
+   * 2. Fetches each missing day from Adversus API
+   * 3. Saves them as individual day entries in DB
+   *
+   * Returns: true if successful, false if failed
+   */
+  async fillMissingDays(adversusAPI, userId, fromDate, toDate, existingRows) {
+    try {
+      console.log(`   🔍 Identifying missing days for user ${userId}...`);
+
+      // Build set of days we already have
+      const existingDays = new Set();
+      existingRows.forEach(row => {
+        const dayStr = new Date(row.day).toISOString().split('T')[0];
+        existingDays.add(dayStr);
+      });
+
+      // Generate all days in the requested period
+      const missingDays = [];
+      const currentDay = new Date(fromDate);
+      const endDay = new Date(toDate);
+
+      while (currentDay <= endDay) {
+        const dayStr = currentDay.toISOString().split('T')[0];
+        if (!existingDays.has(dayStr)) {
+          missingDays.push(new Date(currentDay));
+        }
+        currentDay.setUTCDate(currentDay.getUTCDate() + 1);
+      }
+
+      if (missingDays.length === 0) {
+        console.log(`   ℹ️  No missing days found (this shouldn't happen)`);
+        return false;
+      }
+
+      console.log(`   📅 Missing ${missingDays.length} days:`, missingDays.map(d => d.toISOString().split('T')[0]).join(', '));
+
+      // Fetch each missing day individually
+      let successCount = 0;
+      for (const dayDate of missingDays) {
+        const dayStart = new Date(Date.UTC(
+          dayDate.getUTCFullYear(),
+          dayDate.getUTCMonth(),
+          dayDate.getUTCDate(),
+          0, 0, 0, 0
+        ));
+        const dayEnd = new Date(Date.UTC(
+          dayDate.getUTCFullYear(),
+          dayDate.getUTCMonth(),
+          dayDate.getUTCDate(),
+          23, 59, 59, 999
+        ));
+
+        const dayStr = dayStart.toISOString().split('T')[0];
+
+        try {
+          console.log(`   🏭 Fetching ${dayStr} from workforce API...`);
+
+          // Fetch this single day for all users (more efficient)
+          const dataMap = await this.fetchLoginTimeFromWorkforce(adversusAPI, dayStart, dayEnd);
+          const loginSeconds = Math.round(dataMap.get(parseInt(userId)) || 0);
+
+          // Save to DB as individual day entry
+          await this.saveLoginTime({
+            userId,
+            loginSeconds,
+            fromDate: dayStart.toISOString(),
+            toDate: dayEnd.toISOString()
+          });
+
+          console.log(`      ✅ ${dayStr}: ${loginSeconds}s saved`);
+          successCount++;
+
+          // Small delay to avoid overwhelming API
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+        } catch (error) {
+          console.error(`      ❌ Failed to fetch ${dayStr}:`, error.message);
+          // Continue with other days even if one fails
+        }
+      }
+
+      console.log(`   📊 Recovery result: ${successCount}/${missingDays.length} days filled`);
+      return successCount === missingDays.length;
+
+    } catch (error) {
+      console.error(`   ❌ Error in fillMissingDays:`, error);
+      return false;
     }
   }
 
