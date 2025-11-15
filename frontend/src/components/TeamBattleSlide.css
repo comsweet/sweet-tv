@@ -328,14 +328,16 @@
 /* Scoped to team-battle-slide to avoid affecting other components */
 .team-battle-slide .stat-label {
   font-size: 1rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.85);
   font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 .team-battle-slide .stat-value {
   font-size: 1.4rem;
   color: #FFFFFF;
   font-weight: 800;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 /* Leader Badge */

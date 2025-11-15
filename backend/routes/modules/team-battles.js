@@ -473,7 +473,10 @@ router.get('/:id/live-score', async (req, res) => {
           loginSeconds: hasIncompleteData ? null : totalLoginSeconds,
           orderPerHour: hasIncompleteData
             ? null
-            : (totalLoginSeconds > 0 ? loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds) : 0)
+            : (totalLoginSeconds > 0 ? loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds) : 0),
+          commissionPerHour: hasIncompleteData
+            ? null
+            : (totalLoginSeconds > 0 ? (totalCommission / totalLoginSeconds) * 3600 : 0)
         }
       });
     }
