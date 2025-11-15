@@ -436,23 +436,33 @@ router.get('/:id/stats', async (req, res) => {
           // Get cached login time with API fallback for today's data
           let loginTime = await loginTimeCache.getLoginTime(stat.userId, startDate, endDate, adversusAPI);
 
-          const loginSeconds = loginTime?.loginSeconds || 0;
-          const loginHours = loginSeconds > 0 ? (loginSeconds / 3600).toFixed(2) : 0;
-          const dealsPerHour = loginTimeCache.calculateDealsPerHour(stat.dealCount || 0, loginSeconds);
+          // Handle incomplete multi-day data (returns null)
+          if (loginTime === null) {
+            console.warn(`⚠️  User ${stat.userId}: Incomplete loginTime data for period, showing null for order/h`);
+            loginTimeData = {
+              loginSeconds: null,
+              loginHours: null,
+              dealsPerHour: null
+            };
+          } else {
+            const loginSeconds = loginTime?.loginSeconds || 0;
+            const loginHours = loginSeconds > 0 ? (loginSeconds / 3600).toFixed(2) : 0;
+            const dealsPerHour = loginTimeCache.calculateDealsPerHour(stat.dealCount || 0, loginSeconds);
 
-          // 🔍 DEBUG: Log order/h calculation details
-          if (dealsPerHour > 0) {
-            console.log(`   🕒 User ${stat.userId} (${agentName}) order/h: ${dealsPerHour} = ${stat.dealCount} deals / ${loginHours}h (${loginSeconds}s)`);
-            if (loginTime?.fromDate && loginTime?.toDate) {
-              console.log(`      📅 Login time period: ${new Date(loginTime.fromDate).toISOString().split('T')[0]} → ${new Date(loginTime.toDate).toISOString().split('T')[0]}`);
+            // 🔍 DEBUG: Log order/h calculation details
+            if (dealsPerHour > 0) {
+              console.log(`   🕒 User ${stat.userId} (${agentName}) order/h: ${dealsPerHour} = ${stat.dealCount} deals / ${loginHours}h (${loginSeconds}s)`);
+              if (loginTime?.fromDate && loginTime?.toDate) {
+                console.log(`      📅 Login time period: ${new Date(loginTime.fromDate).toISOString().split('T')[0]} → ${new Date(loginTime.toDate).toISOString().split('T')[0]}`);
+              }
             }
-          }
 
-          loginTimeData = {
-            loginSeconds,
-            loginHours: parseFloat(loginHours),
-            dealsPerHour
-          };
+            loginTimeData = {
+              loginSeconds,
+              loginHours: parseFloat(loginHours),
+              dealsPerHour
+            };
+          }
         } catch (error) {
           console.error(`⚠️ Failed to get login time for user ${stat.userId}:`, error.message);
         }
@@ -1078,32 +1088,47 @@ router.get('/:id/history', async (req, res) => {
 
       // Sum up login times per group for this period
       const groupLoginTimes = {};
+      const groupHasIncompleteData = {};
       loginTimeResults.forEach((loginTime, index) => {
         const { groupId, userId } = groupUserMapping[index];
         if (!groupLoginTimes[groupId]) {
           groupLoginTimes[groupId] = 0;
+          groupHasIncompleteData[groupId] = false;
         }
-        groupLoginTimes[groupId] += loginTime?.loginSeconds || 0;
+
+        // Handle incomplete multi-day data
+        if (loginTime === null) {
+          groupHasIncompleteData[groupId] = true;
+          console.warn(`⚠️  User ${userId}: Incomplete loginTime data for period ${timeKey}`);
+        } else {
+          groupLoginTimes[groupId] += loginTime?.loginSeconds || 0;
+        }
 
         // DEBUG: Log each user's login time for today
         if (isPotentiallyToday) {
           const groupName = groupNames[groupId];
-          console.log(`      👤 User ${userId} (${groupName}): ${loginTime?.loginSeconds || 0}s login time`);
+          console.log(`      👤 User ${userId} (${groupName}): ${loginTime === null ? 'INCOMPLETE' : (loginTime?.loginSeconds || 0) + 's'} login time`);
         }
       });
 
       // Assign to timeData
       for (const groupId in timeData[timeKey]) {
-        timeData[timeKey][groupId].loginSeconds = groupLoginTimes[groupId] || 0;
+        // If any user in group has incomplete data, mark entire group as incomplete
+        if (groupHasIncompleteData[groupId]) {
+          timeData[timeKey][groupId].loginSeconds = null;
+        } else {
+          timeData[timeKey][groupId].loginSeconds = groupLoginTimes[groupId] || 0;
+        }
+
         // Convert Set to Array for serialization
         timeData[timeKey][groupId].userIds = Array.from(timeData[timeKey][groupId].userIds);
 
         // DEBUG: Log total login seconds per group for today
         if (isPotentiallyToday) {
           const groupName = groupNames[groupId];
-          const totalSeconds = groupLoginTimes[groupId] || 0;
+          const totalSeconds = groupHasIncompleteData[groupId] ? 'INCOMPLETE' : (groupLoginTimes[groupId] || 0) + 's';
           const deals = timeData[timeKey][groupId].deals;
-          console.log(`      🏢 ${groupName}: ${totalSeconds}s total (${(totalSeconds/3600).toFixed(2)}h) for ${deals} deals`);
+          console.log(`      🏢 ${groupName}: ${totalSeconds} total for ${deals} deals`);
         }
       }
 
@@ -1129,11 +1154,19 @@ router.get('/:id/history', async (req, res) => {
             ? Math.round((periodStats.smsDelivered / periodStats.smsSent) * 100)
             : 0;
         case 'order_per_hour':
+          // Handle incomplete loginTime data (null)
+          if (periodStats.loginSeconds === null) {
+            return null;
+          }
           const orderPerHour = periodStats.loginSeconds > 0
-            ? parseFloat(loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds))
+            ? loginTimeCache.calculateDealsPerHour(periodStats.deals, periodStats.loginSeconds)
             : 0;
           return orderPerHour;
         case 'commission_per_hour':
+          // Handle incomplete loginTime data (null)
+          if (periodStats.loginSeconds === null) {
+            return null;
+          }
           const commissionPerHour = periodStats.loginSeconds > 0
             ? Math.round((periodStats.commission / periodStats.loginSeconds) * 3600)
             : 0;

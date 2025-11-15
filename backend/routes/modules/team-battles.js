@@ -405,8 +405,17 @@ router.get('/:id/live-score', async (req, res) => {
 
       // Get login time for team
       let totalLoginSeconds = 0;
+      let hasIncompleteData = false;
       for (const userId of teamUserIds) {
         const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate);
+
+        // Handle incomplete multi-day data
+        if (loginTime === null) {
+          hasIncompleteData = true;
+          console.warn(`⚠️  User ${userId}: Incomplete loginTime data for period, team score will show null`);
+          break; // Stop early - can't calculate accurate metrics
+        }
+
         totalLoginSeconds += loginTime?.loginSeconds || 0;
       }
 
@@ -428,16 +437,26 @@ router.get('/:id/live-score', async (req, res) => {
           formattedScore = `${score.toFixed(1)}%`;
           break;
         case 'order_per_hour':
-          score = totalLoginSeconds > 0
-            ? parseFloat(loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds))
-            : 0;
-          formattedScore = `${score.toFixed(2)} affärer/h`;
+          if (hasIncompleteData) {
+            score = null;
+            formattedScore = '-';
+          } else {
+            score = totalLoginSeconds > 0
+              ? loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds)
+              : 0;
+            formattedScore = score !== null ? `${score.toFixed(2)} affärer/h` : '-';
+          }
           break;
         case 'commission_per_hour':
-          score = totalLoginSeconds > 0
-            ? (totalCommission / totalLoginSeconds) * 3600
-            : 0;
-          formattedScore = `${Math.round(score).toLocaleString()} THB/h`;
+          if (hasIncompleteData) {
+            score = null;
+            formattedScore = '-';
+          } else {
+            score = totalLoginSeconds > 0
+              ? (totalCommission / totalLoginSeconds) * 3600
+              : 0;
+            formattedScore = `${Math.round(score).toLocaleString()} THB/h`;
+          }
           break;
       }
 
@@ -451,10 +470,10 @@ router.get('/:id/live-score', async (req, res) => {
           smsSent: totalSmsSent,
           smsDelivered: totalSmsDelivered,
           smsRate: totalSmsSent > 0 ? (totalSmsDelivered / totalSmsSent) * 100 : 0,
-          loginSeconds: totalLoginSeconds,
-          orderPerHour: totalLoginSeconds > 0
-            ? parseFloat(loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds))
-            : 0
+          loginSeconds: hasIncompleteData ? null : totalLoginSeconds,
+          orderPerHour: hasIncompleteData
+            ? null
+            : (totalLoginSeconds > 0 ? loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds) : 0)
         }
       });
     }
