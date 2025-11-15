@@ -111,16 +111,19 @@ class CentralSyncScheduler {
         const activeUserIds = users.map(u => u.id);
 
         if (activeUserIds.length > 0) {
-          // Calculate date range (today)
+          // Calculate date range - sync last 30 days to support monthly metrics
+          // This ensures multi-day queries (week/month) have complete data
           const now = new Date();
-          const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-          const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+          const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+          const thirtyDaysAgo = new Date(today);
+          thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+          thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
 
-          console.log(`   📅 Date range: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+          console.log(`   📅 Date range: ${thirtyDaysAgo.toISOString().split('T')[0]} → ${today.toISOString().split('T')[0]} (30 days)`);
           console.log(`   👥 Syncing login time for ${activeUserIds.length} users...`);
 
-          await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, startDate, endDate);
-          console.log('✅ Login time cache synced for all users');
+          await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, thirtyDaysAgo, today);
+          console.log('✅ Login time cache synced for all users (last 30 days)');
         } else {
           console.log('⚠️  No active users found, skipping login time sync');
         }
