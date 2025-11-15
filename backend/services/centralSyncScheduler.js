@@ -74,9 +74,9 @@ class CentralSyncScheduler {
    * - 2 second delay between days to avoid burst limit
    * - Progress tracking for UI
    */
-  async syncHistoricalData(days = 30) {
+  async syncHistoricalData(days = 30, forceResync = false) {
     console.log('\n' + '='.repeat(60));
-    console.log(`📚 HISTORICAL DATA SYNC - ${days} days`);
+    console.log(`📚 HISTORICAL DATA SYNC - ${days} days ${forceResync ? '(FORCE RESYNC)' : ''}`);
     console.log('='.repeat(60));
 
     // Reset progress
@@ -137,11 +137,14 @@ class CentralSyncScheduler {
           const userCountInDB = await loginTimeCache.countUsersWithDataForDay(dayDate, dayEnd);
           const hasCompleteData = userCountInDB === activeUserIds.length;
 
-          if (hasCompleteData) {
+          // Skip only if: (1) has complete data AND (2) not forcing resync
+          if (hasCompleteData && !forceResync) {
             console.log(`   ✅ Data already in DB for all ${activeUserIds.length} users, skipping`);
             skippedDays++;
           } else {
-            if (userCountInDB > 0) {
+            if (forceResync && hasCompleteData) {
+              console.log(`   🔄 Force re-sync enabled - overwriting existing data for ${activeUserIds.length} users...`);
+            } else if (userCountInDB > 0) {
               console.log(`   ⚠️  Partial data in DB (${userCountInDB}/${activeUserIds.length} users), re-syncing all...`);
             } else {
               console.log(`   🏭 Fetching from Adversus workforce API...`);
@@ -334,13 +337,13 @@ class CentralSyncScheduler {
   /**
    * Manually trigger historical sync from admin UI
    */
-  async triggerHistoricalSync(days = 30) {
+  async triggerHistoricalSync(days = 30, forceResync = false) {
     if (this.syncProgress.isRunning) {
       throw new Error('Historical sync is already running');
     }
 
-    console.log(`\n🔧 Manual historical sync triggered from admin UI (${days} days)`);
-    await this.syncHistoricalData(days);
+    console.log(`\n🔧 Manual historical sync triggered from admin UI (${days} days, force: ${forceResync})`);
+    await this.syncHistoricalData(days, forceResync);
 
     return this.syncProgress;
   }

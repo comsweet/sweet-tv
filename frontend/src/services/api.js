@@ -180,7 +180,7 @@ export const syncDatabase = (mode, startDate, endDate) =>
   api.post('/admin/sync-database', { mode, startDate, endDate });
 export const getSyncStatus = () => api.get('/admin/sync-status');
 export const getSyncProgress = () => api.get('/admin/sync-progress');
-export const triggerHistoricalSync = (days) => api.post('/admin/sync-historical', { days });
+export const triggerHistoricalSync = (days, forceResync = false) => api.post('/admin/sync-historical', { days, forceResync });
 export const invalidateCache = () => api.post('/admin/cache/invalidate');
 export const backfillLoginTime = (days) => api.post('/admin/backfill-login-time', { days });
 export const getDailyBreakdown = (days = 30) => api.get(`/admin/login-time/daily-breakdown?days=${days}`);

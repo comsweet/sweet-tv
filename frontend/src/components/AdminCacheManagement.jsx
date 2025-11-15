@@ -51,6 +51,7 @@ const AdminCacheManagement = () => {
 
   const [historicalDays, setHistoricalDays] = useState(30);
   const [historicalSyncing, setHistoricalSyncing] = useState(false);
+  const [forceResync, setForceResync] = useState(false);
 
   const [dailyBreakdown, setDailyBreakdown] = useState(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -366,18 +367,21 @@ const AdminCacheManagement = () => {
 
   const handleHistoricalSync = async () => {
     const estimatedMinutes = Math.ceil(historicalDays * 2 / 60);
+    const warningText = forceResync
+      ? `⚠️ FORCE RESYNC MODE\n\nDetta kommer att ÖVERSKRIDA EXISTERANDE DATA för ${historicalDays} dagar!\n\nAnvänd detta för att fixa korrupt data.\n\nBeräknad tid: ~${estimatedMinutes} minuter\n\nÄr du säker?`
+      : `📚 Historical Data Sync\n\nDetta kommer att synkronisera login time för ${historicalDays} dagar bakåt.\n(Hoppar över dagar som redan har komplett data)\n\nBeräknad tid: ~${estimatedMinutes} minuter\n\nFortsätt?`;
 
-    if (!window.confirm(`📚 Historical Data Sync\n\nDetta kommer att synkronisera ALL data (deals, SMS, login time) för ${historicalDays} dagar bakåt.\n\nBeräknad tid: ~${estimatedMinutes} minuter\n\nFortsätt?`)) {
+    if (!window.confirm(warningText)) {
       return;
     }
 
     setHistoricalSyncing(true);
     try {
-      const response = await triggerHistoricalSync(historicalDays);
+      const response = await triggerHistoricalSync(historicalDays, forceResync);
       console.log('Historical sync started:', response.data);
 
       // Polling will automatically start via useEffect
-      alert(`✅ Historical Sync Startad!\n\nSyncar ${historicalDays} dagar\nBeräknad tid: ~${response.data.estimatedMinutes} minuter\n\nProgress visas nedan.`);
+      alert(`✅ Historical Sync Startad!\n\nSyncar ${historicalDays} dagar${forceResync ? ' (FORCE MODE - överskriver existerande data)' : ''}\nBeräknad tid: ~${response.data.estimatedMinutes} minuter\n\nProgress visas nedan.`);
 
     } catch (error) {
       console.error('Error starting historical sync:', error);
@@ -601,6 +605,23 @@ const AdminCacheManagement = () => {
                 <span style={{ fontSize: '13px', color: '#166534' }}>
                   (~{Math.ceil(historicalDays * 2 / 60)} min)
                 </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: forceResync ? '#fef2f2' : '#f0fdf4', borderRadius: '6px', border: forceResync ? '2px solid #ef4444' : '2px solid #22c55e' }}>
+                <input
+                  id="forceResync"
+                  type="checkbox"
+                  checked={forceResync}
+                  onChange={(e) => setForceResync(e.target.checked)}
+                  disabled={historicalSyncing}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    cursor: historicalSyncing ? 'not-allowed' : 'pointer'
+                  }}
+                />
+                <label htmlFor="forceResync" style={{ fontSize: '14px', color: forceResync ? '#dc2626' : '#15803d', fontWeight: '600', cursor: historicalSyncing ? 'not-allowed' : 'pointer' }}>
+                  {forceResync ? '⚠️ Force Resync (Överskriv data)' : 'Hoppa över existerande data'}
+                </label>
               </div>
               <button
                 onClick={handleHistoricalSync}
