@@ -137,12 +137,17 @@ class LeaderboardService {
           await client.query('BEGIN');
 
           // For custom period, use provided dates. Otherwise use dummy dates (will be calculated dynamically)
-          const startDate = newLeaderboard.timePeriod === 'custom'
-            ? newLeaderboard.battleStartDate
-            : new Date().toISOString();
-          const endDate = newLeaderboard.timePeriod === 'custom'
-            ? newLeaderboard.battleEndDate
-            : new Date().toISOString();
+          // If custom dates are provided as YYYY-MM-DD, convert to full datetime
+          let startDate, endDate;
+          if (newLeaderboard.timePeriod === 'custom') {
+            const battleStart = newLeaderboard.battleStartDate || '';
+            const battleEnd = newLeaderboard.battleEndDate || '';
+            startDate = battleStart.includes('T') ? battleStart : `${battleStart}T00:00:00.000Z`;
+            endDate = battleEnd.includes('T') ? battleEnd : `${battleEnd}T23:59:59.999Z`;
+          } else {
+            startDate = new Date().toISOString();
+            endDate = new Date().toISOString();
+          }
 
           // Insert battle
           const battleQuery = `
@@ -269,12 +274,17 @@ class LeaderboardService {
             await client.query('BEGIN');
 
             // For custom period, use provided dates. Otherwise use dummy dates
-            const startDate = updatedLeaderboard.timePeriod === 'custom'
-              ? updatedLeaderboard.battleStartDate
-              : (updatedLeaderboard.battleStartDate || new Date().toISOString());
-            const endDate = updatedLeaderboard.timePeriod === 'custom'
-              ? updatedLeaderboard.battleEndDate
-              : (updatedLeaderboard.battleEndDate || new Date().toISOString());
+            // If custom dates are provided as YYYY-MM-DD, convert to full datetime
+            let startDate, endDate;
+            if (updatedLeaderboard.timePeriod === 'custom') {
+              const battleStart = updatedLeaderboard.battleStartDate || '';
+              const battleEnd = updatedLeaderboard.battleEndDate || '';
+              startDate = battleStart.includes('T') ? battleStart : `${battleStart}T00:00:00.000Z`;
+              endDate = battleEnd.includes('T') ? battleEnd : `${battleEnd}T23:59:59.999Z`;
+            } else {
+              startDate = updatedLeaderboard.battleStartDate || new Date().toISOString();
+              endDate = updatedLeaderboard.battleEndDate || new Date().toISOString();
+            }
 
             // Update battle
             await client.query(

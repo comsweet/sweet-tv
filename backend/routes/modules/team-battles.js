@@ -116,8 +116,16 @@ router.post('/', async (req, res) => {
       await client.query('BEGIN');
 
       // For custom period, use provided dates. Otherwise use dummy dates (will be calculated dynamically)
-      const startDate = timePeriod === 'custom' ? battleStartDate : new Date().toISOString();
-      const endDate = timePeriod === 'custom' ? battleEndDate : new Date().toISOString();
+      // If custom dates are provided as YYYY-MM-DD, convert to full datetime
+      let startDate, endDate;
+      if (timePeriod === 'custom') {
+        // Add time if not provided (date-only input)
+        startDate = battleStartDate.includes('T') ? battleStartDate : `${battleStartDate}T00:00:00.000Z`;
+        endDate = battleEndDate.includes('T') ? battleEndDate : `${battleEndDate}T23:59:59.999Z`;
+      } else {
+        startDate = new Date().toISOString();
+        endDate = new Date().toISOString();
+      }
 
       // Insert battle
       const battleQuery = `
@@ -229,10 +237,13 @@ router.put('/:id', async (req, res) => {
       }
       // If switching to custom period OR updating custom dates
       if (timePeriod === 'custom' || (battleStartDate && battleEndDate)) {
+        // Add time if not provided (date-only input)
+        const startDate = battleStartDate.includes('T') ? battleStartDate : `${battleStartDate}T00:00:00.000Z`;
+        const endDate = battleEndDate.includes('T') ? battleEndDate : `${battleEndDate}T23:59:59.999Z`;
         updates.push(`start_date = $${paramIndex++}`);
-        values.push(battleStartDate);
+        values.push(startDate);
         updates.push(`end_date = $${paramIndex++}`);
-        values.push(battleEndDate);
+        values.push(endDate);
       }
       if (victoryCondition !== undefined) {
         updates.push(`victory_condition = $${paramIndex++}`);
@@ -407,20 +418,18 @@ router.get('/:id/live-score', async (req, res) => {
       console.log(`⚔️ Battle "${battle.name}" using period from battle setting (${battle.time_period})`);
       console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
     } else if (battle.leaderboard_id) {
-      // Priority 2: Use leaderboard's time_period
-      const leaderboardQuery = 'SELECT * FROM leaderboards WHERE id = $1';
-      const leaderboardResult = await postgres.query(leaderboardQuery, [battle.leaderboard_id]);
+      // Priority 2: Use leaderboard's time_period (from JSON file, not Postgres!)
+      const leaderboard = await leaderboardService.getLeaderboard(battle.leaderboard_id);
 
-      if (leaderboardResult.rows.length === 0) {
+      if (!leaderboard) {
         return res.status(400).json({ error: 'Linked leaderboard not found' });
       }
 
-      const leaderboard = leaderboardResult.rows[0];
       const dateRange = leaderboardService.getDateRange(leaderboard);
       startDate = dateRange.startDate;
       endDate = dateRange.endDate;
       periodSource = 'leaderboard';
-      console.log(`⚔️ Battle "${battle.name}" using period from leaderboard (${leaderboard.time_period})`);
+      console.log(`⚔️ Battle "${battle.name}" using period from leaderboard (${leaderboard.timePeriod})`);
       console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
     } else if (battle.start_date && battle.end_date) {
       // Fallback for old battles created with static dates
