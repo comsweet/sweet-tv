@@ -270,15 +270,27 @@ class CentralSyncScheduler {
 
         if (activeUserIds.length > 0) {
           const now = new Date();
+
+          // CRITICAL FIX: Sync YESTERDAY + TODAY to avoid gaps in current month
+          // Historical sync only runs ONCE at startup - it doesn't cover "yesterday"
+          // after midnight. This caused Nov 1-14 to never be synced!
+          const yesterdayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 0, 0, 0, 0));
+          const yesterdayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 23, 59, 59, 999));
           const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
           const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
-          console.log(`   📅 Date range: ${todayStart.toISOString().split('T')[0]} (today only)`);
+          console.log(`   📅 Date range: ${yesterdayStart.toISOString().split('T')[0]} - ${todayEnd.toISOString().split('T')[0]} (yesterday + today)`);
           console.log(`   👥 Syncing login time for ${activeUserIds.length} users...`);
 
-          // Only sync TODAY every 30 seconds (historical data is cached permanently in DB)
+          // Sync yesterday (to fill gaps from current month)
+          await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, yesterdayStart, yesterdayEnd);
+          console.log('✅ Login time synced for yesterday');
+
+          // Sync today (live data)
           await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, todayStart, todayEnd);
-          console.log('✅ Login time cache synced for all users (today)');
+          console.log('✅ Login time synced for today');
+
+          console.log('✅ Login time cache synced for all users (yesterday + today)');
         } else {
           console.log('⚠️  No active users found, skipping login time sync');
         }
