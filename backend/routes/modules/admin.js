@@ -699,6 +699,127 @@ router.get('/cache/stats', async (req, res) => {
 router.get('/login-time/stats', async (req, res) => {
   try {
     const stats = await loginTimeCache.getStats();
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    console.error('❌ Error fetching login time stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /admin/login-time/daily-breakdown
+ * Get detailed breakdown of login time data per day (last 30 days)
+ * Shows: date, user count, total hours, avg hours per user, deals, SMS
+ */
+router.get('/login-time/daily-breakdown', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+
+    const now = new Date();
+    const breakdown = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const dayDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+      dayDate.setUTCDate(dayDate.getUTCDate() - i);
+
+      const dayEnd = new Date(dayDate);
+      dayEnd.setUTCHours(23, 59, 59, 999);
+
+      const dateStr = dayDate.toISOString().split('T')[0];
+
+      // Get login time data for this day
+      const loginQuery = `
+        SELECT
+          COUNT(DISTINCT user_id) as user_count,
+          SUM(login_seconds) as total_login_seconds,
+          AVG(login_seconds) as avg_login_seconds
+        FROM user_login_time
+        WHERE from_date = $1 AND to_date = $2
+      `;
+
+      const loginResult = await db.pool.query(loginQuery, [
+        dayDate.toISOString(),
+        dayEnd.toISOString()
+      ]);
+
+      const loginData = loginResult.rows[0];
+
+      // Get deals count for this day
+      const dealsQuery = `
+        SELECT COUNT(*) as deal_count, SUM(CAST(multi_deals AS INTEGER)) as total_deals
+        FROM deals
+        WHERE created_at >= $1 AND created_at < $2
+      `;
+
+      const dealsResult = await db.pool.query(dealsQuery, [
+        dayDate.toISOString(),
+        dayEnd.toISOString()
+      ]);
+
+      const dealsData = dealsResult.rows[0];
+
+      // Get SMS count for this day
+      const smsQuery = `
+        SELECT COUNT(*) as sms_count
+        FROM sms
+        WHERE created_at >= $1 AND created_at < $2
+      `;
+
+      const smsResult = await db.pool.query(smsQuery, [
+        dayDate.toISOString(),
+        dayEnd.toISOString()
+      ]);
+
+      const smsData = smsResult.rows[0];
+
+      const totalHours = parseFloat(loginData.total_login_seconds || 0) / 3600;
+      const avgHours = parseFloat(loginData.avg_login_seconds || 0) / 3600;
+      const userCount = parseInt(loginData.user_count || 0);
+      const totalDeals = parseInt(dealsData.total_deals || 0);
+      const orderPerHour = totalHours > 0 ? totalDeals / totalHours : 0;
+
+      breakdown.push({
+        date: dateStr,
+        userCount,
+        totalHours: Math.round(totalHours * 100) / 100,
+        avgHours: Math.round(avgHours * 100) / 100,
+        totalDeals,
+        smsCount: parseInt(smsData.sms_count || 0),
+        orderPerHour: Math.round(orderPerHour * 100) / 100,
+        hasData: userCount > 0
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        breakdown,
+        summary: {
+          daysWithData: breakdown.filter(d => d.hasData).length,
+          totalDays: days,
+          completeness: Math.round((breakdown.filter(d => d.hasData).length / days) * 100)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching daily breakdown:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /admin/login-time/stats
+ * Get login time cache statistics (OLD - kept for backwards compatibility)
+ */
+router.get('/login-time/stats-old', async (req, res) => {
+  try {
+    const stats = await loginTimeCache.getStats();
 
     res.json({
       success: true,
