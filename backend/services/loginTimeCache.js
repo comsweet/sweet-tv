@@ -785,7 +785,14 @@ class LoginTimeCache {
     // Prevents absurd numbers like 1024 deals/h from 10 seconds login time
     const MIN_LOGIN_TIME = 300; // 5 minutes
 
+    // CRITICAL FIX: If there are deals but no login time, return null instead of 0
+    // This prevents misleading "0.00 order/h" display while waiting for central sync
     if (loginSeconds === 0) {
+      if (dealCount > 0) {
+        // Has deals but no login time yet - incomplete data
+        return null;
+      }
+      // No deals and no login time - show 0
       return 0;
     }
 

@@ -8,7 +8,6 @@ import { useParams } from 'react-router-dom';
 import socketService from '../services/socket';
 import { getSlideshow, getLeaderboardStats2, getAutoRefreshSettings, getThresholdsForPeriod, sendSessionHeartbeat } from '../services/api';
 import DealNotification from '../components/DealNotification';
-import SMSNotification from '../components/SMSNotification';
 import TVAccessCodeModal from '../components/TVAccessCodeModal';
 import LeaderboardVisualizer from '../components/LeaderboardVisualizer';
 import QuotesSlide from '../components/QuotesSlide';
@@ -1191,19 +1190,6 @@ const Slideshow = () => {
         <DealNotification
           notification={currentNotification}
           onComplete={handleNotificationComplete}
-        />
-      )}
-
-      {/* SMS Notifications Overlay */}
-      {leaderboardsData[currentIndex]?.leaderboard && (
-        <SMSNotification
-          leaderboard={leaderboardsData[currentIndex].leaderboard}
-          scaleFactor={
-            displaySize === 'compact' ? 0.7 :
-            displaySize === 'large' ? 1.2 :
-            displaySize === 'xlarge' ? 1.4 :
-            1.0 // normal
-          }
         />
       )}
     </div>

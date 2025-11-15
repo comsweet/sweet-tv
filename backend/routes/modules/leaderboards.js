@@ -1210,16 +1210,23 @@ router.get('/:id/history', async (req, res) => {
         for (const metricConfig of metricsToFetch) {
           const metricName = metricConfig.metric;
 
-          // CRITICAL FIX: For order/h metrics, only show values when there are deals
-          // If someone is logged in but has 0 deals, showing "0.00 order/h" is misleading
-          // Better to show null (skip the point in chart) to indicate no activity
+          // CRITICAL FIX: For order/h metrics, only show values when there are deals AND login time
+          // If someone has deals but no login time yet (waiting for sync), showing "0.00 order/h" is misleading
+          // Better to show null (skip the point in chart) to indicate incomplete data
           let value;
           if (metricName === 'order_per_hour' || metricName === 'ordersPerHour' || metricName === 'dealsPerHour') {
-            // For order/h: only show if there are deals
-            if (periodStats.deals > 0) {
+            // For order/h: only show if there are deals AND login time
+            if (periodStats.deals > 0 && periodStats.loginSeconds > 0) {
               value = calculatePeriodMetricValue(metricName, periodStats);
+            } else if (periodStats.deals > 0 && periodStats.loginSeconds === 0) {
+              // Has deals but no login time yet - incomplete data, don't show
+              value = null;
+              if (isDentleGroup || isLastPeriod) {
+                console.log(`   ⚠️  [${groupName}] Has ${periodStats.deals} deals but 0 login time → setting null (waiting for sync)`);
+              }
             } else {
-              value = null; // No deals = no point to show in chart
+              // No deals - no point to show in chart
+              value = null;
             }
           } else {
             // For other metrics (commission, sms_rate, etc): always calculate
@@ -1294,9 +1301,12 @@ router.get('/:id/history', async (req, res) => {
             ? Math.round((totals.totalSmsDelivered / totals.totalSmsSent) * 100)
             : 0;
         case 'order_per_hour':
-          return totals.totalLoginSeconds > 0
-            ? parseFloat(loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds))
-            : 0;
+          // CRITICAL FIX: calculateDealsPerHour can return null (incomplete data)
+          if (totals.totalLoginSeconds > 0) {
+            const orderPerHour = loginTimeCache.calculateDealsPerHour(totals.totalDeals, totals.totalLoginSeconds);
+            return orderPerHour !== null ? orderPerHour : 0;
+          }
+          return 0;
         case 'commission_per_hour':
           return totals.totalLoginSeconds > 0
             ? Math.round((totals.totalCommission / totals.totalLoginSeconds) * 3600)
@@ -1334,9 +1344,12 @@ router.get('/:id/history', async (req, res) => {
 
         if (periodData && periodData[groupId]) {
           const { deals, loginSeconds, commission } = periodData[groupId];
-          const orderPerHour = loginSeconds > 0
-            ? parseFloat(loginTimeCache.calculateDealsPerHour(deals, loginSeconds))
-            : 0;
+          // CRITICAL FIX: calculateDealsPerHour can return null (incomplete data)
+          let orderPerHour = 0;
+          if (loginSeconds > 0) {
+            const result = loginTimeCache.calculateDealsPerHour(deals, loginSeconds);
+            orderPerHour = result !== null ? result : 0;
+          }
           const hours = (loginSeconds / 3600).toFixed(2);
 
           console.log(`   ${groupName}: ${deals} deals ÷ ${hours}h = ${orderPerHour.toFixed(2)} order/h (commission: ${commission.toFixed(0)} THB)`);
