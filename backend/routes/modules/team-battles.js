@@ -118,7 +118,7 @@ router.post('/', async (req, res) => {
       // For custom period, use provided dates. Otherwise use dummy dates (will be calculated dynamically)
       // If custom dates are provided as YYYY-MM-DD, convert to full datetime
       let startDate, endDate;
-      if (timePeriod === 'custom') {
+      if (timePeriod === 'custom' && battleStartDate && battleEndDate) {
         // Add time if not provided (date-only input)
         startDate = battleStartDate.includes('T') ? battleStartDate : `${battleStartDate}T00:00:00.000Z`;
         endDate = battleEndDate.includes('T') ? battleEndDate : `${battleEndDate}T23:59:59.999Z`;
@@ -236,7 +236,7 @@ router.put('/:id', async (req, res) => {
         values.push(timePeriod);
       }
       // If switching to custom period OR updating custom dates
-      if (timePeriod === 'custom' || (battleStartDate && battleEndDate)) {
+      if ((timePeriod === 'custom' || battleStartDate) && battleStartDate && battleEndDate) {
         // Add time if not provided (date-only input)
         const startDate = battleStartDate.includes('T') ? battleStartDate : `${battleStartDate}T00:00:00.000Z`;
         const endDate = battleEndDate.includes('T') ? battleEndDate : `${battleEndDate}T23:59:59.999Z`;

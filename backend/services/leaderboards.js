@@ -139,9 +139,9 @@ class LeaderboardService {
           // For custom period, use provided dates. Otherwise use dummy dates (will be calculated dynamically)
           // If custom dates are provided as YYYY-MM-DD, convert to full datetime
           let startDate, endDate;
-          if (newLeaderboard.timePeriod === 'custom') {
-            const battleStart = newLeaderboard.battleStartDate || '';
-            const battleEnd = newLeaderboard.battleEndDate || '';
+          if (newLeaderboard.timePeriod === 'custom' && newLeaderboard.battleStartDate && newLeaderboard.battleEndDate) {
+            const battleStart = newLeaderboard.battleStartDate;
+            const battleEnd = newLeaderboard.battleEndDate;
             startDate = battleStart.includes('T') ? battleStart : `${battleStart}T00:00:00.000Z`;
             endDate = battleEnd.includes('T') ? battleEnd : `${battleEnd}T23:59:59.999Z`;
           } else {
@@ -276,9 +276,9 @@ class LeaderboardService {
             // For custom period, use provided dates. Otherwise use dummy dates
             // If custom dates are provided as YYYY-MM-DD, convert to full datetime
             let startDate, endDate;
-            if (updatedLeaderboard.timePeriod === 'custom') {
-              const battleStart = updatedLeaderboard.battleStartDate || '';
-              const battleEnd = updatedLeaderboard.battleEndDate || '';
+            if (updatedLeaderboard.timePeriod === 'custom' && updatedLeaderboard.battleStartDate && updatedLeaderboard.battleEndDate) {
+              const battleStart = updatedLeaderboard.battleStartDate;
+              const battleEnd = updatedLeaderboard.battleEndDate;
               startDate = battleStart.includes('T') ? battleStart : `${battleStart}T00:00:00.000Z`;
               endDate = battleEnd.includes('T') ? battleEnd : `${battleEnd}T23:59:59.999Z`;
             } else {
