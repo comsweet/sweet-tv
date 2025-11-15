@@ -102,7 +102,15 @@ class LoginTimeCache {
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (user_id, from_date, to_date)
         DO UPDATE SET
-          login_seconds = EXCLUDED.login_seconds,
+          login_seconds = CASE
+            -- For TODAY: Always update (data comes in continuously throughout the day)
+            WHEN user_login_time.from_date >= CURRENT_DATE THEN
+              EXCLUDED.login_seconds
+            -- For ALL HISTORICAL DATA (yesterday and older): Only update if new value is HIGHER
+            -- (Protects against Adversus API returning incomplete historical data)
+            ELSE
+              GREATEST(user_login_time.login_seconds, EXCLUDED.login_seconds)
+          END,
           synced_at = CURRENT_TIMESTAMP
         RETURNING *
       `;
