@@ -64,9 +64,13 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
   useEffect(() => {
     if (!isActive || !effectiveBattleId) return;
 
-    const fetchLiveScore = async () => {
+    const fetchLiveScore = async (isInitialLoad = false) => {
       try {
-        setLoading(true);
+        // Only show loading spinner on initial load, not on auto-refresh
+        // This prevents the annoying flash every 15 seconds
+        if (isInitialLoad) {
+          setLoading(true);
+        }
         const response = await getTeamBattleLiveScore(effectiveBattleId);
         setLiveScore(response.data);
         setError(null);
@@ -74,14 +78,17 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
         console.error('Error fetching team battle live score:', err);
         setError(err.message);
       } finally {
-        setLoading(false);
+        if (isInitialLoad) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchLiveScore();
+    // Initial load with loading spinner
+    fetchLiveScore(true);
 
-    // Auto-refresh
-    const interval = setInterval(fetchLiveScore, refreshInterval);
+    // Auto-refresh without loading spinner (smooth updates like MetricsGrid)
+    const interval = setInterval(() => fetchLiveScore(false), refreshInterval);
     return () => clearInterval(interval);
   }, [effectiveBattleId, isActive, refreshInterval]);
 
@@ -264,6 +271,10 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
                   <div className="stat">
                     <span className="stat-label">Deals:</span>
                     <span className="stat-value">{teamScore.stats.deals ?? 0}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">SMS:</span>
+                    <span className="stat-value">{teamScore.stats.uniqueSMS ?? 0}</span>
                   </div>
                   <div className="stat">
                     <span className="stat-label">SMS%:</span>

@@ -6,6 +6,7 @@ const smsCache = require('../../services/smsCache');
 const loginTimeCache = require('../../services/loginTimeCache');
 const adversusAPI = require('../../services/adversusAPI');
 const userCache = require('../../services/userCache');
+const leaderboardService = require('../../services/leaderboards');
 
 // ==================== TEAM BATTLES CRUD ====================
 
@@ -337,10 +338,45 @@ router.get('/:id/live-score', async (req, res) => {
     }
 
     const battle = battleResult.rows[0];
-    const startDate = new Date(battle.start_date);
-    const endDate = new Date(battle.end_date);
 
-    console.log(`⚔️ Calculating live score for battle "${battle.name}" (ID: ${battleId})`);
+    // DYNAMIC PERIOD SUPPORT: Use leaderboard's timePeriod if available, otherwise use battle dates
+    let startDate, endDate, periodType;
+    if (battle.leaderboard_id) {
+      try {
+        // Fetch leaderboard to get timePeriod
+        const leaderboardQuery = 'SELECT * FROM leaderboards WHERE id = $1';
+        const leaderboardResult = await postgres.query(leaderboardQuery, [battle.leaderboard_id]);
+
+        if (leaderboardResult.rows.length > 0) {
+          const leaderboard = leaderboardResult.rows[0];
+          const dateRange = leaderboardService.getDateRange(leaderboard);
+          startDate = dateRange.startDate;
+          endDate = dateRange.endDate;
+          periodType = 'dynamic';
+          console.log(`⚔️ Battle "${battle.name}" using DYNAMIC period from leaderboard (${leaderboard.time_period})`);
+          console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+        } else {
+          // Fallback to static dates
+          startDate = new Date(battle.start_date);
+          endDate = new Date(battle.end_date);
+          periodType = 'static';
+          console.log(`⚔️ Battle "${battle.name}" using STATIC period (leaderboard not found)`);
+        }
+      } catch (error) {
+        console.error('⚠️ Error fetching leaderboard, falling back to static dates:', error);
+        startDate = new Date(battle.start_date);
+        endDate = new Date(battle.end_date);
+        periodType = 'static';
+      }
+    } else {
+      // No leaderboard linked - use static dates
+      startDate = new Date(battle.start_date);
+      endDate = new Date(battle.end_date);
+      periodType = 'static';
+      console.log(`⚔️ Battle "${battle.name}" using STATIC period (no leaderboard)`);
+      console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+    }
+
     console.log(`   Teams from DB:`, battle.teams);
     console.log(`   Teams count: ${battle.teams ? battle.teams.length : 0}`);
 
@@ -528,7 +564,10 @@ router.get('/:id/live-score', async (req, res) => {
         victoryMetric: battle.victory_metric,
         targetValue: battle.target_value,
         startDate: battle.start_date,
-        endDate: battle.end_date
+        endDate: battle.end_date,
+        periodType: periodType, // 'dynamic' or 'static'
+        effectiveStartDate: startDate.toISOString(), // Actual dates being used
+        effectiveEndDate: endDate.toISOString()
       },
       teamScores,
       leader: leader.team,
