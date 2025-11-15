@@ -617,18 +617,24 @@ class LoginTimeCache {
 
         for (const userId of userIds) {
           try {
-            const cached = await this.getLoginTime(userId, fromDate, histEnd);
+            // CRITICAL FIX: If forceUpdate, SKIP cache and fetch from API
+            // This ensures Force Resync actually overwrites corrupt data
+            if (!forceUpdate) {
+              const cached = await this.getLoginTime(userId, fromDate, histEnd);
 
-            // CRITICAL: Distinguish between "0s in DB" vs "no DB entry"
-            // getLoginTime never returns null - it returns { loginSeconds: 0 } for both cases
-            // We use syncedAt field to detect if data came from DB or is just a stub
-            if (cached && cached.syncedAt) {
-              // Data exists in DB (even if 0s) - use it
-              historicalMap.set(userId, cached.loginSeconds || 0);
-              console.log(`   💾 User ${userId}: ${cached.loginSeconds}s from DB (historical)`);
+              // CRITICAL: Distinguish between "0s in DB" vs "no DB entry"
+              // getLoginTime never returns null - it returns { loginSeconds: 0 } for both cases
+              // We use syncedAt field to detect if data came from DB or is just a stub
+              if (cached && cached.syncedAt) {
+                // Data exists in DB (even if 0s) - use it
+                historicalMap.set(userId, cached.loginSeconds || 0);
+                console.log(`   💾 User ${userId}: ${cached.loginSeconds}s from DB (historical)`);
+              } else {
+                // No DB entry - need to fetch from API
+                console.log(`   ⚠️  User ${userId}: No data in DB, will fetch from API`);
+              }
             } else {
-              // No DB entry - need to fetch from API
-              console.log(`   ⚠️  User ${userId}: No data in DB, will fetch from API`);
+              console.log(`   🔄 Force mode: Skipping cache for user ${userId}, will fetch from API`);
             }
           } catch (error) {
             console.warn(`   ⚠️  Failed to load historical data for user ${userId}:`, error.message);
@@ -673,7 +679,8 @@ class LoginTimeCache {
           ? (Date.now() - new Date(this.lastTodaySync).getTime()) / (1000 * 60)
           : Infinity;
 
-        if (minutesSinceLastTodaySync < this.syncIntervalMinutes) {
+        // CRITICAL FIX: If forceUpdate, SKIP cache and fetch from API
+        if (!forceUpdate && minutesSinceLastTodaySync < this.syncIntervalMinutes) {
           console.log(`   ⚡ Using cached TODAY's data (synced ${Math.round(minutesSinceLastTodaySync)} min ago)`);
 
           // Load from cache instead of API
