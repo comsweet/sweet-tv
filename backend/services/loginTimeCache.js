@@ -94,8 +94,10 @@ class LoginTimeCache {
 
   /**
    * Save login time to PostgreSQL
+   * @param {Object} data - Login time data
+   * @param {boolean} forceUpdate - If true, always overwrite (used for Force Resync)
    */
-  async saveLoginTime(data) {
+  async saveLoginTime(data, forceUpdate = false) {
     try {
       const query = `
         INSERT INTO user_login_time (user_id, login_seconds, from_date, to_date)
@@ -103,10 +105,16 @@ class LoginTimeCache {
         ON CONFLICT (user_id, from_date, to_date)
         DO UPDATE SET
           login_seconds = CASE
-            -- For TODAY: Always update (data comes in continuously throughout the day)
-            WHEN user_login_time.from_date >= CURRENT_DATE THEN
+            -- FORCE UPDATE MODE: Always overwrite (for manual Force Resync)
+            WHEN $5 = true THEN
               EXCLUDED.login_seconds
-            -- For ALL HISTORICAL DATA (yesterday and older): Only update if new value is HIGHER
+            -- For TODAY (UTC): Always update (data comes in continuously throughout the day)
+            -- CRITICAL: Use UTC for comparison to avoid timezone bugs!
+            -- If server is in Bangkok (UTC+7), CURRENT_DATE would be Nov 15 when UTC is Nov 14 19:00
+            -- This would cause Nov 14 data to be overwritten incorrectly!
+            WHEN user_login_time.from_date >= (NOW() AT TIME ZONE 'UTC')::date THEN
+              EXCLUDED.login_seconds
+            -- For ALL HISTORICAL DATA (yesterday and older in UTC): Only update if new value is HIGHER
             -- (Protects against Adversus API returning incomplete historical data)
             ELSE
               GREATEST(user_login_time.login_seconds, EXCLUDED.login_seconds)
@@ -119,7 +127,8 @@ class LoginTimeCache {
         data.userId,
         data.loginSeconds,
         data.fromDate,
-        data.toDate
+        data.toDate,
+        forceUpdate
       ];
 
       const result = await db.query(query, values);
@@ -663,8 +672,14 @@ class LoginTimeCache {
    * - Historical (Nov 1-11): Load from DB (1 query) - cached forever
    * - Today (Nov 12): Fetch from API (1 call) - live data
    * - Total: Sum both = Complete accurate data with minimal API calls!
+   *
+   * @param {Object} adversusAPI - Adversus API instance
+   * @param {Array} userIds - Array of user IDs to sync
+   * @param {Date} fromDate - Start date
+   * @param {Date} toDate - End date
+   * @param {boolean} forceUpdate - If true, overwrite existing data (for Force Resync)
    */
-  async syncLoginTimeForUsers(adversusAPI, userIds, fromDate, toDate) {
+  async syncLoginTimeForUsers(adversusAPI, userIds, fromDate, toDate, forceUpdate = false) {
     // CRITICAL FIX: If period spans multiple days, sync each day separately
     // This prevents creating "big period" entries that cause incorrect daily averages
     const daysDiff = Math.ceil((toDate - fromDate) / (1000 * 60 * 60 * 24));
@@ -683,10 +698,10 @@ class LoginTimeCache {
         dayEnd.setUTCHours(23, 59, 59, 999);
 
         const dateStr = dayStart.toISOString().split('T')[0];
-        console.log(`   📅 Syncing day: ${dateStr}`);
+        console.log(`   📅 Syncing day: ${dateStr}${forceUpdate ? ' (FORCE UPDATE)' : ''}`);
 
         // Recursively call for single day (will NOT trigger this split again)
-        const dayResults = await this.syncLoginTimeForUsers(adversusAPI, userIds, dayStart, dayEnd);
+        const dayResults = await this.syncLoginTimeForUsers(adversusAPI, userIds, dayStart, dayEnd, forceUpdate);
         allResults.push(...dayResults);
 
         // Move to next day
@@ -786,9 +801,9 @@ class LoginTimeCache {
                 loginSeconds,
                 fromDate: fromDate.toISOString(),
                 toDate: histEnd.toISOString()
-              });
+              }, forceUpdate);
 
-              console.log(`   👤 User ${userId}: ${loginSeconds}s fetched and saved (historical)`);
+              console.log(`   👤 User ${userId}: ${loginSeconds}s fetched and saved (historical)${forceUpdate ? ' [FORCED]' : ''}`);
             }
           } catch (error) {
             console.error(`   ❌ Failed to fetch historical data from workforce API:`, error.message);
@@ -835,7 +850,7 @@ class LoginTimeCache {
                   loginSeconds: Math.round(loginSeconds),
                   fromDate: todayStart.toISOString(),
                   toDate: todayEnd.toISOString()
-                });
+                }, forceUpdate);
               }
 
               this.lastTodaySync = new Date().toISOString();
@@ -856,7 +871,7 @@ class LoginTimeCache {
                 loginSeconds: Math.round(loginSeconds),
                 fromDate: todayStart.toISOString(),
                 toDate: todayEnd.toISOString()
-              });
+              }, forceUpdate);
             }
 
             // Mark that we just synced today's data
@@ -892,8 +907,8 @@ class LoginTimeCache {
 
         // Save combined total to DB (not just cache!)
         // This ensures getLoginTime() can retrieve it even after cache expires
-        await this.saveLoginTime(data);
-        console.log(`   💾 Saved to DB: ${userId} → ${totalSeconds}s for period ${fromDate.toISOString().split('T')[0]} to ${toDate.toISOString().split('T')[0]}`);
+        await this.saveLoginTime(data, forceUpdate);
+        console.log(`   💾 Saved to DB: ${userId} → ${totalSeconds}s for period ${fromDate.toISOString().split('T')[0]} to ${toDate.toISOString().split('T')[0]}${forceUpdate ? ' [FORCED]' : ''}`);
 
         // Update memory cache
         const cacheKey = `${userId}-${fromDate.toISOString()}-${toDate.toISOString()}`;

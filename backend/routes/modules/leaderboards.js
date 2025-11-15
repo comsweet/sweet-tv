@@ -1021,10 +1021,14 @@ router.get('/:id/history', async (req, res) => {
           daysToSync.push({ dayStart, dayEnd, dateStr, reason: 'today' });
         } else {
           // Check if any user is missing data for this day
+          // IMPORTANT: Only re-sync if data is truly missing (null or no syncedAt)
+          // Do NOT re-sync for 0 values - that's a valid value for absent/sick users!
           let missingData = false;
           for (const userId of allUsersArray) {
             const loginTime = await loginTimeCache.getLoginTime(userId, dayStart, dayEnd);
-            if (!loginTime || loginTime.loginSeconds === 0 || loginTime.isAverage) {
+            // Only consider missing if: no data at all, OR no syncedAt (never been synced)
+            // isAverage means we're using fallback averaging (bad data quality)
+            if (!loginTime || !loginTime.syncedAt || loginTime.isAverage) {
               missingData = true;
               break;
             }
