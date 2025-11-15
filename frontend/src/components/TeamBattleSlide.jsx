@@ -173,6 +173,8 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
         return 'SMS Success Rate';
       case 'order_per_hour':
         return 'Affärer per timme';
+      case 'commission_per_hour':
+        return 'Commission per timme';
       default:
         return '';
     }
