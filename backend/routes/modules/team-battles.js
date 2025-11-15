@@ -499,16 +499,6 @@ router.get('/:id/live-score', async (req, res) => {
         teamUserIds.includes(String(sms.userId))
       );
 
-      // Debug SMS statuses
-      if (teamSMS.length > 0) {
-        const smsStatuses = {};
-        teamSMS.forEach(sms => {
-          const status = sms.status || 'unknown';
-          smsStatuses[status] = (smsStatuses[status] || 0) + (sms.count || 1);
-        });
-        console.log(`📱 [Team ${team.teamName}] SMS statuses breakdown:`, smsStatuses);
-      }
-
       // Calculate metrics
       const totalCommission = teamDeals.reduce((sum, deal) => sum + parseFloat(deal.commission || 0), 0);
       const totalDeals = teamDeals.reduce((sum, deal) => sum + parseInt(deal.multiDeals || '1'), 0);
@@ -522,16 +512,6 @@ router.get('/:id/live-score', async (req, res) => {
         uniqueReceiverDates.add(key);
       });
       const uniqueSMS = uniqueReceiverDates.size;
-
-      console.log(`💰 [Team ${team.teamName}] Metrics calculated:`, {
-        teamDealsCount: teamDeals.length,
-        totalCommission,
-        totalDeals,
-        teamSMSCount: teamSMS.length,
-        totalSmsSent,
-        totalSmsDelivered,
-        smsRate: totalSmsSent > 0 ? ((totalSmsDelivered / totalSmsSent) * 100).toFixed(1) + '%' : '0%'
-      });
 
       // Get login time for team
       let totalLoginSeconds = 0;
@@ -583,12 +563,6 @@ router.get('/:id/live-score', async (req, res) => {
               ? loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds)
               : 0;
             formattedScore = score !== null ? `${score.toFixed(2)} affärer/h` : '-';
-            console.log(`⏱️ [Team ${team.teamName}] Order/h calculation:`, {
-              totalDeals,
-              totalLoginSeconds,
-              totalLoginHours: (totalLoginSeconds / 3600).toFixed(2),
-              calculatedOrderPerHour: score
-            });
           }
           break;
         case 'commission_per_hour':
@@ -600,30 +574,9 @@ router.get('/:id/live-score', async (req, res) => {
               ? (totalCommission / totalLoginSeconds) * 3600
               : 0;
             formattedScore = `${Math.round(score).toLocaleString()} THB/h`;
-            console.log(`💸 [Team ${team.teamName}] Comm/h calculation:`, {
-              totalCommission,
-              totalLoginSeconds,
-              totalLoginHours: (totalLoginSeconds / 3600).toFixed(2),
-              calculation: `(${totalCommission} / ${totalLoginSeconds}) * 3600`,
-              calculatedCommPerHour: score
-            });
           }
           break;
       }
-
-      const statsOrderPerHour = hasIncompleteData
-        ? null
-        : (totalLoginSeconds > 0 ? loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds) : 0);
-
-      const statsCommissionPerHour = hasIncompleteData
-        ? null
-        : (totalLoginSeconds > 0 ? (totalCommission / totalLoginSeconds) * 3600 : 0);
-
-      console.log(`📈 [Team ${team.teamName}] Stats calculated:`, {
-        orderPerHour: statsOrderPerHour,
-        commissionPerHour: statsCommissionPerHour,
-        smsRate: totalSmsSent > 0 ? ((totalSmsDelivered / totalSmsSent) * 100).toFixed(1) + '%' : '0%'
-      });
 
       teamScores.push({
         team,
@@ -635,8 +588,12 @@ router.get('/:id/live-score', async (req, res) => {
           uniqueSMS: uniqueSMS,
           smsRate: uniqueSMS > 0 ? (totalDeals / uniqueSMS) * 100 : 0,
           loginSeconds: hasIncompleteData ? null : totalLoginSeconds,
-          orderPerHour: statsOrderPerHour,
-          commissionPerHour: statsCommissionPerHour
+          orderPerHour: hasIncompleteData
+            ? null
+            : (totalLoginSeconds > 0 ? loginTimeCache.calculateDealsPerHour(totalDeals, totalLoginSeconds) : 0),
+          commissionPerHour: hasIncompleteData
+            ? null
+            : (totalLoginSeconds > 0 ? (totalCommission / totalLoginSeconds) * 3600 : 0)
         }
       });
     }
