@@ -1757,9 +1757,15 @@ router.get('/:id/group-metrics', async (req, res) => {
 
           case 'sms_success_rate':
           case 'smsSuccessRate': {
-            // Get unique receivers (successful SMS)
-            const uniqueReceivers = new Set(groupSMS.map(sms => sms.receiver));
-            const uniqueSMS = uniqueReceivers.size;
+            // FIXED: Count unique SMS as distinct (receiver, date) pairs
+            // This matches the definition in smsCache.js
+            const uniqueReceiverDates = new Set();
+            groupSMS.forEach(sms => {
+              const date = new Date(sms.timestamp).toISOString().split('T')[0];
+              const key = `${sms.receiver}|${date}`;
+              uniqueReceiverDates.add(key);
+            });
+            const uniqueSMS = uniqueReceiverDates.size;
             const totalDeals = groupDeals.length;
 
             value = totalDeals > 0 ? Math.round((totalDeals / uniqueSMS) * 100) : 0;
@@ -1771,14 +1777,20 @@ router.get('/:id/group-metrics', async (req, res) => {
               metric,
               additionalData: { uniqueSMS }
             };
-            console.log(`   ✅ ${label}: ${value}% (${uniqueSMS} SMS)`);
+            console.log(`   ✅ ${label}: ${value}% (${uniqueSMS} unique SMS)`);
             continue; // Skip the generic assignment below
           }
 
           case 'sms_unique':
           case 'uniqueSMS': {
-            const uniqueReceivers = new Set(groupSMS.map(sms => sms.receiver));
-            value = uniqueReceivers.size;
+            // FIXED: Count unique SMS as distinct (receiver, date) pairs
+            const uniqueReceiverDates = new Set();
+            groupSMS.forEach(sms => {
+              const date = new Date(sms.timestamp).toISOString().split('T')[0];
+              const key = `${sms.receiver}|${date}`;
+              uniqueReceiverDates.add(key);
+            });
+            value = uniqueReceiverDates.size;
             break;
           }
 

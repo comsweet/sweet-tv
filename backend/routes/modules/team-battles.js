@@ -399,9 +399,16 @@ router.get('/:id/live-score', async (req, res) => {
       // Calculate metrics
       const totalCommission = teamDeals.reduce((sum, deal) => sum + parseFloat(deal.commission || 0), 0);
       const totalDeals = teamDeals.reduce((sum, deal) => sum + parseInt(deal.multiDeals || '1'), 0);
-      const totalSmsSent = teamSMS.reduce((sum, sms) => sum + (sms.count || 1), 0);
-      const totalSmsDelivered = teamSMS.filter(sms => sms.status === 'delivered')
-        .reduce((sum, sms) => sum + (sms.count || 1), 0);
+
+      // Calculate unique SMS: distinct (receiver, date) pairs
+      // This matches the definition in smsCache.js
+      const uniqueReceiverDates = new Set();
+      teamSMS.forEach(sms => {
+        const date = new Date(sms.timestamp).toISOString().split('T')[0];
+        const key = `${sms.receiver}|${date}`;
+        uniqueReceiverDates.add(key);
+      });
+      const uniqueSMS = uniqueReceiverDates.size;
 
       // Get login time for team
       let totalLoginSeconds = 0;
@@ -438,7 +445,10 @@ router.get('/:id/live-score', async (req, res) => {
           formattedScore = `${score} affärer`;
           break;
         case 'sms_rate':
-          score = totalSmsSent > 0 ? (totalSmsDelivered / totalSmsSent) * 100 : 0;
+          // FIXED: Use correct formula matching smsCache.getSMSSuccessRate()
+          // SMS success rate = (deals / uniqueSMS) * 100
+          // This shows how many deals per unique SMS contact (not delivery rate)
+          score = uniqueSMS > 0 ? (totalDeals / uniqueSMS) * 100 : 0;
           formattedScore = `${score.toFixed(1)}%`;
           break;
         case 'order_per_hour':
@@ -472,9 +482,8 @@ router.get('/:id/live-score', async (req, res) => {
         stats: {
           commission: totalCommission,
           deals: totalDeals,
-          smsSent: totalSmsSent,
-          smsDelivered: totalSmsDelivered,
-          smsRate: totalSmsSent > 0 ? (totalSmsDelivered / totalSmsSent) * 100 : 0,
+          uniqueSMS: uniqueSMS,
+          smsRate: uniqueSMS > 0 ? (totalDeals / uniqueSMS) * 100 : 0,
           loginSeconds: hasIncompleteData ? null : totalLoginSeconds,
           orderPerHour: hasIncompleteData
             ? null
