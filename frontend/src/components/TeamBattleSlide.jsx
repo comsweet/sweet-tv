@@ -261,15 +261,15 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
                 <div className="team-stats">
                   <div className="stat">
                     <span className="stat-label">Deals:</span>
-                    <span className="stat-value">{teamScore.stats.deals}</span>
+                    <span className="stat-value">{teamScore.stats.deals ?? 0}</span>
                   </div>
                   <div className="stat">
                     <span className="stat-label">SMS%:</span>
-                    <span className="stat-value">{teamScore.stats.smsRate.toFixed(1)}%</span>
+                    <span className="stat-value">{(teamScore.stats.smsRate ?? 0).toFixed(1)}%</span>
                   </div>
                   <div className="stat">
                     <span className="stat-label">Order/h:</span>
-                    <span className="stat-value">{teamScore.stats.orderPerHour.toFixed(2)}</span>
+                    <span className="stat-value">{(teamScore.stats.orderPerHour ?? 0).toFixed(2)}</span>
                   </div>
                 </div>
 
