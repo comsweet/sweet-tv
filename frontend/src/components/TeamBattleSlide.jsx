@@ -54,7 +54,9 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
     calculateScale();
 
     const resizeObserver = new ResizeObserver(calculateScale);
-    resizeObserver.observe(container);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
 
     return () => resizeObserver.disconnect();
   }, [isActive, liveScore]);
