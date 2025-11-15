@@ -151,9 +151,10 @@ class CentralSyncScheduler {
             }
 
             // Sync login time for this single day (all users at once)
-            await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, dayDate, dayEnd);
+            // Pass forceResync flag to overwrite existing data if Force Resync is enabled
+            await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, dayDate, dayEnd, forceResync);
 
-            console.log(`   ✅ Synced successfully`);
+            console.log(`   ✅ Synced successfully${forceResync ? ' (FORCED OVERWRITE)' : ''}`);
             syncedDays++;
 
             // Rate limit protection: 2 second delay between days
