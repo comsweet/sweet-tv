@@ -348,10 +348,10 @@ const AdminLeaderboards = () => {
                     value={form.timePeriod}
                     onChange={(e) => setForm({ ...form, timePeriod: e.target.value })}
                   >
-                    <option value="day">Dag (uppdateras varje dag)</option>
-                    <option value="week">Vecka (uppdateras varje måndag)</option>
-                    <option value="month">Månad (uppdateras varje månadsskifte)</option>
-                    <option value="custom">Anpassad (välj start- och slutdatum)</option>
+                    <option value="day">Idag</option>
+                    <option value="week">Denna vecka</option>
+                    <option value="month">Denna månad</option>
+                    <option value="custom">Anpassad period</option>
                   </select>
                 </div>
 
@@ -717,13 +717,13 @@ const AdminLeaderboards = () => {
                     value={form.timePeriod || 'month'}
                     onChange={(e) => setForm({ ...form, timePeriod: e.target.value })}
                   >
-                    <option value="day">Dag (uppdateras varje dag)</option>
-                    <option value="week">Vecka (uppdateras varje måndag)</option>
-                    <option value="month">Månad (uppdateras varje månadsskifte)</option>
-                    <option value="custom">Anpassad (välj start- och slutdatum)</option>
+                    <option value="day">Idag</option>
+                    <option value="week">Denna vecka</option>
+                    <option value="month">Denna månad</option>
+                    <option value="custom">Anpassad period</option>
                   </select>
                   <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
-                    Battle stats beräknas dynamiskt baserat på vald period
+                    Data är live och uppdateras kontinuerligt
                   </small>
                 </div>
 
