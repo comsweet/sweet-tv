@@ -751,7 +751,7 @@ router.get('/login-time/daily-breakdown', async (req, res) => {
       const dealsQuery = `
         SELECT COUNT(*) as deal_count, SUM(CAST(multi_deals AS INTEGER)) as total_deals
         FROM deals
-        WHERE created_at >= $1 AND created_at < $2
+        WHERE order_date >= $1 AND order_date < $2
       `;
 
       const dealsResult = await db.query(dealsQuery, [
@@ -764,8 +764,8 @@ router.get('/login-time/daily-breakdown', async (req, res) => {
       // Get SMS count for this day
       const smsQuery = `
         SELECT COUNT(*) as sms_count
-        FROM sms
-        WHERE created_at >= $1 AND created_at < $2
+        FROM sms_messages
+        WHERE timestamp >= $1 AND timestamp < $2
       `;
 
       const smsResult = await db.query(smsQuery, [
