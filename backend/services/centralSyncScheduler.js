@@ -132,14 +132,20 @@ class CentralSyncScheduler {
         console.log(`\n📅 Day ${days - i}/${days}: ${dayStr}`);
 
         try {
-          // Check if we already have data for this day in DB
-          const hasData = await loginTimeCache.hasDayInDB(activeUserIds[0], dayDate, dayEnd);
+          // CRITICAL: Check if we have data for ALL users, not just first one
+          // Otherwise partial syncs leave most users without data permanently
+          const userCountInDB = await loginTimeCache.countUsersWithDataForDay(dayDate, dayEnd);
+          const hasCompleteData = userCountInDB === activeUserIds.length;
 
-          if (hasData) {
-            console.log(`   ✅ Data already in DB, skipping`);
+          if (hasCompleteData) {
+            console.log(`   ✅ Data already in DB for all ${activeUserIds.length} users, skipping`);
             skippedDays++;
           } else {
-            console.log(`   🏭 Fetching from Adversus workforce API...`);
+            if (userCountInDB > 0) {
+              console.log(`   ⚠️  Partial data in DB (${userCountInDB}/${activeUserIds.length} users), re-syncing all...`);
+            } else {
+              console.log(`   🏭 Fetching from Adversus workforce API...`);
+            }
 
             // Sync login time for this single day (all users at once)
             await loginTimeCache.syncLoginTimeForUsers(adversusAPI, activeUserIds, dayDate, dayEnd);

@@ -125,6 +125,7 @@ class LoginTimeCache {
   /**
    * Check if we have data for a specific day in DB
    * Used by historical sync to skip days that are already synced
+   * @deprecated Use countUsersWithDataForDay instead to check ALL users
    */
   async hasDayInDB(userId, fromDate, toDate) {
     try {
@@ -148,6 +149,34 @@ class LoginTimeCache {
     } catch (error) {
       console.error(`❌ Error checking if day exists in DB:`, error);
       return false; // Assume not exists on error = will try to sync
+    }
+  }
+
+  /**
+   * Count how many users have data for a specific day in DB
+   * Used by historical sync to ensure ALL users have data before skipping
+   * @returns {number} Count of users with data for this day
+   */
+  async countUsersWithDataForDay(fromDate, toDate) {
+    try {
+      const query = `
+        SELECT COUNT(DISTINCT user_id) as count
+        FROM user_login_time
+        WHERE from_date = $1
+          AND to_date = $2
+          AND synced_at IS NOT NULL
+      `;
+
+      const values = [
+        fromDate.toISOString(),
+        toDate.toISOString()
+      ];
+
+      const result = await db.pool.query(query, values);
+      return parseInt(result.rows[0].count) || 0;
+    } catch (error) {
+      console.error(`❌ Error counting users with data for day:`, error);
+      return 0; // Return 0 on error = will try to sync
     }
   }
 
