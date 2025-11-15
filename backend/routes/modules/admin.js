@@ -814,6 +814,41 @@ router.get('/login-time/daily-breakdown', async (req, res) => {
 });
 
 /**
+ * GET /admin/debug/db-test
+ * Test basic database connectivity
+ */
+router.get('/debug/db-test', async (req, res) => {
+  try {
+    // Test 1: Simple query
+    const testResult = await db.query('SELECT NOW() as current_time');
+
+    // Test 2: Count login time records
+    const countResult = await db.query('SELECT COUNT(*) as count FROM user_login_time');
+
+    // Test 3: Check table structure
+    const structureResult = await db.query(`
+      SELECT column_name, data_type
+      FROM information_schema.columns
+      WHERE table_name = 'user_login_time'
+      ORDER BY ordinal_position
+    `);
+
+    res.json({
+      success: true,
+      database_time: testResult.rows[0].current_time,
+      login_time_records: countResult.rows[0].count,
+      table_structure: structureResult.rows
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
+/**
  * GET /admin/login-time/raw-data
  * Debug endpoint: Show raw login time data from database
  */
