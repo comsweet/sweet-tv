@@ -406,18 +406,23 @@ router.get('/:id/live-score', async (req, res) => {
       // Get login time for team
       let totalLoginSeconds = 0;
       let hasIncompleteData = false;
+      console.log(`📊 [Team ${team.teamName}] Checking login time for ${teamUserIds.length} users...`);
+
       for (const userId of teamUserIds) {
         const loginTime = await loginTimeCache.getLoginTime(userId, startDate, endDate);
 
         // Handle incomplete multi-day data
         if (loginTime === null) {
           hasIncompleteData = true;
-          console.warn(`⚠️  User ${userId}: Incomplete loginTime data for period, team score will show null`);
+          console.warn(`⚠️  [Team ${team.teamName}] User ${userId}: Incomplete loginTime data for period, team score will show null`);
           break; // Stop early - can't calculate accurate metrics
         }
 
+        console.log(`   User ${userId}: ${loginTime?.loginSeconds || 0} seconds`);
         totalLoginSeconds += loginTime?.loginSeconds || 0;
       }
+
+      console.log(`📊 [Team ${team.teamName}] Total login time: ${totalLoginSeconds} seconds (${(totalLoginSeconds / 3600).toFixed(2)} hours), hasIncompleteData: ${hasIncompleteData}`);
 
       // Calculate score based on victory metric
       let score = 0;

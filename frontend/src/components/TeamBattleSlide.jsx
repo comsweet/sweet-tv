@@ -180,51 +180,6 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
     }
   };
 
-  // Get relevant stats to display based on victory metric
-  const getDisplayStats = (teamScore) => {
-    const stats = teamScore.stats;
-
-    switch (battle.victoryMetric) {
-      case 'commission':
-        return [
-          { label: 'Commission:', value: `${Math.round(stats.commission ?? 0).toLocaleString()} THB` },
-          { label: 'Deals:', value: stats.deals ?? 0 },
-          { label: 'Comm/h:', value: stats.commissionPerHour !== null ? `${Math.round(stats.commissionPerHour ?? 0).toLocaleString()} THB/h` : '-' }
-        ];
-      case 'deals':
-        return [
-          { label: 'Deals:', value: stats.deals ?? 0 },
-          { label: 'Commission:', value: `${Math.round(stats.commission ?? 0).toLocaleString()} THB` },
-          { label: 'Order/h:', value: stats.orderPerHour !== null ? `${(stats.orderPerHour ?? 0).toFixed(2)}` : '-' }
-        ];
-      case 'sms_rate':
-        return [
-          { label: 'SMS%:', value: `${(stats.smsRate ?? 0).toFixed(1)}%` },
-          { label: 'Delivered:', value: stats.smsDelivered ?? 0 },
-          { label: 'Sent:', value: stats.smsSent ?? 0 }
-        ];
-      case 'order_per_hour':
-        return [
-          { label: 'Order/h:', value: stats.orderPerHour !== null ? `${(stats.orderPerHour ?? 0).toFixed(2)}` : '-' },
-          { label: 'Deals:', value: stats.deals ?? 0 },
-          { label: 'Commission:', value: `${Math.round(stats.commission ?? 0).toLocaleString()} THB` }
-        ];
-      case 'commission_per_hour':
-        return [
-          { label: 'Comm/h:', value: stats.commissionPerHour !== null ? `${Math.round(stats.commissionPerHour ?? 0).toLocaleString()} THB/h` : '-' },
-          { label: 'Commission:', value: `${Math.round(stats.commission ?? 0).toLocaleString()} THB` },
-          { label: 'Deals:', value: stats.deals ?? 0 }
-        ];
-      default:
-        // Fallback to original stats
-        return [
-          { label: 'Deals:', value: stats.deals ?? 0 },
-          { label: 'SMS%:', value: `${(stats.smsRate ?? 0).toFixed(1)}%` },
-          { label: 'Order/h:', value: stats.orderPerHour !== null ? `${(stats.orderPerHour ?? 0).toFixed(2)}` : '-' }
-        ];
-    }
-  };
-
   return (
     <div ref={containerRef} className="team-battle-slide">
       <div
@@ -306,12 +261,22 @@ const TeamBattleSlide = ({ battleId, leaderboard, isActive, config = {} }) => {
 
                 {/* Stats */}
                 <div className="team-stats">
-                  {getDisplayStats(teamScore).map((stat, idx) => (
-                    <div key={idx} className="stat">
-                      <span className="stat-label">{stat.label}</span>
-                      <span className="stat-value">{stat.value}</span>
-                    </div>
-                  ))}
+                  <div className="stat">
+                    <span className="stat-label">Deals:</span>
+                    <span className="stat-value">{teamScore.stats.deals ?? 0}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">SMS%:</span>
+                    <span className="stat-value">{(teamScore.stats.smsRate ?? 0).toFixed(1)}%</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Order/h:</span>
+                    <span className="stat-value">
+                      {teamScore.stats.orderPerHour !== null
+                        ? (teamScore.stats.orderPerHour ?? 0).toFixed(2)
+                        : '-'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Leader Badge */}
