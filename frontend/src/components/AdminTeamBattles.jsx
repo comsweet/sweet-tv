@@ -22,6 +22,7 @@ const AdminTeamBattles = () => {
     name: '',
     description: '',
     leaderboardId: '',
+    timePeriod: '', // 'day', 'week', 'month', or '' for static dates
     startDate: '',
     endDate: '',
     victoryCondition: 'highest_at_end',
@@ -63,6 +64,7 @@ const AdminTeamBattles = () => {
       name: '',
       description: '',
       leaderboardId: '',
+      timePeriod: '', // Empty = use static dates
       startDate: '',
       endDate: '',
       victoryCondition: 'highest_at_end',
@@ -82,6 +84,7 @@ const AdminTeamBattles = () => {
       name: battle.name || '',
       description: battle.description || '',
       leaderboardId: battle.leaderboard_id || '',
+      timePeriod: battle.time_period || '',
       startDate: battle.start_date ? new Date(battle.start_date).toISOString().slice(0, 16) : '',
       endDate: battle.end_date ? new Date(battle.end_date).toISOString().slice(0, 16) : '',
       victoryCondition: battle.victory_condition || 'highest_at_end',
@@ -104,8 +107,9 @@ const AdminTeamBattles = () => {
       return;
     }
 
-    if (!form.startDate || !form.endDate) {
-      alert('Start- och slutdatum måste anges');
+    // Either timePeriod OR (startDate + endDate) is required
+    if (!form.timePeriod && (!form.startDate || !form.endDate)) {
+      alert('Antingen dynamisk period ELLER start/slutdatum måste anges');
       return;
     }
 
@@ -136,8 +140,9 @@ const AdminTeamBattles = () => {
         name: form.name,
         description: form.description,
         leaderboardId: form.leaderboardId || null,
-        startDate: new Date(form.startDate).toISOString(),
-        endDate: new Date(form.endDate).toISOString(),
+        timePeriod: form.timePeriod || null,
+        startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
+        endDate: form.endDate ? new Date(form.endDate).toISOString() : null,
         victoryCondition: form.victoryCondition,
         victoryMetric: form.victoryMetric,
         targetValue: form.targetValue ? parseFloat(form.targetValue) : null,
@@ -389,22 +394,49 @@ const AdminTeamBattles = () => {
                   </select>
                 </div>
 
+                {/* Time Period Selection */}
+                <div className="form-group">
+                  <label>Tidsperiod</label>
+                  <select
+                    value={form.timePeriod}
+                    onChange={(e) => setForm({ ...form, timePeriod: e.target.value })}
+                  >
+                    <option value="">Statiska datum (välj nedan)</option>
+                    <option value="day">Dag (uppdateras automatiskt)</option>
+                    <option value="week">Vecka (uppdateras automatiskt)</option>
+                    <option value="month">Månad (uppdateras automatiskt)</option>
+                  </select>
+                  <small style={{ color: '#888', fontSize: '0.85rem', marginTop: '0.3rem', display: 'block' }}>
+                    {form.timePeriod ? '✅ Dynamisk period vald - datum nedan ignoreras' : 'Välj dynamisk period ELLER fyll i statiska datum nedan'}
+                  </small>
+                </div>
+
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Startdatum *</label>
+                    <label>
+                      Startdatum {!form.timePeriod && '*'}
+                      {form.timePeriod && <small style={{ color: '#888' }}> (ignoreras)</small>}
+                    </label>
                     <input
                       type="datetime-local"
                       value={form.startDate}
                       onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                      disabled={!!form.timePeriod}
+                      style={{ opacity: form.timePeriod ? 0.5 : 1 }}
                     />
                   </div>
 
                   <div className="form-group">
-                    <label>Slutdatum *</label>
+                    <label>
+                      Slutdatum {!form.timePeriod && '*'}
+                      {form.timePeriod && <small style={{ color: '#888' }}> (ignoreras)</small>}
+                    </label>
                     <input
                       type="datetime-local"
                       value={form.endDate}
                       onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                      disabled={!!form.timePeriod}
+                      style={{ opacity: form.timePeriod ? 0.5 : 1 }}
                     />
                   </div>
                 </div>

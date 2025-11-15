@@ -82,6 +82,7 @@ router.post('/', async (req, res) => {
       leaderboardId,
       name,
       description,
+      timePeriod,
       startDate,
       endDate,
       victoryCondition,
@@ -91,8 +92,13 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     // Validation
-    if (!name || !startDate || !endDate || !victoryCondition || !victoryMetric) {
+    if (!name || !victoryCondition || !victoryMetric) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Either timePeriod OR (startDate + endDate) is required
+    if (!timePeriod && (!startDate || !endDate)) {
+      return res.status(400).json({ error: 'Either timePeriod or (startDate + endDate) is required' });
     }
 
     if (!teams || teams.length < 2 || teams.length > 4) {
@@ -107,10 +113,10 @@ router.post('/', async (req, res) => {
       // Insert battle
       const battleQuery = `
         INSERT INTO team_battles (
-          leaderboard_id, name, description, start_date, end_date,
+          leaderboard_id, name, description, time_period, start_date, end_date,
           victory_condition, victory_metric, target_value, is_active
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       `;
 
@@ -118,8 +124,9 @@ router.post('/', async (req, res) => {
         leaderboardId || null,
         name,
         description || null,
-        startDate,
-        endDate,
+        timePeriod || null,
+        startDate || null,
+        endDate || null,
         victoryCondition,
         victoryMetric,
         targetValue || null,
@@ -175,6 +182,7 @@ router.put('/:id', async (req, res) => {
     const {
       name,
       description,
+      timePeriod,
       startDate,
       endDate,
       victoryCondition,
@@ -193,20 +201,22 @@ router.put('/:id', async (req, res) => {
         UPDATE team_battles
         SET name = COALESCE($1, name),
             description = COALESCE($2, description),
-            start_date = COALESCE($3, start_date),
-            end_date = COALESCE($4, end_date),
-            victory_condition = COALESCE($5, victory_condition),
-            victory_metric = COALESCE($6, victory_metric),
-            target_value = COALESCE($7, target_value),
-            is_active = COALESCE($8, is_active),
+            time_period = $3,
+            start_date = COALESCE($4, start_date),
+            end_date = COALESCE($5, end_date),
+            victory_condition = COALESCE($6, victory_condition),
+            victory_metric = COALESCE($7, victory_metric),
+            target_value = COALESCE($8, target_value),
+            is_active = COALESCE($9, is_active),
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $9
+        WHERE id = $10
         RETURNING *
       `;
 
       const battleResult = await client.query(battleQuery, [
         name,
         description,
+        timePeriod !== undefined ? timePeriod : null, // Allow explicit null to clear timePeriod
         startDate,
         endDate,
         victoryCondition,
@@ -339,11 +349,32 @@ router.get('/:id/live-score', async (req, res) => {
 
     const battle = battleResult.rows[0];
 
-    // DYNAMIC PERIOD SUPPORT: Use leaderboard's timePeriod if available, otherwise use battle dates
-    let startDate, endDate, periodType;
-    if (battle.leaderboard_id) {
+    // DYNAMIC PERIOD SUPPORT - Priority order:
+    // 1. battle.time_period (if set)
+    // 2. leaderboard's time_period (if linked)
+    // 3. battle start_date/end_date (static fallback)
+    let startDate, endDate, periodType, periodSource;
+
+    if (battle.time_period) {
+      // Priority 1: Use battle's own time_period
       try {
-        // Fetch leaderboard to get timePeriod
+        const dateRange = leaderboardService.getDateRange({ timePeriod: battle.time_period });
+        startDate = dateRange.startDate;
+        endDate = dateRange.endDate;
+        periodType = 'dynamic';
+        periodSource = 'battle';
+        console.log(`⚔️ Battle "${battle.name}" using DYNAMIC period from battle setting (${battle.time_period})`);
+        console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
+      } catch (error) {
+        console.error('⚠️ Error using battle time_period, falling back:', error);
+        startDate = new Date(battle.start_date);
+        endDate = new Date(battle.end_date);
+        periodType = 'static';
+        periodSource = 'fallback';
+      }
+    } else if (battle.leaderboard_id) {
+      // Priority 2: Use leaderboard's time_period
+      try {
         const leaderboardQuery = 'SELECT * FROM leaderboards WHERE id = $1';
         const leaderboardResult = await postgres.query(leaderboardQuery, [battle.leaderboard_id]);
 
@@ -353,13 +384,14 @@ router.get('/:id/live-score', async (req, res) => {
           startDate = dateRange.startDate;
           endDate = dateRange.endDate;
           periodType = 'dynamic';
+          periodSource = 'leaderboard';
           console.log(`⚔️ Battle "${battle.name}" using DYNAMIC period from leaderboard (${leaderboard.time_period})`);
           console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
         } else {
-          // Fallback to static dates
           startDate = new Date(battle.start_date);
           endDate = new Date(battle.end_date);
           periodType = 'static';
+          periodSource = 'fallback';
           console.log(`⚔️ Battle "${battle.name}" using STATIC period (leaderboard not found)`);
         }
       } catch (error) {
@@ -367,13 +399,15 @@ router.get('/:id/live-score', async (req, res) => {
         startDate = new Date(battle.start_date);
         endDate = new Date(battle.end_date);
         periodType = 'static';
+        periodSource = 'fallback';
       }
     } else {
-      // No leaderboard linked - use static dates
+      // Priority 3: Use static dates
       startDate = new Date(battle.start_date);
       endDate = new Date(battle.end_date);
       periodType = 'static';
-      console.log(`⚔️ Battle "${battle.name}" using STATIC period (no leaderboard)`);
+      periodSource = 'static';
+      console.log(`⚔️ Battle "${battle.name}" using STATIC period`);
       console.log(`   Period: ${startDate.toISOString()} → ${endDate.toISOString()}`);
     }
 
@@ -563,10 +597,12 @@ router.get('/:id/live-score', async (req, res) => {
         victoryCondition: battle.victory_condition,
         victoryMetric: battle.victory_metric,
         targetValue: battle.target_value,
-        startDate: battle.start_date,
+        timePeriod: battle.time_period, // User-selected time period
+        startDate: battle.start_date, // Static dates (may not be used if timePeriod is set)
         endDate: battle.end_date,
         periodType: periodType, // 'dynamic' or 'static'
-        effectiveStartDate: startDate.toISOString(), // Actual dates being used
+        periodSource: periodSource, // 'battle', 'leaderboard', 'static', or 'fallback'
+        effectiveStartDate: startDate.toISOString(), // Actual dates being used for calculation
         effectiveEndDate: endDate.toISOString()
       },
       teamScores,
