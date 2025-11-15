@@ -475,9 +475,11 @@ router.get('/:id/stats', async (req, res) => {
           smsSuccessRate: smsData.successRate || 0,
           campaignBonus: stat.campaignBonus || 0,
           campaignBonusDetails: stat.campaignBonusDetails || [],
-          loginSeconds: loginTimeData.loginSeconds || 0,
-          loginHours: loginTimeData.loginHours || 0,
-          dealsPerHour: loginTimeData.dealsPerHour || 0,
+          // CRITICAL: Preserve null values for incomplete data (don't default to 0)
+          // This allows frontend to distinguish between "no data" (null) vs "zero" (0)
+          loginSeconds: loginTimeData.loginSeconds !== null ? loginTimeData.loginSeconds : null,
+          loginHours: loginTimeData.loginHours !== null ? loginTimeData.loginHours : null,
+          dealsPerHour: loginTimeData.dealsPerHour !== null ? loginTimeData.dealsPerHour : null,
           agent: {
             id: stat.userId,
             userId: stat.userId,

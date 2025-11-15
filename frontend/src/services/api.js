@@ -179,6 +179,8 @@ export const clearLoginTimeCache = () => api.delete('/admin/login-time/database'
 export const syncDatabase = (mode, startDate, endDate) =>
   api.post('/admin/sync-database', { mode, startDate, endDate });
 export const getSyncStatus = () => api.get('/admin/sync-status');
+export const getSyncProgress = () => api.get('/admin/sync-progress');
+export const triggerHistoricalSync = (days) => api.post('/admin/sync-historical', { days });
 export const invalidateCache = () => api.post('/admin/cache/invalidate');
 export const backfillLoginTime = (days) => api.post('/admin/backfill-login-time', { days });
 export const getPendingDuplicates = () => api.get('/admin/duplicates/pending');
